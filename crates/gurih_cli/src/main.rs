@@ -6,7 +6,7 @@ use axum::{
     routing::{get, post},
 };
 use clap::{Parser, Subcommand};
-use gurih_dsl::compile;
+use gurih_dsl::{compile, diagnostics::ErrorFormatter, diagnostics::DiagnosticEngine};
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::persistence::SchemaManager;
@@ -58,24 +58,24 @@ async fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Check { file } => match read_and_compile(&file) {
+        Commands::Check { file } => match read_and_compile_with_diagnostics(&file) {
             Ok(_) => println!("✔ Schema is valid."),
-            Err(e) => eprintln!("❌ Error: {}", e),
+            Err(_) => std::process::exit(1),
         },
-        Commands::Build { file, output } => match read_and_compile(&file) {
+        Commands::Build { file, output } => match read_and_compile_with_diagnostics(&file) {
             Ok(schema) => {
                 let json = serde_json::to_string_pretty(&schema).unwrap();
                 fs::write(output, json).expect("Failed to write output file");
                 println!("✔ Build successful.");
             }
-            Err(e) => eprintln!("❌ Error: {}", e),
+            Err(_) => std::process::exit(1),
         },
         Commands::Run {
             file,
             port,
             server_only,
         } => {
-            match read_and_compile(&file) {
+            match read_and_compile_with_diagnostics(&file) {
                 Ok(schema) => {
                     println!("✔ Schema loaded. Starting runtime...");
                     let schema = Arc::new(schema);
@@ -204,15 +204,37 @@ async fn main() {
                         .await
                         .unwrap();
                 }
-                Err(e) => eprintln!("❌ Error: {}", e),
+                Err(_) => std::process::exit(1),
             }
         }
     }
 }
 
-fn read_and_compile(path: &PathBuf) -> Result<gurih_ir::Schema, String> {
-    let content = fs::read_to_string(path).map_err(|e| format!("Failed to read file: {}", e))?;
-    compile(&content).map_err(|e| format!("{:?}", e))
+fn read_and_compile_with_diagnostics(path: &PathBuf) -> Result<gurih_ir::Schema, ()> {
+    let content = match fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("Failed to read file: {}", e);
+            return Err(());
+        }
+    };
+
+    match compile(&content) {
+        Ok(schema) => Ok(schema),
+        Err(e) => {
+            let mut engine = DiagnosticEngine::new();
+            engine.report(e);
+
+            let formatter = ErrorFormatter::new();
+            let filename = path.to_str().unwrap_or("<unknown>");
+
+            for diag in engine.diagnostics() {
+                eprintln!("{}", formatter.format_diagnostic(diag, &content, filename));
+            }
+
+            Err(())
+        }
+    }
 }
 
 // Handlers
