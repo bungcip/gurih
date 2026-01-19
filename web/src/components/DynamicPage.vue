@@ -53,34 +53,51 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <div v-if="loading" class="p-8 text-center text-gray-500">Loading...</div>
+    <div class="flex-1 flex flex-col min-h-0 bg-white">
+        <div v-if="loading" class="p-12 text-center text-text-muted">
+            <div class="animate-pulse flex flex-col items-center">
+                <div class="h-8 w-32 bg-gray-100 rounded mb-4"></div>
+                <div class="text-sm">Loading records...</div>
+            </div>
+        </div>
         
-        <table v-else-if="config" class="w-full text-left">
-            <thead class="bg-gray-100 border-b">
-                <tr>
-                    <th v-for="col in config.columns" :key="col.key" class="p-4 font-semibold text-sm text-gray-600">
-                        {{ col.label }}
-                    </th>
-                    <th class="p-4 font-semibold text-sm text-gray-600 text-right">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr v-for="row in data" :key="row.id" class="border-b hover:bg-gray-50">
-                    <td v-for="col in config.columns" :key="col.key" class="p-4 text-gray-800">
-                        {{ row[col.key] }}
-                    </td>
-                    <td class="p-4 text-right space-x-2">
-                        <button @click="$emit('edit', row.id)" class="text-blue-600 hover:text-blue-800 text-sm font-medium">Edit</button>
-                        <button @click="deleteItem(row.id)" class="text-red-500 hover:text-red-700 text-sm font-medium">Delete</button>
-                    </td>
-                </tr>
-                <tr v-if="data.length === 0">
-                    <td :colspan="config.columns.length + 1" class="p-8 text-center text-gray-400">
-                        No records found.
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+        <div v-else-if="config" class="flex-1 overflow-auto">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-gray-50/50 sticky top-0 backdrop-blur-sm border-b border-border">
+                    <tr>
+                        <th v-for="col in config.columns" :key="col.key" class="p-4 px-6 font-bold text-[11px] uppercase tracking-wider text-text-muted">
+                            {{ col.label }}
+                        </th>
+                        <th class="p-4 px-6 font-bold text-[11px] uppercase tracking-wider text-text-muted text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border">
+                    <tr v-for="row in data" :key="row.id" class="group hover:bg-blue-50/30 transition-colors">
+                        <td v-for="col in config.columns" :key="col.key" class="p-4 px-6 text-[14px] text-text-main">
+                            {{ row[col.key] }}
+                        </td>
+                        <td class="p-4 px-6 text-right">
+                            <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button @click="$emit('edit', row.id)" class="px-3 py-1 text-[13px] font-semibold text-primary hover:bg-blue-50 rounded-md transition">
+                                    Edit
+                                </button>
+                                <button @click="deleteItem(row.id)" class="px-3 py-1 text-[13px] font-semibold text-red-500 hover:bg-red-50 rounded-md transition">
+                                    Delete
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr v-if="data.length === 0">
+                        <td :colspan="config.columns.length + 1" class="p-20 text-center">
+                            <div class="flex flex-col items-center text-text-muted">
+                                <div class="text-3xl mb-2">📁</div>
+                                <div class="font-medium">No records found</div>
+                                <div class="text-xs">Try adding a new record to get started.</div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </template>

@@ -85,6 +85,8 @@ async fn main() {
 
                     println!("Runtime initialized with {} entities.", schema.entities.len());
                     
+                    let mut frontend_child = None;
+
                     if !server_only {
                         // Start Frontend if exists
                         let frontend_port = 5173;
@@ -96,13 +98,17 @@ async fn main() {
                             #[cfg(not(windows))]
                             let npm_cmd = "npm";
                             
-                            let _frontend = tokio::process::Command::new(npm_cmd)
+                            match tokio::process::Command::new(npm_cmd)
                                 .arg("run")
                                 .arg("dev")
                                 .current_dir(web_path)
                                 .stdout(std::process::Stdio::null())
                                 .stderr(std::process::Stdio::null())
-                                .spawn();
+                                .spawn() 
+                            {
+                                Ok(child) => frontend_child = Some(child),
+                                Err(e) => eprintln!("⚠️ Failed to start frontend: {}", e),
+                            }
                         }
 
                         // Open Browser
@@ -130,7 +136,22 @@ async fn main() {
 
                     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await.unwrap();
                     println!("🚀 Server running on http://0.0.0.0:{}", port);
-                    axum::serve(listener, app).await.unwrap();
+                    
+                    // Run server with graceful shutdown
+                    axum::serve(listener, app)
+                        .with_graceful_shutdown(async move {
+                            tokio::signal::ctrl_c()
+                                .await
+                                .expect("failed to install CTRL+C handler");
+                            println!("\n🛑 Shutdown signal received. Cleaning up...");
+                            
+                            if let Some(mut child) = frontend_child {
+                                println!("Killing frontend process...");
+                                let _ = child.kill().await;
+                            }
+                        })
+                        .await
+                        .unwrap();
                 }
                 Err(e) => eprintln!("❌ Error: {}", e),
             }

@@ -44,50 +44,62 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex h-screen w-full">
+  <div class="flex h-screen w-full bg-background overflow-hidden">
     <!-- Sidebar -->
-    <aside class="w-64 bg-primary text-white flex flex-col">
-        <div class="p-4 text-xl font-bold bg-secondary">GurihERP</div>
-        <nav class="flex-1 overflow-y-auto">
-            <div v-for="module in menu" :key="module.label" class="py-2">
-                <div class="px-4 text-xs font-semibold uppercase text-gray-400 mb-1">{{ module.label }}</div>
-                <div v-for="item in module.items" :key="item.entity">
-                    <button 
-                        @click="navigateTo(item.entity)"
-                        class="w-full text-left px-6 py-2 hover:bg-white/10 transition"
-                        :class="{'bg-accent': currentEntity === item.entity}"
-                    >
-                        {{ item.label }}
-                    </button>
+    <aside class="w-64 bg-white border-r border-border flex flex-col hidden md:flex">
+        <div class="p-6 text-xl font-bold text-primary flex items-center gap-2">
+            <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm">G</div>
+            GurihERP
+        </div>
+        <nav class="flex-1 overflow-y-auto px-4 py-2 space-y-6">
+            <div v-for="module in menu" :key="module.label">
+                <div class="px-3 text-[10px] font-bold uppercase tracking-wider text-text-muted mb-2">{{ module.label }}</div>
+                <div class="space-y-1">
+                    <div v-for="item in module.items" :key="item.entity">
+                        <button 
+                            @click="navigateTo(item.entity)"
+                            class="w-full sidebar-item"
+                            :class="{'active': currentEntity === item.entity}"
+                        >
+                            {{ item.label }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </nav>
     </aside>
 
     <!-- Main Content -->
-    <main class="flex-1 bg-gray-50 overflow-y-auto">
-        <div class="p-8">
-            <div v-if="!currentEntity" class="text-center text-gray-500 mt-20">
-                <h2 class="text-2xl font-bold">Welcome to GurihERP</h2>
-                <p>Select a module to get started.</p>
+    <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <header class="h-16 bg-white border-b border-border flex items-center justify-between px-8 shrink-0">
+             <div class="flex items-center gap-4">
+                 <h1 v-if="currentEntity" class="text-lg font-semibold text-text-main">{{ currentEntity }}</h1>
+                 <h1 v-else class="text-lg font-semibold text-text-main">Dashboard</h1>
+             </div>
+             <div class="flex items-center gap-3">
+                 <button v-if="viewMode === 'list' && currentEntity" @click="onAction('create')" class="btn-primary flex items-center gap-2 text-sm">
+                    <span class="text-lg leading-none">+</span> New
+                </button>
+                <button v-if="viewMode !== 'list'" @click="onAction('cancel')" class="px-4 py-2 text-sm text-text-muted hover:text-text-main transition">
+                    Back to List
+                </button>
+             </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-8">
+            <div v-if="!currentEntity" class="max-w-6xl mx-auto">
+                <div class="card p-12 text-center">
+                    <h2 class="text-2xl font-bold mb-2">Welcome to GurihERP</h2>
+                    <p class="text-text-muted">Select a module from the sidebar to manage your business data.</p>
+                </div>
             </div>
 
-            <div v-else>
-                <div class="flex justify-between items-center mb-6">
-                    <h1 class="text-3xl font-bold text-gray-800">{{ currentEntity }}</h1>
-                    <button v-if="viewMode === 'list'" @click="onAction('create')" class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded shadow">
-                        + New {{ currentEntity }}
-                    </button>
-                    <button v-if="viewMode !== 'list'" @click="onAction('cancel')" class="text-gray-500 hover:text-gray-700">
-                        Back to List
-                    </button>
-                </div>
-
-                <div v-if="viewMode === 'list'">
+            <div v-else class="max-w-6xl mx-auto h-full flex flex-col">
+                <div v-if="viewMode === 'list'" class="card flex-1 overflow-hidden flex flex-col">
                     <DynamicPage :entity="currentEntity" @edit="(id) => onAction('edit', id)" />
                 </div>
                 
-                <div v-if="viewMode === 'create' || viewMode === 'edit'">
+                <div v-if="viewMode === 'create' || viewMode === 'edit'" class="flex-1 overflow-y-auto pb-8">
                     <DynamicForm 
                         :entity="currentEntity" 
                         :id="editId" 

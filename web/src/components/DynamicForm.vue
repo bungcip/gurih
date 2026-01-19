@@ -13,19 +13,18 @@ const API_BASE = 'http://localhost:3000/api'
 // Relation Options Cache
 const relationOptions = ref({})
 
+const activeTab = ref(0)
+
 async function fetchSchema() {
     try {
         const res = await fetch(`${API_BASE}/ui/form/${props.entity}`)
         schema.value = await res.json()
+        activeTab.value = 0
         
         // Initialize fetch for relation fields
         for(const section of schema.value.layout) {
              for(const field of section.fields) {
                  if(field.widget === 'RelationPicker') {
-                     // TODO: Infer target entity from field definition?
-                     // Currently UI Schema doesn't have target entity. 
-                     // Need to improve FormEngine or infer from naming convention (e.g. department_id -> "Department")
-                     // Simple heuristic: Remove "_id" and Capitalize
                      if(field.name.endsWith("_id")) {
                          let target = field.name.replace("_id", "")
                          target = target.charAt(0).toUpperCase() + target.slice(1)
@@ -44,10 +43,9 @@ async function fetchRelations(targetEntity, fieldName) {
         const res = await fetch(`${API_BASE}/${targetEntity}`)
         if(res.ok) {
             const list = await res.json()
-             // Map to options
              relationOptions.value[fieldName] = list.map(item => ({
                  value: item.id,
-                 label: item.name || item.title || item.id // Fallback label
+                 label: item.name || item.title || item.id 
              }))
         }
     } catch(e) {
@@ -109,47 +107,88 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="bg-white rounded-lg shadow p-6 max-w-2xl mx-auto">
-        <div v-if="!schema || loading" class="text-center text-gray-500">Loading Form...</div>
+    <div class="h-full flex flex-col">
+        <div v-if="!schema || loading" class="card p-12 text-center text-text-muted">Loading Form...</div>
         
-        <form v-else @submit.prevent="save" class="space-y-6">
-            <div v-for="section in schema.layout" :key="section.title">
-                <h3 class="text-lg font-medium text-gray-900 border-b pb-2 mb-4">{{ section.title }}</h3>
-                
-                <div class="grid grid-cols-1 gap-6">
-                    <div v-for="field in section.fields" :key="field.name">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">
-                            {{ field.label }} 
-                            <span v-if="field.required" class="text-red-500">*</span>
-                        </label>
-                        
-                        <div v-if="field.widget === 'TextInput'">
-                            <input v-model="formData[field.name]" type="text" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-accent focus:border-accent p-2 border" :required="field.required">
-                        </div>
-                        
-                        <div v-if="field.widget === 'NumberInput'">
-                            <input v-model.number="formData[field.name]" type="number" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-accent focus:border-accent p-2 border" :required="field.required">
-                        </div>
+        <form v-else @submit.prevent="save" class="flex-1 flex flex-col gap-6 overflow-hidden">
+            <!-- Header Card -->
+            <div class="card p-6 pb-0 shrink-0">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="w-12 h-12 bg-blue-50 text-primary rounded-xl flex items-center justify-center font-bold text-lg">
+                        {{ entity.charAt(0) }}
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-text-main">{{ schema.name }}</h2>
+                        <p class="text-sm text-text-muted">Fill in the details below to save {{ entity }}</p>
+                    </div>
+                </div>
 
-                        <div v-if="field.widget === 'Checkbox'">
-                            <input v-model="formData[field.name]" type="checkbox" class="h-4 w-4 text-accent focus:ring-accent border-gray-300 rounded">
+                <!-- Tabs -->
+                <div class="flex gap-8 border-b border-border">
+                    <button 
+                        v-for="(section, index) in schema.layout" 
+                        :key="section.title"
+                        type="button"
+                        @click="activeTab = index"
+                        class="pb-3 text-sm font-medium transition-all relative"
+                        :class="activeTab === index ? 'text-primary' : 'text-text-muted hover:text-text-main'"
+                    >
+                        {{ section.title }}
+                        <div v-if="activeTab === index" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full"></div>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Content Area -->
+            <div class="flex-1 overflow-y-auto min-h-0">
+                <div v-for="(section, index) in schema.layout" :key="section.title">
+                    <div v-if="activeTab === index" class="card p-8 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div class="flex items-center gap-2">
+                             <div class="w-1 h-4 bg-primary rounded-full"></div>
+                             <h3 class="font-bold text-text-main">{{ section.title }}</h3>
                         </div>
                         
-                        <div v-if="field.widget === 'RelationPicker' || field.widget === 'Select'">
-                            <select v-model="formData[field.name]" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-accent focus:border-accent p-2 border">
-                                <option :value="null">Select...</option>
-                                <option v-for="opt in relationOptions[field.name] || []" :key="opt.value" :value="opt.value">
-                                    {{ opt.label }}
-                                </option>
-                            </select>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                            <div v-for="field in section.fields" :key="field.name">
+                                <label class="block text-[13px] font-semibold text-text-muted mb-2">
+                                    {{ field.label }} 
+                                    <span v-if="field.required" class="text-red-500">*</span>
+                                </label>
+                                
+                                <div v-if="field.widget === 'TextInput'">
+                                    <input v-model="formData[field.name]" type="text" class="input-field" :placeholder="'Enter ' + field.label" :required="field.required">
+                                </div>
+                                
+                                <div v-if="field.widget === 'NumberInput'">
+                                    <input v-model.number="formData[field.name]" type="number" class="input-field" :required="field.required">
+                                </div>
+
+                                <div v-if="field.widget === 'Checkbox'" class="flex items-center h-10">
+                                    <input v-model="formData[field.name]" type="checkbox" class="h-5 w-5 text-primary border-border rounded focus:ring-primary/20">
+                                </div>
+                                
+                                <div v-if="field.widget === 'RelationPicker' || field.widget === 'Select'">
+                                    <select v-model="formData[field.name]" class="input-field bg-white">
+                                        <option :value="null">Select {{ field.label }}...</option>
+                                        <option v-for="opt in relationOptions[field.name] || []" :key="opt.value" :value="opt.value">
+                                            {{ opt.label }}
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="flex justify-end space-x-3 pt-4 border-t">
-                <button type="button" @click="$emit('cancel')" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button type="submit" class="px-4 py-2 bg-accent text-white rounded-md hover:bg-blue-600 font-medium">Save</button>
+            <!-- Sticky Footer -->
+            <div class="card p-4 flex justify-end gap-3 shrink-0">
+                <button type="button" @click="$emit('cancel')" class="px-6 py-2 border border-border rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+                    Cancel
+                </button>
+                <button type="submit" class="btn-primary px-8 py-2">
+                    {{ id ? 'Update' : 'Create' }} {{ entity }}
+                </button>
             </div>
         </form>
     </div>
