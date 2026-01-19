@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use serde_json::Value;
-use sqlx::any::AnyRow;
-use sqlx::{AnyPool, Column, Row, TypeInfo};
+// use sqlx::any::AnyRow; // Removed
+// use sqlx::{AnyPool, Column, Row, TypeInfo}; // Removed
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
@@ -98,249 +98,67 @@ impl Storage for MemoryStorage {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-enum DataType {
-    Text,
-    Int,
-    Bool,
-    Float,
-    Unknown,
+use crate::store::postgres::PostgresStorage;
+use crate::store::sqlite::SqliteStorage;
+use crate::store::{DbPool, Storage as BackendStorage};
+
+pub struct DatabaseStorage {
+    pool: DbPool,
+    sqlite: SqliteStorage,
+    postgres: PostgresStorage,
 }
 
-fn get_column_type(type_name: &str) -> DataType {
-    match type_name {
-        "TEXT" | "VARCHAR" | "CHAR" | "NAME" | "STRING" => DataType::Text,
-        "INT4" | "INT8" | "INTEGER" | "INT" | "BIGINT" | "smallint" | "bigint" | "int" | "integer" => DataType::Int,
-        "BOOL" | "BOOLEAN" | "boolean" | "bool" => DataType::Bool,
-        "FLOAT" | "REAL" | "DOUBLE PRECISION" | "FLOAT8" | "FLOAT4" | "numeric" => DataType::Float,
-        _ => DataType::Unknown,
-    }
-}
-
-pub struct AnyStorage {
-    pool: AnyPool,
-}
-
-impl AnyStorage {
-    pub fn new(pool: AnyPool) -> Self {
-        Self { pool }
-    }
-
-    fn row_to_json_optimized(row: &AnyRow, columns: &[(String, DataType)]) -> Value {
-        let mut map = serde_json::Map::new();
-        for (i, (name, dtype)) in columns.iter().enumerate() {
-            match dtype {
-                DataType::Text => {
-                    let val: Option<String> = row.try_get(i).ok();
-                    map.insert(name.clone(), serde_json::to_value(val).unwrap());
-                }
-                DataType::Int => {
-                    let val: Option<i64> = row.try_get(i).ok();
-                    match val {
-                        Some(v) => {
-                            map.insert(name.clone(), serde_json::to_value(v).unwrap());
-                        }
-                        None => {
-                            // Fallback to string if int fails
-                            let s_val: Option<String> = row.try_get(i).ok();
-                            map.insert(name.clone(), serde_json::to_value(s_val).unwrap_or(Value::Null));
-                        }
-                    }
-                }
-                DataType::Bool => {
-                    let val: Option<bool> = row.try_get(i).ok();
-                    map.insert(name.clone(), serde_json::to_value(val).unwrap());
-                }
-                DataType::Float => {
-                    let val: Option<f64> = row.try_get(i).ok();
-                    map.insert(name.clone(), serde_json::to_value(val).unwrap());
-                }
-                DataType::Unknown => {
-                    // Try as string first
-                    if let Ok(val) = row.try_get::<String, _>(i) {
-                        map.insert(name.clone(), Value::String(val));
-                    } else if let Ok(val) = row.try_get::<i64, _>(i) {
-                        map.insert(name.clone(), serde_json::to_value(val).unwrap());
-                    } else if let Ok(val) = row.try_get::<f64, _>(i) {
-                        map.insert(name.clone(), serde_json::to_value(val).unwrap());
-                    } else {
-                        map.insert(name.clone(), Value::Null);
-                    }
-                }
-            }
+impl DatabaseStorage {
+    pub fn new(pool: DbPool) -> Self {
+        match &pool {
+            DbPool::Sqlite(p) => Self {
+                pool: pool.clone(),
+                sqlite: SqliteStorage::new(p.clone()),
+                postgres: PostgresStorage::new(sqlx::PgPool::connect_lazy("postgres://").unwrap()), // Dummy
+            },
+            DbPool::Postgres(p) => Self {
+                pool: pool.clone(),
+                sqlite: SqliteStorage::new(sqlx::SqlitePool::connect_lazy("sqlite::memory:").unwrap()), // Dummy
+                postgres: PostgresStorage::new(p.clone()),
+            },
         }
-        Value::Object(map)
     }
 }
 
 #[async_trait]
-impl Storage for AnyStorage {
+impl Storage for DatabaseStorage {
     async fn insert(&self, entity: &str, record: Value) -> Result<String, String> {
-        let obj = record.as_object().ok_or("Record must be object")?;
-
-        let mut query = format!("INSERT INTO \"{}\" (", entity);
-        let mut params = vec![];
-        let mut values_clause = String::from(") VALUES (");
-
-        let mut i = 1;
-        for (k, v) in obj {
-            if i > 1 {
-                query.push_str(", ");
-                values_clause.push_str(", ");
-            }
-            query.push_str(&format!("\"{}\"", k));
-            values_clause.push_str(&format!("${}", i));
-            params.push(v);
-            i += 1;
+        match &self.pool {
+            DbPool::Sqlite(_) => self.sqlite.insert(entity, record).await,
+            DbPool::Postgres(_) => self.postgres.insert(entity, record).await,
         }
-
-        query.push_str(&values_clause);
-        query.push_str(") RETURNING id");
-
-        let mut q = sqlx::query(&query);
-        for p in params {
-            match p {
-                Value::String(s) => q = q.bind(s),
-                Value::Number(n) => {
-                    if n.is_i64() {
-                        q = q.bind(n.as_i64());
-                    } else if n.is_f64() {
-                        q = q.bind(n.as_f64());
-                    } else {
-                        q = q.bind(n.to_string());
-                    }
-                }
-                Value::Bool(b) => q = q.bind(b),
-                Value::Null => q = q.bind(Option::<String>::None),
-                _ => q = q.bind(p.to_string()),
-            }
-        }
-
-        let row = q.fetch_one(&self.pool).await.map_err(|e| e.to_string())?;
-
-        // Try getting id as String, fallback to int
-        let id_val: String = row
-            .try_get("id")
-            .unwrap_or_else(|_| row.try_get::<i64, _>("id").map(|i| i.to_string()).unwrap_or_default());
-
-        Ok(id_val)
     }
 
     async fn get(&self, entity: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
-        let query = format!("SELECT * FROM \"{}\" WHERE id = $1", entity);
-        let row = sqlx::query(&query)
-            .bind(id)
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
-
-        if let Some(row) = row {
-            let columns: Vec<(String, DataType)> = row
-                .columns()
-                .iter()
-                .map(|col| (col.name().to_string(), get_column_type(col.type_info().name())))
-                .collect();
-            Ok(Some(Arc::new(Self::row_to_json_optimized(&row, &columns))))
-        } else {
-            Ok(None)
+        match &self.pool {
+            DbPool::Sqlite(_) => self.sqlite.get(entity, id).await,
+            DbPool::Postgres(_) => self.postgres.get(entity, id).await,
         }
     }
 
     async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String> {
-        let obj = record.as_object().ok_or("Record must be object")?;
-
-        let mut query = format!("UPDATE \"{}\" SET ", entity);
-        let mut params = vec![];
-
-        let mut i = 1;
-        for (k, v) in obj {
-            if k == "id" {
-                continue;
-            } // Don't update ID
-            if i > 1 {
-                query.push_str(", ");
-            }
-            query.push_str(&format!("\"{}\" = ${}", k, i));
-            params.push(v);
-            i += 1;
+        match &self.pool {
+            DbPool::Sqlite(_) => self.sqlite.update(entity, id, record).await,
+            DbPool::Postgres(_) => self.postgres.update(entity, id, record).await,
         }
-
-        query.push_str(&format!(" WHERE id = ${}", i));
-        let id_val = Value::String(id.to_string());
-        params.push(&id_val);
-
-        let mut q = sqlx::query(&query);
-        for p in params {
-            match p {
-                Value::String(s) => q = q.bind(s),
-                Value::Number(n) => {
-                    if n.is_i64() {
-                        q = q.bind(n.as_i64());
-                    } else if n.is_f64() {
-                        q = q.bind(n.as_f64());
-                    } else {
-                        q = q.bind(n.to_string());
-                    }
-                }
-                Value::Bool(b) => q = q.bind(b),
-                Value::Null => q = q.bind(Option::<String>::None),
-                _ => q = q.bind(p.to_string()),
-            }
-        }
-
-        q.execute(&self.pool).await.map_err(|e| e.to_string())?;
-        Ok(())
     }
 
     async fn delete(&self, entity: &str, id: &str) -> Result<(), String> {
-        let query = format!("DELETE FROM \"{}\" WHERE id = $1", entity);
-        let mut q = sqlx::query(&query);
-
-        // Try parsing as integer first to handle numeric IDs (e.g. SQLite/Postgres strictness)
-        if let Ok(int_id) = id.parse::<i64>() {
-            q = q.bind(int_id);
-        } else {
-            q = q.bind(id);
+        match &self.pool {
+            DbPool::Sqlite(_) => self.sqlite.delete(entity, id).await,
+            DbPool::Postgres(_) => self.postgres.delete(entity, id).await,
         }
-
-        q.execute(&self.pool).await.map_err(|e| e.to_string())?;
-        Ok(())
     }
 
     async fn list(&self, entity: &str, limit: Option<usize>, offset: Option<usize>) -> Result<Vec<Arc<Value>>, String> {
-        let mut query = format!("SELECT * FROM \"{}\"", entity);
-        let mut params: Vec<i64> = vec![];
-
-        if let Some(l) = limit {
-            params.push(l as i64);
-            query.push_str(&format!(" LIMIT ${}", params.len()));
+        match &self.pool {
+            DbPool::Sqlite(_) => self.sqlite.list(entity, limit, offset).await,
+            DbPool::Postgres(_) => self.postgres.list(entity, limit, offset).await,
         }
-
-        if let Some(o) = offset {
-            params.push(o as i64);
-            query.push_str(&format!(" OFFSET ${}", params.len()));
-        }
-
-        let mut q = sqlx::query(&query);
-        for p in params {
-            q = q.bind(p);
-        }
-
-        let rows = q.fetch_all(&self.pool).await.map_err(|e| e.to_string())?;
-
-        if rows.is_empty() {
-            return Ok(vec![]);
-        }
-
-        let columns: Vec<(String, DataType)> = rows[0]
-            .columns()
-            .iter()
-            .map(|col| (col.name().to_string(), get_column_type(col.type_info().name())))
-            .collect();
-
-        Ok(rows
-            .iter()
-            .map(|row| Arc::new(Self::row_to_json_optimized(row, &columns)))
-            .collect())
     }
 }

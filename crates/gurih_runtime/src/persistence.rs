@@ -1,16 +1,18 @@
+use crate::store::DbPool;
 use gurih_ir::{EntitySchema, FieldType, Schema, TableSchema};
 use sha2::{Digest, Sha256};
-use sqlx::{AnyPool, Row};
+// use sqlx::{AnyPool, Row}; // Removed
+use sqlx::Row;
 use std::sync::Arc;
 
 pub struct SchemaManager {
-    pool: AnyPool,
+    pool: DbPool,
     schema: Arc<Schema>,
     db_kind: String,
 }
 
 impl SchemaManager {
-    pub fn new(pool: AnyPool, schema: Arc<Schema>, db_kind: String) -> Self {
+    pub fn new(pool: DbPool, schema: Arc<Schema>, db_kind: String) -> Self {
         Self { pool, schema, db_kind }
     }
 
@@ -65,13 +67,21 @@ impl SchemaManager {
     }
 
     async fn get_stored_schema_hash(&self) -> Result<Option<String>, String> {
-        let row = sqlx::query("SELECT value FROM _gurih_metadata WHERE key = 'schema_hash'")
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+        let sql = "SELECT value FROM _gurih_metadata WHERE key = 'schema_hash'";
+        let row = match &self.pool {
+            DbPool::Sqlite(p) => sqlx::query::<sqlx::Sqlite>(sql)
+                .fetch_optional(p)
+                .await
+                .map_err(|e: sqlx::Error| e.to_string())?
+                .map(|r| r.try_get::<String, _>("value").unwrap_or_default()),
+            DbPool::Postgres(p) => sqlx::query::<sqlx::Postgres>(sql)
+                .fetch_optional(p)
+                .await
+                .map_err(|e: sqlx::Error| e.to_string())?
+                .map(|r| r.try_get::<String, _>("value").unwrap_or_default()),
+        };
 
-        if let Some(row) = row {
-            let hash: String = row.try_get("value").unwrap_or_default();
+        if let Some(hash) = row {
             if hash.is_empty() { Ok(None) } else { Ok(Some(hash)) }
         } else {
             Ok(None)
@@ -86,11 +96,22 @@ impl SchemaManager {
             "INSERT OR REPLACE INTO _gurih_metadata (key, value) VALUES ('schema_hash', ?)"
         };
 
-        sqlx::query(sql)
-            .bind(hash)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+        match &self.pool {
+            DbPool::Sqlite(p) => {
+                sqlx::query::<sqlx::Sqlite>(sql)
+                    .bind(hash)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+            }
+            DbPool::Postgres(p) => {
+                sqlx::query::<sqlx::Postgres>(sql)
+                    .bind(hash)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+            }
+        }
         Ok(())
     }
 
@@ -99,60 +120,101 @@ impl SchemaManager {
 
         // Check if table exists
         let table_exists: bool = if db_kind == "PostgreSQL" {
-            sqlx::query_scalar(
-                "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '_gurih_metadata')",
-            )
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?
+            match &self.pool {
+                DbPool::Postgres(p) => sqlx::query_scalar(
+                    "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '_gurih_metadata')",
+                )
+                .fetch_one(p)
+                .await
+                .map_err(|e| e.to_string())?,
+                _ => false,
+            }
         } else {
             // SQLite
-            let count: i64 =
-                sqlx::query_scalar("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='_gurih_metadata'")
-                    .fetch_one(&self.pool)
+            match &self.pool {
+                DbPool::Sqlite(p) => {
+                    let count: i64 = sqlx::query_scalar(
+                        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='_gurih_metadata'",
+                    )
+                    .fetch_one(p)
                     .await
                     .map_err(|e| e.to_string())?;
-            count > 0
+                    count > 0
+                }
+                _ => false,
+            }
         };
 
         if !table_exists {
-            // Create table
-            sqlx::query("CREATE TABLE _gurih_metadata (key TEXT PRIMARY KEY, value TEXT)")
-                .execute(&self.pool)
-                .await
-                .map_err(|e| e.to_string())?;
+            let sql_create = "CREATE TABLE _gurih_metadata (key TEXT PRIMARY KEY, value TEXT)";
+            let sql_insert = "INSERT INTO _gurih_metadata (key, value) VALUES ('mode', 'dev')";
 
-            // Insert default mode = dev
-            sqlx::query("INSERT INTO _gurih_metadata (key, value) VALUES ('mode', 'dev')")
-                .execute(&self.pool)
-                .await
-                .map_err(|e| e.to_string())?;
+            match &self.pool {
+                DbPool::Sqlite(p) => {
+                    sqlx::query::<sqlx::Sqlite>(sql_create)
+                        .execute(p)
+                        .await
+                        .map_err(|e: sqlx::Error| e.to_string())?;
+                    sqlx::query::<sqlx::Sqlite>(sql_insert)
+                        .execute(p)
+                        .await
+                        .map_err(|e: sqlx::Error| e.to_string())?;
+                }
+                DbPool::Postgres(p) => {
+                    sqlx::query::<sqlx::Postgres>(sql_create)
+                        .execute(p)
+                        .await
+                        .map_err(|e: sqlx::Error| e.to_string())?;
+                    sqlx::query::<sqlx::Postgres>(sql_insert)
+                        .execute(p)
+                        .await
+                        .map_err(|e: sqlx::Error| e.to_string())?;
+                }
+            }
 
             return Ok("dev".to_string());
         }
 
         // Read mode
-        let row = sqlx::query("SELECT value FROM _gurih_metadata WHERE key = 'mode'")
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+        let sql = "SELECT value FROM _gurih_metadata WHERE key = 'mode'";
+        let row = match &self.pool {
+            DbPool::Sqlite(p) => sqlx::query::<sqlx::Sqlite>(sql)
+                .fetch_optional(p)
+                .await
+                .map_err(|e: sqlx::Error| e.to_string())?
+                .map(|r| r.try_get::<String, _>("value").unwrap_or("dev".to_string())),
+            DbPool::Postgres(p) => sqlx::query::<sqlx::Postgres>(sql)
+                .fetch_optional(p)
+                .await
+                .map_err(|e: sqlx::Error| e.to_string())?
+                .map(|r| r.try_get::<String, _>("value").unwrap_or("dev".to_string())),
+        };
 
-        if let Some(row) = row {
-            let mode: String = row.try_get("value").unwrap_or("dev".to_string());
+        if let Some(mode) = row {
             Ok(mode)
         } else {
-            // Insert default if missing
-            sqlx::query("INSERT INTO _gurih_metadata (key, value) VALUES ('mode', 'dev')")
-                .execute(&self.pool)
-                .await
-                .map_err(|e| e.to_string())?;
+            // Insert default
+            let sql = "INSERT INTO _gurih_metadata (key, value) VALUES ('mode', 'dev')";
+            match &self.pool {
+                DbPool::Sqlite(p) => {
+                    sqlx::query::<sqlx::Sqlite>(sql)
+                        .execute(p)
+                        .await
+                        .map_err(|e: sqlx::Error| e.to_string())?;
+                }
+                DbPool::Postgres(p) => {
+                    sqlx::query::<sqlx::Postgres>(sql)
+                        .execute(p)
+                        .await
+                        .map_err(|e: sqlx::Error| e.to_string())?;
+                }
+            }
             Ok("dev".to_string())
         }
     }
 
     async fn drop_all_tables(&self) -> Result<(), String> {
         let db_kind = &self.db_kind;
-        // Collect all table names from schema (Entities + Tables)
         let mut tables_to_drop = Vec::new();
 
         for name in self.schema.tables.keys() {
@@ -168,7 +230,21 @@ impl SchemaManager {
             } else {
                 format!("DROP TABLE IF EXISTS \"{}\"", table)
             };
-            sqlx::query(&sql).execute(&self.pool).await.map_err(|e| e.to_string())?;
+
+            match &self.pool {
+                DbPool::Sqlite(p) => {
+                    sqlx::query::<sqlx::Sqlite>(&sql)
+                        .execute(p)
+                        .await
+                        .map_err(|e: sqlx::Error| e.to_string())?;
+                }
+                DbPool::Postgres(p) => {
+                    sqlx::query::<sqlx::Postgres>(&sql)
+                        .execute(p)
+                        .await
+                        .map_err(|e: sqlx::Error| e.to_string())?;
+                }
+            }
         }
 
         Ok(())
@@ -217,7 +293,20 @@ impl SchemaManager {
         sql.push_str(&defs.join(", "));
         sql.push(')');
 
-        sqlx::query(&sql).execute(&self.pool).await.map_err(|e| e.to_string())?;
+        match &self.pool {
+            DbPool::Sqlite(p) => {
+                sqlx::query::<sqlx::Sqlite>(&sql)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+            }
+            DbPool::Postgres(p) => {
+                sqlx::query::<sqlx::Postgres>(&sql)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+            }
+        }
         Ok(())
     }
 
@@ -251,7 +340,7 @@ impl SchemaManager {
                         "INTEGER"
                     }
                 }
-                FieldType::Date => "DATE",
+                FieldType::Date => "DATE", // Native DATE now supported by our store logic!
                 FieldType::DateTime => {
                     if db_kind == "PostgreSQL" {
                         "TIMESTAMP"
@@ -293,7 +382,20 @@ impl SchemaManager {
         sql.push_str(&defs.join(", "));
         sql.push(')');
 
-        sqlx::query(&sql).execute(&self.pool).await.map_err(|e| e.to_string())?;
+        match &self.pool {
+            DbPool::Sqlite(p) => {
+                sqlx::query::<sqlx::Sqlite>(&sql)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+            }
+            DbPool::Postgres(p) => {
+                sqlx::query::<sqlx::Postgres>(&sql)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+            }
+        }
         Ok(())
     }
 }

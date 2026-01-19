@@ -1,13 +1,13 @@
-use gurih_runtime::storage::{AnyStorage, Storage};
+use gurih_runtime::storage::{DatabaseStorage, Storage};
+use gurih_runtime::store::DbPool;
 use serde_json::json;
-use sqlx::any::AnyPoolOptions;
+use sqlx::sqlite::SqlitePoolOptions;
 use std::sync::Arc;
 use std::time::Instant;
 
 #[tokio::test]
 async fn bench_list_large_dataset() {
-    sqlx::any::install_default_drivers();
-    let pool = AnyPoolOptions::new()
+    let pool = SqlitePoolOptions::new()
         .max_connections(1) // Force 1 connection to avoid shared cache issues for simple test
         .connect("sqlite::memory:")
         .await
@@ -19,7 +19,8 @@ async fn bench_list_large_dataset() {
         .await
         .unwrap();
 
-    let storage = AnyStorage::new(pool);
+    let db_pool = DbPool::Sqlite(pool);
+    let storage = DatabaseStorage::new(db_pool);
     let storage_arc = Arc::new(storage);
 
     // Insert 10,000 records

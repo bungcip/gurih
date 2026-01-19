@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch, onMounted, computed } from 'vue'
+import ConfirmModal from './ConfirmModal.vue'
 
 const props = defineProps(['entity'])
 const emit = defineEmits(['edit', 'create'])
@@ -61,6 +62,14 @@ async function loadPage() {
 
 
 
+const modalState = ref({
+    isOpen: false,
+    title: '',
+    message: '',
+    action: null,
+    row: null
+})
+
 async function handleCustomAction(action, row) {
     if (action.to) {
         let url = action.to;
@@ -70,30 +79,19 @@ async function handleCustomAction(action, row) {
 
         // Handle explicit Method (POST, DELETE, PUT)
         if (action.method && action.method.toUpperCase() !== 'GET') {
-            if (action.variant === 'danger' && !confirm(`Are you sure you want to ${action.label}?`)) {
+            if (action.variant === 'danger') {
+                // Open Modal
+                modalState.value = {
+                    isOpen: true,
+                    title: `Confirm ${action.label}`,
+                    message: `Are you sure you want to ${action.label.toLowerCase()} this item? This action cannot be undone.`,
+                    action: { ...action, url }, // Pass computed URL
+                    row
+                }
                 return;
             }
             
-            try {
-                const res = await fetch(url.startsWith('http') ? url : `${API_BASE.replace('/api', '')}${url}`, { 
-                    method: action.method.toUpperCase(),
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(row || {}) 
-                });
-                
-                if (res.ok) {
-                    const json = await res.json().catch(() => ({}));
-                    if(json.message) alert(json.message);
-                    fetchData(); // Refresh list
-                    emit('edit', null); // Hack to clear potential selections or refetch?
-                } else {
-                    const err = await res.json().catch(() => ({}));
-                    alert("Action failed: " + (err.error || res.statusText));
-                }
-            } catch (e) {
-                console.error(e);
-                alert("Action failed (network error)");
-            }
+            await executeAction(action, url, row);
             return;
         }
 
@@ -108,9 +106,47 @@ async function handleCustomAction(action, row) {
              return
         }
 
-        // Default: Navigation (if we had a router, but here just log or maybe open new tab if absolute?)
-        // Since we are SPA mostly...
+        // Default: Navigation
         console.log("Navigating to", url);
+    }
+}
+
+async function confirmAction() {
+    const { action, row } = modalState.value;
+    if (action) {
+        await executeAction(action, action.url, row);
+    }
+    closeModal();
+}
+
+function closeModal() {
+    modalState.value.isOpen = false;
+    setTimeout(() => {
+        modalState.value.action = null;
+        modalState.value.row = null;
+    }, 200);
+}
+
+async function executeAction(action, url, row) {
+     try {
+        const res = await fetch(url.startsWith('http') ? url : `${API_BASE.replace('/api', '')}${url}`, { 
+            method: action.method.toUpperCase(),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(row || {}) 
+        });
+        
+        if (res.ok) {
+            const json = await res.json().catch(() => ({}));
+            if(json.message) alert(json.message); // Optional: toast would be better
+            fetchData(); // Refresh list
+            emit('edit', null); 
+        } else {
+            const err = await res.json().catch(() => ({}));
+            alert("Action failed: " + (err.error || res.statusText));
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Action failed (network error)");
     }
 }
 
@@ -232,4 +268,13 @@ onMounted(() => {
             </div>
         </div>
     </div>
+    <ConfirmModal 
+        :is-open="modalState.isOpen"
+        :title="modalState.title"
+        :message="modalState.message"
+        variant="danger"
+        confirm-text="Delete"
+        @confirm="confirmAction"
+        @cancel="closeModal"
+    />
 </template>

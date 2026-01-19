@@ -49,7 +49,8 @@ impl PageEngine {
                                 "label": a.label,
                                 "to": a.to,
                                 "icon": a.icon,
-                                "variant": a.variant
+                                "variant": a.variant,
+                                "method": a.method
                             })
                         })
                         .collect();

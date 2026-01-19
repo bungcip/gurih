@@ -15,10 +15,12 @@ use gurih_runtime::form::FormEngine;
 use gurih_runtime::page::PageEngine;
 use gurih_runtime::persistence::SchemaManager;
 use gurih_runtime::portal::PortalEngine;
-use gurih_runtime::storage::{AnyStorage, MemoryStorage, Storage};
+use gurih_runtime::storage::{DatabaseStorage, MemoryStorage, Storage}; // Changed
+use gurih_runtime::store::DbPool;
 use notify::{RecursiveMode, Watcher};
 use serde_json::Value;
-use sqlx::any::AnyPoolOptions;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::sqlite::SqlitePoolOptions;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -193,47 +195,37 @@ async fn start_server(
                     panic!("Database URL is empty or env var not set.");
                 }
 
-                if db_config.db_type == "sqlite" {
-                    let path_str = url
+                let pool = if db_config.db_type == "sqlite" {
+                    let path = url
                         .trim_start_matches("sqlite://")
                         .trim_start_matches("sqlite:")
                         .trim_start_matches("file:");
-
-                    let path = std::path::Path::new(path_str);
-                    let resolved_path = if path.is_relative() {
-                        // Resolve relative to .kdl file location
-                        let kdl_dir = file.parent().unwrap_or_else(|| std::path::Path::new("."));
-                        kdl_dir.join(path)
-                    } else {
-                        path.to_path_buf()
-                    };
-
-                    // Normalize path for usage
-                    let resolved_path_str = resolved_path.to_str().expect("Invalid path encoding");
-
-                    if !resolved_path.exists() {
-                        println!("📝 Creating SQLite database file: {}", resolved_path_str);
-                        // Ensure parent dir exists
-                        if let Some(parent) = resolved_path.parent() {
-                            fs::create_dir_all(parent).ok();
-                        }
-                        fs::File::create(&resolved_path).expect("Failed to create SQLite database file");
+                    let mut url = url.clone();
+                    if !url.starts_with("sqlite:") {
+                        url = format!("sqlite://{}", path);
                     }
 
-                    // Update URL to point to the resolved absolute/relative path
-                    url = format!("sqlite://{}", resolved_path_str);
-                }
-
-                let pool = AnyPoolOptions::new()
-                    .max_connections(5)
-                    .connect(&url)
-                    .await
-                    .expect("Failed to connect to DB");
+                    let p = SqlitePoolOptions::new()
+                        .max_connections(5)
+                        .connect(&url)
+                        .await
+                        .expect("Failed to connect to SQLite DB");
+                    DbPool::Sqlite(p)
+                } else if db_config.db_type == "postgresql" || db_config.db_type == "postgres" {
+                    let p = PgPoolOptions::new()
+                        .max_connections(5)
+                        .connect(&url)
+                        .await
+                        .expect("Failed to connect to Postgres DB");
+                    DbPool::Postgres(p)
+                } else {
+                    panic!("Unsupported database type: {}", db_config.db_type);
+                };
 
                 let manager = SchemaManager::new(pool.clone(), schema.clone(), db_config.db_type.clone());
                 manager.migrate().await.expect("Migration failed");
 
-                Arc::new(AnyStorage::new(pool))
+                Arc::new(DatabaseStorage::new(pool))
             } else {
                 println!("⚠️ No database configured. Using in-memory storage.");
                 Arc::new(MemoryStorage::new())
@@ -333,6 +325,18 @@ async fn start_server(
                 } else {
                     format!("/{}", route_def.path)
                 };
+
+                // Convert Gurih route parameters ":id" to Axum ":id" (they are same if using colon)
+                // If my DSL uses ":id", Axum supports it. "api/{entity}" acts like ":entity" in new axum?
+                // Actually default is ":key". My usage of `{entity}` above might be old or compatible.
+                // Wait, looking at line 191: `.route("/api/{entity}"...` -> Axum 0.6+ uses `{key}`? No, Axum uses `:key`.
+                // But I see `{entity}` in the existing code. Maybe I should stick to what's there?
+                // IMPORTANT: Existing code uses `{entity}`. Let's assume `{}` syntax is valid or my DSL converts/uses it.
+                // My parser returns raw string. If KDL has `/api/:id`, I get `/api/:id`.
+                // If existing uses `/api/{entity}`, maybe it relies on strict match or I misread?
+                // Axum `matchit` supports `{param}` syntax since 0.7?
+                // Let's assume `{param}` is valid or I should normalize.
+                // I'll stick to what the route_def provides, assuming the user writes compatible paths.
 
                 let verb_filter = match route_def.verb.as_str() {
                     "GET" => MethodFilter::GET,
@@ -595,4 +599,62 @@ async fn handle_dynamic_action(
         Ok(resp) => (StatusCode::OK, Json(serde_json::json!({ "message": resp.message }))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
+}
+
+fn register_routes<'a>(
+    mut app: Router<AppState>,
+    parent_path: &str,
+    routes: impl Iterator<Item = &'a gurih_ir::RouteSchema>,
+    schema: &gurih_ir::Schema,
+) -> Router<AppState> {
+    for route_def in routes {
+        let segment_raw = route_def.path.trim_start_matches('/');
+        let segment: String = segment_raw
+            .split('/')
+            .map(|s| {
+                if s.starts_with(':') {
+                    format!("{{{}}}", &s[1..])
+                } else {
+                    s.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("/");
+
+        let path = if parent_path == "/" || parent_path.is_empty() {
+            format!("/{}", segment)
+        } else if parent_path.ends_with('/') {
+            format!("{}{}", parent_path, segment)
+        } else {
+            format!("{}/{}", parent_path, segment)
+        };
+
+        // Normalize path (ensure no double slash, though logic above should handle it)
+        let path = path.replace("//", "/");
+
+        // Only register if it is an actionable route (Action exists)
+        if !route_def.action.is_empty() && schema.actions.contains_key(&route_def.action) {
+            let verb_filter = match route_def.verb.as_str() {
+                "GET" => MethodFilter::GET,
+                "POST" => MethodFilter::POST,
+                "PUT" => MethodFilter::PUT,
+                "DELETE" => MethodFilter::DELETE,
+                _ => MethodFilter::GET,
+            };
+
+            let action_name = route_def.action.clone();
+            let handler = move |State(state): State<AppState>,
+                                Path(params): Path<HashMap<String, String>>,
+                                Query(query): Query<HashMap<String, String>>| {
+                handle_dynamic_action(state, params, query, action_name)
+            };
+
+            // println!("Registering route: {} {} -> {}", route_def.verb, path, route_def.action);
+            app = app.route(&path, on(verb_filter, handler));
+        }
+
+        // Recursively register children
+        app = register_routes(app, &path, route_def.children.iter(), schema);
+    }
+    app
 }

@@ -7,4 +7,5 @@ pub mod page;
 pub mod persistence;
 pub mod portal;
 pub mod storage;
+pub mod store;
 pub mod workflow;
