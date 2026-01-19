@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "crates/gurih_ir",
+    "crates/gurih_dsl",
+    "crates/gurih_common",
+    "crates/gurih_runtime",
+    "crates/gurih_cli",
+]
+resolver = "2"
