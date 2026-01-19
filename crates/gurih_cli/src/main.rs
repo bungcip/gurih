@@ -20,6 +20,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::ServeDir;
 
 #[derive(Parser)]
 #[command(name = "gurih")]
@@ -141,49 +142,78 @@ async fn main() {
                         schema.entities.len()
                     );
 
-                    let mut frontend_child = None;
+                    let mut static_service = None;
 
                     if !server_only {
-                        // Start Frontend if exists
-                        let frontend_port = 5173;
-                        let web_path = std::path::Path::new("web");
-                        if web_path.exists() {
-                            println!("🚀 Starting frontend in web directory...");
-                            #[cfg(windows)]
-                            let npm_cmd = "npm.cmd";
-                            #[cfg(not(windows))]
-                            let npm_cmd = "npm";
+                        let web_dir = std::path::Path::new("web");
+                        let dist_dir = web_dir.join("dist");
 
-                            match tokio::process::Command::new(npm_cmd)
-                                .arg("run")
-                                .arg("dev")
-                                .current_dir(web_path)
-                                .stdout(std::process::Stdio::null())
-                                .stderr(std::process::Stdio::null())
-                                .spawn()
-                            {
-                                Ok(child) => frontend_child = Some(child),
-                                Err(e) => eprintln!("⚠️ Failed to start frontend: {}", e),
+                        if web_dir.exists() {
+                            if !dist_dir.exists() {
+                                println!(
+                                    "📦 Frontend build not found in web/dist. Attempting to build..."
+                                );
+                                #[cfg(windows)]
+                                let npm_cmd = "npm.cmd";
+                                #[cfg(not(windows))]
+                                let npm_cmd = "npm";
+
+                                // Install dependencies if needed? Assuming they might be missing.
+                                // Actually, better to just run build. If node_modules missing, user should install.
+                                // But let's try 'npm install && npm run build' equivalent.
+                                let install_status = std::process::Command::new(npm_cmd)
+                                    .arg("install")
+                                    .current_dir(web_dir)
+                                    .status();
+
+                                if let Ok(status) = install_status {
+                                    if status.success() {
+                                        let build_status = std::process::Command::new(npm_cmd)
+                                            .arg("run")
+                                            .arg("build")
+                                            .current_dir(web_dir)
+                                            .status();
+
+                                        if let Ok(b_status) = build_status {
+                                            if !b_status.success() {
+                                                eprintln!("⚠️ Failed to build frontend.");
+                                            }
+                                        } else {
+                                            eprintln!("⚠️ Failed to run npm run build.");
+                                        }
+                                    } else {
+                                        eprintln!("⚠️ Failed to run npm install.");
+                                    }
+                                } else {
+                                    eprintln!("⚠️ Failed to run npm.");
+                                }
+                            }
+
+                            if dist_dir.exists() {
+                                println!("🚀 Serving frontend from {}", dist_dir.display());
+                                static_service = Some(ServeDir::new(dist_dir));
+                            } else {
+                                eprintln!(
+                                    "⚠️ Frontend build not found. Dashboard will not be available."
+                                );
                             }
                         }
 
                         // Open Browser
-                        tokio::spawn(async move {
-                            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-                            println!("🌐 Opening dashboard at http://localhost:{}", frontend_port);
-                            #[cfg(windows)]
-                            let _ = std::process::Command::new("cmd")
-                                .args([
-                                    "/C",
-                                    "start",
-                                    &format!("http://localhost:{}", frontend_port),
-                                ])
-                                .spawn();
-                            #[cfg(not(windows))]
-                            let _ = std::process::Command::new("open")
-                                .arg(format!("http://localhost:{}", frontend_port))
-                                .spawn();
-                        });
+                        if static_service.is_some() {
+                            tokio::spawn(async move {
+                                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                                println!("🌐 Opening dashboard at http://localhost:{}", port);
+                                #[cfg(windows)]
+                                let _ = std::process::Command::new("cmd")
+                                    .args(["/C", "start", &format!("http://localhost:{}", port)])
+                                    .spawn();
+                                #[cfg(not(windows))]
+                                let _ = std::process::Command::new("open")
+                                    .arg(format!("http://localhost:{}", port))
+                                    .spawn();
+                            });
+                        }
                     }
 
                     // ... inside Run command ...
@@ -207,7 +237,7 @@ async fn main() {
                         .route("/api/ui/form/{entity}", get(get_form_config));
 
                     // Register Dynamic Routes for Actions
-                    for (_key, route_def) in &schema.routes {
+                    for route_def in schema.routes.values() {
                         let path = if route_def.path.starts_with('/') {
                             route_def.path.clone()
                         } else {
@@ -247,7 +277,7 @@ async fn main() {
                         action_engine,
                     };
 
-                    let app = app
+                    let mut app = app
                         .layer(
                             CorsLayer::new()
                                 .allow_origin(Any)
@@ -255,6 +285,10 @@ async fn main() {
                                 .allow_headers(Any),
                         )
                         .with_state(state);
+
+                    if let Some(service) = static_service {
+                        app = app.fallback_service(service);
+                    }
 
                     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
                         .await
@@ -270,11 +304,6 @@ async fn main() {
                                 .await
                                 .expect("failed to install CTRL+C handler");
                             println!("\n🛑 Shutdown signal received. Cleaning up...");
-
-                            if let Some(mut child) = frontend_child {
-                                println!("Killing frontend process...");
-                                let _ = child.kill().await;
-                            }
                         })
                         .await
                         .unwrap();
