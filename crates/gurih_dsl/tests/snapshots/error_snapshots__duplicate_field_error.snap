@@ -1,0 +1,9 @@
+---
+source: crates/gurih_dsl/tests/error_snapshots.rs
+expression: s
+---
+error[validation_error]: Duplicate field name 'email' in entity 'User'
+ --> test.kdl:4:9
+  |
+4 |         string "email"
+  |         ^^^^^^^^^^^^^^ Duplicate field name 'email' in entity 'User'
