@@ -350,6 +350,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
                         widget_type: w.widget_type.clone(),
                         label: w.label.clone(),
                         value: w.value.clone(),
+                        icon: w.icon.clone(),
                     })
                     .collect(),
             },
