@@ -1,8 +1,9 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, inject } from 'vue'
 
 const props = defineProps(['entity', 'id'])
 const emit = defineEmits(['saved', 'cancel'])
+const showToast = inject('showToast')
 
 const schema = ref(null)
 const formData = ref({})
@@ -95,13 +96,14 @@ async function save() {
             body: JSON.stringify(formData.value)
         })
         if (res.ok) {
+            showToast('Saved successfully!', 'success')
             emit('saved')
         } else {
             const err = await res.json()
-            alert("Error: " + JSON.stringify(err))
+            showToast("Error: " + JSON.stringify(err), 'error')
         }
     } catch (e) {
-        alert("Failed to save")
+        showToast("Failed to save", 'error')
     }
 }
 

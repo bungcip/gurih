@@ -1,12 +1,32 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, provide } from 'vue'
 import DynamicPage from './components/DynamicPage.vue'
 import DynamicForm from './components/DynamicForm.vue'
+import ToastNotification from './components/ToastNotification.vue'
 
 const menu = ref([])
 const currentEntity = ref(null)
 const viewMode = ref('home') // home, list, create, edit
 const editId = ref(null)
+
+// Toast State
+const toast = ref({
+    show: false,
+    message: '',
+    type: 'success'
+})
+
+let toastTimeout
+
+function showToast(message, type = 'success') {
+    toast.value = { show: true, message, type }
+    if (toastTimeout) clearTimeout(toastTimeout)
+    toastTimeout = setTimeout(() => {
+        toast.value.show = false
+    }, 3000)
+}
+
+provide('showToast', showToast)
 
 const API_BASE = 'http://localhost:3000/api'
 
@@ -91,7 +111,7 @@ onMounted(() => {
   <div class="flex h-screen w-full bg-background overflow-hidden">
     <!-- Sidebar -->
     <aside class="w-64 bg-white border-r border-border flex flex-col hidden md:flex">
-        <div class="p-6 text-xl font-bold text-primary flex items-center gap-2">
+        <div class="p-6 text-xl font-bold text-text-main flex items-center gap-2">
             <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm">G</div>
             GurihERP
         </div>
@@ -158,5 +178,12 @@ onMounted(() => {
             </div>
         </div>
     </main>
+    
+    <!-- Toast Notification -->
+    <ToastNotification 
+        :show="toast.show" 
+        :message="toast.message" 
+        :type="toast.type" 
+    />
   </div>
 </template>

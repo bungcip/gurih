@@ -1,9 +1,10 @@
 <script setup>
-import { ref, watch, onMounted, computed } from 'vue'
+import { ref, watch, onMounted, computed, inject } from 'vue'
 import ConfirmModal from './ConfirmModal.vue'
 
 const props = defineProps(['entity'])
 const emit = defineEmits(['edit', 'create'])
+const showToast = inject('showToast')
 
 const config = ref(null)
 const data = ref([])
@@ -137,16 +138,20 @@ async function executeAction(action, url, row) {
         
         if (res.ok) {
             const json = await res.json().catch(() => ({}));
-            if(json.message) alert(json.message); // Optional: toast would be better
-            fetchData(); // Refresh list
-            emit('edit', null); 
+            
+            if(json.message) {
+                showToast(json.message, 'success'); 
+            } else {
+                 showToast(`${action.label} successful`, 'success');
+            }
+            fetchData(); 
         } else {
             const err = await res.json().catch(() => ({}));
-            alert("Action failed: " + (err.error || res.statusText));
+            showToast("Action failed: " + (err.error || res.statusText), 'error');
         }
     } catch (e) {
         console.error(e);
-        alert("Action failed (network error)");
+        showToast("Action failed (network error)", 'error');
     }
 }
 

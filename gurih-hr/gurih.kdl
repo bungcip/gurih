@@ -200,7 +200,6 @@ page "EmployeeList" {
         column "department.name" label="Department"
         column "status" label="Status"
         
-        action "Add Employee" icon="plus" variant="primary" to="/employees/new"
         action "Edit" icon="pencil" to="/employees/:id"
         action "Delete" icon="trash" variant="danger" to="/employees/:id" method="DELETE"
     }
@@ -248,7 +247,6 @@ page "DepartmentList" {
         column "name"
         column "description"
         
-        action "Add Department" icon="plus" variant="primary" to="/departments/new"
         action "Edit" icon="pencil" to="/departments/:id"
         action "Delete" icon="trash" variant="danger" to="/departments/:id" method="DELETE"
     }
@@ -271,7 +269,6 @@ page "PositionList" {
         column "description"
         column "base_salary"
         
-        action "Add Position" icon="plus" variant="primary" to="/positions/new"
         action "Edit" icon="pencil" to="/positions/:id"
         action "Delete" icon="trash" variant="danger" to="/positions/:id" method="DELETE"
     }

@@ -109,24 +109,67 @@ async fn main() {
     }
 }
 
+#[derive(Debug)]
+enum WatchEvent {
+    Server,
+    Frontend,
+}
+
+fn rebuild_frontend() {
+    println!("📦 Rebuilding frontend...");
+    #[cfg(windows)]
+    let npm_cmd = "npm.cmd";
+    #[cfg(not(windows))]
+    let npm_cmd = "npm";
+
+    let web_dir = std::path::Path::new("web");
+    if !web_dir.exists() {
+        return;
+    }
+
+    let status = std::process::Command::new(npm_cmd)
+        .arg("run")
+        .arg("build")
+        .current_dir(web_dir)
+        .status();
+
+    match status {
+        Ok(s) if s.success() => println!("✅ Frontend rebuilt."),
+        _ => eprintln!("❌ Frontend build failed."),
+    }
+}
+
 async fn watch_loop(file: PathBuf, port: u16, server_only: bool) {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
         if let Ok(event) = res {
-            // Filter: only trigger on .kdl file changes to prevent loops with db files
-            let is_kdl = event
-                .paths
-                .iter()
-                .any(|p| p.extension().map_or(false, |ext| ext == "kdl"));
+            if event.kind.is_modify() || event.kind.is_create() || event.kind.is_remove() {
+                // Check if KDL
+                let is_kdl = event
+                    .paths
+                    .iter()
+                    .any(|p| p.extension().map_or(false, |ext| ext == "kdl"));
 
-            if is_kdl && (event.kind.is_modify() || event.kind.is_create() || event.kind.is_remove()) {
-                let _ = tx.blocking_send(());
+                // Check if Frontend (vue, js, css in web/src)
+                let is_frontend = event.paths.iter().any(|p| {
+                    let s = p.to_string_lossy();
+                    (s.contains("/web/src") || s.contains("\\web\\src"))
+                        && (p.extension().map_or(false, |ext| {
+                            ext == "vue" || ext == "js" || ext == "css" || ext == "html"
+                        }))
+                });
+
+                if is_kdl {
+                    let _ = tx.blocking_send(WatchEvent::Server);
+                } else if is_frontend {
+                    let _ = tx.blocking_send(WatchEvent::Frontend);
+                }
             }
         }
     })
     .expect("Failed to create watcher");
 
-    // Watch the directory of the file
+    // Watch the directory of the file (Server)
     let watch_path = if file.is_dir() {
         file.clone()
     } else {
@@ -138,6 +181,15 @@ async fn watch_loop(file: PathBuf, port: u16, server_only: bool) {
         .expect("Failed to watch directory");
 
     println!("👀 Watching for changes in {}", watch_path.display());
+
+    // Watch Frontend
+    if !server_only {
+        let web_src = PathBuf::from("web/src");
+        if web_src.exists() {
+            let _ = watcher.watch(&web_src, RecursiveMode::Recursive);
+            println!("👀 Watching for changes in web/src");
+        }
+    }
 
     let mut first_run = true;
 
@@ -152,17 +204,33 @@ async fn watch_loop(file: PathBuf, port: u16, server_only: bool) {
 
         first_run = false;
 
-        tokio::select! {
-            _ = rx.recv() => {
-                println!("\n🔄 File changed. Restarting server...");
-                server_task.abort();
-                // Wait a bit to ensure port is freed?
-                tokio::time::sleep(Duration::from_millis(200)).await;
-            }
-            _ = tokio::signal::ctrl_c() => {
-                println!("\n🛑 Shutdown signal received.");
-                server_task.abort();
-                break;
+        // Inner loop to handle events
+        loop {
+            tokio::select! {
+                event = rx.recv() => {
+                    match event {
+                        Some(WatchEvent::Server) => {
+                            println!("\n🔄 Schema changed. Restarting server...");
+                            server_task.abort();
+                            // Wait a bit to ensure port is freed?
+                            tokio::time::sleep(Duration::from_millis(200)).await;
+                            break; // Break inner loop -> Restart server
+                        }
+                        Some(WatchEvent::Frontend) => {
+                            // Rebuild frontend without killing server
+                            // blocking task to allow build to finish
+                            let _ = tokio::task::spawn_blocking(|| {
+                                rebuild_frontend();
+                            }).await;
+                        }
+                        None => return,
+                    }
+                }
+                _ = tokio::signal::ctrl_c() => {
+                    println!("\n🛑 Shutdown signal received.");
+                    server_task.abort();
+                    return;
+                }
             }
         }
     }
@@ -185,7 +253,7 @@ async fn start_server(
                 sqlx::any::install_default_drivers();
                 println!("🔌 Connecting to database...");
                 // Handle env:DATABASE_URL
-                let mut url = if db_config.url.starts_with("env:") {
+                let url = if db_config.url.starts_with("env:") {
                     std::env::var(&db_config.url[4..]).unwrap_or_else(|_| "".to_string())
                 } else {
                     db_config.url.clone()
@@ -319,42 +387,7 @@ async fn start_server(
                 .route("/api/ui/form/{entity}", get(get_form_config));
 
             // Register Dynamic Routes for Actions
-            for route_def in schema.routes.values() {
-                let path = if route_def.path.starts_with('/') {
-                    route_def.path.clone()
-                } else {
-                    format!("/{}", route_def.path)
-                };
-
-                // Convert Gurih route parameters ":id" to Axum ":id" (they are same if using colon)
-                // If my DSL uses ":id", Axum supports it. "api/{entity}" acts like ":entity" in new axum?
-                // Actually default is ":key". My usage of `{entity}` above might be old or compatible.
-                // Wait, looking at line 191: `.route("/api/{entity}"...` -> Axum 0.6+ uses `{key}`? No, Axum uses `:key`.
-                // But I see `{entity}` in the existing code. Maybe I should stick to what's there?
-                // IMPORTANT: Existing code uses `{entity}`. Let's assume `{}` syntax is valid or my DSL converts/uses it.
-                // My parser returns raw string. If KDL has `/api/:id`, I get `/api/:id`.
-                // If existing uses `/api/{entity}`, maybe it relies on strict match or I misread?
-                // Axum `matchit` supports `{param}` syntax since 0.7?
-                // Let's assume `{param}` is valid or I should normalize.
-                // I'll stick to what the route_def provides, assuming the user writes compatible paths.
-
-                let verb_filter = match route_def.verb.as_str() {
-                    "GET" => MethodFilter::GET,
-                    "POST" => MethodFilter::POST,
-                    "PUT" => MethodFilter::PUT,
-                    "DELETE" => MethodFilter::DELETE,
-                    _ => MethodFilter::GET,
-                };
-
-                let action_name = route_def.action.clone();
-                let handler = move |State(state): State<AppState>,
-                                    Path(params): Path<HashMap<String, String>>,
-                                    Query(query): Query<HashMap<String, String>>| {
-                    handle_dynamic_action(state, params, query, action_name.clone())
-                };
-
-                app = app.route(&path, on(verb_filter, handler));
-            }
+            app = register_routes(app, "", schema.routes.values(), &schema);
 
             let state = AppState {
                 data_engine: engine,
