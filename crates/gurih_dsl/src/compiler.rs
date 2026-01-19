@@ -45,7 +45,21 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
                           _module_name: Option<&str>|
      -> Result<EntitySchema, CompileError> {
         let mut fields = vec![];
+        let mut field_names = HashMap::new();
+
         for field_def in &entity_def.fields {
+            if field_names.contains_key(&field_def.name) {
+                return Err(CompileError::ValidationError {
+                    src: src.to_string(),
+                    span: field_def.span,
+                    message: format!(
+                        "Duplicate field name '{}' in entity '{}'",
+                        field_def.name, entity_def.name
+                    ),
+                });
+            }
+            field_names.insert(field_def.name.clone(), field_def.span);
+
             let type_name = if field_def.type_name == "Enum" {
                 field_def.references.as_deref().unwrap_or("Enum")
             } else {
