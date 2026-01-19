@@ -117,7 +117,7 @@ pub struct TableDef {
 #[derive(Debug, Clone)]
 pub struct ColumnDef {
     pub name: String,
-    pub type_name: String, // "serial", "varchar", etc.
+    pub type_name: String,                                // "serial", "varchar", etc.
     pub props: std::collections::HashMap<String, String>, // len, precision, etc.
     pub primary: bool,
     pub unique: bool,
@@ -250,8 +250,8 @@ pub struct ActionLogicDef {
 
 #[derive(Debug, Clone)]
 pub struct ActionStepDef {
-    pub step_type: String, // entity:delete, entity:update, etc.
-    pub target: String,    // Entity Name or variable
+    pub step_type: String,                               // entity:delete, entity:update, etc.
+    pub target: String,                                  // Entity Name or variable
     pub args: std::collections::HashMap<String, String>, // id=param("id")
     pub span: SourceSpan,
 }

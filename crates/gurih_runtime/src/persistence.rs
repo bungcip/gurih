@@ -11,11 +11,7 @@ pub struct SchemaManager {
 
 impl SchemaManager {
     pub fn new(pool: AnyPool, schema: Arc<Schema>, db_kind: String) -> Self {
-        Self {
-            pool,
-            schema,
-            db_kind,
-        }
+        Self { pool, schema, db_kind }
     }
 
     pub async fn migrate(&self) -> Result<(), String> {
@@ -76,11 +72,7 @@ impl SchemaManager {
 
         if let Some(row) = row {
             let hash: String = row.try_get("value").unwrap_or_default();
-            if hash.is_empty() {
-                Ok(None)
-            } else {
-                Ok(Some(hash))
-            }
+            if hash.is_empty() { Ok(None) } else { Ok(Some(hash)) }
         } else {
             Ok(None)
         }
@@ -108,19 +100,18 @@ impl SchemaManager {
         // Check if table exists
         let table_exists: bool = if db_kind == "PostgreSQL" {
             sqlx::query_scalar(
-                "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '_gurih_metadata')"
+                "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '_gurih_metadata')",
             )
             .fetch_one(&self.pool)
             .await
             .map_err(|e| e.to_string())?
         } else {
             // SQLite
-            let count: i64 = sqlx::query_scalar(
-                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='_gurih_metadata'",
-            )
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+            let count: i64 =
+                sqlx::query_scalar("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='_gurih_metadata'")
+                    .fetch_one(&self.pool)
+                    .await
+                    .map_err(|e| e.to_string())?;
             count > 0
         };
 
@@ -177,10 +168,7 @@ impl SchemaManager {
             } else {
                 format!("DROP TABLE IF EXISTS \"{}\"", table)
             };
-            sqlx::query(&sql)
-                .execute(&self.pool)
-                .await
-                .map_err(|e| e.to_string())?;
+            sqlx::query(&sql).execute(&self.pool).await.map_err(|e| e.to_string())?;
         }
 
         Ok(())
@@ -229,10 +217,7 @@ impl SchemaManager {
         sql.push_str(&defs.join(", "));
         sql.push(')');
 
-        sqlx::query(&sql)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+        sqlx::query(&sql).execute(&self.pool).await.map_err(|e| e.to_string())?;
         Ok(())
     }
 
@@ -308,10 +293,7 @@ impl SchemaManager {
         sql.push_str(&defs.join(", "));
         sql.push(')');
 
-        sqlx::query(&sql)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+        sqlx::query(&sql).execute(&self.pool).await.map_err(|e| e.to_string())?;
         Ok(())
     }
 }

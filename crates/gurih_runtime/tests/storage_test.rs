@@ -50,10 +50,7 @@ async fn bench_list_large_dataset() {
 
     // Measure list with limit
     let start_limit = Instant::now();
-    let limit_items = storage_arc
-        .list("test_entity", Some(10), Some(5))
-        .await
-        .unwrap();
+    let limit_items = storage_arc.list("test_entity", Some(10), Some(5)).await.unwrap();
     let duration_limit = start_limit.elapsed();
 
     println!(

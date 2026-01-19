@@ -38,10 +38,7 @@ fn test_compile_golden_master() {
     assert_eq!(emp.relationships.len(), 3);
 
     // Check Options
-    assert_eq!(
-        emp.options.get("track_changes").map(|s| s.as_str()),
-        Some("true")
-    );
+    assert_eq!(emp.options.get("track_changes").map(|s| s.as_str()), Some("true"));
 
     // Check Serials Definition
     assert!(schema.serials.contains_key("EmpCode"));
@@ -80,10 +77,7 @@ fn test_compile_widget_icon() {
     "#;
 
     let schema = compile(src).expect("Failed to compile");
-    let dash = schema
-        .dashboards
-        .get("MainDash")
-        .expect("Dashboard not found");
+    let dash = schema.dashboards.get("MainDash").expect("Dashboard not found");
     let widget = dash.widgets.first().expect("Widget not found");
 
     assert_eq!(widget.name, "Stats");

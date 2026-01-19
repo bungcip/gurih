@@ -64,10 +64,7 @@ impl WorkflowEngine {
             return None;
         }
 
-        let workflow = schema
-            .workflows
-            .values()
-            .find(|w| w.entity == entity_name)?;
+        let workflow = schema.workflows.values().find(|w| w.entity == entity_name)?;
         workflow
             .transitions
             .iter()

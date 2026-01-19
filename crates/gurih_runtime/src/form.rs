@@ -34,9 +34,7 @@ impl FormEngine {
             for section in &form.sections {
                 let mut ui_fields = vec![];
                 for field_name in &section.fields {
-                    let ui_field = if let Some(field_def) =
-                        entity.fields.iter().find(|f| &f.name == field_name)
-                    {
+                    let ui_field = if let Some(field_def) = entity.fields.iter().find(|f| &f.name == field_name) {
                         let mut field_json = json!({
                             "name": field_def.name,
                             "label": field_def.name,
@@ -59,9 +57,7 @@ impl FormEngine {
                         }
 
                         field_json
-                    } else if let Some(rel_def) =
-                        entity.relationships.iter().find(|r| &r.name == field_name)
-                    {
+                    } else if let Some(rel_def) = entity.relationships.iter().find(|r| &r.name == field_name) {
                         json!({
                             "name": format!("{}_id", rel_def.name.to_lowercase()),
                             "label": rel_def.name,
@@ -69,10 +65,7 @@ impl FormEngine {
                             "required": false // Default for relation
                         })
                     } else {
-                        return Err(format!(
-                            "Field {} not found in entity {}",
-                            field_name, form.entity
-                        ));
+                        return Err(format!("Field {} not found in entity {}", field_name, form.entity));
                     };
 
                     ui_fields.push(ui_field);
@@ -98,11 +91,7 @@ impl FormEngine {
         }
     }
 
-    pub fn generate_default_form(
-        &self,
-        schema: &Schema,
-        entity_name: &str,
-    ) -> Result<Value, String> {
+    pub fn generate_default_form(&self, schema: &Schema, entity_name: &str) -> Result<Value, String> {
         let entity = schema.entities.get(entity_name).ok_or("Entity not found")?;
 
         let mut ui_fields = vec![];

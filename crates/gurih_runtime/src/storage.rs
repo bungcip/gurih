@@ -12,12 +12,7 @@ pub trait Storage: Send + Sync {
     async fn get(&self, entity: &str, id: &str) -> Result<Option<Arc<Value>>, String>;
     async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String>;
     async fn delete(&self, entity: &str, id: &str) -> Result<(), String>;
-    async fn list(
-        &self,
-        entity: &str,
-        limit: Option<usize>,
-        offset: Option<usize>,
-    ) -> Result<Vec<Arc<Value>>, String>;
+    async fn list(&self, entity: &str, limit: Option<usize>, offset: Option<usize>) -> Result<Vec<Arc<Value>>, String>;
 }
 
 pub struct MemoryStorage {
@@ -91,12 +86,7 @@ impl Storage for MemoryStorage {
         }
     }
 
-    async fn list(
-        &self,
-        entity: &str,
-        limit: Option<usize>,
-        offset: Option<usize>,
-    ) -> Result<Vec<Arc<Value>>, String> {
+    async fn list(&self, entity: &str, limit: Option<usize>, offset: Option<usize>) -> Result<Vec<Arc<Value>>, String> {
         let data = self.data.lock().unwrap();
         if let Some(table) = data.get(entity) {
             let skip = offset.unwrap_or(0);
@@ -120,8 +110,7 @@ enum DataType {
 fn get_column_type(type_name: &str) -> DataType {
     match type_name {
         "TEXT" | "VARCHAR" | "CHAR" | "NAME" | "STRING" => DataType::Text,
-        "INT4" | "INT8" | "INTEGER" | "INT" | "BIGINT" | "smallint" | "bigint" | "int"
-        | "integer" => DataType::Int,
+        "INT4" | "INT8" | "INTEGER" | "INT" | "BIGINT" | "smallint" | "bigint" | "int" | "integer" => DataType::Int,
         "BOOL" | "BOOLEAN" | "boolean" | "bool" => DataType::Bool,
         "FLOAT" | "REAL" | "DOUBLE PRECISION" | "FLOAT8" | "FLOAT4" | "numeric" => DataType::Float,
         _ => DataType::Unknown,
@@ -154,10 +143,7 @@ impl AnyStorage {
                         None => {
                             // Fallback to string if int fails
                             let s_val: Option<String> = row.try_get(i).ok();
-                            map.insert(
-                                name.clone(),
-                                serde_json::to_value(s_val).unwrap_or(Value::Null),
-                            );
+                            map.insert(name.clone(), serde_json::to_value(s_val).unwrap_or(Value::Null));
                         }
                     }
                 }
@@ -233,11 +219,9 @@ impl Storage for AnyStorage {
         let row = q.fetch_one(&self.pool).await.map_err(|e| e.to_string())?;
 
         // Try getting id as String, fallback to int
-        let id_val: String = row.try_get("id").unwrap_or_else(|_| {
-            row.try_get::<i64, _>("id")
-                .map(|i| i.to_string())
-                .unwrap_or_default()
-        });
+        let id_val: String = row
+            .try_get("id")
+            .unwrap_or_else(|_| row.try_get::<i64, _>("id").map(|i| i.to_string()).unwrap_or_default());
 
         Ok(id_val)
     }
@@ -254,12 +238,7 @@ impl Storage for AnyStorage {
             let columns: Vec<(String, DataType)> = row
                 .columns()
                 .iter()
-                .map(|col| {
-                    (
-                        col.name().to_string(),
-                        get_column_type(col.type_info().name()),
-                    )
-                })
+                .map(|col| (col.name().to_string(), get_column_type(col.type_info().name())))
                 .collect();
             Ok(Some(Arc::new(Self::row_to_json_optimized(&row, &columns))))
         } else {
@@ -328,12 +307,7 @@ impl Storage for AnyStorage {
         Ok(())
     }
 
-    async fn list(
-        &self,
-        entity: &str,
-        limit: Option<usize>,
-        offset: Option<usize>,
-    ) -> Result<Vec<Arc<Value>>, String> {
+    async fn list(&self, entity: &str, limit: Option<usize>, offset: Option<usize>) -> Result<Vec<Arc<Value>>, String> {
         let mut query = format!("SELECT * FROM \"{}\"", entity);
         let mut params: Vec<i64> = vec![];
 
@@ -361,12 +335,7 @@ impl Storage for AnyStorage {
         let columns: Vec<(String, DataType)> = rows[0]
             .columns()
             .iter()
-            .map(|col| {
-                (
-                    col.name().to_string(),
-                    get_column_type(col.type_info().name()),
-                )
-            })
+            .map(|col| (col.name().to_string(), get_column_type(col.type_info().name())))
             .collect();
 
         Ok(rows

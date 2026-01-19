@@ -24,13 +24,9 @@ async fn bench_list_performance() {
     println!("Seeding complete.");
 
     let start = Instant::now();
-    let items = storage.list(entity).await.unwrap();
+    let items = storage.list(entity, None, None).await.unwrap();
     let duration = start.elapsed();
 
-    println!(
-        "BENCH_RESULT: List {} items took: {:?}",
-        items.len(),
-        duration
-    );
+    println!("BENCH_RESULT: List {} items took: {:?}", items.len(), duration);
     assert_eq!(items.len(), count);
 }

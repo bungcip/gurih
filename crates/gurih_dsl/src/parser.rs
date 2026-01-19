@@ -282,15 +282,9 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                     if let Some(opts) = child.children() {
                         for opt in opts.nodes() {
                             match opt.name().value() {
-                                "is_submittable" => {
-                                    options.is_submittable = get_arg_bool(opt, 0).unwrap_or(false)
-                                }
-                                "track_changes" => {
-                                    options.track_changes = get_arg_bool(opt, 0).unwrap_or(false)
-                                }
-                                "is_single" => {
-                                    options.is_single = get_arg_bool(opt, 0).unwrap_or(false)
-                                }
+                                "is_submittable" => options.is_submittable = get_arg_bool(opt, 0).unwrap_or(false),
+                                "track_changes" => options.track_changes = get_arg_bool(opt, 0).unwrap_or(false),
+                                "is_single" => options.is_single = get_arg_bool(opt, 0).unwrap_or(false),
                                 _ => {}
                             }
                         }
@@ -337,15 +331,13 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                         span: child.span().into(),
                     });
                 }
-                "string" | "text" | "int" | "integer" | "float" | "decimal" | "bool"
-                | "boolean" | "date" | "datetime" | "time" | "money" | "code" | "enum" | "name"
-                | "email" | "phone" | "description" => {
+                "string" | "text" | "int" | "integer" | "float" | "decimal" | "bool" | "boolean" | "date"
+                | "datetime" | "time" | "money" | "code" | "enum" | "name" | "email" | "phone" | "description" => {
                     // code "field_name" generator="GenName"
                     // enum "status" "StatusEnum" default="Draft"
 
                     let type_name = capitalize(child_name);
-                    let field_name =
-                        get_arg_string(child, 0, src).unwrap_or(child_name.to_string());
+                    let field_name = get_arg_string(child, 0, src).unwrap_or(child_name.to_string());
 
                     let required = get_prop_bool(child, "required").unwrap_or(false);
                     let unique = get_prop_bool(child, "unique").unwrap_or(false);
@@ -491,8 +483,7 @@ fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
 fn parse_workflow(node: &KdlNode, src: &str) -> Result<WorkflowDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
     // support 'for' or 'entity'
-    let entity =
-        get_prop_string(node, "for", src).or_else(|_| get_prop_string(node, "entity", src))?;
+    let entity = get_prop_string(node, "for", src).or_else(|_| get_prop_string(node, "entity", src))?;
 
     let field = get_prop_string(node, "field", src)?;
 
@@ -547,8 +538,7 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
 
 fn parse_form(node: &KdlNode, src: &str) -> Result<FormDef, CompileError> {
     let name = get_arg_string(node, 0, src).unwrap_or_else(|_| "DefaultForm".to_string());
-    let entity =
-        get_prop_string(node, "entity", src).or_else(|_| get_prop_string(node, "for", src))?;
+    let entity = get_prop_string(node, "entity", src).or_else(|_| get_prop_string(node, "for", src))?;
     let mut sections = vec![];
 
     if let Some(children) = node.children() {
@@ -769,8 +759,7 @@ fn parse_datatable(node: &KdlNode, src: &str) -> Result<DatatableDef, CompileErr
             match child.name().value() {
                 "column" => {
                     let field = get_arg_string(child, 0, src)?;
-                    let label = get_prop_string(child, "label", src)
-                        .unwrap_or_else(|_| to_title_case(&field));
+                    let label = get_prop_string(child, "label", src).unwrap_or_else(|_| to_title_case(&field));
                     columns.push(DatatableColumnDef { field, label });
                 }
                 "action" => {
@@ -827,8 +816,7 @@ fn parse_route_node(node: &KdlNode, src: &str) -> Result<RouteNode, CompileError
             };
 
             let path = get_arg_string(node, 0, src)?;
-            let action = get_prop_string(node, "action", src)
-                .or_else(|_| get_prop_string(node, "to", src))?; // Support both
+            let action = get_prop_string(node, "action", src).or_else(|_| get_prop_string(node, "to", src))?; // Support both
 
             let layout = get_prop_string(node, "layout", src).ok();
             let permission = get_prop_string(node, "permission", src).ok();

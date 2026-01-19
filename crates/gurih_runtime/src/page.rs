@@ -14,11 +14,7 @@ impl PageEngine {
         Self
     }
 
-    pub fn generate_page_config(
-        &self,
-        schema: &Schema,
-        entity_name: &str,
-    ) -> Result<Value, String> {
+    pub fn generate_page_config(&self, schema: &Schema, entity_name: &str) -> Result<Value, String> {
         // 1. Try explicit Page definition by name
         let mut target_page = schema.pages.get(entity_name);
 

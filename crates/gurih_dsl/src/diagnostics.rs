@@ -90,9 +90,7 @@ impl DiagnosticEngine {
     }
 
     pub fn has_errors(&self) -> bool {
-        self.diagnostics
-            .iter()
-            .any(|d| d.level == DiagnosticLevel::Error)
+        self.diagnostics.iter().any(|d| d.level == DiagnosticLevel::Error)
     }
 
     pub fn diagnostics(&self) -> &[Diagnostic] {
@@ -152,11 +150,7 @@ impl ErrorFormatter {
             .line_start(1)
             .path(filename)
             .fold(true)
-            .annotation(
-                AnnotationKind::Primary
-                    .span(start..end)
-                    .label(&diag.message),
-            );
+            .annotation(AnnotationKind::Primary.span(start..end).label(&diag.message));
 
         for (span, msg) in &diag.related {
             let r_start = span.offset().min(src.len());

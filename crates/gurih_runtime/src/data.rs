@@ -24,12 +24,7 @@ impl DataEngine {
         &self.schema
     }
 
-    pub async fn create(
-        &self,
-        entity_name: &str,
-        mut data: Value,
-        _ctx: &RuntimeContext,
-    ) -> Result<String, String> {
+    pub async fn create(&self, entity_name: &str, mut data: Value, _ctx: &RuntimeContext) -> Result<String, String> {
         // TODO: Validate create permission for entity
 
         let entity_schema = self
@@ -73,13 +68,7 @@ impl DataEngine {
         self.storage.get(entity_name, id).await
     }
 
-    pub async fn update(
-        &self,
-        entity_name: &str,
-        id: &str,
-        data: Value,
-        ctx: &RuntimeContext,
-    ) -> Result<(), String> {
+    pub async fn update(&self, entity_name: &str, id: &str, data: Value, ctx: &RuntimeContext) -> Result<(), String> {
         let entity_schema = self
             .schema
             .entities
@@ -89,38 +78,20 @@ impl DataEngine {
         // Workflow Transition Check
         if let Some(new_state) = data.get("state").and_then(|v| v.as_str()) {
             // We only check if there IS a workflow for this entity
-            if self
-                .schema
-                .workflows
-                .values()
-                .any(|w| w.entity == entity_name)
-            {
-                let current_record = self
-                    .storage
-                    .get(entity_name, id)
-                    .await?
-                    .ok_or("Record not found")?;
+            if self.schema.workflows.values().any(|w| w.entity == entity_name) {
+                let current_record = self.storage.get(entity_name, id).await?.ok_or("Record not found")?;
 
-                let current_state = current_record
-                    .get("state")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or(""); // Assume empty state if missing
+                let current_state = current_record.get("state").and_then(|v| v.as_str()).unwrap_or(""); // Assume empty state if missing
 
                 // Validate transition logic
-                self.workflow.validate_transition(
-                    &self.schema,
-                    entity_name,
-                    current_state,
-                    new_state,
-                )?;
+                self.workflow
+                    .validate_transition(&self.schema, entity_name, current_state, new_state)?;
 
                 // Validate permissions for transition
-                if let Some(perm) = self.workflow.get_transition_permission(
-                    &self.schema,
-                    entity_name,
-                    current_state,
-                    new_state,
-                ) && !ctx.has_permission(&perm)
+                if let Some(perm) =
+                    self.workflow
+                        .get_transition_permission(&self.schema, entity_name, current_state, new_state)
+                    && !ctx.has_permission(&perm)
                 {
                     return Err(format!("Missing permission '{}' for transition", perm));
                 }
@@ -154,10 +125,10 @@ impl DataEngine {
         limit: Option<usize>,
         offset: Option<usize>,
     ) -> Result<Vec<Arc<Value>>, String> {
-        if !self.schema.entities.contains_key(entity_name) {
-            return Err(format!("Entity '{}' not defined", entity_name));
+        if !self.schema.entities.contains_key(entity) {
+            return Err(format!("Entity '{}' not defined", entity));
         }
-        self.storage.list(entity_name, limit, offset).await
+        self.storage.list(entity, limit, offset).await
     }
 }
 

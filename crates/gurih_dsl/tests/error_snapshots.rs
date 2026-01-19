@@ -14,10 +14,7 @@ fn test_duplicate_entity_error() {
     "#;
 
     let result = compile(src);
-    assert!(
-        result.is_err(),
-        "Compilation should fail due to duplicate entity"
-    );
+    assert!(result.is_err(), "Compilation should fail due to duplicate entity");
 
     let err = result.unwrap_err();
     let diagnostics = err.into_diagnostic();
@@ -76,10 +73,7 @@ fn test_duplicate_field_error() {
     "#;
 
     let result = compile(src);
-    assert!(
-        result.is_err(),
-        "Compilation should fail due to duplicate field name"
-    );
+    assert!(result.is_err(), "Compilation should fail due to duplicate field name");
 
     let err = result.unwrap_err();
     let diagnostics = err.into_diagnostic();

@@ -2,10 +2,10 @@ use crate::ast;
 use crate::errors::CompileError;
 use crate::parser::parse;
 use gurih_ir::{
-    ActionSchema, ColumnSchema, DashboardSchema, DatabaseSchema, DatatableColumnSchema,
-    DatatableSchema, EntitySchema, FieldSchema, FieldType, FormSchema, FormSection, LayoutSchema,
-    MenuItemSchema, MenuSchema, PageContentSchema, PageSchema, PrintSchema, RelationshipSchema,
-    RouteSchema, Schema, SerialSchema, TableSchema, Transition, WidgetSchema, WorkflowSchema,
+    ActionSchema, ColumnSchema, DashboardSchema, DatabaseSchema, DatatableColumnSchema, DatatableSchema, EntitySchema,
+    FieldSchema, FieldType, FormSchema, FormSection, LayoutSchema, MenuItemSchema, MenuSchema, PageContentSchema,
+    PageSchema, PrintSchema, RelationshipSchema, RouteSchema, Schema, SerialSchema, TableSchema, Transition,
+    WidgetSchema, WorkflowSchema,
 };
 use std::collections::HashMap;
 
@@ -41,75 +41,74 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
     }
 
     // Helper to process entities
-    let process_entity = |entity_def: &ast::EntityDef,
-                          _module_name: Option<&str>|
-     -> Result<EntitySchema, CompileError> {
-        let mut fields = vec![];
-        let mut field_names = HashMap::new();
+    let process_entity =
+        |entity_def: &ast::EntityDef, _module_name: Option<&str>| -> Result<EntitySchema, CompileError> {
+            let mut fields = vec![];
+            let mut field_names = HashMap::new();
 
-        for field_def in &entity_def.fields {
-            if field_names.contains_key(&field_def.name) {
-                return Err(CompileError::ValidationError {
-                    src: src.to_string(),
-                    span: field_def.span,
-                    message: format!(
-                        "Duplicate field name '{}' in entity '{}'",
-                        field_def.name, entity_def.name
-                    ),
+            for field_def in &entity_def.fields {
+                if field_names.contains_key(&field_def.name) {
+                    return Err(CompileError::ValidationError {
+                        src: src.to_string(),
+                        span: field_def.span,
+                        message: format!(
+                            "Duplicate field name '{}' in entity '{}'",
+                            field_def.name, entity_def.name
+                        ),
+                    });
+                }
+                field_names.insert(field_def.name.clone(), field_def.span);
+
+                let type_name = if field_def.type_name == "Enum" {
+                    field_def.references.as_deref().unwrap_or("Enum")
+                } else {
+                    &field_def.type_name
+                };
+
+                let field_type = parse_field_type(type_name, &enums, src, &field_def.span)?;
+                fields.push(FieldSchema {
+                    name: field_def.name.clone(),
+                    field_type,
+                    required: field_def.required,
+                    unique: field_def.unique,
+                    default: field_def.default.clone(),
+                    references: field_def.references.clone(),
+                    serial: field_def.serial.clone(),
                 });
             }
-            field_names.insert(field_def.name.clone(), field_def.span);
 
-            let type_name = if field_def.type_name == "Enum" {
-                field_def.references.as_deref().unwrap_or("Enum")
-            } else {
-                &field_def.type_name
-            };
+            let relationships = entity_def
+                .relationships
+                .iter()
+                .map(|r| RelationshipSchema {
+                    name: r.name.clone(),
+                    target_entity: r.target_entity.clone(),
+                    rel_type: match r.rel_type {
+                        ast::RelationshipType::BelongsTo => "belongs_to".to_string(),
+                        ast::RelationshipType::HasMany => "has_many".to_string(),
+                        ast::RelationshipType::HasOne => "has_one".to_string(),
+                    },
+                })
+                .collect();
 
-            let field_type = parse_field_type(type_name, &enums, src, &field_def.span)?;
-            fields.push(FieldSchema {
-                name: field_def.name.clone(),
-                field_type,
-                required: field_def.required,
-                unique: field_def.unique,
-                default: field_def.default.clone(),
-                references: field_def.references.clone(),
-                serial: field_def.serial.clone(),
-            });
-        }
+            let mut options = HashMap::new();
+            if entity_def.options.is_submittable {
+                options.insert("is_submittable".to_string(), "true".to_string());
+            }
+            if entity_def.options.track_changes {
+                options.insert("track_changes".to_string(), "true".to_string());
+            }
+            if entity_def.options.is_single {
+                options.insert("is_single".to_string(), "true".to_string());
+            }
 
-        let relationships = entity_def
-            .relationships
-            .iter()
-            .map(|r| RelationshipSchema {
-                name: r.name.clone(),
-                target_entity: r.target_entity.clone(),
-                rel_type: match r.rel_type {
-                    ast::RelationshipType::BelongsTo => "belongs_to".to_string(),
-                    ast::RelationshipType::HasMany => "has_many".to_string(),
-                    ast::RelationshipType::HasOne => "has_one".to_string(),
-                },
+            Ok(EntitySchema {
+                name: entity_def.name.clone(),
+                fields,
+                relationships,
+                options,
             })
-            .collect();
-
-        let mut options = HashMap::new();
-        if entity_def.options.is_submittable {
-            options.insert("is_submittable".to_string(), "true".to_string());
-        }
-        if entity_def.options.track_changes {
-            options.insert("track_changes".to_string(), "true".to_string());
-        }
-        if entity_def.options.is_single {
-            options.insert("is_single".to_string(), "true".to_string());
-        }
-
-        Ok(EntitySchema {
-            name: entity_def.name.clone(),
-            fields,
-            relationships,
-            options,
-        })
-    };
+        };
 
     // 0. Process Database
     let database = ast_root.database.map(|d| DatabaseSchema {
@@ -213,16 +212,8 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
 
     // 5. Process Layouts
     for layout_def in &ast_root.layouts {
-        let header_enabled = layout_def
-            .header
-            .as_ref()
-            .map(|h| h.enabled)
-            .unwrap_or(false);
-        let header_props = layout_def
-            .header
-            .as_ref()
-            .map(|h| h.props.clone())
-            .unwrap_or_default();
+        let header_enabled = layout_def.header.as_ref().map(|h| h.enabled).unwrap_or(false);
+        let header_props = layout_def.header.as_ref().map(|h| h.props.clone()).unwrap_or_default();
 
         let props = header_props; // Merge props? Simple flattening for now
 
@@ -231,11 +222,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
             LayoutSchema {
                 name: layout_def.name.clone(),
                 header_enabled,
-                sidebar_enabled: layout_def
-                    .sidebar
-                    .as_ref()
-                    .map(|s| s.enabled)
-                    .unwrap_or(false),
+                sidebar_enabled: layout_def.sidebar.as_ref().map(|s| s.enabled).unwrap_or(false),
                 footer: layout_def.footer.clone(),
                 props,
             },
@@ -402,8 +389,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
 
     // 11. Process Routes
     // Flatten routes for schema
-    let mut valid_targets: std::collections::HashSet<&str> =
-        ir_pages.keys().map(|s| s.as_str()).collect();
+    let mut valid_targets: std::collections::HashSet<&str> = ir_pages.keys().map(|s| s.as_str()).collect();
     valid_targets.extend(ir_dashboards.keys().map(|s| s.as_str()));
     valid_targets.extend(ir_actions.keys().map(|s| s.as_str()));
 
@@ -418,10 +404,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
                     return Err(CompileError::ValidationError {
                         src: src.to_string(),
                         span: r.span,
-                        message: format!(
-                            "Route target '{}' not found in pages, dashboards or actions",
-                            r.action
-                        ),
+                        message: format!("Route target '{}' not found in pages, dashboards or actions", r.action),
                     });
                 }
                 Ok(RouteSchema {
@@ -508,9 +491,7 @@ fn parse_field_type(
     }
 
     match type_name {
-        "String" | "Code" | "Serial" | "Money" | "Email" | "Phone" | "Name" | "Description" => {
-            Ok(FieldType::String)
-        }
+        "String" | "Code" | "Serial" | "Money" | "Email" | "Phone" | "Name" | "Description" => Ok(FieldType::String),
         "Text" => Ok(FieldType::Text),
         "Integer" | "Int" | "Pk" => Ok(FieldType::Integer),
         "Float" | "Decimal" => Ok(FieldType::Float),

@@ -14,15 +14,8 @@ impl DashboardEngine {
         Self
     }
 
-    pub fn generate_ui_schema(
-        &self,
-        schema: &Schema,
-        dashboard_name: &str,
-    ) -> Result<Value, String> {
-        let dashboard = schema
-            .dashboards
-            .get(dashboard_name)
-            .ok_or("Dashboard not found")?;
+    pub fn generate_ui_schema(&self, schema: &Schema, dashboard_name: &str) -> Result<Value, String> {
+        let dashboard = schema.dashboards.get(dashboard_name).ok_or("Dashboard not found")?;
 
         let widgets: Vec<Value> = dashboard
             .widgets

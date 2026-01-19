@@ -107,8 +107,7 @@ async fn main() {
 
                             if !std::path::Path::new(path).exists() {
                                 println!("📝 Creating SQLite database file: {}", path);
-                                fs::File::create(path)
-                                    .expect("Failed to create SQLite database file");
+                                fs::File::create(path).expect("Failed to create SQLite database file");
                             }
 
                             if !url.starts_with("sqlite:") {
@@ -122,11 +121,7 @@ async fn main() {
                             .await
                             .expect("Failed to connect to DB");
 
-                        let manager = SchemaManager::new(
-                            pool.clone(),
-                            schema.clone(),
-                            db_config.db_type.clone(),
-                        );
+                        let manager = SchemaManager::new(pool.clone(), schema.clone(), db_config.db_type.clone());
                         manager.migrate().await.expect("Migration failed");
 
                         Arc::new(AnyStorage::new(pool))
@@ -137,10 +132,7 @@ async fn main() {
 
                     let engine = Arc::new(DataEngine::new(schema.clone(), storage));
 
-                    println!(
-                        "Runtime initialized with {} entities.",
-                        schema.entities.len()
-                    );
+                    println!("Runtime initialized with {} entities.", schema.entities.len());
 
                     let mut static_service = None;
 
@@ -150,9 +142,7 @@ async fn main() {
 
                         if web_dir.exists() {
                             if !dist_dir.exists() {
-                                println!(
-                                    "📦 Frontend build not found in web/dist. Attempting to build..."
-                                );
+                                println!("📦 Frontend build not found in web/dist. Attempting to build...");
                                 #[cfg(windows)]
                                 let npm_cmd = "npm.cmd";
                                 #[cfg(not(windows))]
@@ -193,9 +183,7 @@ async fn main() {
                                 println!("🚀 Serving frontend from {}", dist_dir.display());
                                 static_service = Some(ServeDir::new(dist_dir));
                             } else {
-                                eprintln!(
-                                    "⚠️ Frontend build not found. Dashboard will not be available."
-                                );
+                                eprintln!("⚠️ Frontend build not found. Dashboard will not be available.");
                             }
                         }
 
@@ -265,9 +253,12 @@ async fn main() {
                         };
 
                         let action_name = route_def.action.clone();
-                        let handler = move |State(state): State<AppState>, Path(params): Path<HashMap<String, String>>, Query(query): Query<HashMap<String, String>>| {
-                            handle_dynamic_action(state, params, query, action_name.clone())
-                        };
+                        let handler =
+                            move |State(state): State<AppState>,
+                                  Path(params): Path<HashMap<String, String>>,
+                                  Query(query): Query<HashMap<String, String>>| {
+                                handle_dynamic_action(state, params, query, action_name.clone())
+                            };
 
                         app = app.route(&path, on(verb_filter, handler));
                     }
@@ -278,12 +269,7 @@ async fn main() {
                     };
 
                     let mut app = app
-                        .layer(
-                            CorsLayer::new()
-                                .allow_origin(Any)
-                                .allow_methods(Any)
-                                .allow_headers(Any),
-                        )
+                        .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
                         .with_state(state);
 
                     if let Some(service) = static_service {
@@ -293,16 +279,17 @@ async fn main() {
                     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
                         .await
                         .unwrap_or_else(|e| {
-                            panic!("💥 Failed to bind to port {}: {}. Tip: Try 'fuser -k {}/tcp' to free it.", port, e, port);
+                            panic!(
+                                "💥 Failed to bind to port {}: {}. Tip: Try 'fuser -k {}/tcp' to free it.",
+                                port, e, port
+                            );
                         });
                     println!("🚀 Server running on http://0.0.0.0:{}", port);
 
                     // Run server with graceful shutdown
                     axum::serve(listener, app)
                         .with_graceful_shutdown(async move {
-                            tokio::signal::ctrl_c()
-                                .await
-                                .expect("failed to install CTRL+C handler");
+                            tokio::signal::ctrl_c().await.expect("failed to install CTRL+C handler");
                             println!("\n🛑 Shutdown signal received. Cleaning up...");
                         })
                         .await
@@ -351,11 +338,7 @@ async fn create_entity(
     let ctx = RuntimeContext::system(); // Using system context for now (TODO: Extract from Auth header)
     match state.data_engine.create(&entity, payload, &ctx).await {
         Ok(id) => (StatusCode::CREATED, Json(serde_json::json!({ "id": id }))).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": e })),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
 }
 
@@ -370,36 +353,17 @@ async fn list_entities(
     Path(entity): Path<String>,
     Query(params): Query<ListParams>,
 ) -> impl IntoResponse {
-    match state
-        .data_engine
-        .list(&entity, params.limit, params.offset)
-        .await
-    {
+    match state.data_engine.list(&entity, params.limit, params.offset).await {
         Ok(list) => (StatusCode::OK, Json(list)).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": e })),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
 }
 
-async fn get_entity(
-    State(state): State<AppState>,
-    Path((entity, id)): Path<(String, String)>,
-) -> impl IntoResponse {
+async fn get_entity(State(state): State<AppState>, Path((entity, id)): Path<(String, String)>) -> impl IntoResponse {
     match state.data_engine.read(&entity, &id).await {
         Ok(Some(item)) => (StatusCode::OK, Json(item)).into_response(),
-        Ok(None) => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": "Not found" })),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": e })),
-        )
-            .into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Not found" }))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
 }
 
@@ -410,34 +374,15 @@ async fn update_entity(
 ) -> impl IntoResponse {
     let ctx = RuntimeContext::system();
     match state.data_engine.update(&entity, &id, payload, &ctx).await {
-        Ok(_) => (
-            StatusCode::OK,
-            Json(serde_json::json!({ "status": "updated" })),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": e })),
-        )
-            .into_response(),
+        Ok(_) => (StatusCode::OK, Json(serde_json::json!({ "status": "updated" }))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
 }
 
-async fn delete_entity(
-    State(state): State<AppState>,
-    Path((entity, id)): Path<(String, String)>,
-) -> impl IntoResponse {
+async fn delete_entity(State(state): State<AppState>, Path((entity, id)): Path<(String, String)>) -> impl IntoResponse {
     match state.data_engine.delete(&entity, &id).await {
-        Ok(_) => (
-            StatusCode::OK,
-            Json(serde_json::json!({ "status": "deleted" })),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": e })),
-        )
-            .into_response(),
+        Ok(_) => (StatusCode::OK, Json(serde_json::json!({ "status": "deleted" }))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
 }
 
@@ -455,25 +400,15 @@ async fn get_portal(State(state): State<AppState>) -> impl IntoResponse {
     }
 }
 
-async fn get_page_config(
-    State(state): State<AppState>,
-    Path(entity): Path<String>,
-) -> impl IntoResponse {
+async fn get_page_config(State(state): State<AppState>, Path(entity): Path<String>) -> impl IntoResponse {
     let engine = PageEngine::new();
     match engine.generate_page_config(state.data_engine.get_schema(), &entity) {
         Ok(config) => (StatusCode::OK, Json(config)).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": e })),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
 }
 
-async fn get_form_config(
-    State(state): State<AppState>,
-    Path(entity): Path<String>,
-) -> impl IntoResponse {
+async fn get_form_config(State(state): State<AppState>, Path(entity): Path<String>) -> impl IntoResponse {
     let engine = FormEngine::new();
     // Default form name is 'default' for now, or use entity name as form name if we auto-generated it?
     // In current runtime/form.rs: `generate_ui_schema` takes `form_name`.
@@ -497,11 +432,7 @@ async fn get_form_config(
         Ok(config) => (StatusCode::OK, Json(config)).into_response(),
         Err(_) => match engine.generate_default_form(state.data_engine.get_schema(), &entity) {
             Ok(config) => (StatusCode::OK, Json(config)).into_response(),
-            Err(e) => (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": e })),
-            )
-                .into_response(),
+            Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
         },
     }
 }
@@ -523,15 +454,7 @@ async fn handle_dynamic_action(
         .execute(&action_name, args, &state.data_engine)
         .await
     {
-        Ok(resp) => (
-            StatusCode::OK,
-            Json(serde_json::json!({ "message": resp.message })),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": e })),
-        )
-            .into_response(),
+        Ok(resp) => (StatusCode::OK, Json(serde_json::json!({ "message": resp.message }))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
 }

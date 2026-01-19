@@ -57,10 +57,7 @@ impl ActionEngine {
         match step.step_type.as_str() {
             "entity:delete" => {
                 // Expects "id" arg
-                let id_raw = step
-                    .args
-                    .get("id")
-                    .ok_or("Missing 'id' argument for entity:delete")?;
+                let id_raw = step.args.get("id").ok_or("Missing 'id' argument for entity:delete")?;
                 let id = resolve_arg(id_raw);
 
                 // Call DataEngine delete
