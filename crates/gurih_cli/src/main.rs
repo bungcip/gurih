@@ -100,19 +100,36 @@ async fn main() {
                         }
 
                         if db_config.db_type == "sqlite" {
-                            let path = url
+                            let path_str = url
                                 .trim_start_matches("sqlite://")
                                 .trim_start_matches("sqlite:")
                                 .trim_start_matches("file:");
 
-                            if !std::path::Path::new(path).exists() {
-                                println!("📝 Creating SQLite database file: {}", path);
-                                fs::File::create(path).expect("Failed to create SQLite database file");
+                            let path = std::path::Path::new(path_str);
+                            let resolved_path = if path.is_relative() {
+                                // Resolve relative to .kdl file location
+                                let kdl_dir = file
+                                    .parent()
+                                    .unwrap_or_else(|| std::path::Path::new("."));
+                                kdl_dir.join(path)
+                            } else {
+                                path.to_path_buf()
+                            };
+
+                            // Normalize path for usage
+                            let resolved_path_str = resolved_path.to_str().expect("Invalid path encoding");
+
+                            if !resolved_path.exists() {
+                                println!("📝 Creating SQLite database file: {}", resolved_path_str);
+                                // Ensure parent dir exists
+                                if let Some(parent) = resolved_path.parent() {
+                                    fs::create_dir_all(parent).ok();
+                                }
+                                fs::File::create(&resolved_path).expect("Failed to create SQLite database file");
                             }
 
-                            if !url.starts_with("sqlite:") {
-                                url = format!("sqlite://{}", path);
-                            }
+                            // Update URL to point to the resolved absolute/relative path
+                            url = format!("sqlite://{}", resolved_path_str);
                         }
 
                         let pool = AnyPoolOptions::new()
