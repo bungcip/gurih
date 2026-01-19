@@ -356,7 +356,8 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
 
     // 10. Process Action Logic
     let mut ir_actions = HashMap::new();
-    for action_def in &ast_root.actions {
+
+    let convert_action = |action_def: &ast::ActionLogicDef| -> gurih_ir::ActionLogic {
         let steps = action_def
             .steps
             .iter()
@@ -367,44 +368,55 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
             })
             .collect();
 
-        ir_actions.insert(
-            action_def.name.clone(),
-            gurih_ir::ActionLogic {
-                name: action_def.name.clone(),
-                params: action_def.params.clone(),
-                steps,
-            },
-        );
+        gurih_ir::ActionLogic {
+            name: action_def.name.clone(),
+            params: action_def.params.clone(),
+            steps,
+        }
+    };
+
+    for action_def in &ast_root.actions {
+        ir_actions.insert(action_def.name.clone(), convert_action(action_def));
+    }
+
+    for module_def in &ast_root.modules {
+        for action_def in &module_def.actions {
+            ir_actions.insert(action_def.name.clone(), convert_action(action_def));
+        }
     }
 
     // 11. Process Routes
     // Flatten routes for schema
-    let mut valid_pages: std::collections::HashSet<&str> =
+    let mut valid_targets: std::collections::HashSet<&str> =
         ir_pages.keys().map(|s| s.as_str()).collect();
-    valid_pages.extend(ir_dashboards.keys().map(|s| s.as_str()));
+    valid_targets.extend(ir_dashboards.keys().map(|s| s.as_str()));
+    valid_targets.extend(ir_actions.keys().map(|s| s.as_str()));
 
     fn process_route_node(
         node: &ast::RouteNode,
-        valid_pages: &std::collections::HashSet<&str>,
+        valid_targets: &std::collections::HashSet<&str>,
         src: &str,
     ) -> Result<RouteSchema, CompileError> {
         match node {
             ast::RouteNode::Route(r) => {
-                if !valid_pages.contains(r.to.as_str()) {
+                if !valid_targets.contains(r.action.as_str()) {
                     return Err(CompileError::ValidationError {
                         src: src.to_string(),
                         span: r.span,
-                        message: format!("Route target '{}' not found in pages", r.to),
+                        message: format!(
+                            "Route target '{}' not found in pages, dashboards or actions",
+                            r.action
+                        ),
                     });
                 }
                 Ok(RouteSchema {
                     verb: match r.verb {
-                    ast::RouteVerb::Get => "GET".to_string(),
-                    ast::RouteVerb::Post => "POST".to_string(),
-                    ast::RouteVerb::Put => "PUT".to_string(),
-                    ast::RouteVerb::Delete => "DELETE".to_string(),
-                },
-                path: r.path.clone(),
+                        ast::RouteVerb::Get => "GET".to_string(),
+                        ast::RouteVerb::Post => "POST".to_string(),
+                        ast::RouteVerb::Put => "PUT".to_string(),
+                        ast::RouteVerb::Delete => "DELETE".to_string(),
+                    },
+                    path: r.path.clone(),
                     action: r.action.clone(),
                     layout: r.layout.clone(),
                     permission: r.permission.clone(),
@@ -414,11 +426,11 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
             ast::RouteNode::Group(g) => {
                 let mut children = vec![];
                 for child in &g.children {
-                    children.push(process_route_node(child, valid_pages, src)?);
+                    children.push(process_route_node(child, valid_targets, src)?);
                 }
                 Ok(RouteSchema {
                     verb: "ALL".to_string(),
-                path: g.path.clone(),
+                    path: g.path.clone(),
                     action: "".to_string(),
                     layout: g.layout.clone(),
                     permission: g.permission.clone(),
@@ -430,7 +442,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
 
     for routes_def in &ast_root.routes {
         for route_node in &routes_def.routes {
-            let schema = process_route_node(route_node);
+            let schema = process_route_node(route_node, &valid_targets, src)?;
             // Use path as key? Or accumulate in a list.
             // Schema defines routes: HashMap<String, RouteSchema>.
             ir_routes.insert(schema.path.clone(), schema);

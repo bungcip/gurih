@@ -206,11 +206,14 @@ fn parse_layout_section(node: &KdlNode, src: &str) -> Result<LayoutSectionDef, C
 fn parse_module(node: &KdlNode, src: &str) -> Result<ModuleDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
     let mut entities = vec![];
+    let mut actions = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            if child.name().value() == "entity" {
-                entities.push(parse_entity(child, src)?);
+            match child.name().value() {
+                "entity" => entities.push(parse_entity(child, src)?),
+                "action" => actions.push(parse_action_logic(child, src)?),
+                _ => {}
             }
         }
     }
@@ -219,6 +222,7 @@ fn parse_module(node: &KdlNode, src: &str) -> Result<ModuleDef, CompileError> {
         name,
         entities,
         enums: vec![],
+        actions,
         span: node.span().into(),
     })
 }

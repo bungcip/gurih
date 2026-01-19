@@ -58,6 +58,7 @@ pub struct ModuleDef {
     pub name: String,
     pub entities: Vec<EntityDef>,
     pub enums: Vec<EnumDef>,
+    pub actions: Vec<ActionLogicDef>,
     pub span: SourceSpan,
 }
 

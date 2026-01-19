@@ -84,9 +84,7 @@ module "Organization" {
 
     action "DeletePosition" {
         params "id"
-        step "entity:delete" target="Position" {
-            id=param("id")
-        }
+        step "entity:delete" target="Position" id="param(\"id\")"
     }
 }
 
