@@ -33,7 +33,7 @@ impl DashboardEngine {
                     "type": w.widget_type,
                     "label": w.label,
                     "value": w.value,
-                    // "icon": w.icon // TODO: Add icon to WidgetSchema/WidgetDef if missing
+                    "icon": w.icon
                 })
             })
             .collect();

@@ -9,6 +9,7 @@ clap = { workspace = true }
 gurih_dsl = { workspace = true }
 gurih_ir = { workspace = true }
 gurih_runtime = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }

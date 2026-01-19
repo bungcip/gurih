@@ -65,3 +65,27 @@ fn test_compile_golden_master() {
     assert!(schema.routes.contains_key("/"));
     assert!(schema.routes.contains_key("/employees"));
 }
+
+#[test]
+fn test_compile_widget_icon() {
+    let src = r#"
+    name "TestApp"
+    dashboard "MainDash" {
+        widget "Stats" type="Stat" {
+            label "Total Users"
+            value "100"
+            icon "lucide:users"
+        }
+    }
+    "#;
+
+    let schema = compile(src).expect("Failed to compile");
+    let dash = schema
+        .dashboards
+        .get("MainDash")
+        .expect("Dashboard not found");
+    let widget = dash.widgets.first().expect("Widget not found");
+
+    assert_eq!(widget.name, "Stats");
+    assert_eq!(widget.icon, Some("lucide:users".to_string()));
+}
