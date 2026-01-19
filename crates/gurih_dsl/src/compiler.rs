@@ -4,7 +4,7 @@ use crate::parser::parse;
 use gurih_ir::{
     ActionSchema, ColumnSchema, DashboardSchema, DatabaseSchema, DatatableColumnSchema, DatatableSchema, EntitySchema,
     FieldSchema, FieldType, FormSchema, FormSection, LayoutSchema, MenuItemSchema, MenuSchema, PageContentSchema,
-    PageSchema, PrintSchema, RelationshipSchema, RouteSchema, Schema, SerialSchema, TableSchema, Transition,
+    PageSchema, PrintSchema, RelationshipSchema, RouteSchema, Schema, SerialGeneratorSchema, TableSchema, Transition,
     WidgetSchema, WorkflowSchema,
 };
 use std::collections::HashMap;
@@ -26,7 +26,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
     let mut ir_routes = HashMap::new();
     let mut ir_pages = HashMap::new();
     let mut ir_dashboards = HashMap::new();
-    let mut ir_serials = HashMap::new();
+    let mut ir_serial_generators = HashMap::new();
     let mut ir_prints = HashMap::new();
 
     // 0. Collect all enums (including from modules)
@@ -73,7 +73,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
                     unique: field_def.unique,
                     default: field_def.default.clone(),
                     references: field_def.references.clone(),
-                    serial: field_def.serial.clone(),
+                    serial_generator: field_def.serial_generator.clone(),
                 });
             }
 
@@ -345,10 +345,10 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
     }
 
     // 9. Process Serials
-    for serial_def in &ast_root.serials {
-        ir_serials.insert(
+    for serial_def in &ast_root.serial_generators {
+        ir_serial_generators.insert(
             serial_def.name.clone(),
-            SerialSchema {
+            SerialGeneratorSchema {
                 name: serial_def.name.clone(),
                 prefix: serial_def.prefix.clone(),
                 digits: serial_def.sequence_digits,
@@ -475,7 +475,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
         routes: ir_routes,
         pages: ir_pages,
         dashboards: ir_dashboards,
-        serials: ir_serials,
+        serial_generators: ir_serial_generators,
         prints: ir_prints,
     })
 }

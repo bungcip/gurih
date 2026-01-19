@@ -20,7 +20,7 @@ pub struct Schema {
     pub routes: HashMap<String, RouteSchema>,
     pub pages: HashMap<String, PageSchema>,
     pub dashboards: HashMap<String, DashboardSchema>,
-    pub serials: HashMap<String, SerialSchema>,
+    pub serial_generators: HashMap<String, SerialGeneratorSchema>,
     pub prints: HashMap<String, PrintSchema>,
 }
 
@@ -74,7 +74,7 @@ pub struct FieldSchema {
     pub unique: bool,
     pub default: Option<String>,
     pub references: Option<String>, // Entity name for relations
-    pub serial: Option<String>,
+    pub serial_generator: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -201,7 +201,7 @@ pub struct WidgetSchema {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SerialSchema {
+pub struct SerialGeneratorSchema {
     pub name: String,
     pub prefix: Option<String>,
     pub digits: u32,

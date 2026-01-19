@@ -30,7 +30,7 @@ fn test_compile_golden_master() {
         .iter()
         .find(|f| f.name == "employee_id")
         .expect("Should have employee_id field");
-    assert_eq!(code_field.serial.as_deref(), Some("EmpCode"));
+    assert_eq!(code_field.serial_generator.as_deref(), Some("EmpCode"));
 
     // Check Relationships
     // belongs_to Department, Position
@@ -41,7 +41,7 @@ fn test_compile_golden_master() {
     assert_eq!(emp.options.get("track_changes").map(|s| s.as_str()), Some("true"));
 
     // Check Serials Definition
-    assert!(schema.serials.contains_key("EmpCode"));
+    assert!(schema.serial_generators.contains_key("EmpCode"));
 
     // Check Layouts
     assert!(schema.layouts.contains_key("MainLayout"));

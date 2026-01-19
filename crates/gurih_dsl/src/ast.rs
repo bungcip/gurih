@@ -11,7 +11,7 @@ pub struct Ast {
     pub entities: Vec<EntityDef>,
     pub tables: Vec<TableDef>, // Added
     pub enums: Vec<EnumDef>,
-    pub serials: Vec<SerialDef>,
+    pub serial_generators: Vec<SerialGeneratorDef>,
     pub workflows: Vec<WorkflowDef>,
     pub dashboards: Vec<DashboardDef>,
     pub pages: Vec<PageDef>,
@@ -70,7 +70,7 @@ pub struct EnumDef {
 }
 
 #[derive(Debug, Clone)]
-pub struct SerialDef {
+pub struct SerialGeneratorDef {
     pub name: String,
     pub prefix: Option<String>,
     pub date_format: Option<String>,
@@ -97,8 +97,8 @@ pub struct EntityOptions {
 #[derive(Debug, Clone)]
 pub struct FieldDef {
     pub name: String,
-    pub type_name: String,      // Semantic Type
-    pub serial: Option<String>, // if type is code
+    pub type_name: String,                // Semantic Type
+    pub serial_generator: Option<String>, // if type is code
     pub required: bool,
     pub unique: bool,
     pub default: Option<String>,

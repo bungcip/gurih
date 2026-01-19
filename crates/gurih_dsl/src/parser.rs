@@ -14,7 +14,7 @@ pub fn parse(src: &str) -> Result<Ast, CompileError> {
         entities: vec![],
         tables: vec![], // Added
         enums: vec![],
-        serials: vec![],
+        serial_generators: vec![],
         workflows: vec![],
         dashboards: vec![],
         pages: vec![],
@@ -37,7 +37,7 @@ pub fn parse(src: &str) -> Result<Ast, CompileError> {
             "entity" => ast.entities.push(parse_entity(node, src)?),
             "table" => ast.tables.push(parse_table(node, src)?), // Added
             "enum" => ast.enums.push(parse_enum(node, src)?),
-            "serial" => ast.serials.push(parse_serial(node, src)?),
+            "serial_generator" => ast.serial_generators.push(parse_serial_generator(node, src)?),
             "workflow" => ast.workflows.push(parse_workflow(node, src)?),
             "dashboard" => ast.dashboards.push(parse_dashboard(node, src)?),
             "page" => ast.pages.push(parse_page(node, src)?),
@@ -272,7 +272,7 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
 
                     // Special handling for "field:serial" which might carry extra props usually on "code"
                     if type_part == "serial" {
-                        // field:serial "name" serial="Code"
+                        // field:serial "name" serial_generator="Code"
                         // parse_field already reads `serial` prop if present
                     }
 
@@ -323,7 +323,7 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                     fields.push(FieldDef {
                         name: "id".to_string(),
                         type_name: "Integer".to_string(),
-                        serial: None,
+                        serial_generator: None,
                         required: true,
                         unique: true,
                         default: None,
@@ -333,7 +333,7 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                 }
                 "string" | "text" | "int" | "integer" | "float" | "decimal" | "bool" | "boolean" | "date"
                 | "datetime" | "time" | "money" | "code" | "enum" | "name" | "email" | "phone" | "description" => {
-                    // code "field_name" generator="GenName"
+                    // code "field_name" serial_generator="GenName"
                     // enum "status" "StatusEnum" default="Draft"
 
                     let type_name = capitalize(child_name);
@@ -342,7 +342,7 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                     let required = get_prop_bool(child, "required").unwrap_or(false);
                     let unique = get_prop_bool(child, "unique").unwrap_or(false);
                     let default = get_prop_string(child, "default", src).ok();
-                    let serial = get_prop_string(child, "serial", src).ok();
+                    let serial_generator = get_prop_string(child, "serial_generator", src).ok();
 
                     // For Enum, the second arg is the enum name
                     let references = if child_name == "enum" {
@@ -354,7 +354,7 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                     fields.push(FieldDef {
                         name: field_name,
                         type_name,
-                        serial,
+                        serial_generator,
                         required,
                         unique,
                         default,
@@ -459,7 +459,7 @@ fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
 
     let unique = get_prop_bool(node, "unique").unwrap_or(false);
     let default = get_prop_string(node, "default", src).ok();
-    let serial = get_prop_string(node, "serial", src).ok();
+    let serial_generator = get_prop_string(node, "serial_generator", src).ok();
 
     // Special handling for field:pk which usually has "id" as arg 0, but no type
     // If we call parse_field for field:pk node, we expect type_name to be set by caller usually
@@ -471,7 +471,7 @@ fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
     Ok(FieldDef {
         name,
         type_name,
-        serial,
+        serial_generator,
         required,
         unique,
         default,
@@ -627,7 +627,7 @@ fn parse_enum(node: &KdlNode, src: &str) -> Result<EnumDef, CompileError> {
     })
 }
 
-fn parse_serial(node: &KdlNode, src: &str) -> Result<SerialDef, CompileError> {
+fn parse_serial_generator(node: &KdlNode, src: &str) -> Result<SerialGeneratorDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
     let mut prefix = None;
     let mut date_format = None;
@@ -648,7 +648,7 @@ fn parse_serial(node: &KdlNode, src: &str) -> Result<SerialDef, CompileError> {
         }
     }
 
-    Ok(SerialDef {
+    Ok(SerialGeneratorDef {
         name,
         prefix,
         date_format,

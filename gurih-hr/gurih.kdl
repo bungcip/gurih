@@ -57,7 +57,7 @@ enum "LeaveStatus" {
     Cancelled
 }
 
-serial "EmpCode" {
+serial_generator "EmpCode" {
     prefix "EMP/"
     date "YYYY"
     sequence digits=4
@@ -99,7 +99,7 @@ module "Organization" {
 module "Personnel" {
     entity "Employee" {
         field:pk id
-        field:serial "employee_id" serial="EmpCode"
+        field:serial "employee_id" serial_generator="EmpCode"
         field:name "full_name"
         field:email "email_address" unique=#true
         field:phone "phone_number"

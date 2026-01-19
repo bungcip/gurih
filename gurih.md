@@ -55,7 +55,7 @@ table "products" {
 
 **Semantic Types:**
 - `field:pk`: Primary key.
-- `field:serial`: Human-readable unique identifier (e.g., INV/2024/001). Usually linked to a `generator`.
+- `field:serial`: Human-readable unique identifier (e.g., INV/2024/001). Usually linked to a `serial_generator`.
 - `field:sku`: Specialized code for inventory/items.
 - `field:name`: Nama orang atau barang.
 - `field:string`: Judul atau label pendek.
@@ -69,11 +69,11 @@ table "products" {
 > [!TIP]
 > You can use `nullable=#true` to explicitly mark a field as optional (which translates to `required=false`). By default, fields are optional unless `required=#true` is set.
 
-### 3.3 Code Generators
-Generators define rules for creating automatic human-readable codes.
+### 3.3 Serial Generator
+Serial generators define rules for creating automatic human-readable codes.
 
 ```kdl
-generator "InvoiceCode" {
+serial_generator "InvoiceCode" {
     prefix "INV/"
     date "YYYY/"
     sequence digits=4
@@ -85,7 +85,7 @@ generator "InvoiceCode" {
 ```kdl
 entity "Invoice" {
     field:pk id
-    field:serial "invoice_number" generator="InvoiceCode"
+    field:serial "invoice_number" serial_generator="InvoiceCode"
     field:date "invoice_date"
     field:money "total_amount"
 }
@@ -474,7 +474,7 @@ module "Sales" {
     
     entity "Order" {
         field:pk id
-        field:serial "order_number" generator="OrderCode"
+        field:serial "order_number" serial_generator="OrderCode"
         field:date "order_date"
         belongs_to "Customer"
         
