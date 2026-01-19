@@ -12,7 +12,12 @@ pub trait Storage: Send + Sync {
     async fn get(&self, entity: &str, id: &str) -> Result<Option<Value>, String>;
     async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String>;
     async fn delete(&self, entity: &str, id: &str) -> Result<(), String>;
-    async fn list(&self, entity: &str) -> Result<Vec<Value>, String>;
+    async fn list(
+        &self,
+        entity: &str,
+        limit: Option<usize>,
+        offset: Option<usize>,
+    ) -> Result<Vec<Value>, String>;
 }
 
 pub struct MemoryStorage {
@@ -86,10 +91,17 @@ impl Storage for MemoryStorage {
         }
     }
 
-    async fn list(&self, entity: &str) -> Result<Vec<Value>, String> {
+    async fn list(
+        &self,
+        entity: &str,
+        limit: Option<usize>,
+        offset: Option<usize>,
+    ) -> Result<Vec<Value>, String> {
         let data = self.data.lock().unwrap();
         if let Some(table) = data.get(entity) {
-            Ok(table.values().cloned().collect())
+            let skip = offset.unwrap_or(0);
+            let take = limit.unwrap_or(usize::MAX);
+            Ok(table.values().skip(skip).take(take).cloned().collect())
         } else {
             Ok(vec![])
         }
@@ -287,12 +299,31 @@ impl Storage for AnyStorage {
         Ok(())
     }
 
-    async fn list(&self, entity: &str) -> Result<Vec<Value>, String> {
-        let query = format!("SELECT * FROM \"{}\"", entity);
-        let rows = sqlx::query(&query)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+    async fn list(
+        &self,
+        entity: &str,
+        limit: Option<usize>,
+        offset: Option<usize>,
+    ) -> Result<Vec<Value>, String> {
+        let mut query = format!("SELECT * FROM \"{}\"", entity);
+        let mut params: Vec<i64> = vec![];
+
+        if let Some(l) = limit {
+            params.push(l as i64);
+            query.push_str(&format!(" LIMIT ${}", params.len()));
+        }
+
+        if let Some(o) = offset {
+            params.push(o as i64);
+            query.push_str(&format!(" OFFSET ${}", params.len()));
+        }
+
+        let mut q = sqlx::query(&query);
+        for p in params {
+            q = q.bind(p);
+        }
+
+        let rows = q.fetch_all(&self.pool).await.map_err(|e| e.to_string())?;
 
         Ok(rows.into_iter().map(Self::row_to_json).collect())
     }

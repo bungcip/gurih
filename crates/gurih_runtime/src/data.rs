@@ -148,11 +148,16 @@ impl DataEngine {
         self.storage.delete(entity_name, id).await
     }
 
-    pub async fn list(&self, entity_name: &str) -> Result<Vec<Value>, String> {
+    pub async fn list(
+        &self,
+        entity_name: &str,
+        limit: Option<usize>,
+        offset: Option<usize>,
+    ) -> Result<Vec<Value>, String> {
         if !self.schema.entities.contains_key(entity_name) {
             return Err(format!("Entity '{}' not defined", entity_name));
         }
-        self.storage.list(entity_name).await
+        self.storage.list(entity_name, limit, offset).await
     }
 }
 
