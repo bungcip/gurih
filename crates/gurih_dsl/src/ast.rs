@@ -9,6 +9,7 @@ pub struct Ast {
     pub layouts: Vec<LayoutDef>,
     pub modules: Vec<ModuleDef>,
     pub entities: Vec<EntityDef>,
+    pub tables: Vec<TableDef>, // Added
     pub enums: Vec<EnumDef>,
     pub serials: Vec<SerialDef>,
     pub workflows: Vec<WorkflowDef>,
@@ -100,6 +101,24 @@ pub struct FieldDef {
     pub unique: bool,
     pub default: Option<String>,
     pub references: Option<String>, // For simple refs or enum links
+    pub span: SourceSpan,
+}
+
+// Added Table Definitions
+#[derive(Debug, Clone)]
+pub struct TableDef {
+    pub name: String,
+    pub columns: Vec<ColumnDef>,
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone)]
+pub struct ColumnDef {
+    pub name: String,
+    pub type_name: String, // "serial", "varchar", etc.
+    pub props: std::collections::HashMap<String, String>, // len, precision, etc.
+    pub primary: bool,
+    pub unique: bool,
     pub span: SourceSpan,
 }
 

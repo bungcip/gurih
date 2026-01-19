@@ -10,5 +10,6 @@ gurih_dsl = { version = "0.1.0", path = "../gurih_dsl" }
 gurih_ir = { version = "0.1.0", path = "../gurih_ir" }
 gurih_runtime = { version = "0.1.0", path = "../gurih_runtime" }
 serde_json = "1.0.149"
+sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio", "tls-native-tls"] }
 tokio = { version = "1.49.0", features = ["full"] }
 tower-http = { version = "0.6.8", features = ["cors", "trace"] }

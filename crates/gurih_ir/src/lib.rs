@@ -5,8 +5,10 @@ use std::collections::HashMap;
 pub struct Schema {
     pub name: String,
     pub version: String,
+    pub database: Option<DatabaseSchema>, // Added
     pub modules: HashMap<String, ModuleSchema>,
     pub entities: HashMap<String, EntitySchema>,
+    pub tables: HashMap<String, TableSchema>, // Added
     pub workflows: HashMap<String, WorkflowSchema>,
     pub forms: HashMap<String, FormSchema>,
     pub permissions: HashMap<String, PermissionSchema>,
@@ -22,6 +24,12 @@ pub struct Schema {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatabaseSchema {
+    pub db_type: String,
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModuleSchema {
     pub name: String,
     pub entities: Vec<String>, // Entity names
@@ -33,6 +41,21 @@ pub struct EntitySchema {
     pub fields: Vec<FieldSchema>,
     pub relationships: Vec<RelationshipSchema>,
     pub options: HashMap<String, String>, // is_submittable, track_changes, etc
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableSchema {
+    pub name: String,
+    pub columns: Vec<ColumnSchema>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ColumnSchema {
+    pub name: String,
+    pub type_name: String,
+    pub props: HashMap<String, String>,
+    pub primary: bool,
+    pub unique: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

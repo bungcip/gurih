@@ -5,7 +5,8 @@ use gurih_ir::{
     Schema, EntitySchema, FieldSchema, FieldType, WorkflowSchema, FormSchema, FormSection, 
     PermissionSchema, Transition, LayoutSchema, MenuSchema, MenuItemSchema, 
     RouteSchema, PageSchema, PageContentSchema, DatatableSchema, DatatableColumnSchema, 
-    ActionSchema, DashboardSchema, WidgetSchema, SerialSchema, PrintSchema, RelationshipSchema
+    ActionSchema, DashboardSchema, WidgetSchema, SerialSchema, PrintSchema, RelationshipSchema,
+    DatabaseSchema, TableSchema, ColumnSchema
 };
 use std::collections::HashMap;
 
@@ -16,6 +17,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
     let mut entity_names = HashMap::new();
     
     let mut ir_entities = HashMap::new();
+    let mut ir_tables = HashMap::new();
     let mut ir_modules = HashMap::new();
     let mut ir_workflows = HashMap::new();
     let mut ir_forms = HashMap::new();
@@ -67,7 +69,13 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
         })
     };
 
-    // 0. Process Modules
+    // 0. Process Database
+    let database = ast_root.database.map(|d| DatabaseSchema {
+        db_type: d.db_type,
+        url: d.url,
+    });
+
+    // 1. Process Modules
     for module_def in &ast_root.modules {
         let mut module_entities = vec![];
         for entity_def in &module_def.entities {
@@ -91,7 +99,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
         });
     }
 
-    // 1. Process Top-Level Entities
+    // 2. Process Top-Level Entities
     for entity_def in &ast_root.entities {
         if entity_names.contains_key(&entity_def.name) {
              return Err(CompileError::ValidationError {
@@ -106,7 +114,23 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
         ir_entities.insert(entity_def.name.clone(), entity_schema);
     }
 
-    // 2. Process Workflows
+    // 3. Process Tables
+    for table_def in &ast_root.tables {
+        let columns = table_def.columns.iter().map(|c| ColumnSchema {
+            name: c.name.clone(),
+            type_name: c.type_name.clone(),
+            props: c.props.clone(),
+            primary: c.primary,
+            unique: c.unique,
+        }).collect();
+
+        ir_tables.insert(table_def.name.clone(), TableSchema {
+            name: table_def.name.clone(),
+            columns,
+        });
+    }
+
+    // 4. Process Workflows
     for wf_def in &ast_root.workflows {
         // ... (validation logic similar to before)
         ir_workflows.insert(wf_def.name.clone(), WorkflowSchema {
@@ -123,7 +147,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
         });
     }
 
-    // 3. Process Layouts
+    // 5. Process Layouts
     for layout_def in &ast_root.layouts {
         let header_enabled = layout_def.header.as_ref().map(|h| h.enabled).unwrap_or(false);
         let header_props = layout_def.header.as_ref().map(|h| h.props.clone()).unwrap_or_default();
@@ -139,7 +163,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
         });
     }
 
-    // 4. Process Menus
+    // 6. Process Menus
     fn convert_menu_item(def: &ast::MenuItemDef) -> MenuItemSchema {
         match def {
             ast::MenuItemDef::Item(item) => MenuItemSchema {
@@ -164,7 +188,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
         });
     }
 
-    // 5. Process Pages
+    // 7. Process Pages
     for page_def in &ast_root.pages {
         let content = match &page_def.content {
             ast::PageContent::Datatable(dt) => PageContentSchema::Datatable(DatatableSchema {
@@ -203,7 +227,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
         });
     }
 
-    // 6. Process Dashboards
+    // 8. Process Dashboards
     for db_def in &ast_root.dashboards {
         ir_dashboards.insert(db_def.name.clone(), DashboardSchema {
             name: db_def.name.clone(),
@@ -217,7 +241,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
         });
     }
 
-    // 7. Process Serials
+    // 9. Process Serials
     for serial_def in &ast_root.serials {
         ir_serials.insert(serial_def.name.clone(), SerialSchema {
             name: serial_def.name.clone(),
@@ -226,7 +250,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
         });
     }
 
-    // 8. Process Routes
+    // 10. Process Routes
     // Flatten routes for schema
     fn process_route_node(node: &ast::RouteNode) -> RouteSchema {
         match node {
@@ -256,7 +280,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
         }
     }
 
-     // 9. Process Prints
+     // 11. Process Prints
     for print_def in &ast_root.prints {
         ir_prints.insert(print_def.name.clone(), PrintSchema {
             name: print_def.name.clone(),
@@ -268,8 +292,10 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
     Ok(Schema {
         name: ast_root.name.unwrap_or("GurihApp".to_string()),
         version: ast_root.version.unwrap_or("1.0.0".to_string()),
+        database,
         modules: ir_modules,
         entities: ir_entities,
+        tables: ir_tables,
         workflows: ir_workflows,
         forms: ir_forms,
         permissions: ir_permissions,

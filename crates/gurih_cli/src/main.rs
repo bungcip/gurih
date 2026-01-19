@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use gurih_dsl::compile;
 use std::fs;
 use gurih_runtime::data::DataEngine;
-use gurih_runtime::storage::MemoryStorage;
+use gurih_runtime::storage::{MemoryStorage, PostgresStorage, Storage};
+use gurih_runtime::persistence::SchemaManager;
 use gurih_runtime::context::RuntimeContext;
 use std::sync::Arc;
 use tokio;
@@ -17,6 +18,7 @@ use axum::{
 use serde_json::Value;
 use tower_http::cors::{CorsLayer, Any};
 use gurih_runtime::{portal::PortalEngine, page::PageEngine, form::FormEngine};
+use sqlx::postgres::PgPoolOptions;
 
 #[derive(Parser)]
 #[command(name = "gurih")]
@@ -80,7 +82,34 @@ async fn main() {
                 Ok(schema) => {
                     println!("✔ Schema loaded. Starting runtime...");
                     let schema = Arc::new(schema);
-                    let storage = Arc::new(MemoryStorage::new());
+
+                    // Initialize Storage
+                    let storage: Arc<dyn Storage> = if let Some(db_config) = &schema.database {
+                        println!("🔌 Connecting to database...");
+                        // Handle env:DATABASE_URL
+                        let url = if db_config.url.starts_with("env:") {
+                             std::env::var(&db_config.url[4..]).unwrap_or_else(|_| "".to_string())
+                        } else {
+                             db_config.url.clone()
+                        };
+
+                        if url.is_empty() {
+                            panic!("Database URL is empty or env var not set.");
+                        }
+
+                        let pool = PgPoolOptions::new()
+                            .max_connections(5)
+                            .connect(&url).await.expect("Failed to connect to DB");
+
+                        let manager = SchemaManager::new(pool.clone(), schema.clone());
+                        manager.migrate().await.expect("Migration failed");
+
+                        Arc::new(PostgresStorage::new(pool))
+                    } else {
+                        println!("⚠️ No database configured. Using in-memory storage.");
+                        Arc::new(MemoryStorage::new())
+                    };
+
                     let engine = Arc::new(DataEngine::new(schema.clone(), storage));
 
                     println!("Runtime initialized with {} entities.", schema.entities.len());
