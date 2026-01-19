@@ -148,7 +148,8 @@ impl DataEngine {
         self.storage.delete(entity_name, id).await
     }
 
-    pub async fn list(&self,
+    pub async fn list(
+        &self,
         entity: &str,
         limit: Option<usize>,
         offset: Option<usize>,
