@@ -17,15 +17,25 @@ impl FormEngine {
         for section in &form.sections {
             let mut ui_fields = vec![];
             for field_name in &section.fields {
-                let field_def = entity.fields.iter().find(|f| &f.name == field_name)
-                    .ok_or_else(|| format!("Field {} not found in entity {}", field_name, form.entity))?;
+                let ui_field = if let Some(field_def) = entity.fields.iter().find(|f| &f.name == field_name) {
+                    json!({
+                        "name": field_def.name,
+                        "label": field_def.name, 
+                        "widget": self.map_field_type_to_widget(&field_def.field_type),
+                        "required": field_def.required
+                    })
+                } else if let Some(rel_def) = entity.relationships.iter().find(|r| &r.name == field_name) {
+                    json!({
+                        "name": rel_def.name,
+                        "label": rel_def.name, 
+                        "widget": "RelationPicker",
+                        "required": false // Default for relation
+                    })
+                } else {
+                    return Err(format!("Field {} not found in entity {}", field_name, form.entity));
+                };
                 
-                ui_fields.push(json!({
-                    "name": field_def.name,
-                    "label": field_def.name, 
-                    "widget": self.map_field_type_to_widget(&field_def.field_type),
-                    "required": field_def.required
-                }));
+                ui_fields.push(ui_field);
             }
             
             ui_sections.push(json!({

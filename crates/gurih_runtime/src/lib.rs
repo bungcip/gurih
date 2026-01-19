@@ -5,3 +5,4 @@ pub mod storage;
 pub mod context;
 pub mod portal;
 pub mod page;
+pub mod dashboard;

@@ -43,6 +43,9 @@ enum Commands {
         file: PathBuf,
         #[arg(long, default_value = "3000")]
         port: u16,
+        /// Only run the backend server, skip frontend and browser
+        #[arg(long)]
+        server_only: bool,
     },
 }
 
@@ -72,7 +75,7 @@ async fn main() {
                 Err(e) => eprintln!("❌ Error: {}", e),
             }
         }
-        Commands::Run { file, port } => {
+        Commands::Run { file, port, server_only } => {
             match read_and_compile(&file) {
                 Ok(schema) => {
                     println!("✔ Schema loaded. Starting runtime...");
@@ -82,6 +85,37 @@ async fn main() {
 
                     println!("Runtime initialized with {} entities.", schema.entities.len());
                     
+                    if !server_only {
+                        // Start Frontend if exists
+                        let frontend_port = 5173;
+                        let web_path = std::path::Path::new("web");
+                        if web_path.exists() {
+                            println!("🚀 Starting frontend in web directory...");
+                            #[cfg(windows)]
+                            let npm_cmd = "npm.cmd";
+                            #[cfg(not(windows))]
+                            let npm_cmd = "npm";
+                            
+                            let _frontend = tokio::process::Command::new(npm_cmd)
+                                .arg("run")
+                                .arg("dev")
+                                .current_dir(web_path)
+                                .stdout(std::process::Stdio::null())
+                                .stderr(std::process::Stdio::null())
+                                .spawn();
+                        }
+
+                        // Open Browser
+                        tokio::spawn(async move {
+                            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                            println!("🌐 Opening dashboard at http://localhost:{}", frontend_port);
+                            #[cfg(windows)]
+                            let _ = std::process::Command::new("cmd").args(["/C", "start", &format!("http://localhost:{}", frontend_port)]).spawn();
+                            #[cfg(not(windows))]
+                            let _ = std::process::Command::new("open").arg(&format!("http://localhost:{}", frontend_port)).spawn();
+                        });
+                    }
+
                     let state = AppState { data_engine: engine };
                     
                     let app = Router::new()

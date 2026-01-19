@@ -1,0 +1,265 @@
+name "GurihHR"
+version "0.1.0"
+
+database {
+    type "sqlite"
+    url "file:hr.db"
+}
+
+// -----------------------------------------------------------------------------
+// ICONS
+// -----------------------------------------------------------------------------
+icons {
+    "dashboard" "lucide:layout-dashboard"
+    "users" "lucide:users"
+    "user" "lucide:user"
+    "calendar" "lucide:calendar"
+    "settings" "lucide:settings"
+    "check" "lucide:check-circle"
+    "x" "lucide:x-circle"
+    "clock" "lucide:clock"
+    "plus" "lucide:plus"
+    "pencil" "lucide:pencil"
+    "trash" "lucide:trash-2"
+}
+
+// -----------------------------------------------------------------------------
+// LAYOUTS
+// -----------------------------------------------------------------------------
+layout "MainLayout" {
+    header {
+        search_bar "true"
+        user_menu "true"
+    }
+    sidebar {
+        menu_ref "MainMenu"
+        collapsible "true"
+    }
+    footer "GurihHR © 2026"
+}
+
+// -----------------------------------------------------------------------------
+// ENUMS & GENERATORS
+// -----------------------------------------------------------------------------
+enum "EmploymentStatus" {
+    Probation
+    Permanent
+    Contract
+    Resigned
+    Terminated
+}
+
+enum "LeaveStatus" {
+    Draft
+    Pending
+    Approved
+    Rejected
+    Cancelled
+}
+
+serial "EmpCode" {
+    prefix "EMP/"
+    date "YYYY"
+    sequence digits=4
+}
+
+// -----------------------------------------------------------------------------
+// MODULE: ORGANIZATION
+// -----------------------------------------------------------------------------
+module "Organization" {
+    entity "Department" {
+        id
+        name unique="true"
+        description
+        
+        has_many "employees" "Employee"
+    }
+
+    entity "Position" {
+        id
+        title
+        description
+        money "base_salary"
+    }
+}
+
+// -----------------------------------------------------------------------------
+// MODULE: PERSONNEL
+// -----------------------------------------------------------------------------
+module "Personnel" {
+    entity "Employee" {
+        id
+        code "employee_id" serial="EmpCode"
+        name "full_name"
+        email "email_address" unique="true"
+        phone "phone_number"
+        date "join_date"
+        
+        enum "status" "EmploymentStatus" default="Probation"
+        
+        // Relationships
+        belongs_to "Department"
+        belongs_to "Position"
+        
+        has_many "leave_requests" "LeaveRequest"
+        
+        options {
+            track_changes "true"
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// MODULE: LEAVE MANAGEMENT (With Workflow)
+// -----------------------------------------------------------------------------
+module "Leave" {
+    entity "LeaveRequest" {
+        id
+        belongs_to "Employee"
+        date "start_date"
+        date "end_date"
+        text "reason"
+        enum "status" "LeaveStatus" default="Draft"
+        
+        options {
+            is_submittable "true"
+            track_changes "true"
+        }
+    }
+
+    workflow "LeaveWorkflow" for="LeaveRequest" field="status" {
+        state "Draft" initial="true"
+        state "Pending"
+        state "Approved"
+        state "Rejected"
+        state "Cancelled"
+
+        transition "submit" {
+            from "Draft"
+            to "Pending"
+        }
+        
+        transition "approve" {
+            from "Pending"
+            to "Approved"
+        }
+
+        transition "reject" {
+            from "Pending" 
+            to "Rejected"
+        }
+        
+        transition "cancel" {
+            from "Draft" "Pending"
+            to "Cancelled"
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// UI: PAGES & DASHBOARD
+// -----------------------------------------------------------------------------
+dashboard "HRDashboard" {
+    title "HR Overview"
+    
+    grid columns=3 {
+        widget "TotalEmployees" type="stat" {
+            label "Total Employees"
+            value "count:Employee[status=Permanent]"
+            icon "users"
+        }
+        widget "PendingLeaves" type="stat" {
+            label "Pending Leave Requests"
+            value "count:LeaveRequest[status=Pending]"
+            icon "clock"
+            color "warning"
+        }
+    }
+}
+
+page "EmployeeList" {
+    title "Employees"
+    datatable for="Employee" {
+        column "employee_id" label="ID"
+        column "full_name" label="Name"
+        column "department.name" label="Department"
+        column "status" label="Status"
+        
+        action "Edit" icon="pencil" to="/employees/:id"
+    }
+}
+
+page "EmployeeForm" {
+    title "Employee Details"
+    form for="Employee" {
+        section "Basic Info" {
+            field "full_name"
+            field "email_address"
+            field "phone_number"
+        }
+        section "Job Details" {
+            group {
+                field "department"
+                field "position"
+            }
+            group {
+                field "join_date"
+                field "status"
+            }
+        }
+    }
+}
+
+page "LeaveList" {
+    title "Leave Requests"
+    datatable for="LeaveRequest" {
+        column "employee.full_name" label="Employee"
+        column "start_date"
+        column "end_date"
+        column "status"
+        
+        action "Review" icon="check" to="/leave/:id"
+    }
+}
+
+// -----------------------------------------------------------------------------
+// ROUTING & MENU
+// -----------------------------------------------------------------------------
+routes {
+    route "/" to="HRDashboard" layout="MainLayout"
+    
+    group "/employees" layout="MainLayout" permission="hr.employee.view" {
+        route "/" to="EmployeeList"
+        route "/new" to="EmployeeForm" permission="hr.employee.create"
+        route "/:id" to="EmployeeForm" permission="hr.employee.edit"
+    }
+
+    group "/leave" layout="MainLayout" {
+        route "/" to="LeaveList"
+        // ... detailed routes
+    }
+}
+
+menu "MainMenu" {
+    item "Dashboard" to="/" icon="dashboard"
+    
+    group "Personnel" icon="users" {
+        item "Employees" to="/employees"
+    }
+    
+    group "Leave Management" icon="calendar" {
+        item "Requests" to="/leave"
+    }
+}
+
+// -----------------------------------------------------------------------------
+// ACL
+// -----------------------------------------------------------------------------
+role "HRManager" {
+    allow "*"
+}
+
+role "Employee" {
+    allow "/" "read"
+    allow "/leave/*" "read,write" // Can only see/edit own leaves (logic handled in app layer usually)
+}

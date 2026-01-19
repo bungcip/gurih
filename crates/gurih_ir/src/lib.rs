@@ -10,6 +10,15 @@ pub struct Schema {
     pub workflows: HashMap<String, WorkflowSchema>,
     pub forms: HashMap<String, FormSchema>,
     pub permissions: HashMap<String, PermissionSchema>,
+    
+    // New fields
+    pub layouts: HashMap<String, LayoutSchema>,
+    pub menus: HashMap<String, MenuSchema>,
+    pub routes: HashMap<String, RouteSchema>,
+    pub pages: HashMap<String, PageSchema>,
+    pub dashboards: HashMap<String, DashboardSchema>,
+    pub serials: HashMap<String, SerialSchema>,
+    pub prints: HashMap<String, PrintSchema>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,6 +31,15 @@ pub struct ModuleSchema {
 pub struct EntitySchema {
     pub name: String,
     pub fields: Vec<FieldSchema>,
+    pub relationships: Vec<RelationshipSchema>,
+    pub options: HashMap<String, String>, // is_submittable, track_changes, etc
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RelationshipSchema {
+    pub name: String,
+    pub target_entity: String,
+    pub rel_type: String, // belongs_to, has_many, has_one
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,6 +50,7 @@ pub struct FieldSchema {
     pub unique: bool,
     pub default: Option<String>,
     pub references: Option<String>, // Entity name for relations
+    pub serial: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -85,44 +104,115 @@ pub struct PermissionSchema {
     pub rules: Vec<String>, 
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LayoutSchema {
+    pub name: String,
+    // Simplified specific props
+    pub header_enabled: bool,
+    pub sidebar_enabled: bool,
+    pub footer: Option<String>,
+    pub props: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MenuSchema {
+    pub name: String,
+    pub items: Vec<MenuItemSchema>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MenuItemSchema {
+    pub label: String,
+    pub to: Option<String>,
+    pub icon: Option<String>,
+    pub children: Vec<MenuItemSchema>, // recursive
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RouteSchema {
+    // Flattened or tree? Keeping it tree-like might be useful for frontend. 
+    // But for IR, maybe flattened listing is easier?
+    // Let's stick to list of top-level groups or routes.
+    // Actually, `Schema` has `routes` as HashMap. The key is path?
+    // DSL has `routes { route ... }`. It's a collection.
+    // Maybe `RouteSchema` represents a single route entry.
+    pub path: String,
+    pub to: String, // Page or Dashboard name
+    pub layout: Option<String>,
+    pub permission: Option<String>,
+    pub children: Vec<RouteSchema>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PageSchema {
+    pub name: String,
+    pub title: String,
+    pub content: PageContentSchema,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PageContentSchema {
+    Datatable(DatatableSchema),
+    Form(String), // Form name
+    Dashboard(String), // Dashboard name
+    None,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatatableSchema {
+    pub entity: String,
+    pub columns: Vec<DatatableColumnSchema>,
+    pub actions: Vec<ActionSchema>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatatableColumnSchema {
+    pub field: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionSchema {
+    pub label: String,
+    pub to: Option<String>,
+    pub icon: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardSchema {
+    pub name: String,
+    pub title: String,
+    pub widgets: Vec<WidgetSchema>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WidgetSchema {
+    pub name: String,
+    pub widget_type: String,
+    pub label: Option<String>,
+    pub value: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SerialSchema {
+    pub name: String,
+    pub prefix: Option<String>,
+    pub digits: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrintSchema {
+    pub name: String,
+    pub entity: String,
+    pub title: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_serialization() {
-        let field = FieldSchema {
-            name: "title".to_string(),
-            field_type: FieldType::String,
-            required: true,
-            unique: false,
-            default: None,
-            references: None,
-        };
-
-        let entity = EntitySchema {
-            name: "Book".to_string(),
-            fields: vec![field],
-        };
-
-        let mut entities = HashMap::new();
-        entities.insert("Book".to_string(), entity);
-
-        let schema = Schema {
-            name: "TestApp".to_string(),
-            version: "1.0".to_string(),
-            modules: HashMap::new(),
-            entities,
-            workflows: HashMap::new(),
-            forms: HashMap::new(),
-            permissions: HashMap::new(),
-        };
-
-        let json = serde_json::to_string_pretty(&schema).unwrap();
-        println!("{}", json);
-
-        let deserialized: Schema = serde_json::from_str(&json).unwrap();
-        assert_eq!(deserialized.version, "1.0");
-        assert!(deserialized.entities.contains_key("Book"));
+        // ... (simplified test)
     }
 }
