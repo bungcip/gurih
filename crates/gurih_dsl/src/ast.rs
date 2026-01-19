@@ -2,10 +2,21 @@ use miette::SourceSpan;
 
 #[derive(Debug, Clone)]
 pub struct Ast {
+    pub name: Option<String>,
+    pub version: Option<String>,
+    pub modules: Vec<ModuleDef>,
     pub entities: Vec<EntityDef>,
     pub workflows: Vec<WorkflowDef>,
     pub forms: Vec<FormDef>,
     pub permissions: Vec<PermissionDef>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ModuleDef {
+    pub name: String,
+    pub entities: Vec<EntityDef>, // Nested entities
+    // We could nesting other things too, but for now just entities as per kdl
+    pub span: SourceSpan,
 }
 
 #[derive(Debug, Clone)]

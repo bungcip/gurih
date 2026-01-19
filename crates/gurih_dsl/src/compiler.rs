@@ -10,9 +10,49 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
     let mut entity_names = HashMap::new();
     
     let mut ir_entities = HashMap::new();
+    let mut ir_modules = HashMap::new();
     let mut ir_workflows = HashMap::new();
     let mut ir_forms = HashMap::new();
     let mut ir_permissions = HashMap::new();
+
+    // 0. Process Modules
+    for module_def in &ast.modules {
+        let mut module_entities = vec![];
+        for entity_def in &module_def.entities {
+            if entity_names.contains_key(&entity_def.name) {
+                 return Err(CompileError::ValidationError {
+                    src: src.to_string(),
+                    span: entity_def.span.clone(),
+                    message: format!("Duplicate entity name: {}", entity_def.name),
+                });
+            }
+            entity_names.insert(entity_def.name.clone(), entity_def.span.clone());
+            module_entities.push(entity_def.name.clone());
+
+            let mut fields = vec![];
+            for field_def in &entity_def.fields {
+                let field_type = parse_field_type(&field_def.type_name, src, &field_def.span)?;
+                fields.push(FieldSchema {
+                    name: field_def.name.clone(),
+                    field_type,
+                    required: field_def.required,
+                    unique: field_def.unique,
+                    default: None,
+                    references: field_def.references.clone(),
+                });
+            }
+            
+            ir_entities.insert(entity_def.name.clone(), EntitySchema {
+                name: entity_def.name.clone(),
+                fields,
+            });
+        }
+
+        ir_modules.insert(module_def.name.clone(), gurih_ir::ModuleSchema {
+            name: module_def.name.clone(),
+            entities: module_entities,
+        });
+    }
 
     // 1. Process Entities
     for entity_def in &ast.entities {
@@ -125,7 +165,9 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
     }
 
     Ok(Schema {
-        version: "1.0".to_string(),
+        name: ast.name.unwrap_or("GurihApp".to_string()),
+        version: ast.version.unwrap_or("1.0.0".to_string()),
+        modules: ir_modules,
         entities: ir_entities,
         workflows: ir_workflows,
         forms: ir_forms,

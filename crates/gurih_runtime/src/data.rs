@@ -20,6 +20,10 @@ impl DataEngine {
         }
     }
 
+    pub fn get_schema(&self) -> &Schema {
+        &self.schema
+    }
+
     pub async fn create(&self, entity_name: &str, mut data: Value, ctx: &RuntimeContext) -> Result<String, String> {
         // TODO: Validate create permission for entity
         

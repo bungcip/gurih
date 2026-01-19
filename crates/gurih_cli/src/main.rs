@@ -15,6 +15,8 @@ use axum::{
     response::IntoResponse,
 };
 use serde_json::Value;
+use tower_http::cors::{CorsLayer, Any};
+use gurih_runtime::{portal::PortalEngine, page::PageEngine, form::FormEngine};
 
 #[derive(Parser)]
 #[command(name = "gurih")]
@@ -85,6 +87,11 @@ async fn main() {
                     let app = Router::new()
                         .route("/api/{entity}", post(create_entity).get(list_entities))
                         .route("/api/{entity}/{id}", get(get_entity).put(update_entity).delete(delete_entity))
+                        // UI Routes
+                        .route("/api/ui/portal", get(get_portal))
+                        .route("/api/ui/page/{entity}", get(get_page_config))
+                        .route("/api/ui/form/{entity}", get(get_form_config))
+                        .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
                         .with_state(state);
 
                     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await.unwrap();
@@ -156,5 +163,60 @@ async fn delete_entity(
     match state.data_engine.delete(&entity, &id).await {
         Ok(_) => (StatusCode::OK, Json(serde_json::json!({ "status": "deleted" }))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+    }
+}
+
+// UI Handlers
+
+async fn get_portal(State(state): State<AppState>) -> impl IntoResponse {
+    let engine = PortalEngine::new();
+    match engine.generate_navigation(state.data_engine.get_schema()) {
+        Ok(nav) => (StatusCode::OK, Json(nav)).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e }))).into_response(),
+    }
+}
+
+async fn get_page_config(
+    State(state): State<AppState>,
+    Path(entity): Path<String>,
+) -> impl IntoResponse {
+    let engine = PageEngine::new();
+    match engine.generate_page_config(state.data_engine.get_schema(), &entity) {
+        Ok(config) => (StatusCode::OK, Json(config)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+    }
+}
+
+async fn get_form_config(
+    State(state): State<AppState>,
+    Path(entity): Path<String>,
+) -> impl IntoResponse {
+    let engine = FormEngine::new();
+    // Default form name is 'default' for now, or use entity name as form name if we auto-generated it?
+    // In current runtime/form.rs: `generate_ui_schema` takes `form_name`. 
+    // Usually forms are named in DSL. If we don't have explicit forms, we might fail.
+    // However, the prompt implies "basic HR ERP".
+    // Let's assume we want to generate a DEFAULT form for the entity if one doesn't exist?
+    // Current FormEngine requires the form to exist in `schema.forms`.
+    // Let's modify this to use "default" or maybe we need to update FormEngine to auto-generate from entity if missing.
+    // For now, let's try to lookup a form named "{entity}_form" or just "{entity}".
+    // DSL usually defined forms inside modules? KDL structure:
+    // module "HR" { entity "Employee" ... form "employee_form" ... }
+    // The current KDL DOES NOT HAVE FORMS defined.
+    // SO FormEngine will fail.
+    // I NEED TO UPDATE FormEngine to support auto-generation from Entity if no form is found, or Update KDL to include Basic Forms.
+    // Updating FormEngine is robust.
+    
+    // Let's assume for this step I just call it with entity name and handle error.
+    // Better: I will Update FormEngine in next steps if needed. For now, let's just Try using entity name.
+    
+    match engine.generate_ui_schema(state.data_engine.get_schema(), &entity) { 
+        Ok(config) => (StatusCode::OK, Json(config)).into_response(),
+        Err(_) => {
+             match engine.generate_default_form(state.data_engine.get_schema(), &entity) {
+                Ok(config) => (StatusCode::OK, Json(config)).into_response(),
+                Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+             }
+        }
     }
 }

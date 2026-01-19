@@ -5,6 +5,9 @@ use crate::errors::CompileError;
 pub fn parse(src: &str) -> Result<Ast, CompileError> {
     let doc: KdlDocument = src.parse()?;
     let mut ast = Ast {
+        name: None,
+        version: None,
+        modules: vec![],
         entities: vec![],
         workflows: vec![],
         forms: vec![],
@@ -14,6 +17,10 @@ pub fn parse(src: &str) -> Result<Ast, CompileError> {
     for node in doc.nodes() {
         let name = node.name().value();
         match name {
+            "name" => ast.name = Some(get_arg_string(node, 0, src)?),
+            "version" => ast.version = Some(get_arg_string(node, 0, src)?),
+            "database" => {}, // Ignore database for now
+            "module" => ast.modules.push(parse_module(node, src)?),
             "entity" => ast.entities.push(parse_entity(node, src)?),
             "workflow" => ast.workflows.push(parse_workflow(node, src)?),
             "form" => ast.forms.push(parse_form(node, src)?),
@@ -31,14 +38,75 @@ pub fn parse(src: &str) -> Result<Ast, CompileError> {
     Ok(ast)
 }
 
+fn parse_module(node: &KdlNode, src: &str) -> Result<ModuleDef, CompileError> {
+    let name = get_arg_string(node, 0, src)?;
+    let mut entities = vec![];
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            match child.name().value() {
+                "entity" => entities.push(parse_entity(child, src)?),
+                _ => {} // Ignore other children for now
+            }
+        }
+    }
+
+    Ok(ModuleDef {
+        name,
+        entities,
+        span: node.span().clone(),
+    })
+}
+
 fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
     let mut fields = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            if child.name().value() == "field" {
-                fields.push(parse_field(child, src)?);
+            let child_name = child.name().value();
+            match child_name {
+                "field" => fields.push(parse_field(child, src)?),
+                // Shorthands
+                "id" => {
+                     fields.push(FieldDef {
+                        name: "id".to_string(),
+                        type_name: "Integer".to_string(), // Default ID type
+                        required: true,
+                        unique: true,
+                        references: None,
+                        span: child.span().clone(), 
+                     });
+                }
+                "string" | "text" | "integer" | "float" | "boolean" | "date" | "datetime" => {
+                     let field_name = get_arg_string(child, 0, src)?;
+                     let type_name = capitalize(child_name);
+                     let required = get_prop_bool(child, "required").unwrap_or(false);
+                     let unique = get_prop_bool(child, "unique").unwrap_or(false);
+                     
+                     fields.push(FieldDef {
+                        name: field_name,
+                        type_name,
+                        required,
+                        unique,
+                        references: None,
+                        span: child.span().clone(),
+                     });
+                }
+                "ref" => {
+                    let field_name = get_arg_string(child, 0, src)?;
+                    let target = get_arg_string(child, 1, src)?; // second arg is target e.g. "Department.id"
+                    
+                    fields.push(FieldDef {
+                        name: field_name,
+                        type_name: "Relation".to_string(),
+                        required: get_prop_bool(child, "required").unwrap_or(false),
+                        unique: false,
+                        references: Some(target), // We'll parse "Entity.id" later or just store it
+                        span: child.span().clone(),
+                    });
+                }
+                _ => {} 
             }
         }
     }
@@ -48,6 +116,14 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
         fields,
         span: node.span().clone(),
     })
+}
+
+fn capitalize(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+    }
 }
 
 fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {

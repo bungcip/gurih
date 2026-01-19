@@ -3,11 +3,19 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Schema {
+    pub name: String,
     pub version: String,
+    pub modules: HashMap<String, ModuleSchema>,
     pub entities: HashMap<String, EntitySchema>,
     pub workflows: HashMap<String, WorkflowSchema>,
     pub forms: HashMap<String, FormSchema>,
     pub permissions: HashMap<String, PermissionSchema>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModuleSchema {
+    pub name: String,
+    pub entities: Vec<String>, // Entity names
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,7 +109,9 @@ mod tests {
         entities.insert("Book".to_string(), entity);
 
         let schema = Schema {
+            name: "TestApp".to_string(),
             version: "1.0".to_string(),
+            modules: HashMap::new(),
             entities,
             workflows: HashMap::new(),
             forms: HashMap::new(),
