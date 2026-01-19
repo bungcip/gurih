@@ -86,6 +86,11 @@ module "Organization" {
         params "id"
         step "entity:delete" target="Position" id="param(\"id\")"
     }
+
+    action "DeleteDepartment" {
+        params "id"
+        step "entity:delete" target="Department" id="param(\"id\")"
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -111,6 +116,11 @@ module "Personnel" {
         options {
             track_changes #true
         }
+    }
+
+    action "DeleteEmployee" {
+        params "id"
+        step "entity:delete" target="Employee" id="param(\"id\")"
     }
 }
 
@@ -192,7 +202,7 @@ page "EmployeeList" {
         
         action "Add Employee" icon="plus" variant="primary" to="/employees/new"
         action "Edit" icon="pencil" to="/employees/:id"
-        action "Delete" icon="trash" variant="danger"
+        action "Delete" icon="trash" variant="danger" to="/employees/:id" method="DELETE"
     }
 }
 
@@ -240,7 +250,7 @@ page "DepartmentList" {
         
         action "Add Department" icon="plus" variant="primary" to="/departments/new"
         action "Edit" icon="pencil" to="/departments/:id"
-        action "Delete" icon="trash" variant="danger"
+        action "Delete" icon="trash" variant="danger" to="/departments/:id" method="DELETE"
     }
 }
 
@@ -288,12 +298,14 @@ routes {
         route "/" to="EmployeeList"
         route "/new" to="EmployeeForm" permission="hr.employee.create"
         route "/:id" to="EmployeeForm" permission="hr.employee.edit"
+        route:delete "/:id" action="DeleteEmployee"
     }
     
     group "/departments" layout="MainLayout" {
         route "/" to="DepartmentList"
         route "/new" to="DepartmentForm"
         route "/:id" to="DepartmentForm"
+        route:delete "/:id" action="DeleteDepartment"
     }
     
     group "/positions" layout="MainLayout" {

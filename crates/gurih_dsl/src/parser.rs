@@ -71,6 +71,28 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
         for child in children.nodes() {
             match child.name().value() {
                 "param" => params.push(get_arg_string(child, 0, src)?),
+                "step" => {
+                    // step "entity:delete" target="Position" ...
+                    let step_type = get_arg_string(child, 0, src)?;
+                    let target = get_prop_string(child, "target", src)?;
+                    let mut args = std::collections::HashMap::new();
+                    for entry in child.entries() {
+                        if let Some(key) = entry.name() {
+                            let key_str = key.value();
+                            if key_str != "target" {
+                                if let Some(val) = entry.value().as_string() {
+                                    args.insert(key_str.to_string(), val.to_string());
+                                }
+                            }
+                        }
+                    }
+                    steps.push(ActionStepDef {
+                        step_type,
+                        target,
+                        args,
+                        span: child.span().into(),
+                    });
+                }
                 step_type if step_type.starts_with("step:") => {
                     // e.g. step:entity:delete "Position" id=param("id")
                     // target is arg 0

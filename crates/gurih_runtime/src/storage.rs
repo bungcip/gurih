@@ -117,25 +117,42 @@ impl AnyStorage {
                     let val: Option<String> = row.try_get(name).ok();
                     map.insert(name.to_string(), serde_json::to_value(val).unwrap());
                 }
-                "INT4" | "INT8" | "INTEGER" | "INT" => {
+                "INT4" | "INT8" | "INTEGER" | "INT" | "BIGINT" | "smallint" | "bigint" | "int"
+                | "integer" => {
                     let val: Option<i64> = row.try_get(name).ok();
-                    map.insert(name.to_string(), serde_json::to_value(val).unwrap());
+                    match val {
+                        Some(v) => {
+                            map.insert(name.to_string(), serde_json::to_value(v).unwrap());
+                        }
+                        None => {
+                            // Fallback to string if int fails
+                            let s_val: Option<String> = row.try_get(name).ok();
+                            map.insert(
+                                name.to_string(),
+                                serde_json::to_value(s_val).unwrap_or(Value::Null),
+                            );
+                        }
+                    }
                 }
-                "BOOL" | "BOOLEAN" => {
+                "BOOL" | "BOOLEAN" | "boolean" | "bool" => {
                     let val: Option<bool> = row.try_get(name).ok();
                     map.insert(name.to_string(), serde_json::to_value(val).unwrap());
                 }
-                "FLOAT" | "REAL" | "DOUBLE PRECISION" | "FLOAT8" | "FLOAT4" => {
+                "FLOAT" | "REAL" | "DOUBLE PRECISION" | "FLOAT8" | "FLOAT4" | "numeric" => {
                     let val: Option<f64> = row.try_get(name).ok();
                     map.insert(name.to_string(), serde_json::to_value(val).unwrap());
                 }
                 _ => {
-                    // Try as string if unknown
-                    let val: Option<String> = row.try_get(name).ok();
-                    map.insert(
-                        name.to_string(),
-                        serde_json::to_value(val).unwrap_or(Value::Null),
-                    );
+                    // Try as string first
+                    if let Ok(val) = row.try_get::<String, _>(name) {
+                        map.insert(name.to_string(), Value::String(val));
+                    } else if let Ok(val) = row.try_get::<i64, _>(name) {
+                        map.insert(name.to_string(), serde_json::to_value(val).unwrap());
+                    } else if let Ok(val) = row.try_get::<f64, _>(name) {
+                        map.insert(name.to_string(), serde_json::to_value(val).unwrap());
+                    } else {
+                        map.insert(name.to_string(), Value::Null);
+                    }
                 }
             }
         }

@@ -177,6 +177,63 @@ entity "Invoice" {
 }
 ```
 
+### 3.8 Workflows
+Workflows define state transitions for entities, useful for approval processes or lifecycles.
+
+```kdl
+workflow "LeaveWorkflow" for="LeaveRequest" field="status" {
+    state "Draft" initial="true"
+    state "Pending"
+    state "Approved"
+    state "Rejected"
+    state "Cancelled"
+
+    transition "submit" {
+        from "Draft"
+        to "Pending"
+    }
+    
+    transition "approve" {
+        from "Pending"
+        to "Approved"
+    }
+
+    transition "reject" {
+        from "Pending" 
+        to "Rejected"
+    }
+    
+    transition "cancel" {
+        from "Draft" "Pending"
+        to "Cancelled"
+    }
+}
+```
+
+### 3.9 Actions
+Actions encapsulate business logic that can be triggered from the UI or API. They can be defined at the top level or within a `module`.
+
+```kdl
+action "DeletePosition" {
+    params "id"
+    step "entity:delete" target="Position" id="param(\"id\")"
+}
+```
+
+**Actions in Modules:**
+```kdl
+module "Organization" {
+    // ... entities ...
+
+    action "PromoteEmployee" {
+        params "employee_id" "new_position_id"
+        step "entity:update" target="Employee" id="param(\"employee_id\")" {
+            position_id="param(\"new_position_id\")"
+        }
+    }
+}
+```
+
 ## 4. Routing
 Routes map URL paths to UI components. Each route or group can be protected by a `permission`.
 
@@ -197,6 +254,11 @@ routes {
     group "/sales" permission="sales.view" {
         route "/customers" to="Sales.CustomerList"
         route "/orders" to="Sales.OrderList"
+    }
+
+    // Route to Action
+    group "/positions" {
+        route:delete "/:id" action="DeletePosition"
     }
 }
 ```

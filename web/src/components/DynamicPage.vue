@@ -12,7 +12,7 @@ const pageActions = computed(() => {
     if (!config.value || !config.value.actions) return []
     return config.value.actions.filter(a => {
         const to = a.to || "";
-        return !to.includes(":id") && a.label.toLowerCase() !== 'delete' && a.label.toLowerCase() !== 'edit'
+        return !to.includes(":id")
     })
 })
 
@@ -20,7 +20,7 @@ const rowActions = computed(() => {
     if (!config.value || !config.value.actions) return []
     return config.value.actions.filter(a => {
         const to = a.to || "";
-        return to.includes(":id") || a.label.toLowerCase() === 'delete' || a.label.toLowerCase() === 'edit'
+        return to.includes(":id")
     })
 })
 
@@ -59,20 +59,7 @@ async function loadPage() {
     await fetchData()
 }
 
-async function deleteItem(id) {
-    if(!confirm("Are you sure?")) return;
-    try {
-        const res = await fetch(`${API_BASE}/${props.entity}/${id}`, { method: 'DELETE' })
-        if (res.ok) {
-            fetchData()
-        } else {
-             const err = await res.json().catch(() => ({}));
-             alert("Failed to delete: " + (err.error || res.statusText))
-        }
-    } catch (e) {
-        alert("Failed to delete")
-    }
-}
+
 
 async function handleCustomAction(action, row) {
     if (action.to) {
@@ -202,21 +189,6 @@ onMounted(() => {
                                     <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <template v-for="action in rowActions" :key="action.label">
                                             <button 
-                                                v-if="action.label.toLowerCase() === 'edit'"
-                                                @click="$emit('edit', row.id)" 
-                                                class="px-3 py-1 text-[13px] font-semibold text-primary hover:bg-blue-50 rounded-md transition"
-                                            >
-                                                Edit
-                                            </button>
-                                            <button 
-                                                v-else-if="action.label.toLowerCase() === 'delete'"
-                                                @click="deleteItem(row.id)" 
-                                                class="px-3 py-1 text-[13px] font-semibold text-red-500 hover:bg-red-50 rounded-md transition"
-                                            >
-                                                Delete
-                                            </button>
-                                            <button 
-                                                v-else
                                                 @click="handleCustomAction(action, row)"
                                                 class="px-3 py-1 text-[13px] font-semibold rounded-md transition"
                                                 :class="action.variant === 'danger' ? 'text-red-500 hover:bg-red-50' : 'text-primary hover:bg-blue-50'"
