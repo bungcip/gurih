@@ -1,0 +1,9 @@
+---
+source: crates/gurih_dsl/tests/error_snapshots.rs
+expression: s
+---
+error[validation_error]: Route target 'UnknownPage' not found in pages
+  --> test.kdl:10:9
+   |
+10 |         route "/unknown" to="UnknownPage"
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Route target 'UnknownPage' not found in pages
