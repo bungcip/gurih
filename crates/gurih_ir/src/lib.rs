@@ -197,6 +197,7 @@ pub struct WidgetSchema {
     pub widget_type: String,
     pub label: Option<String>,
     pub value: Option<String>,
+    pub icon: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -9,7 +9,7 @@ use uuid::Uuid;
 #[async_trait]
 pub trait Storage: Send + Sync {
     async fn insert(&self, entity: &str, record: Value) -> Result<String, String>;
-    async fn get(&self, entity: &str, id: &str) -> Result<Option<Value>, String>;
+    async fn get(&self, entity: &str, id: &str) -> Result<Option<Arc<Value>>, String>;
     async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String>;
     async fn delete(&self, entity: &str, id: &str) -> Result<(), String>;
     async fn list(
@@ -17,11 +17,11 @@ pub trait Storage: Send + Sync {
         entity: &str,
         limit: Option<usize>,
         offset: Option<usize>,
-    ) -> Result<Vec<Value>, String>;
+    ) -> Result<Vec<Arc<Value>>, String>;
 }
 
 pub struct MemoryStorage {
-    data: Arc<Mutex<HashMap<String, HashMap<String, Value>>>>,
+    data: Arc<Mutex<HashMap<String, HashMap<String, Arc<Value>>>>>,
 }
 
 impl Default for MemoryStorage {
@@ -49,11 +49,11 @@ impl Storage for MemoryStorage {
             obj.insert("id".to_string(), Value::String(id.clone()));
         }
 
-        table.insert(id.clone(), record);
+        table.insert(id.clone(), Arc::new(record));
         Ok(id)
     }
 
-    async fn get(&self, entity: &str, id: &str) -> Result<Option<Value>, String> {
+    async fn get(&self, entity: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
         let data = self.data.lock().unwrap();
         if let Some(table) = data.get(entity) {
             Ok(table.get(id).cloned())
@@ -71,7 +71,7 @@ impl Storage for MemoryStorage {
             if let Some(obj) = record.as_object_mut() {
                 obj.insert("id".to_string(), Value::String(id.to_string()));
             }
-            table.insert(id.to_string(), record);
+            table.insert(id.to_string(), Arc::new(record));
             Ok(())
         } else {
             Err("Record not found".to_string())
@@ -96,7 +96,7 @@ impl Storage for MemoryStorage {
         entity: &str,
         limit: Option<usize>,
         offset: Option<usize>,
-    ) -> Result<Vec<Value>, String> {
+    ) -> Result<Vec<Arc<Value>>, String> {
         let data = self.data.lock().unwrap();
         if let Some(table) = data.get(entity) {
             let skip = offset.unwrap_or(0);
@@ -227,7 +227,7 @@ impl Storage for AnyStorage {
         Ok(id_val)
     }
 
-    async fn get(&self, entity: &str, id: &str) -> Result<Option<Value>, String> {
+    async fn get(&self, entity: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
         let query = format!("SELECT * FROM \"{}\" WHERE id = $1", entity);
         let row = sqlx::query(&query)
             .bind(id)
@@ -235,7 +235,7 @@ impl Storage for AnyStorage {
             .await
             .map_err(|e| e.to_string())?;
 
-        Ok(row.map(Self::row_to_json))
+        Ok(row.map(|r| Arc::new(Self::row_to_json(r))))
     }
 
     async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String> {
@@ -304,7 +304,7 @@ impl Storage for AnyStorage {
         entity: &str,
         limit: Option<usize>,
         offset: Option<usize>,
-    ) -> Result<Vec<Value>, String> {
+    ) -> Result<Vec<Arc<Value>>, String> {
         let mut query = format!("SELECT * FROM \"{}\"", entity);
         let mut params: Vec<i64> = vec![];
 
@@ -325,6 +325,9 @@ impl Storage for AnyStorage {
 
         let rows = q.fetch_all(&self.pool).await.map_err(|e| e.to_string())?;
 
-        Ok(rows.into_iter().map(Self::row_to_json).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| Arc::new(Self::row_to_json(r)))
+            .collect())
     }
 }

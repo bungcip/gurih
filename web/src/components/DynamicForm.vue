@@ -22,31 +22,45 @@ async function fetchSchema() {
         activeTab.value = 0
         
         // Initialize fetch for relation fields
+        const targetsMap = new Map() // target -> [fieldNames]
+
         for(const section of schema.value.layout) {
              for(const field of section.fields) {
                  if(field.widget === 'RelationPicker') {
                      if(field.name.endsWith("_id")) {
                          let target = field.name.replace("_id", "")
                          target = target.charAt(0).toUpperCase() + target.slice(1)
-                         fetchRelations(target, field.name)
+
+                         if (!targetsMap.has(target)) {
+                             targetsMap.set(target, [])
+                         }
+                         targetsMap.get(target).push(field.name)
                      }
                  }
              }
         }
+
+        await Promise.all(Array.from(targetsMap.entries()).map(([target, fields]) =>
+            fetchRelations(target, fields)
+        ))
     } catch (e) {
         console.error("Failed to fetch form schema", e)
     }
 }
 
-async function fetchRelations(targetEntity, fieldName) {
+async function fetchRelations(targetEntity, fieldNames) {
     try {
         const res = await fetch(`${API_BASE}/${targetEntity}`)
         if(res.ok) {
             const list = await res.json()
-             relationOptions.value[fieldName] = list.map(item => ({
+            const options = list.map(item => ({
                  value: item.id,
                  label: item.name || item.title || item.id 
              }))
+
+             for(const fieldName of fieldNames) {
+                 relationOptions.value[fieldName] = options
+             }
         }
     } catch(e) {
         console.log("Could not fetch relation for", targetEntity)

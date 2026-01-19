@@ -66,7 +66,7 @@ impl DataEngine {
         self.storage.insert(entity_name, data).await
     }
 
-    pub async fn read(&self, entity_name: &str, id: &str) -> Result<Option<Value>, String> {
+    pub async fn read(&self, entity_name: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
         if !self.schema.entities.contains_key(entity_name) {
             return Err(format!("Entity '{}' not defined", entity_name));
         }
@@ -148,12 +148,11 @@ impl DataEngine {
         self.storage.delete(entity_name, id).await
     }
 
-    pub async fn list(
-        &self,
-        entity_name: &str,
+    pub async fn list(&self,
+        entity: &str,
         limit: Option<usize>,
         offset: Option<usize>,
-    ) -> Result<Vec<Value>, String> {
+    ) -> Result<Vec<Arc<Value>>, String> {
         if !self.schema.entities.contains_key(entity_name) {
             return Err(format!("Entity '{}' not defined", entity_name));
         }
