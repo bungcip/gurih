@@ -1,4 +1,5 @@
 use gurih_ir::{EntitySchema, FieldType, Schema, TableSchema};
+use sha2::{Digest, Sha256};
 use sqlx::{AnyPool, Row};
 use std::sync::Arc;
 
@@ -23,14 +24,81 @@ impl SchemaManager {
         println!("ℹ️ Running in '{}' mode.", mode);
 
         if mode == "dev" {
-            println!("⚠️ Dev mode detected. Resetting tables...");
-            self.drop_all_tables().await?;
+            let current_hash = self.calculate_schema_hash();
+            // This is safe because get_or_init_metadata ensures the table exists
+            let stored_hash = self.get_stored_schema_hash().await?;
+
+            if stored_hash != Some(current_hash.clone()) {
+                println!("⚠️ Schema changed or not initialized. Resetting tables...");
+                self.drop_all_tables().await?;
+
+                println!("🛠 Creating tables...");
+                self.create_tables().await?;
+
+                self.update_schema_hash(&current_hash).await?;
+            } else {
+                println!("✅ Schema matches. Skipping table reset.");
+            }
+        } else {
+            // In non-dev mode, we assume migration is handled differently or manual.
+            // But if we want to try creating tables (which fails if exist), we keep legacy behavior:
+            println!("🛠 Creating tables...");
+            self.create_tables().await?;
         }
 
-        println!("🛠 Creating tables...");
-        self.create_tables().await?;
-
         println!("✅ Schema migration complete.");
+        Ok(())
+    }
+
+    fn calculate_schema_hash(&self) -> String {
+        // Collect entities and tables into sorted Vec to ensure deterministic order
+        let mut entities: Vec<_> = self.schema.entities.iter().collect();
+        entities.sort_by_key(|(k, _)| *k);
+
+        let mut tables: Vec<_> = self.schema.tables.iter().collect();
+        tables.sort_by_key(|(k, _)| *k);
+
+        // We only care about entities and tables for DB schema hash
+        // We create a temporary structure to hash
+        let data = (entities, tables);
+        let json = serde_json::to_string(&data).expect("Failed to serialize schema");
+
+        let mut hasher = Sha256::new();
+        hasher.update(json);
+        hex::encode(hasher.finalize())
+    }
+
+    async fn get_stored_schema_hash(&self) -> Result<Option<String>, String> {
+        let row = sqlx::query("SELECT value FROM _gurih_metadata WHERE key = 'schema_hash'")
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if let Some(row) = row {
+            let hash: String = row.try_get("value").unwrap_or_default();
+            if hash.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(hash))
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn update_schema_hash(&self, hash: &str) -> Result<(), String> {
+        let db_kind = &self.db_kind;
+        let sql = if db_kind == "PostgreSQL" {
+            "INSERT INTO _gurih_metadata (key, value) VALUES ('schema_hash', $1) ON CONFLICT (key) DO UPDATE SET value = $1"
+        } else {
+            "INSERT OR REPLACE INTO _gurih_metadata (key, value) VALUES ('schema_hash', ?)"
+        };
+
+        sqlx::query(sql)
+            .bind(hash)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
         Ok(())
     }
 
