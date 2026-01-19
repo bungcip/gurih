@@ -10,10 +10,10 @@ use gurih_dsl::{compile, diagnostics::DiagnosticEngine, diagnostics::ErrorFormat
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::persistence::SchemaManager;
-use gurih_runtime::storage::{MemoryStorage, PostgresStorage, Storage};
+use gurih_runtime::storage::{AnyStorage, MemoryStorage, Storage};
 use gurih_runtime::{form::FormEngine, page::PageEngine, portal::PortalEngine};
 use serde_json::Value;
-use sqlx::postgres::PgPoolOptions;
+use sqlx::any::AnyPoolOptions;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -82,9 +82,10 @@ async fn main() {
 
                     // Initialize Storage
                     let storage: Arc<dyn Storage> = if let Some(db_config) = &schema.database {
+                        sqlx::any::install_default_drivers();
                         println!("🔌 Connecting to database...");
                         // Handle env:DATABASE_URL
-                        let url = if db_config.url.starts_with("env:") {
+                        let mut url = if db_config.url.starts_with("env:") {
                             std::env::var(&db_config.url[4..]).unwrap_or_else(|_| "".to_string())
                         } else {
                             db_config.url.clone()
@@ -94,16 +95,37 @@ async fn main() {
                             panic!("Database URL is empty or env var not set.");
                         }
 
-                        let pool = PgPoolOptions::new()
+                        if db_config.db_type == "sqlite" {
+                            let path = url
+                                .trim_start_matches("sqlite://")
+                                .trim_start_matches("sqlite:")
+                                .trim_start_matches("file:");
+
+                            if !std::path::Path::new(path).exists() {
+                                println!("📝 Creating SQLite database file: {}", path);
+                                fs::File::create(path)
+                                    .expect("Failed to create SQLite database file");
+                            }
+
+                            if !url.starts_with("sqlite:") {
+                                url = format!("sqlite://{}", path);
+                            }
+                        }
+
+                        let pool = AnyPoolOptions::new()
                             .max_connections(5)
                             .connect(&url)
                             .await
                             .expect("Failed to connect to DB");
 
-                        let manager = SchemaManager::new(pool.clone(), schema.clone());
+                        let manager = SchemaManager::new(
+                            pool.clone(),
+                            schema.clone(),
+                            db_config.db_type.clone(),
+                        );
                         manager.migrate().await.expect("Migration failed");
 
-                        Arc::new(PostgresStorage::new(pool))
+                        Arc::new(AnyStorage::new(pool))
                     } else {
                         println!("⚠️ No database configured. Using in-memory storage.");
                         Arc::new(MemoryStorage::new())

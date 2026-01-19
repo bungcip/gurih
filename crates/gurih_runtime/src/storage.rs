@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use serde_json::Value;
-use sqlx::postgres::PgRow;
-use sqlx::{Column, Pool, Postgres, Row, TypeInfo};
+use sqlx::any::AnyRow;
+use sqlx::{AnyPool, Column, Row, TypeInfo};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
@@ -96,34 +96,41 @@ impl Storage for MemoryStorage {
     }
 }
 
-pub struct PostgresStorage {
-    pool: Pool<Postgres>,
+pub struct AnyStorage {
+    pool: AnyPool,
 }
 
-impl PostgresStorage {
-    pub fn new(pool: Pool<Postgres>) -> Self {
+impl AnyStorage {
+    pub fn new(pool: AnyPool) -> Self {
         Self { pool }
     }
 
-    fn row_to_json(row: PgRow) -> Value {
+    fn row_to_json(row: AnyRow) -> Value {
         let mut map = serde_json::Map::new();
         for col in row.columns() {
             let name = col.name();
             let type_info = col.type_info();
-            match type_info.name() {
-                "TEXT" | "VARCHAR" | "CHAR" | "NAME" => {
+            let type_name = type_info.name();
+
+            match type_name {
+                "TEXT" | "VARCHAR" | "CHAR" | "NAME" | "STRING" => {
                     let val: Option<String> = row.try_get(name).ok();
                     map.insert(name.to_string(), serde_json::to_value(val).unwrap());
                 }
-                "INT4" | "INT8" => {
+                "INT4" | "INT8" | "INTEGER" | "INT" => {
                     let val: Option<i64> = row.try_get(name).ok();
                     map.insert(name.to_string(), serde_json::to_value(val).unwrap());
                 }
-                "BOOL" => {
+                "BOOL" | "BOOLEAN" => {
                     let val: Option<bool> = row.try_get(name).ok();
                     map.insert(name.to_string(), serde_json::to_value(val).unwrap());
                 }
+                "FLOAT" | "REAL" | "DOUBLE PRECISION" | "FLOAT8" | "FLOAT4" => {
+                    let val: Option<f64> = row.try_get(name).ok();
+                    map.insert(name.to_string(), serde_json::to_value(val).unwrap());
+                }
                 _ => {
+                    // Try as string if unknown
                     let val: Option<String> = row.try_get(name).ok();
                     map.insert(
                         name.to_string(),
@@ -137,7 +144,7 @@ impl PostgresStorage {
 }
 
 #[async_trait]
-impl Storage for PostgresStorage {
+impl Storage for AnyStorage {
     async fn insert(&self, entity: &str, record: Value) -> Result<String, String> {
         let obj = record.as_object().ok_or("Record must be object")?;
 
@@ -192,10 +199,6 @@ impl Storage for PostgresStorage {
     }
 
     async fn get(&self, entity: &str, id: &str) -> Result<Option<Value>, String> {
-        // Assume ID is text or int. For simplicity we try to bind as text?
-        // Or we rely on auto-cast?
-        // If entity uses UUID, text is fine.
-
         let query = format!("SELECT * FROM \"{}\" WHERE id = $1", entity);
         let row = sqlx::query(&query)
             .bind(id)
