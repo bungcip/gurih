@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-axum = "0.8.8"
-clap = { version = "4.5.54", features = ["derive"] }
-gurih_dsl = { version = "0.1.0", path = "../gurih_dsl" }
-gurih_ir = { version = "0.1.0", path = "../gurih_ir" }
-gurih_runtime = { version = "0.1.0", path = "../gurih_runtime" }
-serde_json = "1.0.149"
-sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio", "tls-native-tls"] }
-tokio = { version = "1.49.0", features = ["full"] }
-tower-http = { version = "0.6.8", features = ["cors", "trace"] }
+axum = { workspace = true }
+clap = { workspace = true }
+gurih_dsl = { workspace = true }
+gurih_ir = { workspace = true }
+gurih_runtime = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true }
+tower-http = { workspace = true }

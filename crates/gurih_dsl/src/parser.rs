@@ -48,7 +48,7 @@ pub fn parse(src: &str) -> Result<Ast, CompileError> {
                 // Ignore unknown nodes or warn? Strict for now.
                 return Err(CompileError::ParseError {
                     src: src.to_string(),
-                    span: node.name().span(),
+                    span: node.name().span().into(),
                     message: format!("Unknown top-level definition: {}", name),
                 });
             }
@@ -75,7 +75,7 @@ fn parse_database(node: &KdlNode, src: &str) -> Result<DatabaseDef, CompileError
     Ok(DatabaseDef {
         db_type,
         url,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -94,7 +94,7 @@ fn parse_icons(node: &KdlNode, src: &str) -> Result<Vec<IconDef>, CompileError> 
             icons.push(IconDef {
                 name,
                 uri,
-                span: child.span(),
+                span: child.span().into(),
             });
         }
     }
@@ -123,7 +123,7 @@ fn parse_layout(node: &KdlNode, src: &str) -> Result<LayoutDef, CompileError> {
         header,
         sidebar,
         footer,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -154,7 +154,7 @@ fn parse_layout_section(node: &KdlNode, src: &str) -> Result<LayoutSectionDef, C
         enabled,
         props,
         menu_ref,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -174,7 +174,7 @@ fn parse_module(node: &KdlNode, src: &str) -> Result<ModuleDef, CompileError> {
         name,
         entities,
         enums: vec![],
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -231,7 +231,7 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                         rel_type,
                         name,
                         target_entity: target,
-                        span: child.span(),
+                        span: child.span().into(),
                     });
                 }
 
@@ -245,7 +245,7 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                         unique: true,
                         default: None,
                         references: None,
-                        span: child.span(),
+                        span: child.span().into(),
                     });
                 }
                 "string" | "text" | "int" | "integer" | "float" | "decimal" | "bool"
@@ -278,7 +278,7 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                         unique,
                         default,
                         references,
-                        span: child.span(),
+                        span: child.span().into(),
                     });
                 }
                 _ => {}
@@ -291,7 +291,7 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
         fields,
         relationships,
         options,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -311,7 +311,7 @@ fn parse_table(node: &KdlNode, src: &str) -> Result<TableDef, CompileError> {
     Ok(TableDef {
         name,
         columns,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -342,7 +342,7 @@ fn parse_column(node: &KdlNode, src: &str) -> Result<ColumnDef, CompileError> {
         props,
         primary,
         unique,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -364,7 +364,7 @@ fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
         unique,
         default,
         references,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -395,7 +395,7 @@ fn parse_workflow(node: &KdlNode, src: &str) -> Result<WorkflowDef, CompileError
         field,
         states,
         transitions,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -406,7 +406,7 @@ fn parse_state(node: &KdlNode, src: &str) -> Result<StateDef, CompileError> {
     Ok(StateDef {
         name,
         initial,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -421,7 +421,7 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
         from,
         to,
         permission,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -443,7 +443,7 @@ fn parse_form(node: &KdlNode, src: &str) -> Result<FormDef, CompileError> {
         name,
         entity,
         sections,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -472,7 +472,7 @@ fn parse_section(node: &KdlNode, src: &str) -> Result<FormSectionDef, CompileErr
     Ok(FormSectionDef {
         title,
         fields,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -495,7 +495,7 @@ fn parse_permission(node: &KdlNode, src: &str) -> Result<PermissionDef, CompileE
     Ok(PermissionDef {
         name,
         allows,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -513,7 +513,7 @@ fn parse_enum(node: &KdlNode, src: &str) -> Result<EnumDef, CompileError> {
     Ok(EnumDef {
         name,
         variants,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -543,7 +543,7 @@ fn parse_serial(node: &KdlNode, src: &str) -> Result<SerialDef, CompileError> {
         prefix,
         date_format,
         sequence_digits,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -576,7 +576,7 @@ fn parse_dashboard(node: &KdlNode, src: &str) -> Result<DashboardDef, CompileErr
         name,
         title,
         widgets,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -608,7 +608,7 @@ fn parse_widget(node: &KdlNode, src: &str) -> Result<WidgetDef, CompileError> {
         value,
         icon,
         query,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -635,7 +635,7 @@ fn parse_page(node: &KdlNode, src: &str) -> Result<PageDef, CompileError> {
         title,
         layout,
         content,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -649,8 +649,8 @@ fn parse_datatable(node: &KdlNode, src: &str) -> Result<DatatableDef, CompileErr
             match child.name().value() {
                 "column" => {
                     let field = get_arg_string(child, 0, src)?;
-                    let label =
-                        get_prop_string(child, "label", src).unwrap_or_else(|_| to_title_case(&field));
+                    let label = get_prop_string(child, "label", src)
+                        .unwrap_or_else(|_| to_title_case(&field));
                     columns.push(DatatableColumnDef { field, label });
                 }
                 "action" => {
@@ -675,7 +675,7 @@ fn parse_datatable(node: &KdlNode, src: &str) -> Result<DatatableDef, CompileErr
         entity,
         columns,
         actions,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -690,7 +690,7 @@ fn parse_routes(node: &KdlNode, src: &str) -> Result<RoutesDef, CompileError> {
 
     Ok(RoutesDef {
         routes,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -707,7 +707,7 @@ fn parse_route_node(node: &KdlNode, src: &str) -> Result<RouteNode, CompileError
                 to,
                 layout,
                 permission,
-                span: node.span(),
+                span: node.span().into(),
             }))
         }
         "group" => {
@@ -727,12 +727,12 @@ fn parse_route_node(node: &KdlNode, src: &str) -> Result<RouteNode, CompileError
                 layout,
                 permission,
                 children,
-                span: node.span(),
+                span: node.span().into(),
             }))
         }
         _ => Err(CompileError::ParseError {
             src: src.to_string(),
-            span: node.span(),
+            span: node.span().into(),
             message: format!("Unexpected node in routes: {}", node.name().value()),
         }),
     }
@@ -751,7 +751,7 @@ fn parse_menu(node: &KdlNode, src: &str) -> Result<MenuDef, CompileError> {
     Ok(MenuDef {
         name,
         items,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -767,7 +767,7 @@ fn parse_menu_item(node: &KdlNode, src: &str) -> Result<MenuItemDef, CompileErro
                 label,
                 to,
                 icon,
-                span: node.span(),
+                span: node.span().into(),
             }))
         }
         "group" => {
@@ -785,12 +785,12 @@ fn parse_menu_item(node: &KdlNode, src: &str) -> Result<MenuItemDef, CompileErro
                 label,
                 icon,
                 children,
-                span: node.span(),
+                span: node.span().into(),
             }))
         }
         _ => Err(CompileError::ParseError {
             src: src.to_string(),
-            span: node.span(),
+            span: node.span().into(),
             message: format!("Unexpected node in menu: {}", name),
         }),
     }
@@ -813,7 +813,7 @@ fn parse_print(node: &KdlNode, src: &str) -> Result<PrintDef, CompileError> {
         name,
         entity,
         title,
-        span: node.span(),
+        span: node.span().into(),
     })
 }
 
@@ -824,7 +824,7 @@ fn get_arg_string(node: &KdlNode, index: usize, src: &str) -> Result<String, Com
         .and_then(|val| val.value().as_string().map(|s| s.to_string()))
         .ok_or_else(|| CompileError::ParseError {
             src: src.to_string(),
-            span: node.span(),
+            span: node.span().into(),
             message: format!(
                 "Missing or invalid argument at index {} for node '{}'",
                 index,
@@ -838,7 +838,7 @@ fn get_prop_string(node: &KdlNode, key: &str, src: &str) -> Result<String, Compi
         .and_then(|val| val.as_string().map(|s| s.to_string()))
         .ok_or_else(|| CompileError::ParseError {
             src: src.to_string(),
-            span: node.span(),
+            span: node.span().into(),
             message: format!("Missing property '{}'", key),
         })
 }
@@ -864,7 +864,7 @@ fn get_prop_int(node: &KdlNode, key: &str) -> Result<i64, CompileError> {
         .and_then(|val| val.as_integer().map(|i| i as i64))
         .ok_or_else(|| CompileError::ParseError {
             src: "".to_string(), // context missing here, ideally pass src
-            span: node.span(),
+            span: node.span().into(),
             message: format!("Missing or invalid int property '{}'", key),
         })
 }
@@ -886,7 +886,7 @@ fn get_arg_bool(node: &KdlNode, index: usize) -> Result<bool, CompileError> {
         })
         .ok_or_else(|| CompileError::ParseError {
             src: "".to_string(),
-            span: node.span(),
+            span: node.span().into(),
             message: format!("Missing or invalid bool argument at index {}", index),
         })
 }
@@ -902,4 +902,12 @@ fn to_title_case(s: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+fn capitalize(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+    }
 }

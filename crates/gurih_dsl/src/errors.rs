@@ -1,31 +1,23 @@
-use crate::diagnostics::{Diagnostic, DiagnosticLevel, IntoDiagnostic};
-use miette::Diagnostic as MietteDiagnostic;
+use crate::diagnostics::{Diagnostic, DiagnosticLevel, IntoDiagnostic, SourceSpan};
 use thiserror::Error;
 
-#[derive(Error, Debug, MietteDiagnostic)]
+#[derive(Error, Debug)]
 pub enum CompileError {
     #[error("Parse error")]
-    #[diagnostic(code(gurih::parse_error))]
     ParseError {
-        #[source_code]
         src: String,
-        #[label("here")]
-        span: miette::SourceSpan,
+        span: SourceSpan,
         message: String,
     },
 
     #[error("Validation error: {message}")]
-    #[diagnostic(code(gurih::validation_error))]
     ValidationError {
-        #[source_code]
         src: String,
-        #[label("here")]
-        span: miette::SourceSpan,
+        span: SourceSpan,
         message: String,
     },
 
     #[error("KDL error: {0}")]
-    #[diagnostic(code(gurih::kdl_error))]
     KdlError(#[from] kdl::KdlError),
 }
 
@@ -60,7 +52,7 @@ impl IntoDiagnostic for CompileError {
                 vec![Diagnostic {
                     level: DiagnosticLevel::Error,
                     message,
-                    span,
+                    span: span.into(),
                     code: Some("kdl_error".to_string()),
                     hints: e.help().map(|h| vec![h.to_string()]).unwrap_or_default(),
                     ..Default::default()

@@ -394,7 +394,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
 fn parse_field_type(
     type_name: &str,
     _src: &str,
-    _span: &miette::SourceSpan,
+    _span: &crate::diagnostics::SourceSpan,
 ) -> Result<FieldType, CompileError> {
     match type_name {
         "String" | "Code" | "Money" => Ok(FieldType::String), // Money/Code as string for now

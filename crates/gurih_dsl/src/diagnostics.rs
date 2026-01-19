@@ -1,5 +1,34 @@
 use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet};
-use miette::SourceSpan;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SourceSpan {
+    offset: usize,
+    length: usize,
+}
+
+impl SourceSpan {
+    pub fn new(offset: usize, length: usize) -> Self {
+        Self { offset, length }
+    }
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+    pub fn len(&self) -> usize {
+        self.length
+    }
+}
+
+impl From<miette::SourceSpan> for SourceSpan {
+    fn from(span: miette::SourceSpan) -> Self {
+        Self::new(span.offset(), span.len())
+    }
+}
+
+impl From<(usize, usize)> for SourceSpan {
+    fn from(value: (usize, usize)) -> Self {
+        Self::new(value.0, value.1)
+    }
+}
 
 /// Diagnostic severity levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

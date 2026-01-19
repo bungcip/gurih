@@ -1,4 +1,4 @@
-use miette::SourceSpan;
+use crate::diagnostics::SourceSpan;
 
 #[derive(Debug, Clone)]
 pub struct Ast {

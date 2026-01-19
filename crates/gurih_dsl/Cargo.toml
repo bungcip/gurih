@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-annotate-snippets = "0.12"
-gurih_ir = { version = "0.1.0", path = "../gurih_ir" }
-kdl = "6.5.0"
-miette = { version = "7.6.0", features = ["fancy"] }
-thiserror = "2.0.18"
+annotate-snippets = { workspace = true }
+gurih_ir = { workspace = true }
+kdl = { workspace = true }
+miette = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
-insta = "1.40"
+insta = { workspace = true }

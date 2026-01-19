@@ -1,5 +1,5 @@
 use gurih_dsl::compiler::compile;
-use miette::{GraphicalReportHandler, GraphicalTheme};
+use gurih_dsl::diagnostics::{ErrorFormatter, IntoDiagnostic};
 
 #[test]
 fn test_duplicate_entity_error() {
@@ -20,15 +20,14 @@ fn test_duplicate_entity_error() {
     );
 
     let err = result.unwrap_err();
-
-    // Render the error without colors using miette's API directly
-    // This avoids unsafe environment variable modification
-    let handler = GraphicalReportHandler::new().with_theme(GraphicalTheme::unicode_nocolor());
+    let diagnostics = err.into_diagnostic();
+    let formatter = ErrorFormatter { use_colors: false };
 
     let mut s = String::new();
-    handler
-        .render_report(&mut s, &err)
-        .expect("Failed to render report");
+    for diag in diagnostics {
+        s.push_str(&formatter.format_diagnostic(&diag, src, "test.kdl"));
+        s.push('\n');
+    }
 
     insta::assert_snapshot!(s);
 }
