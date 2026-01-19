@@ -207,7 +207,9 @@ async fn main() {
 
                     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
                         .await
-                        .unwrap();
+                        .unwrap_or_else(|e| {
+                            panic!("💥 Failed to bind to port {}: {}. Tip: Try 'fuser -k {}/tcp' to free it.", port, e, port);
+                        });
                     println!("🚀 Server running on http://0.0.0.0:{}", port);
 
                     // Run server with graceful shutdown

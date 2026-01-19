@@ -19,8 +19,18 @@ impl PageEngine {
         schema: &Schema,
         entity_name: &str,
     ) -> Result<Value, String> {
-        // 1. Try explicit Page definition
-        if let Some(page) = schema.pages.get(entity_name) {
+        // 1. Try explicit Page definition by name
+        let mut target_page = schema.pages.get(entity_name);
+
+        // 2. Fallback: Search for a page that targets this entity (e.g. Employee -> EmployeeList)
+        if target_page.is_none() {
+            target_page = schema.pages.values().find(|p| match &p.content {
+                gurih_ir::PageContentSchema::Datatable(dt) => dt.entity == entity_name,
+                _ => false,
+            });
+        }
+
+        if let Some(page) = target_page {
             match &page.content {
                 gurih_ir::PageContentSchema::Datatable(dt) => {
                     let columns: Vec<Value> = dt
@@ -35,7 +45,18 @@ impl PageEngine {
                         })
                         .collect();
 
-                    let actions: Vec<String> = dt.actions.iter().map(|a| a.label.clone()).collect();
+                    let actions: Vec<Value> = dt
+                        .actions
+                        .iter()
+                        .map(|a| {
+                            json!({
+                                "label": a.label,
+                                "to": a.to,
+                                "icon": a.icon,
+                                "variant": a.variant
+                            })
+                        })
+                        .collect();
 
                     return Ok(json!({
                        "title": page.title,
@@ -96,7 +117,11 @@ impl PageEngine {
             "entity": entity_name,
             "layout": "TableView",
             "columns": columns,
-            "actions": ["create", "edit", "delete"]
+            "actions": [
+                { "label": "Create", "variant": "primary" },
+                { "label": "Edit" },
+                { "label": "Delete", "variant": "danger" }
+            ]
         }))
     }
 }

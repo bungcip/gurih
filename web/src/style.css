@@ -21,6 +21,10 @@ body,
   -webkit-font-smoothing: antialiased;
 }
 
+button, a, [role="button"] {
+  cursor: pointer;
+}
+
 .card {
   background: white;
   border-radius: 12px;
@@ -49,6 +53,7 @@ body,
   border-radius: 8px;
   font-weight: 500;
   transition: background-color 0.2s;
+  cursor: pointer;
 }
 
 .btn-primary:hover {
@@ -62,6 +67,9 @@ body,
   border-radius: 8px;
   color: var(--color-text-muted);
   transition: all 0.2s;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
 }
 
 .sidebar-item:hover {

@@ -68,18 +68,18 @@ serial "EmpCode" {
 // -----------------------------------------------------------------------------
 module "Organization" {
     entity "Department" {
-        id
-        name unique="true"
-        description
+        field:pk id
+        field:name "name" unique=#true
+        field:text "description"
         
         has_many "employees" "Employee"
     }
 
     entity "Position" {
-        id
-        title
-        description
-        money "base_salary"
+        field:pk id
+        field:string "title"
+        field:text "description"
+        field:money "base_salary"
     }
 }
 
@@ -88,14 +88,14 @@ module "Organization" {
 // -----------------------------------------------------------------------------
 module "Personnel" {
     entity "Employee" {
-        id
-        code "employee_id" serial="EmpCode"
-        name "full_name"
-        email "email_address" unique="true"
-        phone "phone_number"
-        date "join_date"
+        field:pk id
+        field:serial "employee_id" serial="EmpCode"
+        field:name "full_name"
+        field:email "email_address" unique=#true
+        field:phone "phone_number"
+        field:date "join_date"
         
-        enum "status" "EmploymentStatus" default="Probation"
+        field:enum "status" "EmploymentStatus" default="Probation"
         
         // Relationships
         belongs_to "Department"
@@ -104,7 +104,7 @@ module "Personnel" {
         has_many "leave_requests" "LeaveRequest"
         
         options {
-            track_changes "true"
+            track_changes #true
         }
     }
 }
@@ -114,16 +114,16 @@ module "Personnel" {
 // -----------------------------------------------------------------------------
 module "Leave" {
     entity "LeaveRequest" {
-        id
+        field:pk id
         belongs_to "Employee"
-        date "start_date"
-        date "end_date"
-        text "reason"
-        enum "status" "LeaveStatus" default="Draft"
+        field:date "start_date"
+        field:date "end_date"
+        field:text "reason"
+        field:enum "status" "LeaveStatus" default="Draft"
         
         options {
-            is_submittable "true"
-            track_changes "true"
+            is_submittable #true
+            track_changes #true
         }
     }
 
@@ -185,7 +185,9 @@ page "EmployeeList" {
         column "department.name" label="Department"
         column "status" label="Status"
         
+        action "Add Employee" icon="plus" variant="primary" to="/employees/new"
         action "Edit" icon="pencil" to="/employees/:id"
+        action "Delete" icon="trash" variant="danger"
     }
 }
 
@@ -223,6 +225,55 @@ page "LeaveList" {
 }
 
 // -----------------------------------------------------------------------------
+// UI: ORGANIZATION PAGES
+// -----------------------------------------------------------------------------
+page "DepartmentList" {
+    title "Departments"
+    datatable for="Department" {
+        column "name"
+        column "description"
+        
+        action "Add Department" icon="plus" variant="primary" to="/departments/new"
+        action "Edit" icon="pencil" to="/departments/:id"
+        action "Delete" icon="trash" variant="danger"
+    }
+}
+
+page "DepartmentForm" {
+    title "Department"
+    form for="Department" {
+        section "General" {
+            field "name"
+            field "description"
+        }
+    }
+}
+
+page "PositionList" {
+    title "Positions"
+    datatable for="Position" {
+        column "title"
+        column "description"
+        column "base_salary"
+        
+        action "Add Position" icon="plus" variant="primary" to="/positions/new"
+        action "Edit" icon="pencil" to="/positions/:id"
+        action "Delete" icon="trash" variant="danger"
+    }
+}
+
+page "PositionForm" {
+    title "Position"
+    form for="Position" {
+        section "General" {
+            field "title"
+            field "description"
+            field "base_salary"
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
 // ROUTING & MENU
 // -----------------------------------------------------------------------------
 routes {
@@ -232,6 +283,18 @@ routes {
         route "/" to="EmployeeList"
         route "/new" to="EmployeeForm" permission="hr.employee.create"
         route "/:id" to="EmployeeForm" permission="hr.employee.edit"
+    }
+    
+    group "/departments" layout="MainLayout" {
+        route "/" to="DepartmentList"
+        route "/new" to="DepartmentForm"
+        route "/:id" to="DepartmentForm"
+    }
+    
+    group "/positions" layout="MainLayout" {
+        route "/" to="PositionList"
+        route "/new" to="PositionForm"
+        route "/:id" to="PositionForm"
     }
 
     group "/leave" layout="MainLayout" {
@@ -245,6 +308,11 @@ menu "MainMenu" {
     
     group "Personnel" icon="users" {
         item "Employees" to="/employees"
+    }
+    
+    group "Organization" icon="building" {
+        item "Departments" to="/departments"
+        item "Positions" to="/positions"
     }
     
     group "Leave Management" icon="calendar" {

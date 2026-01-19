@@ -163,6 +163,18 @@ onMounted(() => {
                                     <input v-model.number="formData[field.name]" type="number" class="input-field" :required="field.required">
                                 </div>
 
+                                <div v-if="field.widget === 'TextArea'">
+                                    <textarea v-model="formData[field.name]" class="input-field min-h-[100px]" :placeholder="'Enter ' + field.label" :required="field.required"></textarea>
+                                </div>
+
+                                <div v-if="field.widget === 'DatePicker'">
+                                    <input v-model="formData[field.name]" type="date" class="input-field" :required="field.required">
+                                </div>
+
+                                <div v-if="field.widget === 'DateTimePicker'">
+                                    <input v-model="formData[field.name]" type="datetime-local" class="input-field" :required="field.required">
+                                </div>
+
                                 <div v-if="field.widget === 'Checkbox'" class="flex items-center h-10">
                                     <input v-model="formData[field.name]" type="checkbox" class="h-5 w-5 text-primary border-border rounded focus:ring-primary/20">
                                 </div>
@@ -170,7 +182,7 @@ onMounted(() => {
                                 <div v-if="field.widget === 'RelationPicker' || field.widget === 'Select'">
                                     <select v-model="formData[field.name]" class="input-field bg-white">
                                         <option :value="null">Select {{ field.label }}...</option>
-                                        <option v-for="opt in relationOptions[field.name] || []" :key="opt.value" :value="opt.value">
+                                        <option v-for="opt in (field.options || relationOptions[field.name] || [])" :key="opt.value" :value="opt.value">
                                             {{ opt.label }}
                                         </option>
                                     </select>

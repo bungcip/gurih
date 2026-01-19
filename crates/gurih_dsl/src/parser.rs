@@ -189,6 +189,24 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
             let child_name = child.name().value();
             match child_name {
                 "field" => fields.push(parse_field(child, src)?),
+                // Handle field:<type> syntax
+                name if name.starts_with("field:") => {
+                    let type_part = &name[6..]; // strip "field:"
+                    // We treat this as a field definition where type is explicitly provided in the node name
+                    // parse_field expects "field" node or similar, but let's reuse logic or helper
+
+                    let mut field_def = parse_field(child, src)?;
+                    // Override type_name with the one from node name
+                    field_def.type_name = capitalize(type_part);
+
+                    // Special handling for "field:serial" which might carry extra props usually on "code"
+                    if type_part == "serial" {
+                        // field:serial "name" serial="Code"
+                        // parse_field already reads `serial` prop if present
+                    }
+
+                    fields.push(field_def);
+                }
                 "options" => {
                     if let Some(opts) = child.children() {
                         for opt in opts.nodes() {
@@ -235,7 +253,7 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                     });
                 }
 
-                // Semantic types shorthand
+                // Semantic types shorthand (Backward compatibility or if user mixes styles)
                 "id" => {
                     fields.push(FieldDef {
                         name: "id".to_string(),
@@ -347,14 +365,45 @@ fn parse_column(node: &KdlNode, src: &str) -> Result<ColumnDef, CompileError> {
 }
 
 fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
-    let type_name = get_prop_string(node, "type", src)?;
+    let name = get_arg_string(node, 0, src).unwrap_or_else(|_| "unknown".to_string());
+    // if type_name is missing, it might come from keys like field:pk
+    // but here we just read explicit type prop/arg or fallback
 
-    let required = get_prop_bool(node, "required").unwrap_or(false);
+    let type_name = get_prop_string(node, "type", src).unwrap_or_else(|_| "String".to_string());
+
+    // Check for enum second arg
+    let references = if node.name().value() == "enum" || node.name().value() == "field:enum" {
+        get_arg_string(node, 1, src)
+            .ok()
+            .or_else(|| get_prop_string(node, "references", src).ok())
+    } else {
+        get_prop_string(node, "references", src).ok()
+    };
+
+    let required_prop = get_prop_bool(node, "required");
+    let nullable_prop = get_prop_bool(node, "nullable");
+
+    // Determine required status. explicit nullable overrides default required=false.
+    // If both are present, we prefer 'required' if they agree (req=true, null=false),
+    // otherwise if they conflict, let's favor the explicit 'nullable' request if provided, or just canonical required.
+    // Simpler: If nullable is provided, correct required is !nullable.
+    // If nullable is NOT provided, use required_prop or default false.
+    let required = if let Some(n) = nullable_prop {
+        !n
+    } else {
+        required_prop.unwrap_or(false)
+    };
+
     let unique = get_prop_bool(node, "unique").unwrap_or(false);
-    let references = get_prop_string(node, "references", src).ok();
     let default = get_prop_string(node, "default", src).ok();
     let serial = get_prop_string(node, "serial", src).ok();
+
+    // Special handling for field:pk which usually has "id" as arg 0, but no type
+    // If we call parse_field for field:pk node, we expect type_name to be set by caller usually
+    // But parse_field itself returns a valid FieldDef
+
+    // If name is "unknown" it means missing arg 0.
+    // e.g. field:pk id -> name="id"
 
     Ok(FieldDef {
         name,

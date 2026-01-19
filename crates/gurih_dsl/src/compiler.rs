@@ -29,13 +29,30 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
     let mut ir_serials = HashMap::new();
     let mut ir_prints = HashMap::new();
 
+    // 0. Collect all enums (including from modules)
+    let mut enums = HashMap::new();
+    for e in &ast_root.enums {
+        enums.insert(e.name.clone(), e.variants.clone());
+    }
+    for m in &ast_root.modules {
+        for e in &m.enums {
+            enums.insert(e.name.clone(), e.variants.clone());
+        }
+    }
+
     // Helper to process entities
     let process_entity = |entity_def: &ast::EntityDef,
                           _module_name: Option<&str>|
      -> Result<EntitySchema, CompileError> {
         let mut fields = vec![];
         for field_def in &entity_def.fields {
-            let field_type = parse_field_type(&field_def.type_name, src, &field_def.span)?;
+            let type_name = if field_def.type_name == "Enum" {
+                field_def.references.as_deref().unwrap_or("Enum")
+            } else {
+                &field_def.type_name
+            };
+
+            let field_type = parse_field_type(type_name, &enums, src, &field_def.span)?;
             fields.push(FieldSchema {
                 name: field_def.name.clone(),
                 field_type,
@@ -259,6 +276,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
                         label: a.label.clone(),
                         to: a.to.clone(),
                         icon: a.icon.clone(),
+                        variant: a.variant.clone(),
                     })
                     .collect(),
             }),
@@ -269,10 +287,16 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
 
         // If page has an embedded form definition, add it to ir_forms
         if let ast::PageContent::Form(form_def) = &page_def.content {
+            let form_name = if form_def.name == "DefaultForm" {
+                format!("{}_Form", page_def.name)
+            } else {
+                form_def.name.clone()
+            };
+
             ir_forms.insert(
-                form_def.name.clone(),
+                form_name.clone(),
                 FormSchema {
-                    name: form_def.name.clone(),
+                    name: form_name,
                     entity: form_def.entity.clone(),
                     sections: form_def
                         .sections
@@ -416,22 +440,28 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
 
 fn parse_field_type(
     type_name: &str,
+    enums: &HashMap<String, Vec<String>>,
     _src: &str,
     _span: &crate::diagnostics::SourceSpan,
 ) -> Result<FieldType, CompileError> {
+    if let Some(variants) = enums.get(type_name) {
+        return Ok(FieldType::Enum(variants.clone()));
+    }
+
     match type_name {
-        "String" | "Code" | "Money" => Ok(FieldType::String), // Money/Code as string for now
+        "String" | "Code" | "Serial" | "Money" | "Email" | "Phone" | "Name" | "Description" => {
+            Ok(FieldType::String)
+        }
         "Text" => Ok(FieldType::Text),
-        "Integer" => Ok(FieldType::Integer),
-        "Float" => Ok(FieldType::Float),
-        "Boolean" => Ok(FieldType::Boolean),
+        "Integer" | "Int" | "Pk" => Ok(FieldType::Integer),
+        "Float" | "Decimal" => Ok(FieldType::Float),
+        "Boolean" | "Bool" => Ok(FieldType::Boolean),
         "Date" => Ok(FieldType::Date),
         "DateTime" => Ok(FieldType::DateTime),
         "Relation" => Ok(FieldType::Relation),
-        "Enum" => Ok(FieldType::Enum(vec![])), // Placeholder, real enum lookup might be needed
+        "Enum" => Ok(FieldType::Enum(vec![])),
         _ => {
-            // If unknown, default to string or error.
-            // Since we have semantic types like "Time", "Decimal" not explicitly matched.
+            // If unknown, default to string
             Ok(FieldType::String)
         }
     }

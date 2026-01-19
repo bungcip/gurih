@@ -19,9 +19,52 @@ async function fetchMenu() {
     }
 }
 
+function syncHashToState() {
+    const hash = window.location.hash.slice(1) // Remove #
+    if (!hash) {
+        viewMode.value = 'home'
+        currentEntity.value = null
+        return
+    }
+
+    // Expected formats: 
+    // /app/:entity
+    // /app/:entity/new
+    // /app/:entity/:id
+    const parts = hash.split('/').filter(p => p)
+    if (parts[0] === 'app' && parts[1]) {
+        currentEntity.value = parts[1]
+        if (parts[2] === 'new') {
+            viewMode.value = 'create'
+            editId.value = null
+        } else if (parts[2]) {
+            viewMode.value = 'edit'
+            editId.value = parts[2]
+        } else {
+            viewMode.value = 'list'
+        }
+    } else {
+        viewMode.value = 'home'
+        currentEntity.value = null
+    }
+}
+
+function updateHash() {
+    if (viewMode.value === 'home') {
+        window.location.hash = ''
+    } else if (viewMode.value === 'list') {
+        window.location.hash = `/app/${currentEntity.value}`
+    } else if (viewMode.value === 'create') {
+        window.location.hash = `/app/${currentEntity.value}/new`
+    } else if (viewMode.value === 'edit') {
+        window.location.hash = `/app/${currentEntity.value}/${editId.value}`
+    }
+}
+
 function navigateTo(entity) {
     currentEntity.value = entity
     viewMode.value = 'list'
+    updateHash()
 }
 
 function onAction(action, id) {
@@ -31,15 +74,16 @@ function onAction(action, id) {
     } else if (action === 'edit') {
         viewMode.value = 'edit'
         editId.value = id
-    } else if (action === 'cancel') {
-        viewMode.value = 'list'
-    } else if (action === 'saved') {
+    } else if (action === 'cancel' || action === 'saved') {
         viewMode.value = 'list'
     }
+    updateHash()
 }
 
 onMounted(() => {
     fetchMenu()
+    syncHashToState()
+    window.addEventListener('hashchange', syncHashToState)
 })
 </script>
 
@@ -96,7 +140,11 @@ onMounted(() => {
 
             <div v-else class="max-w-6xl mx-auto h-full flex flex-col">
                 <div v-if="viewMode === 'list'" class="card flex-1 overflow-hidden flex flex-col">
-                    <DynamicPage :entity="currentEntity" @edit="(id) => onAction('edit', id)" />
+                    <DynamicPage 
+                        :entity="currentEntity" 
+                        @edit="(id) => onAction('edit', id)" 
+                        @create="onAction('create')"
+                    />
                 </div>
                 
                 <div v-if="viewMode === 'create' || viewMode === 'edit'" class="flex-1 overflow-y-auto pb-8">

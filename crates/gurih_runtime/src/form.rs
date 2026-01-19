@@ -14,31 +14,56 @@ impl FormEngine {
         Self
     }
 
-    pub fn generate_ui_schema(&self, schema: &Schema, form_name: &str) -> Result<Value, String> {
-        let form = schema.forms.get(form_name).ok_or("Form not found")?;
-        let entity = schema
-            .entities
-            .get(&form.entity)
-            .ok_or("Entity not found")?;
+    pub fn generate_ui_schema(&self, schema: &Schema, name: &str) -> Result<Value, String> {
+        // 1. Try direct Form lookup
+        let mut target_form = schema.forms.get(name);
 
-        let mut ui_sections = vec![];
+        // 2. Fallback: Search for a form that targets this name as an entity
+        if target_form.is_none() {
+            target_form = schema.forms.values().find(|f| f.entity == name);
+        }
 
-        for section in &form.sections {
-            let mut ui_fields = vec![];
-            for field_name in &section.fields {
-                let ui_field =
-                    if let Some(field_def) = entity.fields.iter().find(|f| &f.name == field_name) {
-                        json!({
+        if let Some(form) = target_form {
+            let entity = schema
+                .entities
+                .get(&form.entity)
+                .ok_or_else(|| format!("Entity {} not found", form.entity))?;
+
+            let mut ui_sections = vec![];
+
+            for section in &form.sections {
+                let mut ui_fields = vec![];
+                for field_name in &section.fields {
+                    let ui_field = if let Some(field_def) =
+                        entity.fields.iter().find(|f| &f.name == field_name)
+                    {
+                        let mut field_json = json!({
                             "name": field_def.name,
                             "label": field_def.name,
                             "widget": self.map_field_type_to_widget(&field_def.field_type),
                             "required": field_def.required
-                        })
+                        });
+
+                        if let gurih_ir::FieldType::Enum(variants) = &field_def.field_type {
+                            field_json["options"] = json!(
+                                variants
+                                    .iter()
+                                    .map(|v| {
+                                        json!({
+                                            "label": v,
+                                            "value": v
+                                        })
+                                    })
+                                    .collect::<Vec<_>>()
+                            );
+                        }
+
+                        field_json
                     } else if let Some(rel_def) =
                         entity.relationships.iter().find(|r| &r.name == field_name)
                     {
                         json!({
-                            "name": rel_def.name,
+                            "name": format!("{}_id", rel_def.name.to_lowercase()),
                             "label": rel_def.name,
                             "widget": "RelationPicker",
                             "required": false // Default for relation
@@ -50,20 +75,27 @@ impl FormEngine {
                         ));
                     };
 
-                ui_fields.push(ui_field);
+                    ui_fields.push(ui_field);
+                }
+
+                ui_sections.push(json!({
+                    "title": section.title,
+                    "fields": ui_fields
+                }));
             }
 
-            ui_sections.push(json!({
-                "title": section.title,
-                "fields": ui_fields
-            }));
+            Ok(json!({
+                "name": form.name,
+                "entity": form.entity,
+                "layout": ui_sections
+            }))
+        } else {
+            // 3. Fallback: Try generating default form if it's an entity name
+            if schema.entities.contains_key(name) {
+                return self.generate_default_form(schema, name);
+            }
+            Err(format!("Form or Entity '{}' not found", name))
         }
-
-        Ok(json!({
-            "name": form.name,
-            "entity": form.entity,
-            "layout": ui_sections
-        }))
     }
 
     pub fn generate_default_form(
@@ -74,13 +106,48 @@ impl FormEngine {
         let entity = schema.entities.get(entity_name).ok_or("Entity not found")?;
 
         let mut ui_fields = vec![];
+
+        // Add regular fields
         for field_def in &entity.fields {
-            ui_fields.push(json!({
+            // Skip ID usually or show as readonly? Let's keep it for now but maybe skip 'id' name
+            if field_def.name == "id" {
+                continue;
+            }
+
+            let mut field_json = json!({
                 "name": field_def.name,
                 "label": field_def.name,
                 "widget": self.map_field_type_to_widget(&field_def.field_type),
                 "required": field_def.required
-            }));
+            });
+
+            if let gurih_ir::FieldType::Enum(variants) = &field_def.field_type {
+                field_json["options"] = json!(
+                    variants
+                        .iter()
+                        .map(|v| {
+                            json!({
+                                "label": v,
+                                "value": v
+                            })
+                        })
+                        .collect::<Vec<_>>()
+                );
+            }
+
+            ui_fields.push(field_json);
+        }
+
+        // Add relationship fields
+        for rel in &entity.relationships {
+            if rel.rel_type == "belongs_to" {
+                ui_fields.push(json!({
+                    "name": format!("{}_id", rel.name.to_lowercase()),
+                    "label": rel.name,
+                    "widget": "RelationPicker",
+                    "required": false
+                }));
+            }
         }
 
         let ui_sections = vec![json!({

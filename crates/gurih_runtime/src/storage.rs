@@ -257,11 +257,16 @@ impl Storage for AnyStorage {
 
     async fn delete(&self, entity: &str, id: &str) -> Result<(), String> {
         let query = format!("DELETE FROM \"{}\" WHERE id = $1", entity);
-        sqlx::query(&query)
-            .bind(id)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+        let mut q = sqlx::query(&query);
+
+        // Try parsing as integer first to handle numeric IDs (e.g. SQLite/Postgres strictness)
+        if let Ok(int_id) = id.parse::<i64>() {
+            q = q.bind(int_id);
+        } else {
+            q = q.bind(id);
+        }
+
+        q.execute(&self.pool).await.map_err(|e| e.to_string())?;
         Ok(())
     }
 

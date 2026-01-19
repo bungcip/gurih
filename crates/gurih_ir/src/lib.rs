@@ -199,6 +199,7 @@ pub struct ActionSchema {
     pub label: String,
     pub to: Option<String>,
     pub icon: Option<String>,
+    pub variant: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

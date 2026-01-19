@@ -54,17 +54,20 @@ table "products" {
 `entity` adalah model bisnis utama. Tipe datanya tidak menggunakan istilah teknis (`varchar`, `int`), melainkan menggunakan tipe data yang bermakna bisnis (**Semantic Types**).
 
 **Semantic Types:**
-- `id`: Primary key.
-- `code`: Human-readable unique identifier (e.g., INV/2024/001). Usually linked to a `generator`.
-- `sku`: Specialized code for inventory/items.
-- `name`: Nama orang atau barang.
-- `title`: Judul atau label pendek.
-- `description`: Penjelasan panjang (textarea).
-- `amount` / `money`: Nilai mata uang.
-- `quantity`: Jumlah barang.
-- `email` / `phone` / `address`: Data kontak.
-- `status`: Keadaan (biasanya merujuk ke Enum atau Workflow).
-- `timestamp` / `date`: Waktu.
+- `field:pk`: Primary key.
+- `field:serial`: Human-readable unique identifier (e.g., INV/2024/001). Usually linked to a `generator`.
+- `field:sku`: Specialized code for inventory/items.
+- `field:name`: Nama orang atau barang.
+- `field:string`: Judul atau label pendek.
+- `field:text`: Penjelasan panjang (textarea).
+- `field:money`: Nilai mata uang.
+- `field:int` / `field:float`: Angka.
+- `field:email` / `field:phone` / `field:address`: Data kontak.
+- `field:enum`: Keadaan (biasanya merujuk ke Enum).
+- `field:date` / `field:timestamp`: Waktu.
+
+> [!TIP]
+> You can use `nullable=#true` to explicitly mark a field as optional (which translates to `required=false`). By default, fields are optional unless `required=#true` is set.
 
 ### 3.3 Code Generators
 Generators define rules for creating automatic human-readable codes.
@@ -81,10 +84,10 @@ generator "InvoiceCode" {
 ### 3.4 Entity Example with Code Grouping
 ```kdl
 entity "Invoice" {
-    id
-    code "invoice_number" generator="InvoiceCode"
-    date "invoice_date"
-    money "total_amount"
+    field:pk id
+    field:serial "invoice_number" generator="InvoiceCode"
+    field:date "invoice_date"
+    field:money "total_amount"
 }
 ```
 
@@ -99,7 +102,7 @@ Supported Relations:
 Example:
 ```kdl
 entity "Order" {
-    id
+    field:pk id
     // Creates a "customer" field in logic, maps to "customer_id" in DB.
     belongs_to "Customer" 
     
@@ -108,7 +111,7 @@ entity "Order" {
 }
 
 entity "Customer" {
-    id
+    field:pk id
     // Allows accessing `customer.orders` in logic/expressions
     has_many "orders" "Order"
 }
@@ -139,17 +142,17 @@ entity "Invoice" {
     // ... fields ...
     
     options {
-        is_submittable true
-        track_changes true
+        is_submittable #true
+        track_changes #true
     }
 }
 
 entity "SystemSettings" {
     options {
-        is_single true
+        is_single #true
     }
-    string "company_name"
-    string "default_currency"
+    field:string "company_name"
+    field:string "default_currency"
 }
 ```
 
@@ -163,9 +166,9 @@ This implies:
 ```kdl
 entity "InvoiceItem" {
     // No direct routing or page usually needed
-    id
-    string "item_name"
-    money "amount"
+    field:pk id
+    field:string "item_name"
+    field:money "amount"
 }
 
 entity "Invoice" {
@@ -197,8 +200,6 @@ routes {
     }
 }
 ```
-
-## 5. UI and Navigation
 
 ## 5. UI and Navigation
 
@@ -400,23 +401,23 @@ print "InvoiceStandard" for="Invoice" {
 ```kdl
 module "Sales" {
     entity "Customer" {
-        id
-        name
-        email
-        phone
-        address
+        field:pk id
+        field:name "name"
+        field:email "email"
+        field:phone "phone"
+        field:text "address"
         
         has_many "orders" "Order"
     }
     
     entity "Order" {
-        id
-        code "order_number" generator="OrderCode"
-        date "order_date"
+        field:pk id
+        field:serial "order_number" generator="OrderCode"
+        field:date "order_date"
         belongs_to "Customer"
         
-        money "total_amount"
-        enum "status" "OrderStatus"
+        field:money "total_amount"
+        field:enum "status" "OrderStatus"
     }
 
     page "CustomerList" {
