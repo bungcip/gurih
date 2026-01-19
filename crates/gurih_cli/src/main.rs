@@ -330,11 +330,22 @@ async fn create_entity(
     }
 }
 
+#[derive(serde::Deserialize)]
+struct ListParams {
+    limit: Option<usize>,
+    offset: Option<usize>,
+}
+
 async fn list_entities(
     State(state): State<AppState>,
     Path(entity): Path<String>,
+    Query(params): Query<ListParams>,
 ) -> impl IntoResponse {
-    match state.data_engine.list(&entity).await {
+    match state
+        .data_engine
+        .list(&entity, params.limit, params.offset)
+        .await
+    {
         Ok(list) => (StatusCode::OK, Json(list)).into_response(),
         Err(e) => (
             StatusCode::BAD_REQUEST,
