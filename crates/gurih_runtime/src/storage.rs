@@ -294,6 +294,9 @@ impl Storage for AnyStorage {
             .await
             .map_err(|e| e.to_string())?;
 
-        Ok(rows.into_iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| Arc::new(Self::row_to_json(r)))
+            .collect())
     }
 }

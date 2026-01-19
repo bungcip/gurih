@@ -27,6 +27,10 @@ async fn bench_list_performance() {
     let items = storage.list(entity).await.unwrap();
     let duration = start.elapsed();
 
-    println!("BENCH_RESULT: List {} items took: {:?}", items.len(), duration);
+    println!(
+        "BENCH_RESULT: List {} items took: {:?}",
+        items.len(),
+        duration
+    );
     assert_eq!(items.len(), count);
 }
