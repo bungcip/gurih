@@ -108,6 +108,26 @@ impl Storage for MemoryStorage {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+enum DataType {
+    Text,
+    Int,
+    Bool,
+    Float,
+    Unknown,
+}
+
+fn get_column_type(type_name: &str) -> DataType {
+    match type_name {
+        "TEXT" | "VARCHAR" | "CHAR" | "NAME" | "STRING" => DataType::Text,
+        "INT4" | "INT8" | "INTEGER" | "INT" | "BIGINT" | "smallint" | "bigint" | "int"
+        | "integer" => DataType::Int,
+        "BOOL" | "BOOLEAN" | "boolean" | "bool" => DataType::Bool,
+        "FLOAT" | "REAL" | "DOUBLE PRECISION" | "FLOAT8" | "FLOAT4" | "numeric" => DataType::Float,
+        _ => DataType::Unknown,
+    }
+}
+
 pub struct AnyStorage {
     pool: AnyPool,
 }
@@ -117,53 +137,48 @@ impl AnyStorage {
         Self { pool }
     }
 
-    fn row_to_json(row: AnyRow) -> Value {
+    fn row_to_json_optimized(row: &AnyRow, columns: &[(String, DataType)]) -> Value {
         let mut map = serde_json::Map::new();
-        for col in row.columns() {
-            let name = col.name();
-            let type_info = col.type_info();
-            let type_name = type_info.name();
-
-            match type_name {
-                "TEXT" | "VARCHAR" | "CHAR" | "NAME" | "STRING" => {
-                    let val: Option<String> = row.try_get(name).ok();
-                    map.insert(name.to_string(), serde_json::to_value(val).unwrap());
+        for (i, (name, dtype)) in columns.iter().enumerate() {
+            match dtype {
+                DataType::Text => {
+                    let val: Option<String> = row.try_get(i).ok();
+                    map.insert(name.clone(), serde_json::to_value(val).unwrap());
                 }
-                "INT4" | "INT8" | "INTEGER" | "INT" | "BIGINT" | "smallint" | "bigint" | "int"
-                | "integer" => {
-                    let val: Option<i64> = row.try_get(name).ok();
+                DataType::Int => {
+                    let val: Option<i64> = row.try_get(i).ok();
                     match val {
                         Some(v) => {
-                            map.insert(name.to_string(), serde_json::to_value(v).unwrap());
+                            map.insert(name.clone(), serde_json::to_value(v).unwrap());
                         }
                         None => {
                             // Fallback to string if int fails
-                            let s_val: Option<String> = row.try_get(name).ok();
+                            let s_val: Option<String> = row.try_get(i).ok();
                             map.insert(
-                                name.to_string(),
+                                name.clone(),
                                 serde_json::to_value(s_val).unwrap_or(Value::Null),
                             );
                         }
                     }
                 }
-                "BOOL" | "BOOLEAN" | "boolean" | "bool" => {
-                    let val: Option<bool> = row.try_get(name).ok();
-                    map.insert(name.to_string(), serde_json::to_value(val).unwrap());
+                DataType::Bool => {
+                    let val: Option<bool> = row.try_get(i).ok();
+                    map.insert(name.clone(), serde_json::to_value(val).unwrap());
                 }
-                "FLOAT" | "REAL" | "DOUBLE PRECISION" | "FLOAT8" | "FLOAT4" | "numeric" => {
-                    let val: Option<f64> = row.try_get(name).ok();
-                    map.insert(name.to_string(), serde_json::to_value(val).unwrap());
+                DataType::Float => {
+                    let val: Option<f64> = row.try_get(i).ok();
+                    map.insert(name.clone(), serde_json::to_value(val).unwrap());
                 }
-                _ => {
+                DataType::Unknown => {
                     // Try as string first
-                    if let Ok(val) = row.try_get::<String, _>(name) {
-                        map.insert(name.to_string(), Value::String(val));
-                    } else if let Ok(val) = row.try_get::<i64, _>(name) {
-                        map.insert(name.to_string(), serde_json::to_value(val).unwrap());
-                    } else if let Ok(val) = row.try_get::<f64, _>(name) {
-                        map.insert(name.to_string(), serde_json::to_value(val).unwrap());
+                    if let Ok(val) = row.try_get::<String, _>(i) {
+                        map.insert(name.clone(), Value::String(val));
+                    } else if let Ok(val) = row.try_get::<i64, _>(i) {
+                        map.insert(name.clone(), serde_json::to_value(val).unwrap());
+                    } else if let Ok(val) = row.try_get::<f64, _>(i) {
+                        map.insert(name.clone(), serde_json::to_value(val).unwrap());
                     } else {
-                        map.insert(name.to_string(), Value::Null);
+                        map.insert(name.clone(), Value::Null);
                     }
                 }
             }
@@ -235,7 +250,21 @@ impl Storage for AnyStorage {
             .await
             .map_err(|e| e.to_string())?;
 
-        Ok(row.map(|r| Arc::new(Self::row_to_json(r))))
+        if let Some(row) = row {
+            let columns: Vec<(String, DataType)> = row
+                .columns()
+                .iter()
+                .map(|col| {
+                    (
+                        col.name().to_string(),
+                        get_column_type(col.type_info().name()),
+                    )
+                })
+                .collect();
+            Ok(Some(Arc::new(Self::row_to_json_optimized(&row, &columns))))
+        } else {
+            Ok(None)
+        }
     }
 
     async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String> {
@@ -325,9 +354,24 @@ impl Storage for AnyStorage {
 
         let rows = q.fetch_all(&self.pool).await.map_err(|e| e.to_string())?;
 
+        if rows.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let columns: Vec<(String, DataType)> = rows[0]
+            .columns()
+            .iter()
+            .map(|col| {
+                (
+                    col.name().to_string(),
+                    get_column_type(col.type_info().name()),
+                )
+            })
+            .collect();
+
         Ok(rows
-            .into_iter()
-            .map(|r| Arc::new(Self::row_to_json(r)))
+            .iter()
+            .map(|row| Arc::new(Self::row_to_json_optimized(row, &columns)))
             .collect())
     }
 }
