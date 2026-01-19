@@ -2,7 +2,7 @@ use gurih_dsl::parser::parse;
 
 #[test]
 fn test_minimal_kdl() {
-    let src = r#"
+    let _src = r#"
     layout "Main" {
         header {
             search_bar true
@@ -16,13 +16,13 @@ fn test_minimal_kdl() {
         }
     }
     "#;
-    
+
     // Testing quoted:
     if let Err(e) = parse(src_quoted) {
         panic!("Failed to parse quoted layout: {:?}", e);
     }
 
-    let src_prop = r#"
+    let _src_prop = r#"
     layout "Main" {
         header search_bar=true {}
     }
@@ -33,7 +33,7 @@ fn test_minimal_kdl() {
         panic!("Failed to parse prop layout: {:?}", e);
     }
     */
-    
+
     let src_int = r#"
     layout "Main" {
         header {
@@ -44,7 +44,7 @@ fn test_minimal_kdl() {
     if let Err(e) = parse(src_int) {
         panic!("Failed to parse int layout: {:?}", e);
     }
-    
+
     // Original failing one commented out to avoid panic
     /*
     if let Err(e) = parse(src) {

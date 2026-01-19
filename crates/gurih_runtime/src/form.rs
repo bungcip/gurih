@@ -1,7 +1,13 @@
 use gurih_ir::Schema;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub struct FormEngine;
+
+impl Default for FormEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl FormEngine {
     pub fn new() -> Self {
@@ -10,34 +16,43 @@ impl FormEngine {
 
     pub fn generate_ui_schema(&self, schema: &Schema, form_name: &str) -> Result<Value, String> {
         let form = schema.forms.get(form_name).ok_or("Form not found")?;
-        let entity = schema.entities.get(&form.entity).ok_or("Entity not found")?;
+        let entity = schema
+            .entities
+            .get(&form.entity)
+            .ok_or("Entity not found")?;
 
         let mut ui_sections = vec![];
 
         for section in &form.sections {
             let mut ui_fields = vec![];
             for field_name in &section.fields {
-                let ui_field = if let Some(field_def) = entity.fields.iter().find(|f| &f.name == field_name) {
-                    json!({
-                        "name": field_def.name,
-                        "label": field_def.name, 
-                        "widget": self.map_field_type_to_widget(&field_def.field_type),
-                        "required": field_def.required
-                    })
-                } else if let Some(rel_def) = entity.relationships.iter().find(|r| &r.name == field_name) {
-                    json!({
-                        "name": rel_def.name,
-                        "label": rel_def.name, 
-                        "widget": "RelationPicker",
-                        "required": false // Default for relation
-                    })
-                } else {
-                    return Err(format!("Field {} not found in entity {}", field_name, form.entity));
-                };
-                
+                let ui_field =
+                    if let Some(field_def) = entity.fields.iter().find(|f| &f.name == field_name) {
+                        json!({
+                            "name": field_def.name,
+                            "label": field_def.name,
+                            "widget": self.map_field_type_to_widget(&field_def.field_type),
+                            "required": field_def.required
+                        })
+                    } else if let Some(rel_def) =
+                        entity.relationships.iter().find(|r| &r.name == field_name)
+                    {
+                        json!({
+                            "name": rel_def.name,
+                            "label": rel_def.name,
+                            "widget": "RelationPicker",
+                            "required": false // Default for relation
+                        })
+                    } else {
+                        return Err(format!(
+                            "Field {} not found in entity {}",
+                            field_name, form.entity
+                        ));
+                    };
+
                 ui_fields.push(ui_field);
             }
-            
+
             ui_sections.push(json!({
                 "title": section.title,
                 "fields": ui_fields
@@ -51,19 +66,23 @@ impl FormEngine {
         }))
     }
 
-    pub fn generate_default_form(&self, schema: &Schema, entity_name: &str) -> Result<Value, String> {
+    pub fn generate_default_form(
+        &self,
+        schema: &Schema,
+        entity_name: &str,
+    ) -> Result<Value, String> {
         let entity = schema.entities.get(entity_name).ok_or("Entity not found")?;
 
         let mut ui_fields = vec![];
         for field_def in &entity.fields {
-             ui_fields.push(json!({
+            ui_fields.push(json!({
                 "name": field_def.name,
-                "label": field_def.name, 
+                "label": field_def.name,
                 "widget": self.map_field_type_to_widget(&field_def.field_type),
                 "required": field_def.required
             }));
         }
-        
+
         let ui_sections = vec![json!({
             "title": "General",
             "fields": ui_fields

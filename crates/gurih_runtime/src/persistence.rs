@@ -1,7 +1,6 @@
-use sqlx::{Pool, Postgres, Row, query};
-use gurih_ir::{Schema, EntitySchema, TableSchema, FieldType};
+use gurih_ir::{EntitySchema, FieldType, Schema, TableSchema};
+use sqlx::{Pool, Postgres, Row};
 use std::sync::Arc;
-use std::collections::HashSet;
 
 pub struct SchemaManager {
     pool: Pool<Postgres>,
@@ -41,12 +40,10 @@ impl SchemaManager {
 
         if !table_exists {
             // Create table
-            sqlx::query(
-                "CREATE TABLE _gurih_metadata (key TEXT PRIMARY KEY, value TEXT)"
-            )
-            .execute(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+            sqlx::query("CREATE TABLE _gurih_metadata (key TEXT PRIMARY KEY, value TEXT)")
+                .execute(&self.pool)
+                .await
+                .map_err(|e| e.to_string())?;
 
             // Insert default mode = dev
             sqlx::query("INSERT INTO _gurih_metadata (key, value) VALUES ('mode', 'dev')")
@@ -86,13 +83,16 @@ impl SchemaManager {
         for name in self.schema.entities.keys() {
             // Default entity table name is snake_case of entity name?
             // Assuming simple mapping for now.
-             tables_to_drop.push(name.clone()); // e.g. "Customer" -> "Customer" (quoted)
+            tables_to_drop.push(name.clone()); // e.g. "Customer" -> "Customer" (quoted)
         }
 
         // Drop foreign key constraints first? Or use CASCADE.
         for table in tables_to_drop {
             let sql = format!("DROP TABLE IF EXISTS \"{}\" CASCADE", table);
-            sqlx::query(&sql).execute(&self.pool).await.map_err(|e| e.to_string())?;
+            sqlx::query(&sql)
+                .execute(&self.pool)
+                .await
+                .map_err(|e| e.to_string())?;
         }
 
         Ok(())
@@ -132,20 +132,25 @@ impl SchemaManager {
             }
             // Add other props if needed (precision, not null etc)
             // e.g. if prop "not_null" is true
-             if let Some(val) = col.props.get("not_null") {
-                 if val == "true" { def.push_str(" NOT NULL"); }
-             }
-             if let Some(val) = col.props.get("default") {
-                 def.push_str(&format!(" DEFAULT {}", val));
-             }
+            if let Some(val) = col.props.get("not_null")
+                && val == "true"
+            {
+                def.push_str(" NOT NULL");
+            }
+            if let Some(val) = col.props.get("default") {
+                def.push_str(&format!(" DEFAULT {}", val));
+            }
 
             defs.push(def);
         }
 
         sql.push_str(&defs.join(", "));
-        sql.push_str(")");
+        sql.push(')');
 
-        sqlx::query(&sql).execute(&self.pool).await.map_err(|e| e.to_string())?;
+        sqlx::query(&sql)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
         Ok(())
     }
 
@@ -158,37 +163,37 @@ impl SchemaManager {
         // Usually Entity starts with `id` semantic type.
 
         for field in &entity.fields {
-             let mut col_type = match &field.field_type {
-                 FieldType::String => "TEXT", // or VARCHAR
-                 FieldType::Text => "TEXT",
-                 FieldType::Integer => "INT",
-                 FieldType::Float => "DOUBLE PRECISION",
-                 FieldType::Boolean => "BOOLEAN",
-                 FieldType::Date => "DATE",
-                 FieldType::DateTime => "TIMESTAMP",
-                 FieldType::Relation => "TEXT", // Store ID as text/uuid
-                 FieldType::Enum(_) => "TEXT",
-             };
+            let col_type = match &field.field_type {
+                FieldType::String => "TEXT", // or VARCHAR
+                FieldType::Text => "TEXT",
+                FieldType::Integer => "INT",
+                FieldType::Float => "DOUBLE PRECISION",
+                FieldType::Boolean => "BOOLEAN",
+                FieldType::Date => "DATE",
+                FieldType::DateTime => "TIMESTAMP",
+                FieldType::Relation => "TEXT", // Store ID as text/uuid
+                FieldType::Enum(_) => "TEXT",
+            };
 
-             // Handle "Serial" -> usually implies a sequence or just text that is generated?
-             // If field name is "id" and type is integer, make it SERIAL?
-             // But Gurih usually uses UUID or Text IDs.
-             // If `id` type is Integer, and `serial` prop set?
+            // Handle "Serial" -> usually implies a sequence or just text that is generated?
+            // If field name is "id" and type is integer, make it SERIAL?
+            // But Gurih usually uses UUID or Text IDs.
+            // If `id` type is Integer, and `serial` prop set?
 
-             let mut def = format!("\"{}\" {}", field.name, col_type);
+            let mut def = format!("\"{}\" {}", field.name, col_type);
 
-             if field.name == "id" {
-                 def.push_str(" PRIMARY KEY");
-             }
+            if field.name == "id" {
+                def.push_str(" PRIMARY KEY");
+            }
 
-             if field.required {
-                 def.push_str(" NOT NULL");
-             }
-             if field.unique {
-                 def.push_str(" UNIQUE");
-             }
+            if field.required {
+                def.push_str(" NOT NULL");
+            }
+            if field.unique {
+                def.push_str(" UNIQUE");
+            }
 
-             defs.push(def);
+            defs.push(def);
         }
 
         // Process Relationships (belongs_to -> foreign key column)
@@ -211,17 +216,20 @@ impl SchemaManager {
                 let col_name = format!("{}_id", rel.name);
                 // Check if this column already exists in fields (user might have defined it explicitly?)
                 if !entity.fields.iter().any(|f| f.name == col_name) {
-                     // Add it
-                     let def = format!("\"{}\" TEXT", col_name); // Assuming TEXT ID
-                     defs.push(def);
+                    // Add it
+                    let def = format!("\"{}\" TEXT", col_name); // Assuming TEXT ID
+                    defs.push(def);
                 }
             }
         }
 
         sql.push_str(&defs.join(", "));
-        sql.push_str(")");
+        sql.push(')');
 
-        sqlx::query(&sql).execute(&self.pool).await.map_err(|e| e.to_string())?;
+        sqlx::query(&sql)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
         Ok(())
     }
 }

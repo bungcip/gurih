@@ -12,7 +12,7 @@ pub struct Schema {
     pub workflows: HashMap<String, WorkflowSchema>,
     pub forms: HashMap<String, FormSchema>,
     pub permissions: HashMap<String, PermissionSchema>,
-    
+
     // New fields
     pub layouts: HashMap<String, LayoutSchema>,
     pub menus: HashMap<String, MenuSchema>,
@@ -88,7 +88,7 @@ pub enum FieldType {
     DateTime,
     Enum(Vec<String>),
     Relation, // One-to-One or Many-to-One usually
-    // JSON,
+              // JSON,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -124,7 +124,7 @@ pub struct FormSection {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PermissionSchema {
     pub name: String,
-    pub rules: Vec<String>, 
+    pub rules: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -153,7 +153,7 @@ pub struct MenuItemSchema {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RouteSchema {
-    // Flattened or tree? Keeping it tree-like might be useful for frontend. 
+    // Flattened or tree? Keeping it tree-like might be useful for frontend.
     // But for IR, maybe flattened listing is easier?
     // Let's stick to list of top-level groups or routes.
     // Actually, `Schema` has `routes` as HashMap. The key is path?
@@ -176,7 +176,7 @@ pub struct PageSchema {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PageContentSchema {
     Datatable(DatatableSchema),
-    Form(String), // Form name
+    Form(String),      // Form name
     Dashboard(String), // Dashboard name
     None,
 }
@@ -232,8 +232,6 @@ pub struct PrintSchema {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_serialization() {
         // ... (simplified test)

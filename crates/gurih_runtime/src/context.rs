@@ -15,8 +15,9 @@ impl RuntimeContext {
             permissions: vec!["*".to_string()],
         }
     }
-    
+
     pub fn has_permission(&self, permission: &str) -> bool {
-        self.permissions.contains(&"*".to_string()) || self.permissions.contains(&permission.to_string())
+        self.permissions.contains(&"*".to_string())
+            || self.permissions.contains(&permission.to_string())
     }
 }
