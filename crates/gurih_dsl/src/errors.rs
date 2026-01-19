@@ -22,7 +22,7 @@ pub enum CompileError {
         span: miette::SourceSpan,
         message: String,
     },
-    
+
     #[error("KDL error: {0}")]
     #[diagnostic(code(gurih::kdl_error))]
     KdlError(#[from] kdl::KdlError),

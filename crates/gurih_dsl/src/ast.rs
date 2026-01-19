@@ -55,7 +55,7 @@ pub struct LayoutSectionDef {
 #[derive(Debug, Clone)]
 pub struct ModuleDef {
     pub name: String,
-    pub entities: Vec<EntityDef>, 
+    pub entities: Vec<EntityDef>,
     pub enums: Vec<EnumDef>,
     pub span: SourceSpan,
 }
@@ -95,7 +95,7 @@ pub struct EntityOptions {
 #[derive(Debug, Clone)]
 pub struct FieldDef {
     pub name: String,
-    pub type_name: String, // Semantic Type
+    pub type_name: String,      // Semantic Type
     pub serial: Option<String>, // if type is code
     pub required: bool,
     pub unique: bool,
@@ -239,8 +239,8 @@ pub struct FormSectionDef {
 
 #[derive(Debug, Clone)]
 pub struct RoutesDef {
-     pub routes: Vec<RouteNode>,
-     pub span: SourceSpan,
+    pub routes: Vec<RouteNode>,
+    pub span: SourceSpan,
 }
 
 #[derive(Debug, Clone)]
@@ -313,6 +313,6 @@ pub struct PermissionDef {
 
 #[derive(Debug, Clone)]
 pub struct AllowDef {
-    pub resource: String, // url or permission key like sales.*
+    pub resource: String,        // url or permission key like sales.*
     pub actions: Option<String>, // read,write
 }

@@ -1,24 +1,23 @@
-use clap::{Parser, Subcommand};
-use std::path::PathBuf;
-use gurih_dsl::compile;
-use std::fs;
-use gurih_runtime::data::DataEngine;
-use gurih_runtime::storage::{MemoryStorage, PostgresStorage, Storage};
-use gurih_runtime::persistence::SchemaManager;
-use gurih_runtime::context::RuntimeContext;
-use std::sync::Arc;
-use tokio;
 use axum::{
-    routing::{get, post},
     Router,
-    extract::{Path, State, Json},
+    extract::{Json, Path, State},
     http::StatusCode,
     response::IntoResponse,
+    routing::{get, post},
 };
+use clap::{Parser, Subcommand};
+use gurih_dsl::compile;
+use gurih_runtime::context::RuntimeContext;
+use gurih_runtime::data::DataEngine;
+use gurih_runtime::persistence::SchemaManager;
+use gurih_runtime::storage::{MemoryStorage, PostgresStorage, Storage};
+use gurih_runtime::{form::FormEngine, page::PageEngine, portal::PortalEngine};
 use serde_json::Value;
-use tower_http::cors::{CorsLayer, Any};
-use gurih_runtime::{portal::PortalEngine, page::PageEngine, form::FormEngine};
 use sqlx::postgres::PgPoolOptions;
+use std::fs;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tower_http::cors::{Any, CorsLayer};
 
 #[derive(Parser)]
 #[command(name = "gurih")]
@@ -31,9 +30,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Check the DSL file for errors
-    Check {
-        file: PathBuf,
-    },
+    Check { file: PathBuf },
     /// Compile DSL to IR JSON
     Build {
         file: PathBuf,
@@ -61,23 +58,23 @@ async fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Check { file } => {
-            match read_and_compile(&file) {
-                Ok(_) => println!("✔ Schema is valid."),
-                Err(e) => eprintln!("❌ Error: {}", e),
+        Commands::Check { file } => match read_and_compile(&file) {
+            Ok(_) => println!("✔ Schema is valid."),
+            Err(e) => eprintln!("❌ Error: {}", e),
+        },
+        Commands::Build { file, output } => match read_and_compile(&file) {
+            Ok(schema) => {
+                let json = serde_json::to_string_pretty(&schema).unwrap();
+                fs::write(output, json).expect("Failed to write output file");
+                println!("✔ Build successful.");
             }
-        }
-        Commands::Build { file, output } => {
-            match read_and_compile(&file) {
-                Ok(schema) => {
-                    let json = serde_json::to_string_pretty(&schema).unwrap();
-                    fs::write(output, json).expect("Failed to write output file");
-                    println!("✔ Build successful.");
-                }
-                Err(e) => eprintln!("❌ Error: {}", e),
-            }
-        }
-        Commands::Run { file, port, server_only } => {
+            Err(e) => eprintln!("❌ Error: {}", e),
+        },
+        Commands::Run {
+            file,
+            port,
+            server_only,
+        } => {
             match read_and_compile(&file) {
                 Ok(schema) => {
                     println!("✔ Schema loaded. Starting runtime...");
@@ -88,9 +85,9 @@ async fn main() {
                         println!("🔌 Connecting to database...");
                         // Handle env:DATABASE_URL
                         let url = if db_config.url.starts_with("env:") {
-                             std::env::var(&db_config.url[4..]).unwrap_or_else(|_| "".to_string())
+                            std::env::var(&db_config.url[4..]).unwrap_or_else(|_| "".to_string())
                         } else {
-                             db_config.url.clone()
+                            db_config.url.clone()
                         };
 
                         if url.is_empty() {
@@ -99,7 +96,9 @@ async fn main() {
 
                         let pool = PgPoolOptions::new()
                             .max_connections(5)
-                            .connect(&url).await.expect("Failed to connect to DB");
+                            .connect(&url)
+                            .await
+                            .expect("Failed to connect to DB");
 
                         let manager = SchemaManager::new(pool.clone(), schema.clone());
                         manager.migrate().await.expect("Migration failed");
@@ -112,8 +111,11 @@ async fn main() {
 
                     let engine = Arc::new(DataEngine::new(schema.clone(), storage));
 
-                    println!("Runtime initialized with {} entities.", schema.entities.len());
-                    
+                    println!(
+                        "Runtime initialized with {} entities.",
+                        schema.entities.len()
+                    );
+
                     let mut frontend_child = None;
 
                     if !server_only {
@@ -126,14 +128,14 @@ async fn main() {
                             let npm_cmd = "npm.cmd";
                             #[cfg(not(windows))]
                             let npm_cmd = "npm";
-                            
+
                             match tokio::process::Command::new(npm_cmd)
                                 .arg("run")
                                 .arg("dev")
                                 .current_dir(web_path)
                                 .stdout(std::process::Stdio::null())
                                 .stderr(std::process::Stdio::null())
-                                .spawn() 
+                                .spawn()
                             {
                                 Ok(child) => frontend_child = Some(child),
                                 Err(e) => eprintln!("⚠️ Failed to start frontend: {}", e),
@@ -145,27 +147,47 @@ async fn main() {
                             tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
                             println!("🌐 Opening dashboard at http://localhost:{}", frontend_port);
                             #[cfg(windows)]
-                            let _ = std::process::Command::new("cmd").args(["/C", "start", &format!("http://localhost:{}", frontend_port)]).spawn();
+                            let _ = std::process::Command::new("cmd")
+                                .args([
+                                    "/C",
+                                    "start",
+                                    &format!("http://localhost:{}", frontend_port),
+                                ])
+                                .spawn();
                             #[cfg(not(windows))]
-                            let _ = std::process::Command::new("open").arg(&format!("http://localhost:{}", frontend_port)).spawn();
+                            let _ = std::process::Command::new("open")
+                                .arg(format!("http://localhost:{}", frontend_port))
+                                .spawn();
                         });
                     }
 
-                    let state = AppState { data_engine: engine };
-                    
+                    let state = AppState {
+                        data_engine: engine,
+                    };
+
                     let app = Router::new()
                         .route("/api/{entity}", post(create_entity).get(list_entities))
-                        .route("/api/{entity}/{id}", get(get_entity).put(update_entity).delete(delete_entity))
+                        .route(
+                            "/api/{entity}/{id}",
+                            get(get_entity).put(update_entity).delete(delete_entity),
+                        )
                         // UI Routes
                         .route("/api/ui/portal", get(get_portal))
                         .route("/api/ui/page/{entity}", get(get_page_config))
                         .route("/api/ui/form/{entity}", get(get_form_config))
-                        .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
+                        .layer(
+                            CorsLayer::new()
+                                .allow_origin(Any)
+                                .allow_methods(Any)
+                                .allow_headers(Any),
+                        )
                         .with_state(state);
 
-                    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await.unwrap();
+                    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
+                        .await
+                        .unwrap();
                     println!("🚀 Server running on http://0.0.0.0:{}", port);
-                    
+
                     // Run server with graceful shutdown
                     axum::serve(listener, app)
                         .with_graceful_shutdown(async move {
@@ -173,7 +195,7 @@ async fn main() {
                                 .await
                                 .expect("failed to install CTRL+C handler");
                             println!("\n🛑 Shutdown signal received. Cleaning up...");
-                            
+
                             if let Some(mut child) = frontend_child {
                                 println!("Killing frontend process...");
                                 let _ = child.kill().await;
@@ -203,7 +225,11 @@ async fn create_entity(
     let ctx = RuntimeContext::system(); // Using system context for now (TODO: Extract from Auth header)
     match state.data_engine.create(&entity, payload, &ctx).await {
         Ok(id) => (StatusCode::CREATED, Json(serde_json::json!({ "id": id }))).into_response(),
-        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": e })),
+        )
+            .into_response(),
     }
 }
 
@@ -213,7 +239,11 @@ async fn list_entities(
 ) -> impl IntoResponse {
     match state.data_engine.list(&entity).await {
         Ok(list) => (StatusCode::OK, Json(list)).into_response(),
-        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": e })),
+        )
+            .into_response(),
     }
 }
 
@@ -223,8 +253,16 @@ async fn get_entity(
 ) -> impl IntoResponse {
     match state.data_engine.read(&entity, &id).await {
         Ok(Some(item)) => (StatusCode::OK, Json(item)).into_response(),
-        Ok(None) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Not found" }))).into_response(),
-        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "Not found" })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": e })),
+        )
+            .into_response(),
     }
 }
 
@@ -235,8 +273,16 @@ async fn update_entity(
 ) -> impl IntoResponse {
     let ctx = RuntimeContext::system();
     match state.data_engine.update(&entity, &id, payload, &ctx).await {
-        Ok(_) => (StatusCode::OK, Json(serde_json::json!({ "status": "updated" }))).into_response(),
-        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+        Ok(_) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "status": "updated" })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": e })),
+        )
+            .into_response(),
     }
 }
 
@@ -245,8 +291,16 @@ async fn delete_entity(
     Path((entity, id)): Path<(String, String)>,
 ) -> impl IntoResponse {
     match state.data_engine.delete(&entity, &id).await {
-        Ok(_) => (StatusCode::OK, Json(serde_json::json!({ "status": "deleted" }))).into_response(),
-        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+        Ok(_) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "status": "deleted" })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": e })),
+        )
+            .into_response(),
     }
 }
 
@@ -256,7 +310,11 @@ async fn get_portal(State(state): State<AppState>) -> impl IntoResponse {
     let engine = PortalEngine::new();
     match engine.generate_navigation(state.data_engine.get_schema()) {
         Ok(nav) => (StatusCode::OK, Json(nav)).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e }))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": e })),
+        )
+            .into_response(),
     }
 }
 
@@ -267,7 +325,11 @@ async fn get_page_config(
     let engine = PageEngine::new();
     match engine.generate_page_config(state.data_engine.get_schema(), &entity) {
         Ok(config) => (StatusCode::OK, Json(config)).into_response(),
-        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": e })),
+        )
+            .into_response(),
     }
 }
 
@@ -277,7 +339,7 @@ async fn get_form_config(
 ) -> impl IntoResponse {
     let engine = FormEngine::new();
     // Default form name is 'default' for now, or use entity name as form name if we auto-generated it?
-    // In current runtime/form.rs: `generate_ui_schema` takes `form_name`. 
+    // In current runtime/form.rs: `generate_ui_schema` takes `form_name`.
     // Usually forms are named in DSL. If we don't have explicit forms, we might fail.
     // However, the prompt implies "basic HR ERP".
     // Let's assume we want to generate a DEFAULT form for the entity if one doesn't exist?
@@ -290,17 +352,19 @@ async fn get_form_config(
     // SO FormEngine will fail.
     // I NEED TO UPDATE FormEngine to support auto-generation from Entity if no form is found, or Update KDL to include Basic Forms.
     // Updating FormEngine is robust.
-    
+
     // Let's assume for this step I just call it with entity name and handle error.
     // Better: I will Update FormEngine in next steps if needed. For now, let's just Try using entity name.
-    
-    match engine.generate_ui_schema(state.data_engine.get_schema(), &entity) { 
+
+    match engine.generate_ui_schema(state.data_engine.get_schema(), &entity) {
         Ok(config) => (StatusCode::OK, Json(config)).into_response(),
-        Err(_) => {
-             match engine.generate_default_form(state.data_engine.get_schema(), &entity) {
-                Ok(config) => (StatusCode::OK, Json(config)).into_response(),
-                Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
-             }
-        }
+        Err(_) => match engine.generate_default_form(state.data_engine.get_schema(), &entity) {
+            Ok(config) => (StatusCode::OK, Json(config)).into_response(),
+            Err(e) => (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": e })),
+            )
+                .into_response(),
+        },
     }
 }

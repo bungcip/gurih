@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use serde_json::Value;
+use sqlx::postgres::PgRow;
+use sqlx::{Column, Pool, Postgres, Row, TypeInfo};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
-use sqlx::{Pool, Postgres, Row, Column, TypeInfo};
-use sqlx::postgres::PgRow;
 
 #[async_trait]
 pub trait Storage: Send + Sync {
@@ -19,6 +19,12 @@ pub struct MemoryStorage {
     data: Arc<Mutex<HashMap<String, HashMap<String, Value>>>>,
 }
 
+impl Default for MemoryStorage {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryStorage {
     pub fn new() -> Self {
         Self {
@@ -31,13 +37,13 @@ impl MemoryStorage {
 impl Storage for MemoryStorage {
     async fn insert(&self, entity: &str, mut record: Value) -> Result<String, String> {
         let mut data = self.data.lock().unwrap();
-        let table = data.entry(entity.to_string()).or_insert_with(HashMap::new);
-        
+        let table = data.entry(entity.to_string()).or_default();
+
         let id = Uuid::new_v4().to_string();
         if let Some(obj) = record.as_object_mut() {
             obj.insert("id".to_string(), Value::String(id.clone()));
         }
-        
+
         table.insert(id.clone(), record);
         Ok(id)
     }
@@ -53,8 +59,8 @@ impl Storage for MemoryStorage {
 
     async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String> {
         let mut data = self.data.lock().unwrap();
-        let table = data.entry(entity.to_string()).or_insert_with(HashMap::new);
-        
+        let table = data.entry(entity.to_string()).or_default();
+
         if table.contains_key(id) {
             let mut record = record;
             if let Some(obj) = record.as_object_mut() {
@@ -76,7 +82,7 @@ impl Storage for MemoryStorage {
                 Err("Record not found".to_string())
             }
         } else {
-             Err("Record not found".to_string())
+            Err("Record not found".to_string())
         }
     }
 
@@ -98,30 +104,33 @@ impl PostgresStorage {
     pub fn new(pool: Pool<Postgres>) -> Self {
         Self { pool }
     }
-    
+
     fn row_to_json(row: PgRow) -> Value {
         let mut map = serde_json::Map::new();
         for col in row.columns() {
             let name = col.name();
-             let type_info = col.type_info();
-             match type_info.name() {
-                 "TEXT" | "VARCHAR" | "CHAR" | "NAME" => {
-                     let val: Option<String> = row.try_get(name).ok();
-                     map.insert(name.to_string(), serde_json::to_value(val).unwrap());
-                 },
-                 "INT4" | "INT8" => {
-                     let val: Option<i64> = row.try_get(name).ok();
-                      map.insert(name.to_string(), serde_json::to_value(val).unwrap());
-                 },
-                 "BOOL" => {
-                      let val: Option<bool> = row.try_get(name).ok();
-                      map.insert(name.to_string(), serde_json::to_value(val).unwrap());
-                 },
-                 _ => {
-                      let val: Option<String> = row.try_get(name).ok();
-                      map.insert(name.to_string(), serde_json::to_value(val).unwrap_or(Value::Null));
-                 }
-             }
+            let type_info = col.type_info();
+            match type_info.name() {
+                "TEXT" | "VARCHAR" | "CHAR" | "NAME" => {
+                    let val: Option<String> = row.try_get(name).ok();
+                    map.insert(name.to_string(), serde_json::to_value(val).unwrap());
+                }
+                "INT4" | "INT8" => {
+                    let val: Option<i64> = row.try_get(name).ok();
+                    map.insert(name.to_string(), serde_json::to_value(val).unwrap());
+                }
+                "BOOL" => {
+                    let val: Option<bool> = row.try_get(name).ok();
+                    map.insert(name.to_string(), serde_json::to_value(val).unwrap());
+                }
+                _ => {
+                    let val: Option<String> = row.try_get(name).ok();
+                    map.insert(
+                        name.to_string(),
+                        serde_json::to_value(val).unwrap_or(Value::Null),
+                    );
+                }
+            }
         }
         Value::Object(map)
     }
@@ -131,48 +140,54 @@ impl PostgresStorage {
 impl Storage for PostgresStorage {
     async fn insert(&self, entity: &str, record: Value) -> Result<String, String> {
         let obj = record.as_object().ok_or("Record must be object")?;
-        
+
         let mut query = format!("INSERT INTO \"{}\" (", entity);
         let mut params = vec![];
         let mut values_clause = String::from(") VALUES (");
-        
+
         let mut i = 1;
         for (k, v) in obj {
             if i > 1 {
                 query.push_str(", ");
                 values_clause.push_str(", ");
             }
-            query.push_str(&format!("\"{}\"", k)); 
+            query.push_str(&format!("\"{}\"", k));
             values_clause.push_str(&format!("${}", i));
             params.push(v);
             i += 1;
         }
-        
+
         query.push_str(&values_clause);
         query.push_str(") RETURNING id");
-        
+
         let mut q = sqlx::query(&query);
         for p in params {
             match p {
                 Value::String(s) => q = q.bind(s),
                 Value::Number(n) => {
-                    if n.is_i64() { q = q.bind(n.as_i64()); }
-                    else if n.is_f64() { q = q.bind(n.as_f64()); }
-                    else { q = q.bind(n.to_string()); }
-                },
+                    if n.is_i64() {
+                        q = q.bind(n.as_i64());
+                    } else if n.is_f64() {
+                        q = q.bind(n.as_f64());
+                    } else {
+                        q = q.bind(n.to_string());
+                    }
+                }
                 Value::Bool(b) => q = q.bind(b),
                 Value::Null => q = q.bind(Option::<String>::None),
                 _ => q = q.bind(p.to_string()),
             }
         }
-        
+
         let row = q.fetch_one(&self.pool).await.map_err(|e| e.to_string())?;
-        
+
         // Try getting id as String, fallback to int
-        let id_val: String = row.try_get("id").unwrap_or_else(|_| 
-            row.try_get::<i64, _>("id").map(|i| i.to_string()).unwrap_or_default()
-        );
-        
+        let id_val: String = row.try_get("id").unwrap_or_else(|_| {
+            row.try_get::<i64, _>("id")
+                .map(|i| i.to_string())
+                .unwrap_or_default()
+        });
+
         Ok(id_val)
     }
 
@@ -180,24 +195,28 @@ impl Storage for PostgresStorage {
         // Assume ID is text or int. For simplicity we try to bind as text?
         // Or we rely on auto-cast?
         // If entity uses UUID, text is fine.
-        
+
         let query = format!("SELECT * FROM \"{}\" WHERE id = $1", entity);
         let row = sqlx::query(&query)
             .bind(id)
-            .fetch_optional(&self.pool).await.map_err(|e| e.to_string())?;
-            
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
+
         Ok(row.map(Self::row_to_json))
     }
 
     async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String> {
         let obj = record.as_object().ok_or("Record must be object")?;
-        
+
         let mut query = format!("UPDATE \"{}\" SET ", entity);
         let mut params = vec![];
-        
+
         let mut i = 1;
         for (k, v) in obj {
-            if k == "id" { continue; } // Don't update ID
+            if k == "id" {
+                continue;
+            } // Don't update ID
             if i > 1 {
                 query.push_str(", ");
             }
@@ -205,26 +224,30 @@ impl Storage for PostgresStorage {
             params.push(v);
             i += 1;
         }
-        
+
         query.push_str(&format!(" WHERE id = ${}", i));
         let id_val = Value::String(id.to_string());
         params.push(&id_val);
-        
+
         let mut q = sqlx::query(&query);
         for p in params {
-             match p {
+            match p {
                 Value::String(s) => q = q.bind(s),
                 Value::Number(n) => {
-                    if n.is_i64() { q = q.bind(n.as_i64()); }
-                    else if n.is_f64() { q = q.bind(n.as_f64()); }
-                    else { q = q.bind(n.to_string()); }
-                },
+                    if n.is_i64() {
+                        q = q.bind(n.as_i64());
+                    } else if n.is_f64() {
+                        q = q.bind(n.as_f64());
+                    } else {
+                        q = q.bind(n.to_string());
+                    }
+                }
                 Value::Bool(b) => q = q.bind(b),
                 Value::Null => q = q.bind(Option::<String>::None),
                 _ => q = q.bind(p.to_string()),
             }
         }
-        
+
         q.execute(&self.pool).await.map_err(|e| e.to_string())?;
         Ok(())
     }
@@ -233,15 +256,19 @@ impl Storage for PostgresStorage {
         let query = format!("DELETE FROM \"{}\" WHERE id = $1", entity);
         sqlx::query(&query)
             .bind(id)
-            .execute(&self.pool).await.map_err(|e| e.to_string())?;
+            .execute(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
         Ok(())
     }
 
     async fn list(&self, entity: &str) -> Result<Vec<Value>, String> {
         let query = format!("SELECT * FROM \"{}\"", entity);
         let rows = sqlx::query(&query)
-            .fetch_all(&self.pool).await.map_err(|e| e.to_string())?;
-            
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
+
         Ok(rows.into_iter().map(Self::row_to_json).collect())
     }
 }
