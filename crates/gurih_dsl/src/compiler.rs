@@ -331,28 +331,51 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
 
     // 10. Process Routes
     // Flatten routes for schema
-    fn process_route_node(node: &ast::RouteNode) -> RouteSchema {
+    let mut valid_pages: std::collections::HashSet<&str> =
+        ir_pages.keys().map(|s| s.as_str()).collect();
+    valid_pages.extend(ir_dashboards.keys().map(|s| s.as_str()));
+
+    fn process_route_node(
+        node: &ast::RouteNode,
+        valid_pages: &std::collections::HashSet<&str>,
+        src: &str,
+    ) -> Result<RouteSchema, CompileError> {
         match node {
-            ast::RouteNode::Route(r) => RouteSchema {
-                path: r.path.clone(),
-                to: r.to.clone(),
-                layout: r.layout.clone(),
-                permission: r.permission.clone(),
-                children: vec![],
-            },
-            ast::RouteNode::Group(g) => RouteSchema {
-                path: g.path.clone(),
-                to: "".to_string(), // Group doesn't point to page usually
-                layout: g.layout.clone(),
-                permission: g.permission.clone(),
-                children: g.children.iter().map(process_route_node).collect(),
-            },
+            ast::RouteNode::Route(r) => {
+                if !valid_pages.contains(r.to.as_str()) {
+                    return Err(CompileError::ValidationError {
+                        src: src.to_string(),
+                        span: r.span,
+                        message: format!("Route target '{}' not found in pages", r.to),
+                    });
+                }
+                Ok(RouteSchema {
+                    path: r.path.clone(),
+                    to: r.to.clone(),
+                    layout: r.layout.clone(),
+                    permission: r.permission.clone(),
+                    children: vec![],
+                })
+            }
+            ast::RouteNode::Group(g) => {
+                let mut children = vec![];
+                for child in &g.children {
+                    children.push(process_route_node(child, valid_pages, src)?);
+                }
+                Ok(RouteSchema {
+                    path: g.path.clone(),
+                    to: "".to_string(), // Group doesn't point to page usually
+                    layout: g.layout.clone(),
+                    permission: g.permission.clone(),
+                    children,
+                })
+            }
         }
     }
 
     for routes_def in &ast_root.routes {
         for route_node in &routes_def.routes {
-            let schema = process_route_node(route_node);
+            let schema = process_route_node(route_node, &valid_pages, src)?;
             // Use path as key? Or accumulate in a list.
             // Schema defines routes: HashMap<String, RouteSchema>.
             ir_routes.insert(schema.path.clone(), schema);
