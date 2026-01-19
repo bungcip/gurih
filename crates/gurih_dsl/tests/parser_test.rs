@@ -3,6 +3,35 @@ use std::fs;
 use std::path::PathBuf;
 
 #[test]
+fn test_snake_case_to_title_case_label_generation() {
+    let input = r#"
+entity "TestEntity" {
+    string "first_name"
+    string "last_name"
+}
+
+page "test_page" {
+    datatable for="TestEntity" {
+        column "first_name"
+        column "last_name"
+        column "address"
+    }
+}
+"#;
+
+    let ast = parse(input).unwrap();
+    let page = ast.pages.get(0).unwrap();
+
+    if let gurih_dsl::ast::PageContent::Datatable(datatable) = &page.content {
+        assert_eq!(datatable.columns[0].label, "First Name");
+        assert_eq!(datatable.columns[1].label, "Last Name");
+        assert_eq!(datatable.columns[2].label, "Address");
+    } else {
+        panic!("Expected datatable content");
+    }
+}
+
+#[test]
 fn test_parse_golden_master() {
     // Locate the gurih-hr/gurih.kdl file
     let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
