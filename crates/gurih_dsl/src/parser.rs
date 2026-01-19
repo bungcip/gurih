@@ -650,7 +650,7 @@ fn parse_datatable(node: &KdlNode, src: &str) -> Result<DatatableDef, CompileErr
                 "column" => {
                     let field = get_arg_string(child, 0, src)?;
                     let label =
-                        get_prop_string(child, "label", src).unwrap_or_else(|_| capitalize(&field));
+                        get_prop_string(child, "label", src).unwrap_or_else(|_| to_title_case(&field));
                     columns.push(DatatableColumnDef { field, label });
                 }
                 "action" => {
@@ -891,10 +891,15 @@ fn get_arg_bool(node: &KdlNode, index: usize) -> Result<bool, CompileError> {
         })
 }
 
-fn capitalize(s: &str) -> String {
-    let mut c = s.chars();
-    match c.next() {
-        None => String::new(),
-        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-    }
+fn to_title_case(s: &str) -> String {
+    s.split('_')
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
