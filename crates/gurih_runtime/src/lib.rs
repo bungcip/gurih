@@ -6,3 +6,4 @@ pub mod context;
 pub mod portal;
 pub mod page;
 pub mod dashboard;
+pub mod persistence;

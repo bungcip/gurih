@@ -12,6 +12,7 @@ pub fn parse(src: &str) -> Result<Ast, CompileError> {
         layouts: vec![],
         modules: vec![],
         entities: vec![],
+        tables: vec![], // Added
         enums: vec![],
         serials: vec![],
         workflows: vec![],
@@ -33,6 +34,7 @@ pub fn parse(src: &str) -> Result<Ast, CompileError> {
             "layout" => ast.layouts.push(parse_layout(node, src)?),
             "module" => ast.modules.push(parse_module(node, src)?),
             "entity" => ast.entities.push(parse_entity(node, src)?),
+            "table" => ast.tables.push(parse_table(node, src)?), // Added
             "enum" => ast.enums.push(parse_enum(node, src)?),
             "serial" => ast.serials.push(parse_serial(node, src)?),
             "workflow" => ast.workflows.push(parse_workflow(node, src)?),
@@ -287,6 +289,57 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
         fields,
         relationships,
         options,
+        span: node.span().clone(),
+    })
+}
+
+// Added Table Parser
+fn parse_table(node: &KdlNode, src: &str) -> Result<TableDef, CompileError> {
+    let name = get_arg_string(node, 0, src)?;
+    let mut columns = vec![];
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            if child.name().value() == "column" {
+                columns.push(parse_column(child, src)?);
+            }
+        }
+    }
+
+    Ok(TableDef {
+        name,
+        columns,
+        span: node.span().clone(),
+    })
+}
+
+fn parse_column(node: &KdlNode, src: &str) -> Result<ColumnDef, CompileError> {
+    let name = get_arg_string(node, 0, src)?;
+    let type_name = get_prop_string(node, "type", src)?;
+    let primary = get_prop_bool(node, "primary").unwrap_or(false);
+    let unique = get_prop_bool(node, "unique").unwrap_or(false);
+
+    let mut props = std::collections::HashMap::new();
+    // collect other props like len, precision
+    for entry in node.entries() {
+         if let Some(key) = entry.name() {
+             let k = key.value();
+             if !k.is_empty() && k != "type" && k != "primary" && k != "unique" {
+                 if let Some(s) = entry.value().as_string() {
+                     props.insert(k.to_string(), s.to_string());
+                 } else if let Some(i) = entry.value().as_integer() {
+                     props.insert(k.to_string(), i.to_string());
+                 }
+             }
+         }
+    }
+
+    Ok(ColumnDef {
+        name,
+        type_name,
+        props,
+        primary,
+        unique,
         span: node.span().clone(),
     })
 }

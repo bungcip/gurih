@@ -632,6 +632,7 @@ dependencies = [
  "gurih_ir",
  "gurih_runtime",
  "serde_json",
+ "sqlx",
  "tokio",
  "tower-http",
 ]
