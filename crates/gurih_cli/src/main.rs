@@ -1,10 +1,10 @@
 use axum::{
+    Router,
     body::Body,
     extract::{Json, Path, Query, State},
     http::{Request, StatusCode},
     response::{Html, IntoResponse},
-    routing::{get, on, post, MethodFilter},
-    Router,
+    routing::{MethodFilter, get, on, post},
 };
 use clap::{Parser, Subcommand};
 use gurih_dsl::{compile, diagnostics::DiagnosticEngine, diagnostics::ErrorFormatter};
@@ -419,18 +419,18 @@ async fn start_server(
 
             // Run server
             if watch_mode {
-                 // In watch mode, we don't handle Ctrl+C here because the loop handles it.
-                 // We just run until dropped (abort).
-                 axum::serve(listener, app).await.unwrap();
+                // In watch mode, we don't handle Ctrl+C here because the loop handles it.
+                // We just run until dropped (abort).
+                axum::serve(listener, app).await.unwrap();
             } else {
                 // In normal run mode, we handle graceful shutdown
                 axum::serve(listener, app)
-                .with_graceful_shutdown(async move {
-                    tokio::signal::ctrl_c().await.expect("failed to install CTRL+C handler");
-                    println!("\n🛑 Shutdown signal received. Cleaning up...");
-                })
-                .await
-                .unwrap();
+                    .with_graceful_shutdown(async move {
+                        tokio::signal::ctrl_c().await.expect("failed to install CTRL+C handler");
+                        println!("\n🛑 Shutdown signal received. Cleaning up...");
+                    })
+                    .await
+                    .unwrap();
             }
 
             Ok(())
