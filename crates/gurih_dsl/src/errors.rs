@@ -49,7 +49,8 @@ impl IntoDiagnostic for CompileError {
             CompileError::KdlError(e) => {
                 use miette::Diagnostic as MietteDiagnostic;
 
-                let span = e.labels()
+                let span = e
+                    .labels()
                     .and_then(|mut labels| labels.next())
                     .map(|l| *l.inner())
                     .unwrap_or_else(|| (0, 0).into());
