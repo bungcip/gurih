@@ -6,7 +6,7 @@ use axum::{
     routing::{get, post},
 };
 use clap::{Parser, Subcommand};
-use gurih_dsl::{compile, diagnostics::ErrorFormatter, diagnostics::DiagnosticEngine};
+use gurih_dsl::{compile, diagnostics::DiagnosticEngine, diagnostics::ErrorFormatter};
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::persistence::SchemaManager;

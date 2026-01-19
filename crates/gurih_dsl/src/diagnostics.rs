@@ -1,4 +1,4 @@
-use annotate_snippets::{Level, Renderer, Snippet, AnnotationKind};
+use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet};
 use miette::SourceSpan;
 
 /// Diagnostic severity levels
@@ -16,8 +16,8 @@ pub struct Diagnostic {
     pub level: DiagnosticLevel,
     pub message: String,
     pub span: SourceSpan,
-    pub code: Option<String>,     // Error code like "E001"
-    pub hints: Vec<String>,       // Suggestions for fixing
+    pub code: Option<String>,               // Error code like "E001"
+    pub hints: Vec<String>,                 // Suggestions for fixing
     pub related: Vec<(SourceSpan, String)>, // Related locations with message
 }
 
@@ -61,7 +61,9 @@ impl DiagnosticEngine {
     }
 
     pub fn has_errors(&self) -> bool {
-        self.diagnostics.iter().any(|d| d.level == DiagnosticLevel::Error)
+        self.diagnostics
+            .iter()
+            .any(|d| d.level == DiagnosticLevel::Error)
     }
 
     pub fn diagnostics(&self) -> &[Diagnostic] {
@@ -86,9 +88,7 @@ pub struct ErrorFormatter {
 
 impl Default for ErrorFormatter {
     fn default() -> Self {
-        ErrorFormatter {
-            use_colors: true,
-        }
+        ErrorFormatter { use_colors: true }
     }
 }
 
@@ -126,18 +126,14 @@ impl ErrorFormatter {
             .annotation(
                 AnnotationKind::Primary
                     .span(start..end)
-                    .label(&diag.message)
+                    .label(&diag.message),
             );
 
         for (span, msg) in &diag.related {
             let r_start = span.offset().min(src.len());
             let r_end = (r_start + span.len()).min(src.len());
 
-            snippet = snippet.annotation(
-                AnnotationKind::Context
-                    .span(r_start..r_end)
-                    .label(msg)
-            );
+            snippet = snippet.annotation(AnnotationKind::Context.span(r_start..r_end).label(msg));
         }
 
         let mut title = self.level(diag).primary_title(&diag.message);

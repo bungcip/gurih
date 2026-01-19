@@ -1,0 +1,16 @@
+---
+source: crates/gurih_dsl/tests/error_snapshots.rs
+assertion_line: 28
+expression: "format!(\"{:?}\", report)"
+---
+gurih::validation_error
+
+  × Validation error: Duplicate entity name: Employee
+   ╭─[6:5]
+ 5 │
+ 6 │ ╭─▶     entity "Employee" {
+ 7 │ │           string "another_field"
+ 8 │ ├─▶     }
+   · ╰──── here
+ 9 │
+   ╰────
