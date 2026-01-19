@@ -74,22 +74,56 @@ async function deleteItem(id) {
     }
 }
 
-function handleCustomAction(action, row) {
+async function handleCustomAction(action, row) {
     if (action.to) {
+        let url = action.to;
+        if (row && row.id) {
+            url = url.replace(':id', row.id);
+        }
+
+        // Handle explicit Method (POST, DELETE, PUT)
+        if (action.method && action.method.toUpperCase() !== 'GET') {
+            if (action.variant === 'danger' && !confirm(`Are you sure you want to ${action.label}?`)) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(url.startsWith('http') ? url : `${API_BASE.replace('/api', '')}${url}`, { 
+                    method: action.method.toUpperCase(),
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(row || {}) 
+                });
+                
+                if (res.ok) {
+                    const json = await res.json().catch(() => ({}));
+                    if(json.message) alert(json.message);
+                    fetchData(); // Refresh list
+                    emit('edit', null); // Hack to clear potential selections or refetch?
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    alert("Action failed: " + (err.error || res.statusText));
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Action failed (network error)");
+            }
+            return;
+        }
+
         if (action.to.includes("/new")) {
             emit('create')
             return
         }
         
-        let url = action.to;
-        if (row && row.id) {
-            url = url.replace(':id', row.id);
-        }
         // Emit edit if it looks like a resource edit
-        if (url.includes(row?.id)) {
+        if (url.includes(row?.id) && (action.label.toLowerCase() === 'edit' || url.endsWith('/edit'))) {
              emit('edit', row.id)
              return
         }
+
+        // Default: Navigation (if we had a router, but here just log or maybe open new tab if absolute?)
+        // Since we are SPA mostly...
+        console.log("Navigating to", url);
     }
 }
 

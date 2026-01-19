@@ -11,6 +11,7 @@ pub struct Schema {
     pub tables: HashMap<String, TableSchema>, // Added
     pub workflows: HashMap<String, WorkflowSchema>,
     pub forms: HashMap<String, FormSchema>,
+    pub actions: HashMap<String, ActionLogic>, // Added
     pub permissions: HashMap<String, PermissionSchema>,
 
     // New fields
@@ -150,56 +151,37 @@ pub struct MenuItemSchema {
     pub icon: Option<String>,
     pub children: Vec<MenuItemSchema>, // recursive
 }
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RouteSchema {
-    // Flattened or tree? Keeping it tree-like might be useful for frontend.
-    // But for IR, maybe flattened listing is easier?
-    // Let's stick to list of top-level groups or routes.
-    // Actually, `Schema` has `routes` as HashMap. The key is path?
-    // DSL has `routes { route ... }`. It's a collection.
-    // Maybe `RouteSchema` represents a single route entry.
+    pub verb: String, // Added: GET, POST, DELETE, etc.
     pub path: String,
-    pub to: String, // Page or Dashboard name
+    pub action: String, // Renamed from 'to'
     pub layout: Option<String>,
     pub permission: Option<String>,
     pub children: Vec<RouteSchema>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PageSchema {
-    pub name: String,
-    pub title: String,
-    pub content: PageContentSchema,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum PageContentSchema {
-    Datatable(DatatableSchema),
-    Form(String),      // Form name
-    Dashboard(String), // Dashboard name
-    None,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DatatableSchema {
-    pub entity: String,
-    pub columns: Vec<DatatableColumnSchema>,
-    pub actions: Vec<ActionSchema>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DatatableColumnSchema {
-    pub field: String,
-    pub label: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionSchema {
     pub label: String,
     pub to: Option<String>,
+    pub method: Option<String>, // Added
     pub icon: Option<String>,
     pub variant: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionLogic {
+    pub name: String,
+    pub params: Vec<String>,
+    pub steps: Vec<ActionStep>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionStep {
+    pub step_type: String,
+    pub target: String,
+    pub args: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -229,6 +211,34 @@ pub struct PrintSchema {
     pub name: String,
     pub entity: String,
     pub title: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PageSchema {
+    pub name: String,
+    pub title: String,
+    pub content: PageContentSchema,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PageContentSchema {
+    Datatable(DatatableSchema),
+    Form(String),      // Form name
+    Dashboard(String), // Dashboard name
+    None,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatatableSchema {
+    pub entity: String,
+    pub columns: Vec<DatatableColumnSchema>,
+    pub actions: Vec<ActionSchema>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatatableColumnSchema {
+    pub field: String,
+    pub label: String,
 }
 
 #[cfg(test)]

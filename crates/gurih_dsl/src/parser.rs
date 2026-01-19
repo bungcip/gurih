@@ -22,6 +22,7 @@ pub fn parse(src: &str) -> Result<Ast, CompileError> {
         menus: vec![],
         prints: vec![],
         permissions: vec![],
+        actions: vec![], // Added
     };
 
     for node in doc.nodes() {
@@ -40,6 +41,7 @@ pub fn parse(src: &str) -> Result<Ast, CompileError> {
             "workflow" => ast.workflows.push(parse_workflow(node, src)?),
             "dashboard" => ast.dashboards.push(parse_dashboard(node, src)?),
             "page" => ast.pages.push(parse_page(node, src)?),
+            "action" => ast.actions.push(parse_action_logic(node, src)?), // Added
             "routes" => ast.routes.push(parse_routes(node, src)?),
             "menu" => ast.menus.push(parse_menu(node, src)?),
             "print" => ast.prints.push(parse_print(node, src)?),
@@ -56,6 +58,49 @@ pub fn parse(src: &str) -> Result<Ast, CompileError> {
     }
 
     Ok(ast)
+}
+
+// ... existing code ...
+
+fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, CompileError> {
+    let name = get_arg_string(node, 0, src)?;
+    let mut params = vec![];
+    let mut steps = vec![];
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            match child.name().value() {
+                "param" => params.push(get_arg_string(child, 0, src)?),
+                step_type if step_type.starts_with("step:") => {
+                    // e.g. step:entity:delete "Position" id=param("id")
+                    // target is arg 0
+                    let target = get_arg_string(child, 0, src)?;
+                    let mut args = std::collections::HashMap::new();
+                    for entry in child.entries() {
+                        if let Some(key) = entry.name() {
+                            if let Some(val) = entry.value().as_string() {
+                                args.insert(key.value().to_string(), val.to_string());
+                            }
+                        }
+                    }
+                    steps.push(ActionStepDef {
+                        step_type: step_type.to_string(),
+                        target,
+                        args,
+                        span: child.span().into(),
+                    });
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Ok(ActionLogicDef {
+        name,
+        params,
+        steps,
+        span: node.span().into(),
+    })
 }
 
 fn parse_database(node: &KdlNode, src: &str) -> Result<DatabaseDef, CompileError> {
@@ -706,12 +751,14 @@ fn parse_datatable(node: &KdlNode, src: &str) -> Result<DatatableDef, CompileErr
                     let label = get_arg_string(child, 0, src)?;
                     let icon = get_prop_string(child, "icon", src).ok();
                     let to = get_prop_string(child, "to", src).ok();
+                    let method = get_prop_string(child, "method", src).ok();
                     let variant = get_prop_string(child, "variant", src).ok();
 
                     actions.push(ActionDef {
                         label,
                         icon,
                         to,
+                        method,
                         variant,
                     });
                 }
@@ -745,15 +792,25 @@ fn parse_routes(node: &KdlNode, src: &str) -> Result<RoutesDef, CompileError> {
 
 fn parse_route_node(node: &KdlNode, src: &str) -> Result<RouteNode, CompileError> {
     match node.name().value() {
-        "route" => {
+        "route" | "route:get" | "route:post" | "route:put" | "route:delete" => {
+            let verb = match node.name().value() {
+                "route:post" => RouteVerb::Post,
+                "route:put" => RouteVerb::Put,
+                "route:delete" => RouteVerb::Delete,
+                _ => RouteVerb::Get,
+            };
+
             let path = get_arg_string(node, 0, src)?;
-            let to = get_prop_string(node, "to", src)?;
+            let action = get_prop_string(node, "action", src)
+                .or_else(|_| get_prop_string(node, "to", src))?; // Support both
+
             let layout = get_prop_string(node, "layout", src).ok();
             let permission = get_prop_string(node, "permission", src).ok();
 
             Ok(RouteNode::Route(RouteDef {
+                verb,
                 path,
-                to,
+                action,
                 layout,
                 permission,
                 span: node.span().into(),

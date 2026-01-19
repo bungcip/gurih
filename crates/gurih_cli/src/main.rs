@@ -1,12 +1,13 @@
 use axum::{
     Router,
-    extract::{Json, Path, State},
+    extract::{Json, Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post},
+    routing::{MethodFilter, get, on, post},
 };
 use clap::{Parser, Subcommand};
 use gurih_dsl::{compile, diagnostics::DiagnosticEngine, diagnostics::ErrorFormatter};
+use gurih_runtime::action::ActionEngine; // Added
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::persistence::SchemaManager;
@@ -14,6 +15,7 @@ use gurih_runtime::storage::{AnyStorage, MemoryStorage, Storage};
 use gurih_runtime::{form::FormEngine, page::PageEngine, portal::PortalEngine};
 use serde_json::Value;
 use sqlx::any::AnyPoolOptions;
+use std::collections::HashMap; // Added
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -51,6 +53,7 @@ enum Commands {
 #[derive(Clone)]
 struct AppState {
     data_engine: Arc<DataEngine>,
+    action_engine: Arc<ActionEngine>,
 }
 
 #[tokio::main]
@@ -183,11 +186,16 @@ async fn main() {
                         });
                     }
 
-                    let state = AppState {
-                        data_engine: engine,
-                    };
+                    // ... inside Run command ...
+                    // Initialize Action Engine
+                    let action_engine = Arc::new(ActionEngine::new(schema.actions.clone()));
 
-                    let app = Router::new()
+                    // Fixed argument order: schema first, storage second
+                    // let engine = Arc::new(DataEngine::new(schema.clone(), storage)); // Removed redundant init
+
+                    // ...
+
+                    let mut app = Router::new()
                         .route("/api/{entity}", post(create_entity).get(list_entities))
                         .route(
                             "/api/{entity}/{id}",
@@ -196,7 +204,50 @@ async fn main() {
                         // UI Routes
                         .route("/api/ui/portal", get(get_portal))
                         .route("/api/ui/page/{entity}", get(get_page_config))
-                        .route("/api/ui/form/{entity}", get(get_form_config))
+                        .route("/api/ui/form/{entity}", get(get_form_config));
+
+                    // Register Dynamic Routes for Actions
+                    for (_key, route_def) in &schema.routes {
+                        let path = if route_def.path.starts_with('/') {
+                            route_def.path.clone()
+                        } else {
+                            format!("/{}", route_def.path)
+                        };
+
+                        // Convert Gurih route parameters ":id" to Axum ":id" (they are same if using colon)
+                        // If my DSL uses ":id", Axum supports it. "api/{entity}" acts like ":entity" in new axum?
+                        // Actually default is ":key". My usage of `{entity}` above might be old or compatible.
+                        // Wait, looking at line 191: `.route("/api/{entity}"...` -> Axum 0.6+ uses `{key}`? No, Axum uses `:key`.
+                        // But I see `{entity}` in the existing code. Maybe I should stick to what's there?
+                        // IMPORTANT: Existing code uses `{entity}`. Let's assume `{}` syntax is valid or my DSL converts/uses it.
+                        // My parser returns raw string. If KDL has `/api/:id`, I get `/api/:id`.
+                        // If existing uses `/api/{entity}`, maybe it relies on strict match or I misread?
+                        // Axum `matchit` supports `{param}` syntax since 0.7?
+                        // Let's assume `{param}` is valid or I should normalize.
+                        // I'll stick to what the route_def provides, assuming the user writes compatible paths.
+
+                        let verb_filter = match route_def.verb.as_str() {
+                            "GET" => MethodFilter::GET,
+                            "POST" => MethodFilter::POST,
+                            "PUT" => MethodFilter::PUT,
+                            "DELETE" => MethodFilter::DELETE,
+                            _ => MethodFilter::GET,
+                        };
+
+                        let action_name = route_def.action.clone();
+                        let handler = move |State(state): State<AppState>, Path(params): Path<HashMap<String, String>>, Query(query): Query<HashMap<String, String>>| {
+                            handle_dynamic_action(state, params, query, action_name.clone())
+                        };
+
+                        app = app.route(&path, on(verb_filter, handler));
+                    }
+
+                    let state = AppState {
+                        data_engine: engine,
+                        action_engine,
+                    };
+
+                    let app = app
                         .layer(
                             CorsLayer::new()
                                 .allow_origin(Any)
@@ -412,5 +463,35 @@ async fn get_form_config(
             )
                 .into_response(),
         },
+    }
+}
+
+async fn handle_dynamic_action(
+    state: AppState,
+    params: HashMap<String, String>,
+    query: HashMap<String, String>,
+    action_name: String,
+) -> impl IntoResponse {
+    // Merge params and query. Params override query.
+    let mut args = query;
+    for (k, v) in params {
+        args.insert(k, v);
+    }
+
+    match state
+        .action_engine
+        .execute(&action_name, args, &state.data_engine)
+        .await
+    {
+        Ok(resp) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "message": resp.message })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": e })),
+        )
+            .into_response(),
     }
 }

@@ -81,6 +81,13 @@ module "Organization" {
         field:text "description"
         field:money "base_salary"
     }
+
+    action "DeletePosition" {
+        params "id"
+        step "entity:delete" target="Position" {
+            id=param("id")
+        }
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -258,7 +265,7 @@ page "PositionList" {
         
         action "Add Position" icon="plus" variant="primary" to="/positions/new"
         action "Edit" icon="pencil" to="/positions/:id"
-        action "Delete" icon="trash" variant="danger"
+        action "Delete" icon="trash" variant="danger" to="/positions/:id" method="DELETE"
     }
 }
 
@@ -295,6 +302,7 @@ routes {
         route "/" to="PositionList"
         route "/new" to="PositionForm"
         route "/:id" to="PositionForm"
+        route:delete "/:id" action="DeletePosition"
     }
 
     group "/leave" layout="MainLayout" {

@@ -113,13 +113,13 @@ impl PortalEngine {
         let mut target = None;
         // Direct match in routes
         if let Some(r) = schema.routes.get(path) {
-            if !r.to.is_empty() {
-                target = Some(r.to.clone());
+            if !r.action.is_empty() {
+                target = Some(r.action.clone());
             } else {
                 // If it's a group, check child "/"
                 for child in &r.children {
-                    if child.path == "/" && !child.to.is_empty() {
-                        target = Some(child.to.clone());
+                    if child.path == "/" && !child.action.is_empty() {
+                        target = Some(child.action.clone());
                         break;
                     }
                 }

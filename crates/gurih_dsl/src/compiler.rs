@@ -275,6 +275,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
                     .map(|a| ActionSchema {
                         label: a.label.clone(),
                         to: a.to.clone(),
+                        method: a.method.clone(), // Added
                         icon: a.icon.clone(),
                         variant: a.variant.clone(),
                     })
@@ -353,7 +354,30 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
         );
     }
 
-    // 10. Process Routes
+    // 10. Process Action Logic
+    let mut ir_actions = HashMap::new();
+    for action_def in &ast_root.actions {
+        let steps = action_def
+            .steps
+            .iter()
+            .map(|s| gurih_ir::ActionStep {
+                step_type: s.step_type.clone(),
+                target: s.target.clone(),
+                args: s.args.clone(),
+            })
+            .collect();
+
+        ir_actions.insert(
+            action_def.name.clone(),
+            gurih_ir::ActionLogic {
+                name: action_def.name.clone(),
+                params: action_def.params.clone(),
+                steps,
+            },
+        );
+    }
+
+    // 11. Process Routes
     // Flatten routes for schema
     let mut valid_pages: std::collections::HashSet<&str> =
         ir_pages.keys().map(|s| s.as_str()).collect();
@@ -374,8 +398,14 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
                     });
                 }
                 Ok(RouteSchema {
-                    path: r.path.clone(),
-                    to: r.to.clone(),
+                    verb: match r.verb {
+                    ast::RouteVerb::Get => "GET".to_string(),
+                    ast::RouteVerb::Post => "POST".to_string(),
+                    ast::RouteVerb::Put => "PUT".to_string(),
+                    ast::RouteVerb::Delete => "DELETE".to_string(),
+                },
+                path: r.path.clone(),
+                    action: r.action.clone(),
                     layout: r.layout.clone(),
                     permission: r.permission.clone(),
                     children: vec![],
@@ -387,8 +417,9 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
                     children.push(process_route_node(child, valid_pages, src)?);
                 }
                 Ok(RouteSchema {
-                    path: g.path.clone(),
-                    to: "".to_string(), // Group doesn't point to page usually
+                    verb: "ALL".to_string(),
+                path: g.path.clone(),
+                    action: "".to_string(),
                     layout: g.layout.clone(),
                     permission: g.permission.clone(),
                     children,
@@ -399,14 +430,14 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
 
     for routes_def in &ast_root.routes {
         for route_node in &routes_def.routes {
-            let schema = process_route_node(route_node, &valid_pages, src)?;
+            let schema = process_route_node(route_node);
             // Use path as key? Or accumulate in a list.
             // Schema defines routes: HashMap<String, RouteSchema>.
             ir_routes.insert(schema.path.clone(), schema);
         }
     }
 
-    // 11. Process Prints
+    // 12. Process Prints
     for print_def in &ast_root.prints {
         ir_prints.insert(
             print_def.name.clone(),
@@ -427,6 +458,7 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
         tables: ir_tables,
         workflows: ir_workflows,
         forms: ir_forms,
+        actions: ir_actions, // Added
         permissions: ir_permissions,
         layouts: ir_layouts,
         menus: ir_menus,

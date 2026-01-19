@@ -15,6 +15,7 @@ pub struct Ast {
     pub workflows: Vec<WorkflowDef>,
     pub dashboards: Vec<DashboardDef>,
     pub pages: Vec<PageDef>,
+    pub actions: Vec<ActionLogicDef>, // Added
     pub routes: Vec<RoutesDef>,
     pub menus: Vec<MenuDef>,
     pub prints: Vec<PrintDef>,
@@ -219,6 +220,7 @@ pub struct ActionDef {
     pub label: String,
     pub icon: Option<String>,
     pub to: Option<String>,
+    pub method: Option<String>, // Added support for explicit method (DELETE, POST)
     pub variant: Option<String>,
 }
 
@@ -238,6 +240,22 @@ pub struct FormSectionDef {
 }
 
 #[derive(Debug, Clone)]
+pub struct ActionLogicDef {
+    pub name: String,
+    pub params: Vec<String>,
+    pub steps: Vec<ActionStepDef>,
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone)]
+pub struct ActionStepDef {
+    pub step_type: String, // entity:delete, entity:update, etc.
+    pub target: String,    // Entity Name or variable
+    pub args: std::collections::HashMap<String, String>, // id=param("id")
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone)]
 pub struct RoutesDef {
     pub routes: Vec<RouteNode>,
     pub span: SourceSpan,
@@ -249,11 +267,20 @@ pub enum RouteNode {
     Group(RouteGroupDef),
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum RouteVerb {
+    Get,
+    Post,
+    Put,
+    Delete,
+}
+
 #[derive(Debug, Clone)]
 pub struct RouteDef {
+    pub verb: RouteVerb,
     pub path: String,
-    pub to: String,
-    pub layout: Option<String>,
+    pub action: String,         // Action Name (e.g. "DeletePosition")
+    pub layout: Option<String>, // Maybe not needed for API routes but kept for legacy pages
     pub permission: Option<String>,
     pub span: SourceSpan,
 }
