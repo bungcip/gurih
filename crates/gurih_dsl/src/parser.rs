@@ -79,10 +79,10 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
                     for entry in child.entries() {
                         if let Some(key) = entry.name() {
                             let key_str = key.value();
-                            if key_str != "target" {
-                                if let Some(val) = entry.value().as_string() {
-                                    args.insert(key_str.to_string(), val.to_string());
-                                }
+                            if key_str != "target"
+                                && let Some(val) = entry.value().as_string()
+                            {
+                                args.insert(key_str.to_string(), val.to_string());
                             }
                         }
                     }
@@ -99,10 +99,10 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
                     let target = get_arg_string(child, 0, src)?;
                     let mut args = std::collections::HashMap::new();
                     for entry in child.entries() {
-                        if let Some(key) = entry.name() {
-                            if let Some(val) = entry.value().as_string() {
-                                args.insert(key.value().to_string(), val.to_string());
-                            }
+                        if let Some(key) = entry.name()
+                            && let Some(val) = entry.value().as_string()
+                        {
+                            args.insert(key.value().to_string(), val.to_string());
                         }
                     }
                     steps.push(ActionStepDef {

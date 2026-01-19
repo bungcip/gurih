@@ -20,7 +20,7 @@ page "test_page" {
 "#;
 
     let ast = parse(input).unwrap();
-    let page = ast.pages.get(0).unwrap();
+    let page = ast.pages.first().unwrap();
 
     if let gurih_dsl::ast::PageContent::Datatable(datatable) = &page.content {
         assert_eq!(datatable.columns[0].label, "First Name");

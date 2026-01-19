@@ -95,7 +95,7 @@ async fn main() {
             port,
             server_only,
         } => {
-            if let Err(_) = start_server(file, port, server_only, false, true).await {
+            if (start_server(file, port, server_only, false, true).await).is_err() {
                 std::process::exit(1);
             }
         }
@@ -117,7 +117,7 @@ async fn watch_loop(file: PathBuf, port: u16, server_only: bool) {
             let is_kdl = event
                 .paths
                 .iter()
-                .any(|p| p.extension().map_or(false, |ext| ext == "kdl"));
+                .any(|p| p.extension().is_some_and(|ext| ext == "kdl"));
 
             if is_kdl && (event.kind.is_modify() || event.kind.is_create() || event.kind.is_remove()) {
                 let _ = tx.blocking_send(());
@@ -185,7 +185,7 @@ async fn start_server(
                 sqlx::any::install_default_drivers();
                 println!("🔌 Connecting to database...");
                 // Handle env:DATABASE_URL
-                let mut url = if db_config.url.starts_with("env:") {
+                let url = if db_config.url.starts_with("env:") {
                     std::env::var(&db_config.url[4..]).unwrap_or_else(|_| "".to_string())
                 } else {
                     db_config.url.clone()
@@ -599,62 +599,4 @@ async fn handle_dynamic_action(
         Ok(resp) => (StatusCode::OK, Json(serde_json::json!({ "message": resp.message }))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
-}
-
-fn register_routes<'a>(
-    mut app: Router<AppState>,
-    parent_path: &str,
-    routes: impl Iterator<Item = &'a gurih_ir::RouteSchema>,
-    schema: &gurih_ir::Schema,
-) -> Router<AppState> {
-    for route_def in routes {
-        let segment_raw = route_def.path.trim_start_matches('/');
-        let segment: String = segment_raw
-            .split('/')
-            .map(|s| {
-                if s.starts_with(':') {
-                    format!("{{{}}}", &s[1..])
-                } else {
-                    s.to_string()
-                }
-            })
-            .collect::<Vec<_>>()
-            .join("/");
-
-        let path = if parent_path == "/" || parent_path.is_empty() {
-            format!("/{}", segment)
-        } else if parent_path.ends_with('/') {
-            format!("{}{}", parent_path, segment)
-        } else {
-            format!("{}/{}", parent_path, segment)
-        };
-
-        // Normalize path (ensure no double slash, though logic above should handle it)
-        let path = path.replace("//", "/");
-
-        // Only register if it is an actionable route (Action exists)
-        if !route_def.action.is_empty() && schema.actions.contains_key(&route_def.action) {
-            let verb_filter = match route_def.verb.as_str() {
-                "GET" => MethodFilter::GET,
-                "POST" => MethodFilter::POST,
-                "PUT" => MethodFilter::PUT,
-                "DELETE" => MethodFilter::DELETE,
-                _ => MethodFilter::GET,
-            };
-
-            let action_name = route_def.action.clone();
-            let handler = move |State(state): State<AppState>,
-                                Path(params): Path<HashMap<String, String>>,
-                                Query(query): Query<HashMap<String, String>>| {
-                handle_dynamic_action(state, params, query, action_name)
-            };
-
-            // println!("Registering route: {} {} -> {}", route_def.verb, path, route_def.action);
-            app = app.route(&path, on(verb_filter, handler));
-        }
-
-        // Recursively register children
-        app = register_routes(app, &path, route_def.children.iter(), schema);
-    }
-    app
 }

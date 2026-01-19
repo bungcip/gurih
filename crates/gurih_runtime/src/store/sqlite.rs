@@ -73,7 +73,7 @@ impl Storage for SqliteStorage {
                 values_clause.push_str(", ");
             }
             query.push_str(&format!("\"{}\"", k));
-            values_clause.push_str(&format!("?")); // SQLite uses ?
+            values_clause.push('?'); // SQLite uses ?
             params.push(v);
         }
 

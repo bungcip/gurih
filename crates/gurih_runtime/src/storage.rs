@@ -15,8 +15,10 @@ pub trait Storage: Send + Sync {
     async fn list(&self, entity: &str, limit: Option<usize>, offset: Option<usize>) -> Result<Vec<Arc<Value>>, String>;
 }
 
+type StorageData = HashMap<String, HashMap<String, Arc<Value>>>;
+
 pub struct MemoryStorage {
-    data: Arc<Mutex<HashMap<String, HashMap<String, Arc<Value>>>>>,
+    data: Arc<Mutex<StorageData>>,
 }
 
 impl Default for MemoryStorage {
