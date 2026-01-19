@@ -108,9 +108,7 @@ async fn main() {
                             let path = std::path::Path::new(path_str);
                             let resolved_path = if path.is_relative() {
                                 // Resolve relative to .kdl file location
-                                let kdl_dir = file
-                                    .parent()
-                                    .unwrap_or_else(|| std::path::Path::new("."));
+                                let kdl_dir = file.parent().unwrap_or_else(|| std::path::Path::new("."));
                                 kdl_dir.join(path)
                             } else {
                                 path.to_path_buf()
