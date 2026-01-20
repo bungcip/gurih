@@ -63,11 +63,7 @@ impl SchemaManager {
         Ok(())
     }
 
-    async fn insert_seed(
-        &self,
-        entity: &EntitySchema,
-        seed: &HashMap<String, String>,
-    ) -> Result<(), String> {
+    async fn insert_seed(&self, entity: &EntitySchema, seed: &HashMap<String, String>) -> Result<(), String> {
         let mut cols = vec![];
         let mut placeholders = vec![];
         let mut values_str = vec![]; // Keep values to bind later
@@ -94,13 +90,8 @@ impl SchemaManager {
         );
 
         // Helper to find field type
-        let get_type = |name: &str| -> Option<&FieldType> {
-            entity
-                .fields
-                .iter()
-                .find(|f| f.name == name)
-                .map(|f| &f.field_type)
-        };
+        let get_type =
+            |name: &str| -> Option<&FieldType> { entity.fields.iter().find(|f| f.name == name).map(|f| &f.field_type) };
 
         match &self.pool {
             DbPool::Sqlite(p) => {
@@ -111,15 +102,15 @@ impl SchemaManager {
                     let ftype = get_type(k);
                     match ftype {
                         Some(FieldType::Boolean) => {
-                             let b = v.parse::<bool>().unwrap_or(false);
-                             query = query.bind(b);
+                            let b = v.parse::<bool>().unwrap_or(false);
+                            query = query.bind(b);
                         }
                         Some(FieldType::Integer) => {
-                             if let Ok(i) = v.parse::<i64>() {
-                                 query = query.bind(i);
-                             } else {
-                                 query = query.bind(v.to_string());
-                             }
+                            if let Ok(i) = v.parse::<i64>() {
+                                query = query.bind(i);
+                            } else {
+                                query = query.bind(v.to_string());
+                            }
                         }
                         _ => {
                             query = query.bind(v.to_string());
@@ -130,9 +121,7 @@ impl SchemaManager {
                     Ok(_) => Ok(()),
                     Err(e) => {
                         let msg = e.to_string();
-                        if msg.contains("UNIQUE constraint failed")
-                            || msg.contains("constraint failed")
-                        {
+                        if msg.contains("UNIQUE constraint failed") || msg.contains("constraint failed") {
                             Ok(())
                         } else {
                             println!("⚠️ Failed to seed {}: {}", entity.name, msg);
@@ -146,25 +135,25 @@ impl SchemaManager {
                 for (k, v) in &values_str {
                     let ftype = get_type(k);
                     match ftype {
-                         Some(FieldType::Integer) => {
-                             let i = v.parse::<i32>().unwrap_or(0); // Postgres INT usually i32, SERIAL i32/i64
-                             query = query.bind(i);
-                         }
-                         Some(FieldType::Boolean) => {
-                             let b = v.parse::<bool>().unwrap_or(false);
-                             query = query.bind(b);
-                         }
-                         Some(FieldType::Float) => {
-                             let f = v.parse::<f64>().unwrap_or(0.0);
-                             query = query.bind(f);
-                         }
-                         // Date/DateTime handled as string by driver often works if format is ISO
-                         _ => {
-                             query = query.bind(v.to_string());
-                         }
+                        Some(FieldType::Integer) => {
+                            let i = v.parse::<i32>().unwrap_or(0); // Postgres INT usually i32, SERIAL i32/i64
+                            query = query.bind(i);
+                        }
+                        Some(FieldType::Boolean) => {
+                            let b = v.parse::<bool>().unwrap_or(false);
+                            query = query.bind(b);
+                        }
+                        Some(FieldType::Float) => {
+                            let f = v.parse::<f64>().unwrap_or(0.0);
+                            query = query.bind(f);
+                        }
+                        // Date/DateTime handled as string by driver often works if format is ISO
+                        _ => {
+                            query = query.bind(v.to_string());
+                        }
                     }
                 }
-                 match query.execute(p).await {
+                match query.execute(p).await {
                     Ok(_) => Ok(()),
                     Err(e) => {
                         let msg = e.to_string();
