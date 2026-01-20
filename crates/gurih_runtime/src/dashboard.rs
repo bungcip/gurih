@@ -1,6 +1,6 @@
 use crate::storage::Storage;
 use gurih_ir::Schema;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -18,10 +18,7 @@ impl DashboardEngine {
     }
 
     pub fn generate_ui_schema(&self, schema: &Schema, dashboard_name: &str) -> Result<Value, String> {
-        let dashboard = schema
-            .dashboards
-            .get(dashboard_name)
-            .ok_or("Dashboard not found")?;
+        let dashboard = schema.dashboards.get(dashboard_name).ok_or("Dashboard not found")?;
 
         let widgets: Vec<Value> = dashboard
             .widgets
@@ -51,10 +48,7 @@ impl DashboardEngine {
         dashboard_name: &str,
         storage: &Arc<dyn Storage>,
     ) -> Result<Value, String> {
-        let dashboard = schema
-            .dashboards
-            .get(dashboard_name)
-            .ok_or("Dashboard not found")?;
+        let dashboard = schema.dashboards.get(dashboard_name).ok_or("Dashboard not found")?;
 
         let mut widgets = vec![];
         for w in &dashboard.widgets {
@@ -97,10 +91,7 @@ impl DashboardEngine {
 
                     if let Some(field) = group_by {
                         let results = storage.aggregate(entity, field, HashMap::new()).await?;
-                        let data: Vec<Value> = results
-                            .iter()
-                            .map(|(k, v)| json!({"label": k, "value": v}))
-                            .collect();
+                        let data: Vec<Value> = results.iter().map(|(k, v)| json!({"label": k, "value": v})).collect();
                         evaluated_value = json!(data);
                     }
                 } else {

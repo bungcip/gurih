@@ -15,7 +15,12 @@ pub trait Storage: Send + Sync {
     async fn delete(&self, entity: &str, id: &str) -> Result<(), String>;
     async fn list(&self, entity: &str, limit: Option<usize>, offset: Option<usize>) -> Result<Vec<Arc<Value>>, String>;
     async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String>;
-    async fn aggregate(&self, entity: &str, group_by: &str, filters: HashMap<String, String>) -> Result<Vec<(String, i64)>, String>;
+    async fn aggregate(
+        &self,
+        entity: &str,
+        group_by: &str,
+        filters: HashMap<String, String>,
+    ) -> Result<Vec<(String, i64)>, String>;
 }
 
 #[derive(Clone)]
