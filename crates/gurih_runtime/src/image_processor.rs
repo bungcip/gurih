@@ -28,7 +28,9 @@ pub fn resize_image(data: &[u8], size_str: &str) -> Result<Vec<u8>, String> {
     // `write_to` requires format.
     // We should probably preserve format if possible, but simplest is to standardize on PNG or JPEG.
     // Let's use PNG for lossless.
-    resized.write_to(&mut out, image::ImageFormat::Png).map_err(|e| e.to_string())?;
+    resized
+        .write_to(&mut out, image::ImageFormat::Png)
+        .map_err(|e| e.to_string())?;
 
     Ok(out.into_inner())
 }

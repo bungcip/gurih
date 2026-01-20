@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_s3::{Client, config::Region};
+use gurih_ir::StorageSchema;
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
-use std::path::Path;
-use gurih_ir::StorageSchema;
 
 #[async_trait]
 pub trait FileDriver: Send + Sync {
@@ -70,8 +70,8 @@ impl S3FileDriver {
         }
 
         if let (Some(ak), Some(sk)) = (access_key, secret_key) {
-             let creds = aws_sdk_s3::config::Credentials::new(ak, sk, None, None, "kdl");
-             config_loader = config_loader.credentials_provider(creds);
+            let creds = aws_sdk_s3::config::Credentials::new(ak, sk, None, None, "kdl");
+            config_loader = config_loader.credentials_provider(creds);
         }
 
         let config = config_loader.load().await;
@@ -139,9 +139,9 @@ impl StorageEngine {
 
     pub async fn upload(&self, storage_name: &str, filename: &str, data: &[u8]) -> Result<String, String> {
         if let Some(driver) = self.get(storage_name) {
-             driver.put(filename, data).await
+            driver.put(filename, data).await
         } else {
-             Err(format!("Storage '{}' not found", storage_name))
+            Err(format!("Storage '{}' not found", storage_name))
         }
     }
 }

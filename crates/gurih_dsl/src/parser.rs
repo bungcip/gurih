@@ -24,7 +24,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
         menus: vec![],
         prints: vec![],
         permissions: vec![],
-        actions: vec![], // Added
+        actions: vec![],  // Added
         storages: vec![], // Added
     };
 
@@ -588,10 +588,10 @@ fn parse_storage(node: &KdlNode, src: &str) -> Result<StorageDef, CompileError> 
                 "driver" => driver = get_arg_string(child, 0, src)?,
                 "location" => location = Some(get_arg_string(child, 0, src)?),
                 key => {
-                     // Collect other properties like access_key, secret_key, etc.
-                     if let Ok(val) = get_arg_string(child, 0, src) {
-                         props.insert(key.to_string(), val);
-                     }
+                    // Collect other properties like access_key, secret_key, etc.
+                    if let Ok(val) = get_arg_string(child, 0, src) {
+                        props.insert(key.to_string(), val);
+                    }
                 }
             }
         }

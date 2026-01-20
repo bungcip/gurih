@@ -4,8 +4,8 @@ use crate::parser::parse;
 use gurih_ir::{
     ActionSchema, ColumnSchema, DashboardSchema, DatabaseSchema, DatatableColumnSchema, DatatableSchema, EntitySchema,
     FieldSchema, FieldType, FormSchema, FormSection, LayoutSchema, MenuItemSchema, MenuSchema, PageContentSchema,
-    PageSchema, PrintSchema, RelationshipSchema, RouteSchema, Schema, SerialGeneratorSchema, StorageSchema, TableSchema,
-    Transition, WidgetSchema, WorkflowSchema,
+    PageSchema, PrintSchema, RelationshipSchema, RouteSchema, Schema, SerialGeneratorSchema, StorageSchema,
+    TableSchema, Transition, WidgetSchema, WorkflowSchema,
 };
 use std::collections::HashMap;
 

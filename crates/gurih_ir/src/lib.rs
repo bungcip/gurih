@@ -5,7 +5,7 @@ use std::collections::HashMap;
 pub struct Schema {
     pub name: String,
     pub version: String,
-    pub database: Option<DatabaseSchema>, // Added
+    pub database: Option<DatabaseSchema>,         // Added
     pub storages: HashMap<String, StorageSchema>, // Added
     pub modules: HashMap<String, ModuleSchema>,
     pub entities: HashMap<String, EntitySchema>,
@@ -105,7 +105,7 @@ pub enum FieldType {
     Relation, // One-to-One or Many-to-One usually
     Photo,
     File,
-              // JSON,
+    // JSON,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

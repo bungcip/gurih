@@ -613,12 +613,24 @@ async fn upload_handler(
     let schema = state.data_engine.get_schema();
     let entity = match schema.entities.get(&entity_name) {
         Some(e) => e,
-        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Entity not found"}))).into_response(),
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"error": "Entity not found"})),
+            )
+                .into_response();
+        }
     };
 
     let field = match entity.fields.iter().find(|f| f.name == field_name) {
         Some(f) => f,
-        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Field not found"}))).into_response(),
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"error": "Field not found"})),
+            )
+                .into_response();
+        }
     };
 
     let storage_name = field.storage.as_deref().unwrap_or("default");
@@ -628,32 +640,47 @@ async fn upload_handler(
         let data = field_part.bytes().await.unwrap_or_default();
 
         let data_bytes = if let Some(resize_dim) = &field.resize {
-             match gurih_runtime::image_processor::resize_image(&data, resize_dim) {
-                 Ok(d) => d.into(),
-                 Err(e) => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": e}))).into_response(),
-             }
+            match gurih_runtime::image_processor::resize_image(&data, resize_dim) {
+                Ok(d) => d.into(),
+                Err(e) => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": e}))).into_response(),
+            }
         } else {
-             data
+            data
         };
 
-        let ext = std::path::Path::new(&file_name).extension().and_then(|e| e.to_str()).unwrap_or("bin");
+        let ext = std::path::Path::new(&file_name)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("bin");
         let unique_name = format!("{}.{}", uuid::Uuid::new_v4(), ext);
 
-        match state.storage_engine.upload(storage_name, &unique_name, &data_bytes).await {
+        match state
+            .storage_engine
+            .upload(storage_name, &unique_name, &data_bytes)
+            .await
+        {
             Ok(url) => {
-                return (StatusCode::OK, Json(serde_json::json!({
-                    "url": url,
-                    "filename": unique_name,
-                    "original_name": file_name
-                }))).into_response();
-            },
+                return (
+                    StatusCode::OK,
+                    Json(serde_json::json!({
+                        "url": url,
+                        "filename": unique_name,
+                        "original_name": file_name
+                    })),
+                )
+                    .into_response();
+            }
             Err(e) => {
                 return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e}))).into_response();
             }
         }
     }
 
-    (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "No file uploaded"}))).into_response()
+    (
+        StatusCode::BAD_REQUEST,
+        Json(serde_json::json!({"error": "No file uploaded"})),
+    )
+        .into_response()
 }
 
 // UI Handlers
