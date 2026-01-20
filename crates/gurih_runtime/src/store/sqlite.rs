@@ -194,6 +194,30 @@ impl Storage for SqliteStorage {
         Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
     }
 
+    async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
+        let mut query = format!("SELECT * FROM \"{}\"", entity);
+        let mut params = vec![];
+
+        if !filters.is_empty() {
+            query.push_str(" WHERE ");
+            for (i, (k, v)) in filters.iter().enumerate() {
+                if i > 0 {
+                    query.push_str(" AND ");
+                }
+                query.push_str(&format!("\"{}\" = ?", k));
+                params.push(v);
+            }
+        }
+
+        let mut q = sqlx::query(&query);
+        for p in params {
+            q = q.bind(p);
+        }
+
+        let rows = q.fetch_all(&self.pool).await.map_err(|e| e.to_string())?;
+        Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
+    }
+
     async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String> {
         let mut query = format!("SELECT COUNT(*) FROM \"{}\"", entity);
         let mut params = vec![];
