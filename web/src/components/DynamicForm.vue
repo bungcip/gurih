@@ -9,6 +9,7 @@ const showToast = inject('showToast')
 const schema = ref(null)
 const formData = ref({})
 const loading = ref(false)
+const saving = ref(false)
 
 const API_BASE = 'http://localhost:3000/api'
 
@@ -90,6 +91,7 @@ async function save() {
     const url = isEdit ? `${API_BASE}/${props.entity}/${props.id}` : `${API_BASE}/${props.entity}`
     const method = isEdit ? 'PUT' : 'POST'
 
+    saving.value = true
     try {
         const res = await fetch(url, {
             method,
@@ -105,6 +107,8 @@ async function save() {
         }
     } catch (e) {
         showToast("Failed to save", 'error')
+    } finally {
+        saving.value = false
     }
 }
 
@@ -217,7 +221,7 @@ onMounted(() => {
                 <Button type="button" variant="outline" @click="$emit('cancel')">
                     Cancel
                 </Button>
-                <Button type="submit" variant="primary">
+                <Button type="submit" variant="primary" :loading="saving">
                     {{ id ? 'Save Changes' : 'Submit' }}
                 </Button>
             </div>
