@@ -20,8 +20,8 @@ module "Personnel" {
         }
 
         seed {
-             row full_name="John Doe" email_address="john@gurih.tech" status="Permanent" join_date="2023-01-01"
-             row full_name="Jane Smith" email_address="jane@gurih.tech" status="Probation" join_date="2024-01-01"
+             row full_name="John Doe" email_address="john@gurih.tech" status="Permanent" join_date="2023-01-01" department_id="1" position_id="1"
+             row full_name="Jane Smith" email_address="jane@gurih.tech" status="Probation" join_date="2024-01-01" department_id="2" position_id="2"
         }
     }
 

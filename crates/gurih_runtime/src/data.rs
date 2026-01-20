@@ -1,4 +1,5 @@
 use crate::context::RuntimeContext;
+use crate::query_engine::{QueryEngine, QueryPlan};
 use crate::storage::Storage;
 use crate::workflow::WorkflowEngine;
 use gurih_ir::{FieldType, Schema};
@@ -129,8 +130,22 @@ impl DataEngine {
         limit: Option<usize>,
         offset: Option<usize>,
     ) -> Result<Vec<Arc<Value>>, String> {
+        if self.schema.queries.contains_key(entity) {
+            let strategy = QueryEngine::plan(&self.schema, entity)?;
+            if let Some(QueryPlan::ExecuteSql { mut sql }) = strategy.plans.first().cloned() {
+                if let Some(l) = limit {
+                    sql.push_str(&format!(" LIMIT {}", l));
+                }
+                if let Some(o) = offset {
+                    sql.push_str(&format!(" OFFSET {}", o));
+                }
+                return self.storage.query(&sql).await;
+            }
+            return Err("Query engine failed to produce SQL plan".to_string());
+        }
+
         if !self.schema.entities.contains_key(entity) {
-            return Err(format!("Entity '{}' not defined", entity));
+            return Err(format!("Entity or Query '{}' not defined", entity));
         }
         self.storage.list(entity, limit, offset).await
     }

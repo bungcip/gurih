@@ -21,7 +21,7 @@ impl PageEngine {
         // 2. Fallback: Search for a page that targets this entity (e.g. Employee -> EmployeeList)
         if target_page.is_none() {
             target_page = schema.pages.values().find(|p| match &p.content {
-                gurih_ir::PageContentSchema::Datatable(dt) => dt.entity == entity_name,
+                gurih_ir::PageContentSchema::Datatable(dt) => dt.entity.as_deref() == Some(entity_name),
                 _ => false,
             });
         }
@@ -56,9 +56,11 @@ impl PageEngine {
                         .collect();
 
                     return Ok(json!({
-                       "title": page.title,
-                       "entity": dt.entity,
-                       "layout": "TableView",
+                        "title": page.title,
+                        "entity": dt.query.clone()
+                            .or_else(|| dt.entity.clone())
+                            .unwrap_or_default(),
+                        "layout": "TableView",
                        "columns": columns,
                        "actions": actions
                     }));

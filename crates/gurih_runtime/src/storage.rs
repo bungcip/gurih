@@ -21,6 +21,7 @@ pub trait Storage: Send + Sync {
         group_by: &str,
         filters: HashMap<String, String>,
     ) -> Result<Vec<(String, i64)>, String>;
+    async fn query(&self, sql: &str) -> Result<Vec<Arc<Value>>, String>;
 }
 
 type StorageData = HashMap<String, HashMap<String, Arc<Value>>>;
@@ -200,6 +201,10 @@ impl Storage for MemoryStorage {
             Ok(vec![])
         }
     }
+
+    async fn query(&self, _sql: &str) -> Result<Vec<Arc<Value>>, String> {
+        Err("Raw SQL query not supported in MemoryStorage".to_string())
+    }
 }
 
 use crate::store::postgres::PostgresStorage;
@@ -289,6 +294,13 @@ impl Storage for DatabaseStorage {
         match &self.pool {
             DbPool::Sqlite(_) => self.sqlite.aggregate(entity, group_by, filters).await,
             DbPool::Postgres(_) => self.postgres.aggregate(entity, group_by, filters).await,
+        }
+    }
+
+    async fn query(&self, sql: &str) -> Result<Vec<Arc<Value>>, String> {
+        match &self.pool {
+            DbPool::Sqlite(_) => self.sqlite.query(sql).await,
+            DbPool::Postgres(_) => self.postgres.query(sql).await,
         }
     }
 }

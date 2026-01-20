@@ -114,6 +114,31 @@ module "Leave" {
     }
 }
 
+
+// -----------------------------------------------------------------------------
+// QUERIES
+// -----------------------------------------------------------------------------
+query:flat "EmployeeQuery" for="Employee" {
+    select "id"
+    select "full_name"
+    select "status"
+    
+    join "Department" {
+        select "name" as="department_name"
+    }
+}
+
+query:flat "LeaveRequestQuery" for="LeaveRequest" {
+    select "id"
+    select "start_date"
+    select "end_date"
+    select "status"
+    
+    join "Employee" {
+        select "full_name" as="employee_name"
+    }
+}
+
 // -----------------------------------------------------------------------------
 // UI: PAGES & DASHBOARD
 // -----------------------------------------------------------------------------
@@ -141,10 +166,10 @@ dashboard "HRDashboard" {
 
 page "EmployeeList" {
     title "Employees"
-    datatable for="Employee" {
-        column "employee_id" label="ID"
+    datatable for="Employee" query="EmployeeQuery" {
+        column "id" label="ID"
         column "full_name" label="Name"
-        column "department.name" label="Department"
+        column "department_name" label="Department"
         column "status" label="Status"
         
         action "Edit" icon="pencil" to="/employees/:id"
@@ -175,8 +200,8 @@ page "EmployeeForm" {
 
 page "LeaveList" {
     title "Leave Requests"
-    datatable for="LeaveRequest" {
-        column "employee.full_name" label="Employee"
+    datatable for="LeaveRequest" query="LeaveRequestQuery" {
+        column "employee_name" label="Employee"
         column "start_date"
         column "end_date"
         column "status"

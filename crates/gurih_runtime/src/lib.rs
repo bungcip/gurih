@@ -8,6 +8,7 @@ pub mod image_processor;
 pub mod page;
 pub mod persistence;
 pub mod portal;
+pub mod query_engine;
 pub mod storage;
 pub mod storage_engine;
 pub mod store;

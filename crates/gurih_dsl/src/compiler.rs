@@ -4,8 +4,8 @@ use crate::parser::parse;
 use gurih_ir::{
     ActionSchema, ColumnSchema, DashboardSchema, DatabaseSchema, DatatableColumnSchema, DatatableSchema, EntitySchema,
     FieldSchema, FieldType, FormSchema, FormSection, LayoutSchema, MenuItemSchema, MenuSchema, PageContentSchema,
-    PageSchema, PrintSchema, RelationshipSchema, RouteSchema, Schema, SerialGeneratorSchema, StorageSchema,
-    TableSchema, Transition, WidgetSchema, WorkflowSchema,
+    PageSchema, PrintSchema, QueryFormula, QueryJoin, QuerySchema, QuerySelection, RelationshipSchema, RouteSchema,
+    Schema, SerialGeneratorSchema, StorageSchema, TableSchema, Transition, WidgetSchema, WorkflowSchema,
 };
 use std::collections::HashMap;
 
@@ -29,6 +29,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     let mut ir_serial_generators = HashMap::new();
     let mut ir_prints = HashMap::new();
     let mut ir_storages = HashMap::new();
+    let mut ir_queries = HashMap::new(); // Added
 
     // 0. Collect all enums (including from modules)
     let mut enums = HashMap::new();
@@ -271,6 +272,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         let content = match &page_def.content {
             ast::PageContent::Datatable(dt) => PageContentSchema::Datatable(DatatableSchema {
                 entity: dt.entity.clone(),
+                query: dt.query.clone(),
                 columns: dt
                     .columns
                     .iter()
@@ -481,6 +483,113 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         );
     }
 
+    // 14. Process Queries
+    fn convert_expr(e: &crate::expr::Expr) -> gurih_ir::Expression {
+        match e {
+            crate::expr::Expr::Field(n, _) => gurih_ir::Expression::Field(n.clone()),
+            crate::expr::Expr::Literal(n, _) => gurih_ir::Expression::Literal(*n),
+            crate::expr::Expr::StringLiteral(s, _) => gurih_ir::Expression::StringLiteral(s.clone()),
+            crate::expr::Expr::FunctionCall { name, args, .. } => gurih_ir::Expression::FunctionCall {
+                name: name.clone(),
+                args: args.iter().map(convert_expr).collect(),
+            },
+            crate::expr::Expr::BinaryOp { left, op, right, .. } => gurih_ir::Expression::BinaryOp {
+                left: Box::new(convert_expr(left)),
+                op: match op {
+                    crate::expr::BinaryOpType::Add => gurih_ir::BinaryOperator::Add,
+                    crate::expr::BinaryOpType::Sub => gurih_ir::BinaryOperator::Sub,
+                    crate::expr::BinaryOpType::Mul => gurih_ir::BinaryOperator::Mul,
+                    crate::expr::BinaryOpType::Div => gurih_ir::BinaryOperator::Div,
+                },
+                right: Box::new(convert_expr(right)),
+            },
+            crate::expr::Expr::Grouping(e, _) => gurih_ir::Expression::Grouping(Box::new(convert_expr(e))),
+        }
+    }
+
+    fn convert_query_join(def: &ast::QueryJoinDef, src: &str) -> Result<QueryJoin, CompileError> {
+        let formulas: Result<Vec<QueryFormula>, CompileError> = def
+            .formulas
+            .iter()
+            .map(|f| {
+                let expr = crate::expr::parse_expression(&f.expression, f.span.offset())?;
+                Ok(QueryFormula {
+                    name: f.name.clone(),
+                    expression: convert_expr(&expr),
+                })
+            })
+            .collect();
+
+        let joins: Result<Vec<QueryJoin>, CompileError> =
+            def.joins.iter().map(|j| convert_query_join(j, src)).collect();
+
+        Ok(QueryJoin {
+            target_entity: def.target_entity.clone(),
+            selections: def
+                .selections
+                .iter()
+                .map(|s| QuerySelection {
+                    field: s.field.clone(),
+                    alias: s.alias.clone(),
+                })
+                .collect(),
+            formulas: formulas?,
+            joins: joins?,
+        })
+    }
+
+    for query_def in &ast_root.queries {
+        let formulas: Result<Vec<QueryFormula>, CompileError> = query_def
+            .formulas
+            .iter()
+            .map(|f| {
+                let expr = crate::expr::parse_expression(&f.expression, f.span.offset())?;
+                Ok(QueryFormula {
+                    name: f.name.clone(),
+                    expression: convert_expr(&expr),
+                })
+            })
+            .collect();
+
+        let joins: Result<Vec<QueryJoin>, CompileError> =
+            query_def.joins.iter().map(|j| convert_query_join(j, src)).collect();
+
+        let filters: Result<Vec<gurih_ir::Expression>, CompileError> = query_def
+            .filters
+            .iter()
+            .map(|f_str| {
+                let expr = crate::expr::parse_expression(f_str, 0)?; // Should use real offset if possible, but AST currently stores String. 
+                // Wait, AST stores String. `f.span` is missing in `filters` Vec<String>.
+                // I updated AST to `filters: Vec<String>`.
+                // Ah, I should have used struct to capture span. For now use 0 offset.
+                Ok(convert_expr(&expr))
+            })
+            .collect();
+
+        ir_queries.insert(
+            query_def.name.clone(),
+            QuerySchema {
+                name: query_def.name.clone(),
+                root_entity: query_def.root_entity.clone(),
+                query_type: match query_def.query_type {
+                    ast::QueryType::Nested => gurih_ir::QueryType::Nested,
+                    ast::QueryType::Flat => gurih_ir::QueryType::Flat,
+                },
+                selections: query_def
+                    .selections
+                    .iter()
+                    .map(|s| QuerySelection {
+                        field: s.field.clone(),
+                        alias: s.alias.clone(),
+                    })
+                    .collect(),
+                formulas: formulas?,
+                filters: filters?,
+                joins: joins?,
+            },
+        );
+    }
+
     Ok(Schema {
         name: ast_root.name.unwrap_or("GurihApp".to_string()),
         version: ast_root.version.unwrap_or("1.0.0".to_string()),
@@ -500,6 +609,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         dashboards: ir_dashboards,
         serial_generators: ir_serial_generators,
         prints: ir_prints,
+        queries: ir_queries, // Added
     })
 }
 

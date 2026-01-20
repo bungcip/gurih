@@ -499,3 +499,68 @@ module "Sales" {
     }
 }
 ```
+
+## 7. Perspective Query
+The Perspective Query component allows for querying hierarchical nested data from the database, inspired by expressive query construction approaches. It combines the power of SQL with the simplicity of direct nested data manipulation.
+
+### 7.1 Nested Query
+Nested queries allow you to structure your data hierarchically, ideal for APIs or complex data views that require children records to be embedded.
+
+```kdl
+query:nested "ActiveCourseQuery" for="CourseEntity" {
+    select "title"
+    formula "total_duration" "SUM([duration])"
+    
+    join "SectionEntity" {
+        select "type" 
+        select "num" 
+        
+        join "MeetingEntity" {
+            select "day"
+            select "start"
+            select "end"
+            formula "duration" "[end] - [start]"
+            formula "percent"  "ROUND([duration] / [total_duration]) * 100"
+        }
+    }
+}
+```
+
+### 7.2 Flat Query
+Flat queries are designed to produce tabular results, similar to traditional SQL. They support filtering and field aliasing, making them perfect for populating datatables requiring pagination and sorting.
+
+```kdl
+query:flat "BookQuery" for="BookEntity" {
+    join "PeopleEntity" {
+       select "name" as="author"
+    }
+    filter "[published_at] < DATE('2000-01-01')"
+
+    select "title"
+    select "price"
+}
+```
+
+### 7.3 Formula Expressions
+Both query types support powerful formula expressions for calculating derived values.
+- **Arithmetic**: `+`, `-`, `*`, `/` provided (e.g., `[end] - [start]`).
+- **Field References**: Use square brackets `[field_name]` to refer to columns.
+- **Functions**: Support standard functions like `SUM()`, `AVG()`, `COUNT()`, `ROUND()`, `DATE()`, etc.
+
+### 7.4 Usage in Datatable
+You can bind a `datatable` to a defined query instead of a raw entity.
+
+```kdl
+page "CourseReport" {
+    datatable query="ActiveCourseQuery" {
+        column "title" label="Course Title"
+        column "day"
+        column "start"
+        column "end"
+        column "percent"
+    }
+}
+```
+
+When using `query`, the `for` attribute on `datatable` is optional, as the root entity is derived from the query definition.
+

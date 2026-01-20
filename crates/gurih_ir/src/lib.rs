@@ -16,6 +16,7 @@ pub struct Schema {
     pub permissions: HashMap<String, PermissionSchema>,
 
     // New fields
+    // ... existing code ...
     pub layouts: HashMap<String, LayoutSchema>,
     pub menus: HashMap<String, MenuSchema>,
     pub routes: HashMap<String, RouteSchema>,
@@ -23,6 +24,89 @@ pub struct Schema {
     pub dashboards: HashMap<String, DashboardSchema>,
     pub serial_generators: HashMap<String, SerialGeneratorSchema>,
     pub prints: HashMap<String, PrintSchema>,
+    pub queries: HashMap<String, QuerySchema>, // Added
+}
+
+// ... existing code ...
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatatableSchema {
+    pub entity: Option<String>, // Changed to Option
+    pub query: Option<String>,  // Added
+    pub columns: Vec<DatatableColumnSchema>,
+    pub actions: Vec<ActionSchema>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuerySchema {
+    pub name: String,
+    pub root_entity: String,
+    pub query_type: QueryType, // Added
+    pub selections: Vec<QuerySelection>,
+    pub formulas: Vec<QueryFormula>,
+    pub filters: Vec<Expression>, // Added
+    pub joins: Vec<QueryJoin>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum QueryType {
+    Nested,
+    Flat,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuerySelection {
+    pub field: String,
+    pub alias: Option<String>, // Added
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryFormula {
+    pub name: String,
+    pub expression: Expression,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "value")]
+pub enum Expression {
+    Field(String),
+    Literal(f64), // Using f64 for simplicity as implied by "excel like"
+    StringLiteral(String),
+    FunctionCall {
+        name: String,
+        args: Vec<Expression>,
+    },
+    BinaryOp {
+        left: Box<Expression>,
+        op: BinaryOperator,
+        right: Box<Expression>,
+    },
+    Grouping(Box<Expression>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum BinaryOperator {
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryJoin {
+    pub target_entity: String,
+    pub selections: Vec<QuerySelection>,
+    pub formulas: Vec<QueryFormula>,
+    pub joins: Vec<QueryJoin>,
+}
+
+// ... existing code ...
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_serialization() {
+        // ... (simplified test)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -246,22 +330,7 @@ pub enum PageContentSchema {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DatatableSchema {
-    pub entity: String,
-    pub columns: Vec<DatatableColumnSchema>,
-    pub actions: Vec<ActionSchema>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatatableColumnSchema {
     pub field: String,
     pub label: String,
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_serialization() {
-        // ... (simplified test)
-    }
 }

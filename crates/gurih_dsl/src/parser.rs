@@ -24,8 +24,9 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
         menus: vec![],
         prints: vec![],
         permissions: vec![],
-        actions: vec![],  // Added
-        storages: vec![], // Added
+        actions: vec![],
+        storages: vec![],
+        queries: vec![], // Added
     };
 
     for node in doc.nodes() {
@@ -96,6 +97,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
             "menu" => ast.menus.push(parse_menu(node, src)?),
             "print" => ast.prints.push(parse_print(node, src)?),
             "role" | "permission" => ast.permissions.push(parse_permission(node, src)?),
+            "query" | "query:nested" | "query:flat" => ast.queries.push(parse_query(node, src)?),
             _ => {
                 // Ignore unknown nodes or warn? Strict for now.
                 return Err(CompileError::ParseError {
@@ -877,7 +879,17 @@ fn parse_page(node: &KdlNode, src: &str) -> Result<PageDef, CompileError> {
 }
 
 fn parse_datatable(node: &KdlNode, src: &str) -> Result<DatatableDef, CompileError> {
-    let entity = get_prop_string(node, "for", src)?;
+    let entity = get_prop_string(node, "for", src).ok();
+    let query = get_prop_string(node, "query", src).ok();
+
+    if entity.is_none() && query.is_none() {
+        return Err(CompileError::ParseError {
+            src: src.to_string(),
+            span: node.span().into(),
+            message: "Datatable must have either 'for' (entity) or 'query' property".to_string(),
+        });
+    }
+
     let mut columns = vec![];
     let mut actions = vec![];
 
@@ -911,6 +923,7 @@ fn parse_datatable(node: &KdlNode, src: &str) -> Result<DatatableDef, CompileErr
 
     Ok(DatatableDef {
         entity,
+        query,
         columns,
         actions,
         span: node.span().into(),
@@ -1060,6 +1073,89 @@ fn parse_print(node: &KdlNode, src: &str) -> Result<PrintDef, CompileError> {
         name,
         entity,
         title,
+        span: node.span().into(),
+    })
+}
+
+fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
+    let name = get_arg_string(node, 0, src)?;
+    let root_entity = get_prop_string(node, "for", src)?;
+    let mut selections = vec![];
+    let mut formulas = vec![];
+    let mut joins = vec![];
+    let mut filters = vec![];
+
+    let query_type = match node.name().value() {
+        "query:flat" => QueryType::Flat,
+        _ => QueryType::Nested,
+    };
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            match child.name().value() {
+                "select" => selections.push(parse_query_selection(child, src)?),
+                "formula" => formulas.push(parse_query_formula(child, src)?),
+                "join" => joins.push(parse_query_join(child, src)?),
+                "filter" => filters.push(get_arg_string(child, 0, src)?),
+                _ => {}
+            }
+        }
+    }
+
+    Ok(QueryDef {
+        name,
+        root_entity,
+        query_type,
+        selections,
+        formulas,
+        filters,
+        joins,
+        span: node.span().into(),
+    })
+}
+
+fn parse_query_selection(node: &KdlNode, src: &str) -> Result<QuerySelectionDef, CompileError> {
+    let field = get_arg_string(node, 0, src)?;
+    let alias = get_prop_string(node, "as", src).ok();
+    Ok(QuerySelectionDef {
+        field,
+        alias,
+        span: node.span().into(),
+    })
+}
+
+fn parse_query_formula(node: &KdlNode, src: &str) -> Result<QueryFormulaDef, CompileError> {
+    let name = get_arg_string(node, 0, src)?;
+    let expression = get_arg_string(node, 1, src)?;
+    Ok(QueryFormulaDef {
+        name,
+        expression,
+        span: node.span().into(),
+    })
+}
+
+fn parse_query_join(node: &KdlNode, src: &str) -> Result<QueryJoinDef, CompileError> {
+    let target_entity = get_arg_string(node, 0, src)?;
+    let mut selections = vec![];
+    let mut formulas = vec![];
+    let mut joins = vec![];
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            match child.name().value() {
+                "select" => selections.push(parse_query_selection(child, src)?),
+                "formula" => formulas.push(parse_query_formula(child, src)?),
+                "join" => joins.push(parse_query_join(child, src)?),
+                _ => {}
+            }
+        }
+    }
+
+    Ok(QueryJoinDef {
+        target_entity,
+        selections,
+        formulas,
+        joins,
         span: node.span().into(),
     })
 }

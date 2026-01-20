@@ -58,6 +58,14 @@ impl SqliteStorage {
         }
         Value::Object(map)
     }
+
+    pub async fn query(&self, sql: &str) -> Result<Vec<Arc<Value>>, String> {
+        let rows = sqlx::query(sql)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
+    }
 }
 
 #[async_trait]

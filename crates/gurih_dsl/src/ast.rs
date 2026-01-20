@@ -20,6 +20,7 @@ pub struct Ast {
     pub routes: Vec<RoutesDef>,
     pub menus: Vec<MenuDef>,
     pub prints: Vec<PrintDef>,
+    pub queries: Vec<QueryDef>,          // Added
     pub permissions: Vec<PermissionDef>, // Global roles/permissions
 }
 
@@ -217,8 +218,50 @@ pub enum PageContent {
 }
 
 #[derive(Debug, Clone)]
+pub struct QueryDef {
+    pub name: String,
+    pub root_entity: String,
+    pub query_type: QueryType, // Added
+    pub selections: Vec<QuerySelectionDef>,
+    pub formulas: Vec<QueryFormulaDef>,
+    pub filters: Vec<String>, // Added partial expression string
+    pub joins: Vec<QueryJoinDef>,
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum QueryType {
+    Nested,
+    Flat,
+}
+
+#[derive(Debug, Clone)]
+pub struct QuerySelectionDef {
+    pub field: String,
+    pub alias: Option<String>, // Added
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone)]
+pub struct QueryFormulaDef {
+    pub name: String,
+    pub expression: String,
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone)]
+pub struct QueryJoinDef {
+    pub target_entity: String,
+    pub selections: Vec<QuerySelectionDef>,
+    pub formulas: Vec<QueryFormulaDef>,
+    pub joins: Vec<QueryJoinDef>,
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone)]
 pub struct DatatableDef {
-    pub entity: String,
+    pub entity: Option<String>,
+    pub query: Option<String>,
     pub columns: Vec<DatatableColumnDef>,
     pub actions: Vec<ActionDef>,
     pub span: SourceSpan,

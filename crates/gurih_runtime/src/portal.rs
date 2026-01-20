@@ -156,7 +156,17 @@ impl PortalEngine {
         // If target is a page name, return the entity it's for
         if let Some(page) = schema.pages.get(target) {
             match &page.content {
-                gurih_ir::PageContentSchema::Datatable(dt) => return dt.entity.clone(),
+                gurih_ir::PageContentSchema::Datatable(dt) => {
+                    if let Some(param) = &dt.entity {
+                        return param.clone();
+                    }
+                    if let Some(q_name) = &dt.query {
+                        if let Some(q) = schema.queries.get(q_name) {
+                            return q.root_entity.clone();
+                        }
+                    }
+                    return "".to_string();
+                }
                 gurih_ir::PageContentSchema::Form(form_name) => {
                     if let Some(form) = schema.forms.get(form_name) {
                         return form.entity.clone();
