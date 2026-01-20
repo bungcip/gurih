@@ -13,6 +13,13 @@ pub trait Storage: Send + Sync {
     async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String>;
     async fn delete(&self, entity: &str, id: &str) -> Result<(), String>;
     async fn list(&self, entity: &str, limit: Option<usize>, offset: Option<usize>) -> Result<Vec<Arc<Value>>, String>;
+    async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String>;
+    async fn aggregate(
+        &self,
+        entity: &str,
+        group_by: &str,
+        filters: HashMap<String, String>,
+    ) -> Result<Vec<(String, i64)>, String>;
 }
 
 pub struct MemoryStorage {
@@ -96,6 +103,75 @@ impl Storage for MemoryStorage {
             Ok(vec![])
         }
     }
+
+    async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String> {
+        let data = self.data.lock().unwrap();
+        if let Some(table) = data.get(entity) {
+            let count = table
+                .values()
+                .filter(|record| {
+                    for (k, v) in &filters {
+                        if let Some(val) = record.get(k).and_then(|val| val.as_str()) {
+                            if val != v {
+                                return false;
+                            }
+                        } else {
+                            // If field is missing or not a string, for now assume no match
+                            // Ideally handle other types by converting to string
+                            return false;
+                        }
+                    }
+                    true
+                })
+                .count();
+            Ok(count as i64)
+        } else {
+            Ok(0)
+        }
+    }
+
+    async fn aggregate(
+        &self,
+        entity: &str,
+        group_by: &str,
+        filters: HashMap<String, String>,
+    ) -> Result<Vec<(String, i64)>, String> {
+        let data = self.data.lock().unwrap();
+        if let Some(table) = data.get(entity) {
+            let mut groups: HashMap<String, i64> = HashMap::new();
+
+            for record in table.values() {
+                // Filter first
+                let mut match_filter = true;
+                for (k, v) in &filters {
+                    if let Some(val) = record.get(k).and_then(|val| val.as_str()) {
+                        if val != v {
+                            match_filter = false;
+                            break;
+                        }
+                    } else {
+                        match_filter = false;
+                        break;
+                    }
+                }
+                if !match_filter {
+                    continue;
+                }
+
+                // Group
+                let group_key = record
+                    .get(group_by)
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown")
+                    .to_string();
+                *groups.entry(group_key).or_insert(0) += 1;
+            }
+
+            Ok(groups.into_iter().collect())
+        } else {
+            Ok(vec![])
+        }
+    }
 }
 
 use crate::store::postgres::PostgresStorage;
@@ -159,6 +235,25 @@ impl Storage for DatabaseStorage {
         match &self.pool {
             DbPool::Sqlite(_) => self.sqlite.list(entity, limit, offset).await,
             DbPool::Postgres(_) => self.postgres.list(entity, limit, offset).await,
+        }
+    }
+
+    async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String> {
+        match &self.pool {
+            DbPool::Sqlite(_) => self.sqlite.count(entity, filters).await,
+            DbPool::Postgres(_) => self.postgres.count(entity, filters).await,
+        }
+    }
+
+    async fn aggregate(
+        &self,
+        entity: &str,
+        group_by: &str,
+        filters: HashMap<String, String>,
+    ) -> Result<Vec<(String, i64)>, String> {
+        match &self.pool {
+            DbPool::Sqlite(_) => self.sqlite.aggregate(entity, group_by, filters).await,
+            DbPool::Postgres(_) => self.postgres.aggregate(entity, group_by, filters).await,
         }
     }
 }

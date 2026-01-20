@@ -14,7 +14,7 @@ fn test_default_form_label_generation() {
             unique: false,
             default: None,
             references: None,
-            serial: None,
+            serial_generator: None,
         },
         FieldSchema {
             name: "enrolled_at".to_string(),
@@ -23,7 +23,7 @@ fn test_default_form_label_generation() {
             unique: false,
             default: None,
             references: None,
-            serial: None,
+            serial_generator: None,
         },
         FieldSchema {
             name: "sync_date".to_string(),
@@ -32,7 +32,7 @@ fn test_default_form_label_generation() {
             unique: false,
             default: None,
             references: None,
-            serial: None,
+            serial_generator: None,
         },
     ];
 

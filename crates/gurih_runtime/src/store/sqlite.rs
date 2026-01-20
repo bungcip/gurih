@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use serde_json::Value;
 use sqlx::{Column, Row, SqlitePool, TypeInfo};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct SqliteStorage {
@@ -191,5 +192,70 @@ impl Storage for SqliteStorage {
             .await
             .map_err(|e| e.to_string())?;
         Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
+    }
+
+    async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String> {
+        let mut query = format!("SELECT COUNT(*) FROM \"{}\"", entity);
+        let mut params = vec![];
+
+        if !filters.is_empty() {
+            query.push_str(" WHERE ");
+            for (i, (k, v)) in filters.iter().enumerate() {
+                if i > 0 {
+                    query.push_str(" AND ");
+                }
+                query.push_str(&format!("\"{}\" = ?", k));
+                params.push(v);
+            }
+        }
+
+        let mut q = sqlx::query_scalar(&query);
+        for p in params {
+            q = q.bind(p);
+        }
+
+        let count: i64 = q.fetch_one(&self.pool).await.map_err(|e| e.to_string())?;
+        Ok(count)
+    }
+
+    async fn aggregate(
+        &self,
+        entity: &str,
+        group_by: &str,
+        filters: HashMap<String, String>,
+    ) -> Result<Vec<(String, i64)>, String> {
+        let mut query = format!("SELECT \"{}\", COUNT(*) FROM \"{}\"", group_by, entity);
+        let mut params = vec![];
+
+        if !filters.is_empty() {
+            query.push_str(" WHERE ");
+            for (i, (k, v)) in filters.iter().enumerate() {
+                if i > 0 {
+                    query.push_str(" AND ");
+                }
+                query.push_str(&format!("\"{}\" = ?", k));
+                params.push(v);
+            }
+        }
+
+        query.push_str(&format!(" GROUP BY \"{}\"", group_by));
+
+        let mut q = sqlx::query(&query);
+        for p in params {
+            q = q.bind(p);
+        }
+
+        let rows = q.fetch_all(&self.pool).await.map_err(|e| e.to_string())?;
+
+        let mut results = vec![];
+        for row in rows {
+            let key: String = row
+                .try_get(0)
+                .unwrap_or_else(|_| row.try_get::<i64, _>(0).map(|i| i.to_string()).unwrap_or_default());
+            let count: i64 = row.try_get(1).unwrap_or(0);
+            results.push((key, count));
+        }
+
+        Ok(results)
     }
 }

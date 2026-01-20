@@ -384,7 +384,8 @@ async fn start_server(
                 // UI Routes
                 .route("/api/ui/portal", get(get_portal))
                 .route("/api/ui/page/{entity}", get(get_page_config))
-                .route("/api/ui/form/{entity}", get(get_form_config));
+                .route("/api/ui/form/{entity}", get(get_form_config))
+                .route("/api/ui/dashboard/{name}", get(get_dashboard_data));
 
             // Register Dynamic Routes for Actions
             app = register_routes(app, "", schema.routes.values(), &schema);
@@ -609,6 +610,24 @@ async fn get_form_config(State(state): State<AppState>, Path(entity): Path<Strin
             Ok(config) => (StatusCode::OK, Json(config)).into_response(),
             Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
         },
+    }
+}
+
+async fn get_dashboard_data(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    let engine = gurih_runtime::dashboard::DashboardEngine::new();
+    match engine
+        .evaluate(
+            state.data_engine.get_schema(),
+            &name,
+            state.data_engine.storage(),
+        )
+        .await
+    {
+        Ok(config) => (StatusCode::OK, Json(config)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
 }
 

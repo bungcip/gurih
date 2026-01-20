@@ -24,6 +24,10 @@ impl DataEngine {
         &self.schema
     }
 
+    pub fn storage(&self) -> &Arc<dyn Storage> {
+        &self.storage
+    }
+
     pub async fn create(&self, entity_name: &str, mut data: Value, _ctx: &RuntimeContext) -> Result<String, String> {
         // TODO: Validate create permission for entity
 
