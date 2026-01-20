@@ -1,0 +1,9 @@
+---
+source: crates/gurih_dsl/tests/error_snapshots.rs
+expression: s
+---
+error[parse_error]: Missing or invalid argument at index 0 for node 'entity'
+ --> test.kdl:2:5
+  |
+2 |     entity
+  |     ^^^^^^ Missing or invalid argument at index 0 for node 'entity'
