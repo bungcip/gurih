@@ -36,10 +36,7 @@ fn test_unknown_top_level_node() {
     "#;
 
     let result = compile(src);
-    assert!(
-        result.is_err(),
-        "Compilation should fail due to unknown top-level node"
-    );
+    assert!(result.is_err(), "Compilation should fail due to unknown top-level node");
 
     let err = result.unwrap_err();
     let diagnostics = err.into_diagnostic();
@@ -61,10 +58,7 @@ fn test_missing_argument_error() {
     "#;
 
     let result = compile(src);
-    assert!(
-        result.is_err(),
-        "Compilation should fail due to missing argument"
-    );
+    assert!(result.is_err(), "Compilation should fail due to missing argument");
 
     let err = result.unwrap_err();
     let diagnostics = err.into_diagnostic();
