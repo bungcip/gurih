@@ -189,6 +189,10 @@ dashboard "HRDashboard" {
             icon "clock"
             color "warning"
         }
+        widget "EmployeeStatus" type="pie" {
+            label "Employee Status"
+            value "group:Employee[status]"
+        }
     }
 }
 

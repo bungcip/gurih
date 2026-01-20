@@ -3,6 +3,7 @@ import { ref, watch, onMounted, computed, inject } from 'vue'
 import ConfirmModal from './ConfirmModal.vue'
 import DataTable from './DataTable.vue'
 import Button from './Button.vue'
+import Dashboard from './Dashboard.vue'
 
 const props = defineProps(['entity'])
 const emit = defineEmits(['edit', 'create'])
@@ -60,6 +61,9 @@ async function fetchData() {
 
 async function loadPage() {
     await fetchConfig()
+    if (config.value && config.value.layout === 'Grid') {
+        return
+    }
     await fetchData()
 }
 
@@ -189,55 +193,42 @@ onMounted(() => {
         </div>
         
         <div v-else-if="config" class="flex-1 flex flex-col min-h-0">
-            <!-- Page Header -->
-            <div class="p-6 px-8 border-b border-border bg-white flex justify-between items-center shrink-0">
-                <div>
-                    <div class="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1">{{ props.entity }}</div>
-                    <h2 class="text-xl font-bold text-text-main">{{ config.title || config.name }}</h2>
-                </div>
-                <!-- Page Actions (moved inside header) -->
-                <div v-if="pageActions.length > 0" class="flex gap-3">
-                     <Button
-                        v-for="action in pageActions" 
-                        :key="action.label"
-                        @click="handleCustomAction(action)"
-                        :variant="action.variant === 'danger' ? 'danger' : 'primary'"
-                        :icon="action.icon"
-                    >
-                        {{ action.label }}
-                    </Button>
-                </div>
-            </div>
-
-            <div class="flex-1 overflow-auto bg-white">
-                <!-- Table View -->
-                <template v-if="config.layout === 'TableView'">
-                    <DataTable
-                        :columns="config.columns"
-                        :data="data"
-                        :actions="rowActions"
-                        @action="handleCustomAction"
-                    />
-                </template>
-
-                <!-- Dashboard View -->
-                <template v-else-if="config.layout === 'Grid'">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-8">
-                        <div v-for="widget in config.widgets" :key="widget.name" class="card p-8 flex flex-col justify-between hover:border-primary/30 transition-colors">
-                            <div>
-                                <div class="text-xs font-bold uppercase tracking-wider text-text-muted mb-4">{{ widget.label }}</div>
-                                <div class="text-3xl font-bold text-text-main">{{ widget.value }}</div>
-                            </div>
-                            <div class="mt-4 flex justify-end">
-                                <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-primary">
-                                    <!-- Render icon if available -->
-                                    <span class="text-xl">📊</span>
-                                </div>
-                            </div>
-                        </div>
+            <template v-if="config.layout === 'Grid'">
+                <Dashboard :name="props.entity" />
+            </template>
+            <template v-else>
+                <!-- Page Header -->
+                <div class="p-6 px-8 border-b border-border bg-white flex justify-between items-center shrink-0">
+                    <div>
+                        <div class="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1">{{ props.entity }}</div>
+                        <h2 class="text-xl font-bold text-text-main">{{ config.title || config.name }}</h2>
                     </div>
-                </template>
-            </div>
+                    <!-- Page Actions (moved inside header) -->
+                    <div v-if="pageActions.length > 0" class="flex gap-3">
+                        <Button
+                            v-for="action in pageActions"
+                            :key="action.label"
+                            @click="handleCustomAction(action)"
+                            :variant="action.variant === 'danger' ? 'danger' : 'primary'"
+                            :icon="action.icon"
+                        >
+                            {{ action.label }}
+                        </Button>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-auto bg-white">
+                    <!-- Table View -->
+                    <template v-if="config.layout === 'TableView'">
+                        <DataTable
+                            :columns="config.columns"
+                            :data="data"
+                            :actions="rowActions"
+                            @action="handleCustomAction"
+                        />
+                    </template>
+                </div>
+            </template>
         </div>
     </div>
     <ConfirmModal 

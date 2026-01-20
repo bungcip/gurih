@@ -21,7 +21,7 @@ async fn test_action_execution_delete() {
             unique: true,
             default: None,
             references: None,
-            serial: None,
+            serial_generator: None,
         },
         FieldSchema {
             name: "name".to_string(),
@@ -30,7 +30,7 @@ async fn test_action_execution_delete() {
             unique: false,
             default: None,
             references: None,
-            serial: None,
+            serial_generator: None,
         },
     ];
 
