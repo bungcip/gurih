@@ -24,7 +24,8 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
         menus: vec![],
         prints: vec![],
         permissions: vec![],
-        actions: vec![], // Added
+        actions: vec![],  // Added
+        storages: vec![], // Added
     };
 
     for node in doc.nodes() {
@@ -32,6 +33,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
         match name {
             "name" => ast.name = Some(get_arg_string(node, 0, src)?),
             "version" => ast.version = Some(get_arg_string(node, 0, src)?),
+            "storage" => ast.storages.push(parse_storage(node, src)?),
             "include" => {
                 if let Some(base) = base_path {
                     let filename = get_arg_string(node, 0, src)?;
@@ -404,6 +406,9 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                         unique: true,
                         default: None,
                         references: None,
+                        storage: None,
+                        resize: None,
+                        filetype: None,
                         span: child.span().into(),
                     });
                 }
@@ -427,6 +432,10 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                         get_prop_string(child, "references", src).ok()
                     };
 
+                    let storage = get_prop_string(child, "storage", src).ok();
+                    let resize = get_prop_string(child, "resize", src).ok();
+                    let filetype = get_prop_string(child, "filetype", src).ok();
+
                     fields.push(FieldDef {
                         name: field_name,
                         type_name,
@@ -435,6 +444,9 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                         unique,
                         default,
                         references,
+                        storage,
+                        resize,
+                        filetype,
                         span: child.span().into(),
                     });
                 }
@@ -545,6 +557,10 @@ fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
     // If name is "unknown" it means missing arg 0.
     // e.g. field:pk id -> name="id"
 
+    let storage = get_prop_string(node, "storage", src).ok();
+    let resize = get_prop_string(node, "resize", src).ok();
+    let filetype = get_prop_string(node, "filetype", src).ok();
+
     Ok(FieldDef {
         name,
         type_name,
@@ -553,6 +569,39 @@ fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
         unique,
         default,
         references,
+        storage,
+        resize,
+        filetype,
+        span: node.span().into(),
+    })
+}
+
+fn parse_storage(node: &KdlNode, src: &str) -> Result<StorageDef, CompileError> {
+    let name = get_arg_string(node, 0, src)?;
+    let mut driver = String::new();
+    let mut location = None;
+    let mut props = std::collections::HashMap::new();
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            match child.name().value() {
+                "driver" => driver = get_arg_string(child, 0, src)?,
+                "location" => location = Some(get_arg_string(child, 0, src)?),
+                key => {
+                    // Collect other properties like access_key, secret_key, etc.
+                    if let Ok(val) = get_arg_string(child, 0, src) {
+                        props.insert(key.to_string(), val);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(StorageDef {
+        name,
+        driver,
+        location,
+        props,
         span: node.span().into(),
     })
 }

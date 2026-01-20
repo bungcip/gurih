@@ -15,3 +15,7 @@ sqlx = { workspace = true, features = [ "chrono" ] }
 tokio = { workspace = true }
 uuid = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
+aws-config = "1.1.7"
+aws-sdk-s3 = "1.21.0"
+image = "0.24.9"
+base64 = "0.21.7"

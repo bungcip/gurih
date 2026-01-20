@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-axum = { workspace = true }
+axum = { workspace = true, features = ["multipart"] }
 clap = { workspace = true }
 gurih_dsl = { workspace = true }
 gurih_ir = { workspace = true }
@@ -15,3 +15,4 @@ serde_json = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }
 tower-http = { workspace = true, features = ["fs"] }
+uuid = { workspace = true }

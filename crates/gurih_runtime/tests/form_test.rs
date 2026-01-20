@@ -15,6 +15,9 @@ fn test_default_form_label_generation() {
             default: None,
             references: None,
             serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
         },
         FieldSchema {
             name: "enrolled_at".to_string(),
@@ -24,6 +27,9 @@ fn test_default_form_label_generation() {
             default: None,
             references: None,
             serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
         },
         FieldSchema {
             name: "sync_date".to_string(),
@@ -33,6 +39,9 @@ fn test_default_form_label_generation() {
             default: None,
             references: None,
             serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
         },
     ];
 

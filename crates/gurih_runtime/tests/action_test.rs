@@ -22,6 +22,9 @@ async fn test_action_execution_delete() {
             default: None,
             references: None,
             serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
         },
         FieldSchema {
             name: "name".to_string(),
@@ -31,6 +34,9 @@ async fn test_action_execution_delete() {
             default: None,
             references: None,
             serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
         },
     ];
 

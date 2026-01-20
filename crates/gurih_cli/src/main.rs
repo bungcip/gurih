@@ -1,7 +1,7 @@
 use axum::{
     Router,
     body::Body,
-    extract::{Json, Path, Query, State},
+    extract::{Json, Multipart, Path, Query, State},
     http::{Request, StatusCode},
     response::{Html, IntoResponse},
     routing::{MethodFilter, get, on, post},
@@ -73,6 +73,7 @@ struct AppState {
     data_engine: Arc<DataEngine>,
     action_engine: Arc<ActionEngine>,
     auth_engine: Arc<AuthEngine>,
+    storage_engine: Arc<gurih_runtime::storage_engine::StorageEngine>,
 }
 
 #[tokio::main]
@@ -378,6 +379,9 @@ async fn start_server(
             // Initialize Action Engine
             let action_engine = Arc::new(ActionEngine::new(schema.actions.clone()));
 
+            // Initialize Storage Engine
+            let storage_engine = Arc::new(gurih_runtime::storage_engine::StorageEngine::new(&schema.storages).await);
+
             let mut app = Router::new()
                 .route("/api/auth/login", post(login_handler))
                 .route("/api/{entity}", post(create_entity).get(list_entities))
@@ -385,6 +389,7 @@ async fn start_server(
                     "/api/{entity}/{id}",
                     get(get_entity).put(update_entity).delete(delete_entity),
                 )
+                .route("/api/upload/{entity}/{field}", post(upload_handler))
                 // UI Routes
                 .route("/api/ui/portal", get(get_portal))
                 .route("/api/ui/page/{entity}", get(get_page_config))
@@ -398,6 +403,7 @@ async fn start_server(
                 data_engine: engine,
                 action_engine,
                 auth_engine,
+                storage_engine,
             };
 
             let mut app = app
@@ -597,6 +603,84 @@ async fn delete_entity(State(state): State<AppState>, Path((entity, id)): Path<(
         Ok(_) => (StatusCode::OK, Json(serde_json::json!({ "status": "deleted" }))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
+}
+
+async fn upload_handler(
+    State(state): State<AppState>,
+    Path((entity_name, field_name)): Path<(String, String)>,
+    mut multipart: Multipart,
+) -> impl IntoResponse {
+    let schema = state.data_engine.get_schema();
+    let entity = match schema.entities.get(&entity_name) {
+        Some(e) => e,
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"error": "Entity not found"})),
+            )
+                .into_response();
+        }
+    };
+
+    let field = match entity.fields.iter().find(|f| f.name == field_name) {
+        Some(f) => f,
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"error": "Field not found"})),
+            )
+                .into_response();
+        }
+    };
+
+    let storage_name = field.storage.as_deref().unwrap_or("default");
+
+    while let Some(field_part) = multipart.next_field().await.unwrap_or(None) {
+        let file_name = field_part.file_name().unwrap_or("upload.bin").to_string();
+        let data = field_part.bytes().await.unwrap_or_default();
+
+        let data_bytes = if let Some(resize_dim) = &field.resize {
+            match gurih_runtime::image_processor::resize_image(&data, resize_dim) {
+                Ok(d) => d.into(),
+                Err(e) => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": e}))).into_response(),
+            }
+        } else {
+            data
+        };
+
+        let ext = std::path::Path::new(&file_name)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("bin");
+        let unique_name = format!("{}.{}", uuid::Uuid::new_v4(), ext);
+
+        match state
+            .storage_engine
+            .upload(storage_name, &unique_name, &data_bytes)
+            .await
+        {
+            Ok(url) => {
+                return (
+                    StatusCode::OK,
+                    Json(serde_json::json!({
+                        "url": url,
+                        "filename": unique_name,
+                        "original_name": file_name
+                    })),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e}))).into_response();
+            }
+        }
+    }
+
+    (
+        StatusCode::BAD_REQUEST,
+        Json(serde_json::json!({"error": "No file uploaded"})),
+    )
+        .into_response()
 }
 
 // UI Handlers

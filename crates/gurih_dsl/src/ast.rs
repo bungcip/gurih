@@ -5,6 +5,7 @@ pub struct Ast {
     pub name: Option<String>,
     pub version: Option<String>,
     pub database: Option<DatabaseDef>,
+    pub storages: Vec<StorageDef>, // Added
     pub icons: Vec<IconDef>,
     pub layouts: Vec<LayoutDef>,
     pub modules: Vec<ModuleDef>,
@@ -26,6 +27,15 @@ pub struct Ast {
 pub struct DatabaseDef {
     pub db_type: String, // postgres | sqlite
     pub url: String,
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone)]
+pub struct StorageDef {
+    pub name: String,
+    pub driver: String,
+    pub location: Option<String>,
+    pub props: std::collections::HashMap<String, String>,
     pub span: SourceSpan,
 }
 
@@ -104,6 +114,9 @@ pub struct FieldDef {
     pub unique: bool,
     pub default: Option<String>,
     pub references: Option<String>, // For simple refs or enum links
+    pub storage: Option<String>,
+    pub resize: Option<String>,
+    pub filetype: Option<String>,
     pub span: SourceSpan,
 }
 
