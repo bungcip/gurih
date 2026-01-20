@@ -63,7 +63,7 @@ impl S3FileDriver {
 
         let region_provider = RegionProviderChain::first_try(Region::new(region.clone()));
 
-        let mut config_loader = aws_config::from_env().region(region_provider);
+        let mut config_loader = aws_config::defaults(aws_config::BehaviorVersion::latest()).region(region_provider);
 
         if let Some(endpoint) = endpoint {
             config_loader = config_loader.endpoint_url(endpoint);

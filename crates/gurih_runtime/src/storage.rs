@@ -23,8 +23,10 @@ pub trait Storage: Send + Sync {
     ) -> Result<Vec<(String, i64)>, String>;
 }
 
+type StorageData = HashMap<String, HashMap<String, Arc<Value>>>;
+
 pub struct MemoryStorage {
-    data: Arc<Mutex<HashMap<String, HashMap<String, Arc<Value>>>>>,
+    data: Arc<Mutex<StorageData>>,
 }
 
 impl Default for MemoryStorage {

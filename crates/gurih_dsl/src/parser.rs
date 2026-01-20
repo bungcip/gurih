@@ -112,6 +112,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
 
 // ... existing code ...
 
+#[allow(clippy::collapsible_if)]
 fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
     let mut params = vec![];
