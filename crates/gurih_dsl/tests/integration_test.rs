@@ -15,7 +15,7 @@ fn test_compile_valid_schema() {
     }
     "#;
 
-    let schema = compile(src).expect("Should compile");
+    let schema = compile(src, None).expect("Should compile");
     assert!(schema.entities.contains_key("Book"));
     assert!(schema.workflows.contains_key("BookPublishing"));
 }
@@ -33,7 +33,7 @@ fn test_compile_invalid_schema() {
     // For now, let's just check that it compiles, or remove the test if it's testing for failure that doesn't exist.
     // Or we can assert that it defaults to String.
 
-    let result = compile(src);
+    let result = compile(src, None);
     // assert!(result.is_err()); // This assertion was failing because it DOES compile.
 
     // Changing expectation: It should compile and default to String.

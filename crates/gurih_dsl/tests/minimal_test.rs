@@ -18,7 +18,7 @@ fn test_minimal_kdl() {
     "#;
 
     // Testing quoted:
-    if let Err(e) = parse(src_quoted) {
+    if let Err(e) = parse(src_quoted, None) {
         panic!("Failed to parse quoted layout: {:?}", e);
     }
 
@@ -41,7 +41,7 @@ fn test_minimal_kdl() {
         }
     }
     "#;
-    if let Err(e) = parse(src_int) {
+    if let Err(e) = parse(src_int, None) {
         panic!("Failed to parse int layout: {:?}", e);
     }
 

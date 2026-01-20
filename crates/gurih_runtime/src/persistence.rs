@@ -3,6 +3,7 @@ use gurih_ir::{EntitySchema, FieldType, Schema, TableSchema};
 use sha2::{Digest, Sha256};
 // use sqlx::{AnyPool, Row}; // Removed
 use sqlx::Row;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct SchemaManager {
@@ -44,8 +45,139 @@ impl SchemaManager {
             self.create_tables().await?;
         }
 
+        self.apply_seeds().await?;
+
         println!("✅ Schema migration complete.");
         Ok(())
+    }
+
+    async fn apply_seeds(&self) -> Result<(), String> {
+        println!("🌱 Applying seeds...");
+        for entity in self.schema.entities.values() {
+            if let Some(seeds) = &entity.seeds {
+                for seed in seeds {
+                    self.insert_seed(entity, seed).await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn insert_seed(
+        &self,
+        entity: &EntitySchema,
+        seed: &HashMap<String, String>,
+    ) -> Result<(), String> {
+        let mut cols = vec![];
+        let mut placeholders = vec![];
+        let mut values_str = vec![]; // Keep values to bind later
+
+        // Sort keys to ensure order? Not strictly necessary but good for debug
+        for (k, v) in seed {
+            cols.push(format!("\"{}\"", k));
+            values_str.push((k, v));
+        }
+
+        for i in 1..=cols.len() {
+            if self.db_kind == "PostgreSQL" {
+                placeholders.push(format!("${}", i));
+            } else {
+                placeholders.push("?".to_string());
+            }
+        }
+
+        let sql = format!(
+            "INSERT INTO \"{}\" ({}) VALUES ({})",
+            entity.name,
+            cols.join(", "),
+            placeholders.join(", ")
+        );
+
+        // Helper to find field type
+        let get_type = |name: &str| -> Option<&FieldType> {
+            entity
+                .fields
+                .iter()
+                .find(|f| f.name == name)
+                .map(|f| &f.field_type)
+        };
+
+        match &self.pool {
+            DbPool::Sqlite(p) => {
+                let mut query = sqlx::query::<sqlx::Sqlite>(&sql);
+                for (k, v) in &values_str {
+                    // For SQLite, we can mostly just bind strings, or cast best effort
+                    // But boolean needs integer mapping if stored as int
+                    let ftype = get_type(k);
+                    match ftype {
+                        Some(FieldType::Boolean) => {
+                             let b = v.parse::<bool>().unwrap_or(false);
+                             query = query.bind(b);
+                        }
+                        Some(FieldType::Integer) => {
+                             if let Ok(i) = v.parse::<i64>() {
+                                 query = query.bind(i);
+                             } else {
+                                 query = query.bind(v.to_string());
+                             }
+                        }
+                        _ => {
+                            query = query.bind(v.to_string());
+                        }
+                    }
+                }
+                match query.execute(p).await {
+                    Ok(_) => Ok(()),
+                    Err(e) => {
+                        let msg = e.to_string();
+                        if msg.contains("UNIQUE constraint failed")
+                            || msg.contains("constraint failed")
+                        {
+                            Ok(())
+                        } else {
+                            println!("⚠️ Failed to seed {}: {}", entity.name, msg);
+                            Ok(())
+                        }
+                    }
+                }
+            }
+            DbPool::Postgres(p) => {
+                let mut query = sqlx::query::<sqlx::Postgres>(&sql);
+                for (k, v) in &values_str {
+                    let ftype = get_type(k);
+                    match ftype {
+                         Some(FieldType::Integer) => {
+                             let i = v.parse::<i32>().unwrap_or(0); // Postgres INT usually i32, SERIAL i32/i64
+                             query = query.bind(i);
+                         }
+                         Some(FieldType::Boolean) => {
+                             let b = v.parse::<bool>().unwrap_or(false);
+                             query = query.bind(b);
+                         }
+                         Some(FieldType::Float) => {
+                             let f = v.parse::<f64>().unwrap_or(0.0);
+                             query = query.bind(f);
+                         }
+                         // Date/DateTime handled as string by driver often works if format is ISO
+                         _ => {
+                             query = query.bind(v.to_string());
+                         }
+                    }
+                }
+                 match query.execute(p).await {
+                    Ok(_) => Ok(()),
+                    Err(e) => {
+                        let msg = e.to_string();
+                        if msg.contains("duplicate key value") {
+                            Ok(())
+                        } else {
+                            println!("⚠️ Failed to seed {}: {}", entity.name, msg);
+                            Ok(())
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fn calculate_schema_hash(&self) -> String {

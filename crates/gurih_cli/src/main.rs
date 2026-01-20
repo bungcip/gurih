@@ -504,7 +504,8 @@ fn read_and_compile_with_diagnostics(path: &PathBuf) -> Result<gurih_ir::Schema,
         }
     };
 
-    match compile(&content) {
+    let base_path = path.parent();
+    match compile(&content, base_path) {
         Ok(schema) => Ok(schema),
         Err(e) => {
             let mut engine = DiagnosticEngine::new();

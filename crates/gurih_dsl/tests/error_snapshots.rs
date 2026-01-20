@@ -13,7 +13,7 @@ fn test_duplicate_entity_error() {
     }
     "#;
 
-    let result = compile(src);
+    let result = compile(src, None);
     assert!(result.is_err(), "Compilation should fail due to duplicate entity");
 
     let err = result.unwrap_err();
@@ -35,7 +35,7 @@ fn test_unknown_top_level_node() {
     unknown_node "something"
     "#;
 
-    let result = compile(src);
+    let result = compile(src, None);
     assert!(result.is_err(), "Compilation should fail due to unknown top-level node");
 
     let err = result.unwrap_err();
@@ -57,7 +57,7 @@ fn test_missing_argument_error() {
     entity
     "#;
 
-    let result = compile(src);
+    let result = compile(src, None);
     assert!(result.is_err(), "Compilation should fail due to missing argument");
 
     let err = result.unwrap_err();
@@ -88,7 +88,7 @@ fn test_route_to_unrecognized_page() {
     }
     "#;
 
-    let result = compile(src);
+    let result = compile(src, None);
     assert!(
         result.is_err(),
         "Compilation should fail due to route linking to unrecognized page"
@@ -116,7 +116,7 @@ fn test_duplicate_field_error() {
     }
     "#;
 
-    let result = compile(src);
+    let result = compile(src, None);
     assert!(result.is_err(), "Compilation should fail due to duplicate field name");
 
     let err = result.unwrap_err();

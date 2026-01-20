@@ -41,6 +41,7 @@ fn test_default_form_label_generation() {
         fields,
         relationships: vec![],
         options: HashMap::new(),
+        seeds: None,
     };
 
     schema.entities.insert("TestEntity".to_string(), entity);

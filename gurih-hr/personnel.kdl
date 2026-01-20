@@ -1,0 +1,32 @@
+module "Personnel" {
+    entity "Employee" {
+        field:pk id
+        field:serial "employee_id" serial_generator="EmpCode"
+        field:name "full_name"
+        field:email "email_address" unique=#true
+        field:phone "phone_number"
+        field:date "join_date"
+
+        field:enum "status" "EmploymentStatus" default="Probation"
+
+        // Relationships
+        belongs_to "Department"
+        belongs_to "Position"
+
+        has_many "leave_requests" "LeaveRequest"
+
+        options {
+            track_changes #true
+        }
+
+        seed {
+             row full_name="John Doe" email_address="john@gurih.tech" status="Permanent" join_date="2023-01-01"
+             row full_name="Jane Smith" email_address="jane@gurih.tech" status="Probation" join_date="2024-01-01"
+        }
+    }
+
+    action "DeleteEmployee" {
+        params "id"
+        step "entity:delete" target="Employee" id="param(\"id\")"
+    }
+}

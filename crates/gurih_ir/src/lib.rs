@@ -42,6 +42,7 @@ pub struct EntitySchema {
     pub fields: Vec<FieldSchema>,
     pub relationships: Vec<RelationshipSchema>,
     pub options: HashMap<String, String>, // is_submittable, track_changes, etc
+    pub seeds: Option<Vec<HashMap<String, String>>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
