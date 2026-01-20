@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch, onMounted, inject } from 'vue'
+import Button from './Button.vue'
 
 const props = defineProps(['entity', 'id'])
 const emit = defineEmits(['saved', 'cancel'])
@@ -213,12 +214,12 @@ onMounted(() => {
 
             <!-- Sticky Footer -->
             <div class="p-4 px-6 border-t border-border bg-white flex justify-end gap-3 shrink-0">
-                <button type="button" @click="$emit('cancel')" class="px-6 py-2 border border-border rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+                <Button type="button" variant="outline" @click="$emit('cancel')">
                     Cancel
-                </button>
-                <button type="submit" class="btn-primary px-8 py-2 shadow-sm">
+                </Button>
+                <Button type="submit" variant="primary">
                     {{ id ? 'Save Changes' : 'Submit' }}
-                </button>
+                </Button>
             </div>
         </form>
     </div>

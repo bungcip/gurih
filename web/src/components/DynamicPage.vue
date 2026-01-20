@@ -1,6 +1,8 @@
 <script setup>
 import { ref, watch, onMounted, computed, inject } from 'vue'
 import ConfirmModal from './ConfirmModal.vue'
+import DataTable from './DataTable.vue'
+import Button from './Button.vue'
 
 const props = defineProps(['entity'])
 const emit = defineEmits(['edit', 'create'])
@@ -168,16 +170,15 @@ onMounted(() => {
     <div class="flex-1 flex flex-col min-h-0 bg-white">
         <!-- Page Actions -->
         <div v-if="pageActions.length > 0" class="p-4 px-6 border-b border-border flex justify-end gap-3 shrink-0">
-             <button 
+             <Button
                 v-for="action in pageActions" 
                 :key="action.label"
                 @click="handleCustomAction(action)"
-                class="btn-primary flex items-center gap-2 text-sm px-4 py-2"
-                :class="action.variant === 'danger' ? 'bg-red-600 hover:bg-red-700 border-red-700' : ''"
+                :variant="action.variant === 'danger' ? 'danger' : 'primary'"
+                :icon="action.icon"
             >
-                <span v-if="action.icon === 'plus'" class="text-lg leading-none">+</span>
                 {{ action.label }}
-            </button>
+            </Button>
         </div>
 
         <div v-if="loading" class="p-12 text-center text-text-muted">
@@ -196,61 +197,27 @@ onMounted(() => {
                 </div>
                 <!-- Page Actions (moved inside header) -->
                 <div v-if="pageActions.length > 0" class="flex gap-3">
-                     <button 
+                     <Button
                         v-for="action in pageActions" 
                         :key="action.label"
                         @click="handleCustomAction(action)"
-                        class="btn-primary flex items-center gap-2 text-sm px-4 py-2"
-                        :class="action.variant === 'danger' ? 'bg-red-600 hover:bg-red-700 border-red-700' : ''"
+                        :variant="action.variant === 'danger' ? 'danger' : 'primary'"
+                        :icon="action.icon"
                     >
-                        <span v-if="action.icon === 'plus'" class="text-lg leading-none">+</span>
                         {{ action.label }}
-                    </button>
+                    </Button>
                 </div>
             </div>
 
             <div class="flex-1 overflow-auto bg-white">
                 <!-- Table View -->
                 <template v-if="config.layout === 'TableView'">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="bg-gray-50/50 sticky top-0 backdrop-blur-sm border-b border-border shadow-sm">
-                            <tr>
-                                <th v-for="col in config.columns" :key="col.key" class="p-4 px-8 font-bold text-[11px] uppercase tracking-wider text-text-muted">
-                                    {{ col.label }}
-                                </th>
-                                <th class="p-4 px-8 font-bold text-[11px] uppercase tracking-wider text-text-muted text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-border">
-                            <tr v-for="row in data" :key="row.id" class="group hover:bg-blue-50/30 transition-colors">
-                                <td v-for="col in config.columns" :key="col.key" class="p-4 px-8 text-[14px] text-text-main">
-                                    {{ row[col.key] }}
-                                </td>
-                                <td class="p-4 px-8 text-right">
-                                    <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <template v-for="action in rowActions" :key="action.label">
-                                            <button 
-                                                @click="handleCustomAction(action, row)"
-                                                class="px-3 py-1 text-[13px] font-semibold rounded-md transition"
-                                                :class="action.variant === 'danger' ? 'text-red-500 hover:bg-red-50' : 'text-primary hover:bg-blue-50'"
-                                            >
-                                                {{ action.label }}
-                                            </button>
-                                        </template>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr v-if="data.length === 0">
-                                <td :colspan="config.columns ? config.columns.length + 1 : 1" class="p-20 text-center">
-                                    <div class="flex flex-col items-center text-text-muted">
-                                        <div class="text-3xl mb-2">📁</div>
-                                        <div class="font-medium">No records found</div>
-                                        <div class="text-xs">Try adding a new record to get started.</div>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <DataTable
+                        :columns="config.columns"
+                        :data="data"
+                        :actions="rowActions"
+                        @action="handleCustomAction"
+                    />
                 </template>
 
                 <!-- Dashboard View -->
