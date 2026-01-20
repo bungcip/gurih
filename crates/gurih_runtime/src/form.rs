@@ -37,7 +37,7 @@ impl FormEngine {
                     let ui_field = if let Some(field_def) = entity.fields.iter().find(|f| &f.name == field_name) {
                         let mut field_json = json!({
                             "name": field_def.name,
-                            "label": field_def.name,
+                            "label": to_title_case(&field_def.name),
                             "widget": self.map_field_type_to_widget(&field_def.field_type),
                             "required": field_def.required
                         });
@@ -60,7 +60,7 @@ impl FormEngine {
                     } else if let Some(rel_def) = entity.relationships.iter().find(|r| &r.name == field_name) {
                         json!({
                             "name": format!("{}_id", rel_def.name.to_lowercase()),
-                            "label": rel_def.name,
+                            "label": to_title_case(&rel_def.name),
                             "widget": "RelationPicker",
                             "required": false // Default for relation
                         })
@@ -105,7 +105,7 @@ impl FormEngine {
 
             let mut field_json = json!({
                 "name": field_def.name,
-                "label": field_def.name,
+                "label": to_title_case(&field_def.name),
                 "widget": self.map_field_type_to_widget(&field_def.field_type),
                 "required": field_def.required
             });
@@ -132,7 +132,7 @@ impl FormEngine {
             if rel.rel_type == "belongs_to" {
                 ui_fields.push(json!({
                     "name": format!("{}_id", rel.name.to_lowercase()),
-                    "label": rel.name,
+                    "label": to_title_case(&rel.name),
                     "widget": "RelationPicker",
                     "required": false
                 }));
@@ -164,4 +164,20 @@ impl FormEngine {
             gurih_ir::FieldType::Relation => "RelationPicker".to_string(),
         }
     }
+}
+
+fn to_title_case(s: &str) -> String {
+    s.split('_')
+        .map(|word| {
+            if word.eq_ignore_ascii_case("id") {
+                return "ID".to_string();
+            }
+            let mut chars = word.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
