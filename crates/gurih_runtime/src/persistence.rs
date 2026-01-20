@@ -472,6 +472,8 @@ impl SchemaManager {
                 }
                 FieldType::Relation => "TEXT",
                 FieldType::Enum(_) => "TEXT",
+                FieldType::Photo => "TEXT",
+                FieldType::File => "TEXT",
             };
 
             let mut def = format!("\"{}\" {}", field.name, col_type);

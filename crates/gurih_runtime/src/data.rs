@@ -148,5 +148,6 @@ fn validate_type(val: &Value, field_type: &FieldType) -> bool {
         FieldType::Integer => val.is_i64(),
         FieldType::Float => val.is_f64(),
         FieldType::Boolean => val.is_boolean(),
+        FieldType::Photo | FieldType::File => val.is_string(),
     }
 }

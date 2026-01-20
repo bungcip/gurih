@@ -4,8 +4,8 @@ use crate::parser::parse;
 use gurih_ir::{
     ActionSchema, ColumnSchema, DashboardSchema, DatabaseSchema, DatatableColumnSchema, DatatableSchema, EntitySchema,
     FieldSchema, FieldType, FormSchema, FormSection, LayoutSchema, MenuItemSchema, MenuSchema, PageContentSchema,
-    PageSchema, PrintSchema, RelationshipSchema, RouteSchema, Schema, SerialGeneratorSchema, TableSchema, Transition,
-    WidgetSchema, WorkflowSchema,
+    PageSchema, PrintSchema, RelationshipSchema, RouteSchema, Schema, SerialGeneratorSchema, StorageSchema, TableSchema,
+    Transition, WidgetSchema, WorkflowSchema,
 };
 use std::collections::HashMap;
 
@@ -28,6 +28,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     let mut ir_dashboards = HashMap::new();
     let mut ir_serial_generators = HashMap::new();
     let mut ir_prints = HashMap::new();
+    let mut ir_storages = HashMap::new();
 
     // 0. Collect all enums (including from modules)
     let mut enums = HashMap::new();
@@ -74,6 +75,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     default: field_def.default.clone(),
                     references: field_def.references.clone(),
                     serial_generator: field_def.serial_generator.clone(),
+                    storage: field_def.storage.clone(),
+                    resize: field_def.resize.clone(),
+                    filetype: field_def.filetype.clone(),
                 });
             }
 
@@ -464,10 +468,24 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         );
     }
 
+    // 13. Process Storages
+    for storage_def in &ast_root.storages {
+        ir_storages.insert(
+            storage_def.name.clone(),
+            StorageSchema {
+                name: storage_def.name.clone(),
+                driver: storage_def.driver.clone(),
+                location: storage_def.location.clone(),
+                props: storage_def.props.clone(),
+            },
+        );
+    }
+
     Ok(Schema {
         name: ast_root.name.unwrap_or("GurihApp".to_string()),
         version: ast_root.version.unwrap_or("1.0.0".to_string()),
         database,
+        storages: ir_storages, // Added
         modules: ir_modules,
         entities: ir_entities,
         tables: ir_tables,
@@ -505,6 +523,8 @@ fn parse_field_type(
         "DateTime" => Ok(FieldType::DateTime),
         "Password" => Ok(FieldType::Password),
         "Relation" => Ok(FieldType::Relation),
+        "Photo" => Ok(FieldType::Photo),
+        "File" => Ok(FieldType::File),
         "Enum" => Ok(FieldType::Enum(vec![])),
         _ => {
             // If unknown, default to string

@@ -163,6 +163,8 @@ impl FormEngine {
             gurih_ir::FieldType::DateTime => "DateTimePicker".to_string(),
             gurih_ir::FieldType::Enum(_) => "Select".to_string(),
             gurih_ir::FieldType::Relation => "RelationPicker".to_string(),
+            gurih_ir::FieldType::Photo => "ImageUpload".to_string(),
+            gurih_ir::FieldType::File => "FileUpload".to_string(),
         }
     }
 }

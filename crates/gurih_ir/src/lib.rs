@@ -6,6 +6,7 @@ pub struct Schema {
     pub name: String,
     pub version: String,
     pub database: Option<DatabaseSchema>, // Added
+    pub storages: HashMap<String, StorageSchema>, // Added
     pub modules: HashMap<String, ModuleSchema>,
     pub entities: HashMap<String, EntitySchema>,
     pub tables: HashMap<String, TableSchema>, // Added
@@ -28,6 +29,14 @@ pub struct Schema {
 pub struct DatabaseSchema {
     pub db_type: String,
     pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StorageSchema {
+    pub name: String,
+    pub driver: String,
+    pub location: Option<String>,
+    pub props: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,6 +85,9 @@ pub struct FieldSchema {
     pub default: Option<String>,
     pub references: Option<String>, // Entity name for relations
     pub serial_generator: Option<String>,
+    pub storage: Option<String>,
+    pub resize: Option<String>,
+    pub filetype: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -91,6 +103,8 @@ pub enum FieldType {
     Password,
     Enum(Vec<String>),
     Relation, // One-to-One or Many-to-One usually
+    Photo,
+    File,
               // JSON,
 }
 
