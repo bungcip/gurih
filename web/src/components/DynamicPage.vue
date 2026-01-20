@@ -171,20 +171,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="flex-1 flex flex-col min-h-0 bg-white">
-        <!-- Page Actions -->
-        <div v-if="pageActions.length > 0" class="p-4 px-6 border-b border-border flex justify-end gap-3 shrink-0">
-             <Button
-                v-for="action in pageActions" 
-                :key="action.label"
-                @click="handleCustomAction(action)"
-                :variant="action.variant === 'danger' ? 'danger' : 'primary'"
-                :icon="action.icon"
-            >
-                {{ action.label }}
-            </Button>
-        </div>
-
+    <div class="flex-1 flex flex-col min-h-0">
         <div v-if="loading" class="p-12 text-center text-text-muted">
             <div class="animate-pulse flex flex-col items-center">
                 <div class="h-8 w-32 bg-gray-100 rounded mb-4"></div>
@@ -193,40 +180,45 @@ onMounted(() => {
         </div>
         
         <div v-else-if="config" class="flex-1 flex flex-col min-h-0">
+            <!-- Dashboard Layout (Grid) -->
             <template v-if="config.layout === 'Grid'">
-                <Dashboard :name="props.entity" />
+                <Dashboard :schema="config" />
             </template>
-            <template v-else>
-                <!-- Page Header -->
-                <div class="p-6 px-8 border-b border-border bg-white flex justify-between items-center shrink-0">
-                    <div>
-                        <div class="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1">{{ props.entity }}</div>
-                        <h2 class="text-xl font-bold text-text-main">{{ config.title || config.name }}</h2>
-                    </div>
-                    <!-- Page Actions (moved inside header) -->
-                    <div v-if="pageActions.length > 0" class="flex gap-3">
-                        <Button
-                            v-for="action in pageActions"
-                            :key="action.label"
-                            @click="handleCustomAction(action)"
-                            :variant="action.variant === 'danger' ? 'danger' : 'primary'"
-                            :icon="action.icon"
-                        >
-                            {{ action.label }}
-                        </Button>
-                    </div>
-                </div>
 
-                <div class="flex-1 overflow-auto bg-white">
-                    <!-- Table View -->
-                    <template v-if="config.layout === 'TableView'">
-                        <DataTable
-                            :columns="config.columns"
-                            :data="data"
-                            :actions="rowActions"
-                            @action="handleCustomAction"
-                        />
-                    </template>
+            <!-- Table/List Layout (Standard Card Look) -->
+            <template v-else>
+                <div class="card overflow-hidden bg-white flex-1 flex flex-col min-h-0">
+                    <!-- Page Header -->
+                    <div class="p-6 px-8 border-b border-border bg-white flex justify-between items-center shrink-0">
+                        <div>
+                            <div class="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1">{{ props.entity }}</div>
+                            <h2 class="text-xl font-bold text-text-main">{{ config.title || config.name }}</h2>
+                        </div>
+                        <!-- Page Actions -->
+                        <div v-if="pageActions.length > 0" class="flex gap-3">
+                            <Button
+                                v-for="action in pageActions"
+                                :key="action.label"
+                                @click="handleCustomAction(action)"
+                                :variant="action.variant === 'danger' ? 'danger' : 'primary'"
+                                :icon="action.icon"
+                            >
+                                {{ action.label }}
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 overflow-auto bg-white">
+                        <!-- Table View -->
+                        <template v-if="config.layout === 'TableView'">
+                            <DataTable
+                                :columns="config.columns"
+                                :data="data"
+                                :actions="rowActions"
+                                @action="handleCustomAction"
+                            />
+                        </template>
+                    </div>
                 </div>
             </template>
         </div>

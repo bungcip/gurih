@@ -1,5 +1,6 @@
 <script setup>
 import Button from './Button.vue'
+import StatusBadge from './StatusBadge.vue'
 
 const props = defineProps({
     columns: { type: Array, required: true },
@@ -32,7 +33,18 @@ const emit = defineEmits(['action'])
           <tbody class="divide-y divide-border">
               <tr v-for="row in data" :key="row.id" class="group hover:bg-blue-50/30 transition-colors">
                   <td v-for="col in columns" :key="col.key" class="p-4 px-8 text-[14px] text-text-main">
-                      {{ row[col.key] }}
+                      <template v-if="col.type === 'status'">
+                          <StatusBadge 
+                            :label="row[col.key]" 
+                            :variant="col.variant_map ? col.variant_map[row[col.key]] : 'gray'" 
+                          />
+                      </template>
+                      <template v-else-if="col.type === 'currency'">
+                          {{ new Intl.NumberFormat('id-ID', { style: 'currency', currency: col.currencyCode || 'IDR', minimumFractionDigits: 0 }).format(row[col.key] || 0) }}
+                      </template>
+                      <template v-else>
+                          {{ row[col.key] }}
+                      </template>
                   </td>
                   <td v-if="actions.length" class="p-4 px-8 text-right">
                       <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

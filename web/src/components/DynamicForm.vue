@@ -1,6 +1,12 @@
 <script setup>
 import { ref, watch, onMounted, inject } from 'vue'
 import Button from './Button.vue'
+import SelectInput from './SelectInput.vue'
+import DatePicker from './DatePicker.vue'
+import Switch from './Switch.vue'
+import Tabs from './Tabs.vue'
+import FileUpload from './FileUpload.vue'
+import CurrencyInput from './CurrencyInput.vue'
 
 const props = defineProps(['entity', 'id'])
 const emit = defineEmits(['saved', 'cancel'])
@@ -132,39 +138,27 @@ onMounted(() => {
         <div v-if="!schema || loading" class="card p-12 text-center text-text-muted">Loading Form...</div>
         
         <form v-else @submit.prevent="save" class="flex-1 flex flex-col gap-6 overflow-hidden">
-            <!-- Header Card (Simplified) -->
-            <div class="card p-6 pb-0 shrink-0 border-b-0 rounded-b-none">
-                <div class="flex items-center gap-4 mb-6">
-                     <h2 class="text-xl font-bold text-text-main">{{ schema.name }} Form</h2>
-                </div>
+            <!-- Header Card with Integrated Tabs -->
+            <div class="card p-0 flex-1 flex flex-col overflow-hidden">
+                <div class="p-6 pb-0 border-b border-gray-100">
+                    <div class="flex items-center gap-4 mb-6">
+                         <h2 class="text-xl font-bold text-text-main">{{ schema.name }} Form</h2>
+                    </div>
 
-                <!-- Tabs -->
-                <div class="flex gap-8 border-b border-border">
-                    <button 
-                        v-for="(section, index) in schema.layout" 
-                        :key="section.title"
-                        type="button"
-                        @click="activeTab = index"
-                        class="pb-3 text-sm font-medium transition-all relative"
-                        :class="activeTab === index ? 'text-primary' : 'text-text-muted hover:text-text-main'"
-                    >
-                        {{ section.title }}
-                        <div v-if="activeTab === index" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full"></div>
-                    </button>
+                    <!-- Tabs -->
+                    <Tabs 
+                        v-model="activeTab" 
+                        :items="schema.layout" 
+                    />
                 </div>
-            </div>
             
-            <!-- Content Area -->
-            <div class="flex-1 overflow-y-auto min-h-0 bg-gray-50/50 p-6 pt-0">
-                <div v-for="(section, index) in schema.layout" :key="section.title">
-                    <div v-if="activeTab === index" class="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <!-- Content Area -->
+                <div class="flex-1 overflow-y-auto min-h-0 bg-white p-6 relative z-0">
+                    <div v-for="(section, index) in schema.layout" :key="section.title">
+                        <div v-if="activeTab === index" class="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         
-                        <!-- Section with Blue Bar -->
-                        <div class="bg-white rounded-lg border border-border p-6 shadow-sm">
-                            <div class="flex items-center gap-3 mb-6">
-                                <div class="w-1 h-5 bg-blue-500 rounded-full"></div>
-                                <h3 class="text-lg font-semibold text-blue-500">{{ section.title }}</h3>
-                            </div>
+                        <!-- Section Content -->
+                        <div>
                         
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
                             <div v-for="field in section.fields" :key="field.name">
@@ -186,32 +180,53 @@ onMounted(() => {
                                 </div>
 
                                 <div v-if="field.widget === 'DatePicker'">
-                                    <input v-model="formData[field.name]" type="date" class="input-field" :required="field.required">
+                                    <DatePicker v-model="formData[field.name]" :required="field.required" />
                                 </div>
 
                                 <div v-if="field.widget === 'DateTimePicker'">
                                     <input v-model="formData[field.name]" type="datetime-local" class="input-field" :required="field.required">
                                 </div>
 
+                                <div v-if="field.widget === 'CurrencyInput'">
+                                    <CurrencyInput 
+                                        v-model="formData[field.name]" 
+                                        :label="field.label"
+                                        :prefix="field.prefix || 'Rp'"
+                                        :decimals="field.decimals ?? 0"
+                                        :required="field.required"
+                                    />
+                                </div>
+
+                                <div v-if="field.widget === 'FileUpload'">
+                                    <FileUpload 
+                                        v-model="formData[field.name]" 
+                                        :label="field.label"
+                                        :required="field.required"
+                                        :accept="field.accept"
+                                        :multiple="field.multiple"
+                                    />
+                                </div>
+
                                 <div v-if="field.widget === 'Checkbox'" class="flex items-center h-10">
-                                    <label class="flex items-center gap-2 cursor-pointer">
-                                        <input v-model="formData[field.name]" type="checkbox" class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary/20">
-                                        <span class="text-sm">Enabled</span>
-                                    </label>
+                                    <Switch 
+                                        v-model="formData[field.name]" 
+                                        label="Enabled"
+                                    />
                                 </div>
                                 
                                 <div v-if="field.widget === 'RelationPicker' || field.widget === 'Select'">
-                                    <select v-model="formData[field.name]" class="input-field bg-white appearance-none">
-                                        <option :value="null">Select {{ field.label }}...</option>
-                                        <option v-for="opt in (field.options || relationOptions[field.name] || [])" :key="opt.value" :value="opt.value">
-                                            {{ opt.label }}
-                                        </option>
-                                    </select>
+                                    <SelectInput 
+                                        v-model="formData[field.name]" 
+                                        :options="field.options || relationOptions[field.name] || []"
+                                        :placeholder="'Select ' + field.label + '...'"
+                                        :required="field.required"
+                                    />
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
 

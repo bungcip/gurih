@@ -143,16 +143,16 @@ query:flat "LeaveRequestQuery" for="LeaveRequest" {
 // UI: PAGES & DASHBOARD
 // -----------------------------------------------------------------------------
 dashboard "HRDashboard" {
-    title "HR Overview"
+    title "Tampilan HR Dashboard"
     
     grid columns=3 {
         widget "TotalEmployees" type="stat" {
-            label "Total Employees"
+            label "Jumlah Karyawan"
             value "count:Employee[status=Permanent]"
             icon "users"
         }
         widget "PendingLeaves" type="stat" {
-            label "Pending Leave Requests"
+            label "Permohonan Cuti"
             value "count:LeaveRequest[status=Pending]"
             icon "clock"
             color "warning"
