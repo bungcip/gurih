@@ -46,7 +46,9 @@ fn test_default_form_label_generation() {
     schema.entities.insert("TestEntity".to_string(), entity);
 
     let engine = FormEngine::new();
-    let form_json = engine.generate_default_form(&schema, "TestEntity").expect("Failed to generate form");
+    let form_json = engine
+        .generate_default_form(&schema, "TestEntity")
+        .expect("Failed to generate form");
 
     // Helper to find field by name
     let find_field = |name: &str| {
