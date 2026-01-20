@@ -13,6 +13,7 @@ pub trait Storage: Send + Sync {
     async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String>;
     async fn delete(&self, entity: &str, id: &str) -> Result<(), String>;
     async fn list(&self, entity: &str, limit: Option<usize>, offset: Option<usize>) -> Result<Vec<Arc<Value>>, String>;
+    async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String>;
     async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String>;
     async fn aggregate(
         &self,
@@ -99,6 +100,31 @@ impl Storage for MemoryStorage {
             let skip = offset.unwrap_or(0);
             let take = limit.unwrap_or(usize::MAX);
             Ok(table.values().skip(skip).take(take).cloned().collect())
+        } else {
+            Ok(vec![])
+        }
+    }
+
+    async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
+        let data = self.data.lock().unwrap();
+        if let Some(table) = data.get(entity) {
+            let results: Vec<Arc<Value>> = table
+                .values()
+                .filter(|record| {
+                    for (k, v) in &filters {
+                        if let Some(val) = record.get(k).and_then(|val| val.as_str()) {
+                            if val != v {
+                                return false;
+                            }
+                        } else {
+                            return false;
+                        }
+                    }
+                    true
+                })
+                .cloned()
+                .collect();
+            Ok(results)
         } else {
             Ok(vec![])
         }
@@ -235,6 +261,13 @@ impl Storage for DatabaseStorage {
         match &self.pool {
             DbPool::Sqlite(_) => self.sqlite.list(entity, limit, offset).await,
             DbPool::Postgres(_) => self.postgres.list(entity, limit, offset).await,
+        }
+    }
+
+    async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
+        match &self.pool {
+            DbPool::Sqlite(_) => self.sqlite.find(entity, filters).await,
+            DbPool::Postgres(_) => self.postgres.find(entity, filters).await,
         }
     }
 

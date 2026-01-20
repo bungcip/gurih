@@ -3,11 +3,13 @@ import { ref, onMounted, provide } from 'vue'
 import DynamicPage from './components/DynamicPage.vue'
 import DynamicForm from './components/DynamicForm.vue'
 import ToastNotification from './components/ToastNotification.vue'
+import Login from './components/Login.vue'
 
 const menu = ref([])
 const currentEntity = ref(null)
 const viewMode = ref('home') // home, list, create, edit
 const editId = ref(null)
+const currentUser = ref(null)
 
 // Toast State
 const toast = ref({
@@ -37,6 +39,19 @@ async function fetchMenu() {
     } catch (e) {
         console.error("Failed to fetch menu", e)
     }
+}
+
+function handleLoginSuccess(user) {
+    currentUser.value = user
+    localStorage.setItem('user', JSON.stringify(user))
+    fetchMenu()
+}
+
+function handleLogout() {
+    currentUser.value = null
+    localStorage.removeItem('user')
+    viewMode.value = 'home'
+    window.location.hash = ''
 }
 
 function syncHashToState() {
@@ -101,6 +116,15 @@ function onAction(action, id) {
 }
 
 onMounted(() => {
+    const stored = localStorage.getItem('user')
+    if (stored) {
+        try {
+            currentUser.value = JSON.parse(stored)
+        } catch (e) {
+            localStorage.removeItem('user')
+        }
+    }
+
     fetchMenu()
     syncHashToState()
     window.addEventListener('hashchange', syncHashToState)
@@ -108,7 +132,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex h-screen w-full bg-background overflow-hidden">
+  <Login v-if="!currentUser" @login-success="handleLoginSuccess" />
+
+  <div v-else class="flex h-screen w-full bg-background overflow-hidden">
     <!-- Sidebar -->
     <aside class="w-64 bg-white border-r border-border flex flex-col hidden md:flex">
         <div class="p-6 text-xl font-bold text-text-main flex items-center gap-2">
@@ -147,6 +173,9 @@ onMounted(() => {
                 <button v-if="viewMode !== 'list'" @click="onAction('cancel')" class="px-4 py-2 text-sm text-text-muted hover:text-text-main transition">
                     Back to List
                 </button>
+                <button @click="handleLogout" class="px-4 py-2 text-sm text-text-muted hover:text-text-main transition border-l border-border ml-2">
+                     Logout
+                </button>
              </div>
         </header>
 
@@ -179,11 +208,12 @@ onMounted(() => {
         </div>
     </main>
     
-    <!-- Toast Notification -->
-    <ToastNotification 
-        :show="toast.show" 
-        :message="toast.message" 
-        :type="toast.type" 
-    />
   </div>
+
+  <!-- Toast Notification -->
+  <ToastNotification
+      :show="toast.show"
+      :message="toast.message"
+      :type="toast.type"
+  />
 </template>

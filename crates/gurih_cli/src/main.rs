@@ -9,6 +9,7 @@ use axum::{
 use clap::{Parser, Subcommand};
 use gurih_dsl::{compile, diagnostics::DiagnosticEngine, diagnostics::ErrorFormatter};
 use gurih_runtime::action::ActionEngine;
+use gurih_runtime::auth::AuthEngine;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::form::FormEngine;
@@ -71,6 +72,7 @@ enum Commands {
 struct AppState {
     data_engine: Arc<DataEngine>,
     action_engine: Arc<ActionEngine>,
+    auth_engine: Arc<AuthEngine>,
 }
 
 #[tokio::main]
@@ -299,7 +301,8 @@ async fn start_server(
                 Arc::new(MemoryStorage::new())
             };
 
-            let engine = Arc::new(DataEngine::new(schema.clone(), storage));
+            let engine = Arc::new(DataEngine::new(schema.clone(), storage.clone()));
+            let auth_engine = Arc::new(AuthEngine::new(storage));
 
             println!("Runtime initialized with {} entities.", schema.entities.len());
 
@@ -376,6 +379,7 @@ async fn start_server(
             let action_engine = Arc::new(ActionEngine::new(schema.actions.clone()));
 
             let mut app = Router::new()
+                .route("/api/auth/login", post(login_handler))
                 .route("/api/{entity}", post(create_entity).get(list_entities))
                 .route(
                     "/api/{entity}/{id}",
@@ -393,6 +397,7 @@ async fn start_server(
             let state = AppState {
                 data_engine: engine,
                 action_engine,
+                auth_engine,
             };
 
             let mut app = app
@@ -524,6 +529,19 @@ fn read_and_compile_with_diagnostics(path: &PathBuf) -> Result<gurih_ir::Schema,
 }
 
 // Handlers
+
+#[derive(serde::Deserialize)]
+struct LoginPayload {
+    username: String,
+    password: String,
+}
+
+async fn login_handler(State(state): State<AppState>, Json(payload): Json<LoginPayload>) -> impl IntoResponse {
+    match state.auth_engine.login(&payload.username, &payload.password).await {
+        Ok(ctx) => (StatusCode::OK, Json(ctx)).into_response(),
+        Err(e) => (StatusCode::UNAUTHORIZED, Json(serde_json::json!({ "error": e }))).into_response(),
+    }
+}
 
 async fn create_entity(
     State(state): State<AppState>,

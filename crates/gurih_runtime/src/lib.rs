@@ -1,4 +1,5 @@
 pub mod action; // Added
+pub mod auth;
 pub mod context;
 pub mod dashboard;
 pub mod data;
