@@ -19,7 +19,7 @@ fn test_compile_table_and_database() {
     }
     "#;
 
-    let schema = compile(src).expect("Should compile");
+    let schema = compile(src, None).expect("Should compile");
 
     // Check Database
     let db = schema.database.expect("Database should be present");

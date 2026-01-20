@@ -9,8 +9,8 @@ use gurih_ir::{
 };
 use std::collections::HashMap;
 
-pub fn compile(src: &str) -> Result<Schema, CompileError> {
-    let ast_root = parse(src)?;
+pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema, CompileError> {
+    let ast_root = parse(src, base_path)?;
 
     // Validation Context
     let mut entity_names = HashMap::new();
@@ -107,6 +107,11 @@ pub fn compile(src: &str) -> Result<Schema, CompileError> {
                 fields,
                 relationships,
                 options,
+                seeds: if entity_def.seeds.is_empty() {
+                    None
+                } else {
+                    Some(entity_def.seeds.clone())
+                },
             })
         };
 

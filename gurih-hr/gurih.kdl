@@ -63,66 +63,8 @@ serial_generator "EmpCode" {
     sequence digits=4
 }
 
-// -----------------------------------------------------------------------------
-// MODULE: ORGANIZATION
-// -----------------------------------------------------------------------------
-module "Organization" {
-    entity "Department" {
-        field:pk id
-        field:name "name" unique=#true
-        field:text "description"
-        
-        has_many "employees" "Employee"
-    }
-
-    entity "Position" {
-        field:pk id
-        field:string "title"
-        field:text "description"
-        field:money "base_salary"
-    }
-
-    action "DeletePosition" {
-        params "id"
-        step "entity:delete" target="Position" id="param(\"id\")"
-    }
-
-    action "DeleteDepartment" {
-        params "id"
-        step "entity:delete" target="Department" id="param(\"id\")"
-    }
-}
-
-// -----------------------------------------------------------------------------
-// MODULE: PERSONNEL
-// -----------------------------------------------------------------------------
-module "Personnel" {
-    entity "Employee" {
-        field:pk id
-        field:serial "employee_id" serial_generator="EmpCode"
-        field:name "full_name"
-        field:email "email_address" unique=#true
-        field:phone "phone_number"
-        field:date "join_date"
-        
-        field:enum "status" "EmploymentStatus" default="Probation"
-        
-        // Relationships
-        belongs_to "Department"
-        belongs_to "Position"
-        
-        has_many "leave_requests" "LeaveRequest"
-        
-        options {
-            track_changes #true
-        }
-    }
-
-    action "DeleteEmployee" {
-        params "id"
-        step "entity:delete" target="Employee" id="param(\"id\")"
-    }
-}
+include "organization.kdl"
+include "personnel.kdl"
 
 // -----------------------------------------------------------------------------
 // MODULE: LEAVE MANAGEMENT (With Workflow)

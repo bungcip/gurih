@@ -19,7 +19,7 @@ page "test_page" {
 }
 "#;
 
-    let ast = parse(input).unwrap();
+    let ast = parse(input, None).unwrap();
     let page = ast.pages.get(0).unwrap();
 
     if let gurih_dsl::ast::PageContent::Datatable(datatable) = &page.content {
@@ -39,7 +39,7 @@ fn test_parse_golden_master() {
 
     let src = fs::read_to_string(&d).expect("Failed to read gurih.kdl");
 
-    match parse(&src) {
+    match parse(&src, d.parent()) {
         Ok(ast) => {
             println!("Successfully parsed AST!");
             println!("Modules: {}", ast.modules.len());

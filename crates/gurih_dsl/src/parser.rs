@@ -1,8 +1,10 @@
 use crate::ast::*;
 use crate::errors::CompileError;
 use kdl::{KdlDocument, KdlNode};
+use std::collections::HashMap;
+use std::path::Path;
 
-pub fn parse(src: &str) -> Result<Ast, CompileError> {
+pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
     let doc: KdlDocument = src.parse()?;
     let mut ast = Ast {
         name: None,
@@ -30,6 +32,52 @@ pub fn parse(src: &str) -> Result<Ast, CompileError> {
         match name {
             "name" => ast.name = Some(get_arg_string(node, 0, src)?),
             "version" => ast.version = Some(get_arg_string(node, 0, src)?),
+            "include" => {
+                if let Some(base) = base_path {
+                    let filename = get_arg_string(node, 0, src)?;
+                    let path = base.join(&filename);
+                    let content = std::fs::read_to_string(&path).map_err(|e| CompileError::ParseError {
+                        src: src.to_string(),
+                        span: node.name().span().into(),
+                        message: format!("Failed to read include file {}: {}", path.display(), e),
+                    })?;
+                    // Included files are relative to their own location
+                    let new_base = path.parent();
+                    let included_ast = parse(&content, new_base)?;
+
+                    // Merge included AST
+                    if included_ast.name.is_some() && ast.name.is_none() {
+                        ast.name = included_ast.name;
+                    }
+                    if included_ast.version.is_some() && ast.version.is_none() {
+                        ast.version = included_ast.version;
+                    }
+                    if included_ast.database.is_some() && ast.database.is_none() {
+                        ast.database = included_ast.database;
+                    }
+                    ast.icons.extend(included_ast.icons);
+                    ast.layouts.extend(included_ast.layouts);
+                    ast.modules.extend(included_ast.modules);
+                    ast.entities.extend(included_ast.entities);
+                    ast.tables.extend(included_ast.tables);
+                    ast.enums.extend(included_ast.enums);
+                    ast.serial_generators.extend(included_ast.serial_generators);
+                    ast.workflows.extend(included_ast.workflows);
+                    ast.dashboards.extend(included_ast.dashboards);
+                    ast.pages.extend(included_ast.pages);
+                    ast.actions.extend(included_ast.actions);
+                    ast.routes.extend(included_ast.routes);
+                    ast.menus.extend(included_ast.menus);
+                    ast.prints.extend(included_ast.prints);
+                    ast.permissions.extend(included_ast.permissions);
+                } else {
+                    return Err(CompileError::ParseError {
+                        src: src.to_string(),
+                        span: node.name().span().into(),
+                        message: "Includes are not supported in this context (missing base path)".to_string(),
+                    });
+                }
+            }
             "database" => ast.database = Some(parse_database(node, src)?),
             "icons" => ast.icons.extend(parse_icons(node, src)?),
             "layout" => ast.layouts.push(parse_layout(node, src)?),
@@ -254,6 +302,7 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
     let mut fields = vec![];
     let mut relationships = vec![];
     let mut options = EntityOptions::default();
+    let mut seeds = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
@@ -286,6 +335,33 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                                 "track_changes" => options.track_changes = get_arg_bool(opt, 0).unwrap_or(false),
                                 "is_single" => options.is_single = get_arg_bool(opt, 0).unwrap_or(false),
                                 _ => {}
+                            }
+                        }
+                    }
+                }
+                "seed" => {
+                    if let Some(rows) = child.children() {
+                        for row_node in rows.nodes() {
+                            // Support `row` or `data` or just any node
+                            // Let's assume standard is `row prop="val"` or just `prop="val"` ?
+                            // The plan said: seed { row name="Alice" }
+                            if row_node.name().value() == "row" || row_node.name().value() == "data" {
+                                let mut row_data = HashMap::new();
+                                for entry in row_node.entries() {
+                                    if let Some(k) = entry.name() {
+                                        let key_str = k.value();
+                                        if let Some(val) = entry.value().as_string() {
+                                            row_data.insert(key_str.to_string(), val.to_string());
+                                        } else if let Some(val) = entry.value().as_integer() {
+                                            row_data.insert(key_str.to_string(), val.to_string());
+                                        } else if let Some(val) = entry.value().as_bool() {
+                                            row_data.insert(key_str.to_string(), val.to_string());
+                                        } else if let Some(val) = entry.value().as_float() {
+                                            row_data.insert(key_str.to_string(), val.to_string());
+                                        }
+                                    }
+                                }
+                                seeds.push(row_data);
                             }
                         }
                     }
@@ -372,6 +448,7 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
         fields,
         relationships,
         options,
+        seeds,
         span: node.span().into(),
     })
 }

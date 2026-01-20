@@ -6,8 +6,8 @@ fn test_compile_golden_master() {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let file_path = std::path::Path::new(&manifest_dir).join("../../gurih-hr/gurih.kdl");
 
-    let src = fs::read_to_string(file_path).expect("Failed to read gurih.kdl");
-    let schema = compile(&src).expect("Failed to compile");
+    let src = fs::read_to_string(&file_path).expect("Failed to read gurih.kdl");
+    let schema = compile(&src, file_path.parent()).expect("Failed to compile");
 
     println!("Compiled Schema: {}", schema.name);
     assert_eq!(schema.name, "GurihHR");
@@ -76,7 +76,7 @@ fn test_compile_widget_icon() {
     }
     "#;
 
-    let schema = compile(src).expect("Failed to compile");
+    let schema = compile(src, None).expect("Failed to compile");
     let dash = schema.dashboards.get("MainDash").expect("Dashboard not found");
     let widget = dash.widgets.first().expect("Widget not found");
 

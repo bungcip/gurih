@@ -1,0 +1,37 @@
+module "Organization" {
+    entity "Department" {
+        field:pk id
+        field:name "name" unique=#true
+        field:text "description"
+
+        has_many "employees" "Employee"
+
+        seed {
+             row name="Engineering" description="Tech Team"
+             row name="HR" description="Human Resources"
+             row name="Finance" description="Finance & Accounting"
+        }
+    }
+
+    entity "Position" {
+        field:pk id
+        field:string "title" unique=#true
+        field:text "description"
+        field:money "base_salary"
+
+        seed {
+            row title="Software Engineer" description="Develops software" base_salary="8000"
+            row title="HR Manager" description="Manages HR" base_salary="7000"
+        }
+    }
+
+    action "DeletePosition" {
+        params "id"
+        step "entity:delete" target="Position" id="param(\"id\")"
+    }
+
+    action "DeleteDepartment" {
+        params "id"
+        step "entity:delete" target="Department" id="param(\"id\")"
+    }
+}

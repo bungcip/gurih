@@ -84,6 +84,7 @@ pub struct EntityDef {
     pub fields: Vec<FieldDef>,
     pub relationships: Vec<RelationshipDef>,
     pub options: EntityOptions,
+    pub seeds: Vec<std::collections::HashMap<String, String>>,
     pub span: SourceSpan,
 }
 
