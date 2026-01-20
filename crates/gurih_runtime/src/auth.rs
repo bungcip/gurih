@@ -22,26 +22,15 @@ impl AuthEngine {
         }
 
         let user = &users[0];
-        let stored_password = user
-            .get("password")
-            .and_then(|v| v.as_str())
-            .unwrap_or_default();
+        let stored_password = user.get("password").and_then(|v| v.as_str()).unwrap_or_default();
 
         if stored_password != password {
             return Err("Invalid username or password".to_string());
         }
 
-        let user_id = user
-            .get("id")
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
+        let user_id = user.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
 
-        let role = user
-            .get("role")
-            .and_then(|v| v.as_str())
-            .unwrap_or("user")
-            .to_string();
+        let role = user.get("role").and_then(|v| v.as_str()).unwrap_or("user").to_string();
 
         // Map role to permissions (simplified for now)
         let permissions = if role == "admin" || role == "HRManager" {

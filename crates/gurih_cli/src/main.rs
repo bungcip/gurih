@@ -536,21 +536,10 @@ struct LoginPayload {
     password: String,
 }
 
-async fn login_handler(
-    State(state): State<AppState>,
-    Json(payload): Json<LoginPayload>,
-) -> impl IntoResponse {
-    match state
-        .auth_engine
-        .login(&payload.username, &payload.password)
-        .await
-    {
+async fn login_handler(State(state): State<AppState>, Json(payload): Json<LoginPayload>) -> impl IntoResponse {
+    match state.auth_engine.login(&payload.username, &payload.password).await {
         Ok(ctx) => (StatusCode::OK, Json(ctx)).into_response(),
-        Err(e) => (
-            StatusCode::UNAUTHORIZED,
-            Json(serde_json::json!({ "error": e })),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::UNAUTHORIZED, Json(serde_json::json!({ "error": e }))).into_response(),
     }
 }
 
