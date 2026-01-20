@@ -503,6 +503,7 @@ fn parse_field_type(
         "Boolean" | "Bool" => Ok(FieldType::Boolean),
         "Date" => Ok(FieldType::Date),
         "DateTime" => Ok(FieldType::DateTime),
+        "Password" => Ok(FieldType::Password),
         "Relation" => Ok(FieldType::Relation),
         "Enum" => Ok(FieldType::Enum(vec![])),
         _ => {

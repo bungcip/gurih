@@ -1,0 +1,13 @@
+module "Auth" {
+    entity "User" {
+        field:pk id
+        field:string "username" unique=#true
+        field:password "password"
+        field:string "role"
+
+        seed {
+             row username="admin" password="password" role="HRManager"
+             row username="user" password="password" role="Employee"
+        }
+    }
+}

@@ -65,6 +65,7 @@ serial_generator "EmpCode" {
 
 include "organization.kdl"
 include "personnel.kdl"
+include "user.kdl"
 
 // -----------------------------------------------------------------------------
 // MODULE: LEAVE MANAGEMENT (With Workflow)
