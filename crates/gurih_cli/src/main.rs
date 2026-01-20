@@ -98,7 +98,7 @@ async fn main() {
             port,
             server_only,
         } => {
-            if let Err(_) = start_server(file, port, server_only, false, true).await {
+            if start_server(file, port, server_only, false, true).await.is_err() {
                 std::process::exit(1);
             }
         }
@@ -145,21 +145,21 @@ fn rebuild_frontend() {
 async fn watch_loop(file: PathBuf, port: u16, server_only: bool) {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
-        if let Ok(event) = res {
-            if event.kind.is_modify() || event.kind.is_create() || event.kind.is_remove() {
+        match res {
+            Ok(event) if event.kind.is_modify() || event.kind.is_create() || event.kind.is_remove() => {
                 // Check if KDL
                 let is_kdl = event
                     .paths
                     .iter()
-                    .any(|p| p.extension().map_or(false, |ext| ext == "kdl"));
+                    .any(|p| p.extension().is_some_and(|ext| ext == "kdl"));
 
                 // Check if Frontend (vue, js, css in web/src)
                 let is_frontend = event.paths.iter().any(|p| {
                     let s = p.to_string_lossy();
                     (s.contains("/web/src") || s.contains("\\web\\src"))
-                        && (p.extension().map_or(false, |ext| {
-                            ext == "vue" || ext == "js" || ext == "css" || ext == "html"
-                        }))
+                        && (p
+                            .extension()
+                            .is_some_and(|ext| ext == "vue" || ext == "js" || ext == "css" || ext == "html"))
                 });
 
                 if is_kdl {
@@ -168,6 +168,7 @@ async fn watch_loop(file: PathBuf, port: u16, server_only: bool) {
                     let _ = tx.blocking_send(WatchEvent::Frontend);
                 }
             }
+            _ => {}
         }
     })
     .expect("Failed to create watcher");
@@ -635,7 +636,7 @@ async fn upload_handler(
 
     let storage_name = field.storage.as_deref().unwrap_or("default");
 
-    while let Some(field_part) = multipart.next_field().await.unwrap_or(None) {
+    if let Some(field_part) = multipart.next_field().await.unwrap_or(None) {
         let file_name = field_part.file_name().unwrap_or("upload.bin").to_string();
         let data = field_part.bytes().await.unwrap_or_default();
 
@@ -760,8 +761,8 @@ fn register_routes<'a>(
         let segment: String = segment_raw
             .split('/')
             .map(|s| {
-                if s.starts_with(':') {
-                    format!("{{{}}}", &s[1..])
+                if let Some(stripped) = s.strip_prefix(':') {
+                    format!("{{{}}}", stripped)
                 } else {
                     s.to_string()
                 }

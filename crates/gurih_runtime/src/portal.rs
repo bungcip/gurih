@@ -131,7 +131,7 @@ impl PortalEngine {
         }
 
         // Fallback: search strings in path
-        for (page_name, _) in &schema.pages {
+        for page_name in schema.pages.keys() {
             let path_lower = path.to_lowercase();
             if path_lower.contains(&page_name.to_lowercase()) {
                 return Some(Self::resolve_entity_from_target(schema, page_name));

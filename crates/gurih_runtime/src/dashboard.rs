@@ -55,9 +55,8 @@ impl DashboardEngine {
             let mut evaluated_value = json!(null);
 
             if let Some(val_str) = &w.value {
-                if val_str.starts_with("count:") {
+                if let Some(rest) = val_str.strip_prefix("count:") {
                     // Parse count:Entity[k=v]
-                    let rest = &val_str[6..];
                     let (entity, filter_str) = if let Some(idx) = rest.find('[') {
                         let entity = &rest[..idx];
                         let filter_part = &rest[idx + 1..rest.len() - 1]; // remove [ and ]
@@ -78,9 +77,8 @@ impl DashboardEngine {
 
                     let count = storage.count(entity, filters).await?;
                     evaluated_value = json!(count);
-                } else if val_str.starts_with("group:") {
+                } else if let Some(rest) = val_str.strip_prefix("group:") {
                     // Parse group:Entity[field]
-                    let rest = &val_str[6..];
                     let (entity, group_by) = if let Some(idx) = rest.find('[') {
                         let entity = &rest[..idx];
                         let group_part = &rest[idx + 1..rest.len() - 1];
