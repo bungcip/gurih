@@ -146,9 +146,7 @@ async fn watch_loop(file: PathBuf, port: u16, server_only: bool) {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
         match res {
-            Ok(event)
-                if event.kind.is_modify() || event.kind.is_create() || event.kind.is_remove() =>
-            {
+            Ok(event) if event.kind.is_modify() || event.kind.is_create() || event.kind.is_remove() => {
                 // Check if KDL
                 let is_kdl = event
                     .paths
@@ -159,7 +157,8 @@ async fn watch_loop(file: PathBuf, port: u16, server_only: bool) {
                 let is_frontend = event.paths.iter().any(|p| {
                     let s = p.to_string_lossy();
                     (s.contains("/web/src") || s.contains("\\web\\src"))
-                        && (p.extension()
+                        && (p
+                            .extension()
                             .is_some_and(|ext| ext == "vue" || ext == "js" || ext == "css" || ext == "html"))
                 });
 
