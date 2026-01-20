@@ -88,6 +88,7 @@ pub enum FieldType {
     Boolean,
     Date,
     DateTime,
+    Password,
     Enum(Vec<String>),
     Relation, // One-to-One or Many-to-One usually
               // JSON,

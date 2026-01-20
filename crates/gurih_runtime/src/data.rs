@@ -140,6 +140,7 @@ fn validate_type(val: &Value, field_type: &FieldType) -> bool {
     match field_type {
         FieldType::String
         | FieldType::Text
+        | FieldType::Password
         | FieldType::Enum(_)
         | FieldType::Date
         | FieldType::DateTime

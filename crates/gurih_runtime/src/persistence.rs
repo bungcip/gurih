@@ -439,6 +439,7 @@ impl SchemaManager {
         for field in &entity.fields {
             let col_type = match &field.field_type {
                 FieldType::String => "TEXT",
+                FieldType::Password => "TEXT",
                 FieldType::Text => "TEXT",
                 FieldType::Integer => {
                     if db_kind == "PostgreSQL" {

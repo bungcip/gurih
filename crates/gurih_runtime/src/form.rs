@@ -154,6 +154,7 @@ impl FormEngine {
     fn map_field_type_to_widget(&self, field_type: &gurih_ir::FieldType) -> String {
         match field_type {
             gurih_ir::FieldType::String => "TextInput".to_string(),
+            gurih_ir::FieldType::Password => "PasswordInput".to_string(),
             gurih_ir::FieldType::Text => "TextArea".to_string(),
             gurih_ir::FieldType::Integer => "NumberInput".to_string(),
             gurih_ir::FieldType::Float => "NumberInput".to_string(),
