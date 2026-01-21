@@ -628,7 +628,14 @@ fn parse_field_type(
     references: &Option<String>,
 ) -> Result<FieldType, CompileError> {
     match field_type {
-        ast::FieldType::String | ast::FieldType::Code | ast::FieldType::Serial | ast::FieldType::Money | ast::FieldType::Email | ast::FieldType::Phone | ast::FieldType::Name | ast::FieldType::Description => Ok(FieldType::String),
+        ast::FieldType::String
+        | ast::FieldType::Code
+        | ast::FieldType::Serial
+        | ast::FieldType::Money
+        | ast::FieldType::Email
+        | ast::FieldType::Phone
+        | ast::FieldType::Name
+        | ast::FieldType::Description => Ok(FieldType::String),
         ast::FieldType::Text => Ok(FieldType::Text),
         ast::FieldType::Integer => Ok(FieldType::Integer),
         ast::FieldType::Float => Ok(FieldType::Float),
@@ -640,14 +647,14 @@ fn parse_field_type(
         ast::FieldType::Photo => Ok(FieldType::Photo),
         ast::FieldType::File => Ok(FieldType::File),
         ast::FieldType::Enum => {
-             // For explicit Enum type, references should be set to the enum name.
-             let variants = if let Some(ref_name) = references {
-                 enums.get(ref_name).cloned().unwrap_or_default()
-             } else {
-                 vec![]
-             };
-             Ok(FieldType::Enum(variants))
-        },
+            // For explicit Enum type, references should be set to the enum name.
+            let variants = if let Some(ref_name) = references {
+                enums.get(ref_name).cloned().unwrap_or_default()
+            } else {
+                vec![]
+            };
+            Ok(FieldType::Enum(variants))
+        }
         ast::FieldType::Custom(s) => {
             // Check if it matches an enum name
             if let Some(variants) = enums.get(s) {
