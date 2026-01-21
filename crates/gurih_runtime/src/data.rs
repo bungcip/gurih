@@ -2,7 +2,7 @@ use crate::context::RuntimeContext;
 use crate::query_engine::{QueryEngine, QueryPlan};
 use crate::storage::Storage;
 use crate::workflow::WorkflowEngine;
-use gurih_ir::{FieldType, Schema};
+use gurih_ir::{FieldType, Schema, Symbol};
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -35,7 +35,7 @@ impl DataEngine {
         let entity_schema = self
             .schema
             .entities
-            .get(entity_name)
+            .get(&Symbol::from(entity_name))
             .ok_or_else(|| format!("Entity '{}' not defined", entity_name))?;
 
         // Workflow: Set initial state if applicable
@@ -49,11 +49,11 @@ impl DataEngine {
         // Validation
         if let Some(obj) = data.as_object() {
             for field in &entity_schema.fields {
-                if field.required && !obj.contains_key(&field.name) {
+                if field.required && !obj.contains_key(&field.name.to_string()) {
                     return Err(format!("Missing required field: {}", field.name));
                 }
 
-                if let Some(val) = obj.get(&field.name)
+                if let Some(val) = obj.get(field.name.as_str())
                     && !validate_type(val, &field.field_type)
                 {
                     return Err(format!("Invalid type for field: {}", field.name));
@@ -67,7 +67,7 @@ impl DataEngine {
     }
 
     pub async fn read(&self, entity_name: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
-        if !self.schema.entities.contains_key(entity_name) {
+        if !self.schema.entities.contains_key(&Symbol::from(entity_name)) {
             return Err(format!("Entity '{}' not defined", entity_name));
         }
         self.storage.get(entity_name, id).await
@@ -77,13 +77,18 @@ impl DataEngine {
         let entity_schema = self
             .schema
             .entities
-            .get(entity_name)
+            .get(&Symbol::from(entity_name))
             .ok_or_else(|| format!("Entity '{}' not defined", entity_name))?;
 
         // Workflow Transition Check
         if let Some(new_state) = data.get("state").and_then(|v| v.as_str()) {
             // We only check if there IS a workflow for this entity
-            if self.schema.workflows.values().any(|w| w.entity == entity_name) {
+            if self
+                .schema
+                .workflows
+                .values()
+                .any(|w| w.entity == Symbol::from(entity_name))
+            {
                 let current_record = self.storage.get(entity_name, id).await?.ok_or("Record not found")?;
 
                 let current_state = current_record.get("state").and_then(|v| v.as_str()).unwrap_or(""); // Assume empty state if missing
@@ -106,7 +111,7 @@ impl DataEngine {
         // Validation
         if let Some(obj) = data.as_object() {
             for field in &entity_schema.fields {
-                if let Some(val) = obj.get(&field.name)
+                if let Some(val) = obj.get(field.name.as_str())
                     && !validate_type(val, &field.field_type)
                 {
                     return Err(format!("Invalid type for field: {}", field.name));
@@ -118,7 +123,7 @@ impl DataEngine {
     }
 
     pub async fn delete(&self, entity_name: &str, id: &str) -> Result<(), String> {
-        if !self.schema.entities.contains_key(entity_name) {
+        if !self.schema.entities.contains_key(&Symbol::from(entity_name)) {
             return Err(format!("Entity '{}' not defined", entity_name));
         }
         self.storage.delete(entity_name, id).await
@@ -130,7 +135,7 @@ impl DataEngine {
         limit: Option<usize>,
         offset: Option<usize>,
     ) -> Result<Vec<Arc<Value>>, String> {
-        if self.schema.queries.contains_key(entity) {
+        if self.schema.queries.contains_key(&Symbol::from(entity)) {
             let strategy = QueryEngine::plan(&self.schema, entity)?;
             if let Some(QueryPlan::ExecuteSql { mut sql }) = strategy.plans.first().cloned() {
                 if let Some(l) = limit {
@@ -144,7 +149,7 @@ impl DataEngine {
             return Err("Query engine failed to produce SQL plan".to_string());
         }
 
-        if !self.schema.entities.contains_key(entity) {
+        if !self.schema.entities.contains_key(&Symbol::from(entity)) {
             return Err(format!("Entity or Query '{}' not defined", entity));
         }
         self.storage.list(entity, limit, offset).await

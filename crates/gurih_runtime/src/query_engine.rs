@@ -17,12 +17,12 @@ impl QueryEngine {
     pub fn plan(schema: &Schema, query_name: &str) -> Result<QueryExecutionStrategy, String> {
         let query = schema
             .queries
-            .get(query_name)
+            .get(&query_name.into())
             .ok_or_else(|| format!("Query '{}' not found in schema", query_name))?;
 
         let mut select_parts = vec![];
         let mut join_parts = vec![];
-        let root_table = Self::entity_to_table(&query.root_entity);
+        let root_table = Self::entity_to_table(&query.root_entity.to_string());
 
         // Process Root Selections & Formulas
         for sel in &query.selections {
@@ -42,7 +42,7 @@ impl QueryEngine {
         Self::process_joins(
             &query.joins,
             &root_table,
-            &query.root_entity,
+            &query.root_entity.to_string(),
             schema,
             &mut select_parts,
             &mut join_parts,
@@ -84,27 +84,26 @@ impl QueryEngine {
     ) -> Result<(), String> {
         for join in joins {
             let target_entity_name = &join.target_entity;
-            let target_table = Self::entity_to_table(target_entity_name);
+            let target_table = Self::entity_to_table(&target_entity_name.to_string());
 
             // Find relationship to determine join condition
             // Assuming parent has relationship to target or vice versa
             let mut join_condition = String::new();
 
             // Attempts to determine join condition from schema
-            if let Some(parent_ent) = schema.entities.get(parent_entity) {
-                if let Some(rel) = parent_ent
+            if let Some(parent_ent) = schema.entities.get(&parent_entity.into())
+                && let Some(rel) = parent_ent
                     .relationships
                     .iter()
                     .find(|r| r.target_entity == *target_entity_name)
-                {
-                    if rel.rel_type == "belongs_to" {
-                        // Parent has FK: parent.rel_id = target.id
-                        join_condition = format!("{}.{}_id = {}.id", parent_table, rel.name, target_table);
-                    } else {
-                        // Target has FK: target.parent_id = parent.id
-                        // Assuming standard naming convention for back-ref
-                        join_condition = format!("{}.{}_id = {}.id", target_table, parent_table, parent_table);
-                    }
+            {
+                if rel.rel_type == "belongs_to" {
+                    // Parent has FK: parent.rel_id = target.id
+                    join_condition = format!("{}.{}_id = {}.id", parent_table, rel.name, target_table);
+                } else {
+                    // Target has FK: target.parent_id = parent.id
+                    // Assuming standard naming convention for back-ref
+                    join_condition = format!("{}.{}_id = {}.id", target_table, parent_table, parent_table);
                 }
             }
 
@@ -131,7 +130,7 @@ impl QueryEngine {
             Self::process_joins(
                 &join.joins,
                 &target_table,
-                target_entity_name,
+                &target_entity_name.to_string(),
                 schema,
                 select_parts,
                 join_parts,
@@ -184,56 +183,56 @@ mod tests {
 
         // Setup Query Schema
         let query = QuerySchema {
-            name: "ActiveCourseQuery".to_string(),
-            root_entity: "CourseEntity".to_string(),
+            name: "ActiveCourseQuery".into(),
+            root_entity: "CourseEntity".into(),
             query_type: QueryType::Nested,
             filters: vec![],
             selections: vec![QuerySelection {
-                field: "title".to_string(),
+                field: "title".into(),
                 alias: None,
             }],
             formulas: vec![QueryFormula {
-                name: "total_duration".to_string(),
+                name: "total_duration".into(),
                 expression: Expression::FunctionCall {
-                    name: "SUM".to_string(),
-                    args: vec![Expression::Field("duration".to_string())],
+                    name: "SUM".into(),
+                    args: vec![Expression::Field("duration".into())],
                 },
             }],
             joins: vec![QueryJoin {
-                target_entity: "SectionEntity".to_string(),
+                target_entity: "SectionEntity".into(),
                 selections: vec![
                     QuerySelection {
-                        field: "type".to_string(),
+                        field: "type".into(),
                         alias: None,
                     },
                     QuerySelection {
-                        field: "num".to_string(),
+                        field: "num".into(),
                         alias: None,
                     },
                 ],
                 formulas: vec![],
                 joins: vec![QueryJoin {
-                    target_entity: "MeetingEntity".to_string(),
+                    target_entity: "MeetingEntity".into(),
                     selections: vec![
                         QuerySelection {
-                            field: "day".to_string(),
+                            field: "day".into(),
                             alias: None,
                         },
                         QuerySelection {
-                            field: "start".to_string(),
+                            field: "start".into(),
                             alias: None,
                         },
                         QuerySelection {
-                            field: "end".to_string(),
+                            field: "end".into(),
                             alias: None,
                         },
                     ],
                     formulas: vec![QueryFormula {
-                        name: "duration".to_string(),
+                        name: "duration".into(),
                         expression: Expression::BinaryOp {
-                            left: Box::new(Expression::Field("end".to_string())),
+                            left: Box::new(Expression::Field("end".into())),
                             op: BinaryOperator::Sub,
-                            right: Box::new(Expression::Field("start".to_string())),
+                            right: Box::new(Expression::Field("start".into())),
                         },
                     }],
                     joins: vec![],
@@ -241,7 +240,7 @@ mod tests {
             }],
         };
 
-        schema.queries.insert("ActiveCourseQuery".to_string(), query);
+        schema.queries.insert("ActiveCourseQuery".into(), query);
 
         let strategy = QueryEngine::plan(&schema, "ActiveCourseQuery").expect("Failed to plan");
 
@@ -259,11 +258,11 @@ mod tests {
     fn test_lower_flat_query() {
         let mut schema = Schema::default();
         let query = QuerySchema {
-            name: "BookQuery".to_string(),
-            root_entity: "BookEntity".to_string(),
+            name: "BookQuery".into(),
+            root_entity: "BookEntity".into(),
             query_type: QueryType::Flat,
             filters: vec![Expression::BinaryOp {
-                left: Box::new(Expression::Field("published_at".to_string())),
+                left: Box::new(Expression::Field("published_at".into())),
                 op: BinaryOperator::Sub, // Using sub as placeholder for comparison (no comparison op yet)
                 // Wait, DSL needs comparison operators for filters.
                 // The prompt example: `[published_at] < DATE('2000-01-01')`.
@@ -275,32 +274,32 @@ mod tests {
                 // I need to update Expression/Parser to support `<`.
                 // I will add TODO comment and use supported operator for this test.
                 right: Box::new(Expression::FunctionCall {
-                    name: "DATE".to_string(),
+                    name: "DATE".into(),
                     args: vec![],
                 }),
             }],
             selections: vec![
                 QuerySelection {
-                    field: "title".to_string(),
+                    field: "title".into(),
                     alias: None,
                 },
                 QuerySelection {
-                    field: "price".to_string(),
+                    field: "price".into(),
                     alias: None,
                 },
             ],
             formulas: vec![],
             joins: vec![QueryJoin {
-                target_entity: "PeopleEntity".to_string(),
+                target_entity: "PeopleEntity".into(),
                 selections: vec![QuerySelection {
-                    field: "name".to_string(),
-                    alias: Some("author".to_string()),
+                    field: "name".into(),
+                    alias: Some("author".into()),
                 }],
                 formulas: vec![],
                 joins: vec![],
             }],
         };
-        schema.queries.insert("BookQuery".to_string(), query);
+        schema.queries.insert("BookQuery".into(), query);
 
         let strategy = QueryEngine::plan(&schema, "BookQuery").expect("Failed to plan");
         let QueryPlan::ExecuteSql { sql } = &strategy.plans[0];

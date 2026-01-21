@@ -8,6 +8,7 @@ use axum::{
 };
 use clap::{Parser, Subcommand};
 use gurih_dsl::{compile, diagnostics::DiagnosticEngine, diagnostics::ErrorFormatter};
+use gurih_ir::Symbol;
 use gurih_runtime::action::ActionEngine;
 use gurih_runtime::auth::AuthEngine;
 use gurih_runtime::context::RuntimeContext;
@@ -612,7 +613,7 @@ async fn upload_handler(
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     let schema = state.data_engine.get_schema();
-    let entity = match schema.entities.get(&entity_name) {
+    let entity = match schema.entities.get(&entity_name.as_str().into()) {
         Some(e) => e,
         None => {
             return (
@@ -623,7 +624,11 @@ async fn upload_handler(
         }
     };
 
-    let field = match entity.fields.iter().find(|f| f.name == field_name) {
+    let field = match entity
+        .fields
+        .iter()
+        .find(|f| f.name == Symbol::from(field_name.as_str()))
+    {
         Some(f) => f,
         None => {
             return (
@@ -634,7 +639,12 @@ async fn upload_handler(
         }
     };
 
-    let storage_name = field.storage.as_deref().unwrap_or("default");
+    let storage_name_string = field
+        .storage
+        .as_ref()
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| "default".to_string());
+    let storage_name = storage_name_string.as_str();
 
     if let Some(field_part) = multipart.next_field().await.unwrap_or(None) {
         let file_name = field_part.file_name().unwrap_or("upload.bin").to_string();
@@ -782,7 +792,7 @@ fn register_routes<'a>(
         let path = path.replace("//", "/");
 
         // Only register if it is an actionable route (Action exists)
-        if !route_def.action.is_empty() && schema.actions.contains_key(&route_def.action) {
+        if route_def.action != Symbol::from("") && schema.actions.contains_key(&route_def.action) {
             let verb_filter = match route_def.verb.as_str() {
                 "GET" => MethodFilter::GET,
                 "POST" => MethodFilter::POST,
@@ -791,11 +801,11 @@ fn register_routes<'a>(
                 _ => MethodFilter::GET,
             };
 
-            let action_name = route_def.action.clone();
+            let action_name = route_def.action;
             let handler = move |State(state): State<AppState>,
                                 Path(params): Path<HashMap<String, String>>,
                                 Query(query): Query<HashMap<String, String>>| {
-                handle_dynamic_action(state, params, query, action_name)
+                handle_dynamic_action(state, params, query, action_name.to_string())
             };
 
             // println!("Registering route: {} {} -> {}", route_def.verb, path, route_def.action);

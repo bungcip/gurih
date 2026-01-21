@@ -1,4 +1,4 @@
-use gurih_ir::{ActionLogic, ActionStep, EntitySchema, FieldSchema, FieldType, Schema};
+use gurih_ir::{ActionLogic, ActionStep, EntitySchema, FieldSchema, FieldType, Schema, Symbol};
 use gurih_runtime::action::ActionEngine;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
@@ -15,7 +15,7 @@ async fn test_action_execution_delete() {
     // Entity: Item
     let fields = vec![
         FieldSchema {
-            name: "id".to_string(),
+            name: Symbol::from("id"),
             field_type: FieldType::String,
             required: true,
             unique: true,
@@ -27,7 +27,7 @@ async fn test_action_execution_delete() {
             filetype: None,
         },
         FieldSchema {
-            name: "name".to_string(),
+            name: Symbol::from("name"),
             field_type: FieldType::String,
             required: true,
             unique: false,
@@ -41,9 +41,9 @@ async fn test_action_execution_delete() {
     ];
 
     entities.insert(
-        "Item".to_string(),
+        Symbol::from("Item"),
         EntitySchema {
-            name: "Item".to_string(), // Missing in previous test
+            name: Symbol::from("Item"), // Missing in previous test
             fields,
             relationships: vec![],
             options: HashMap::new(),
@@ -57,13 +57,13 @@ async fn test_action_execution_delete() {
     args.insert("id".to_string(), "param(\"id\")".to_string());
 
     actions.insert(
-        "DeleteItem".to_string(),
+        Symbol::from("DeleteItem"),
         ActionLogic {
-            name: "DeleteItem".to_string(),
-            params: vec!["id".to_string()],
+            name: Symbol::from("DeleteItem"),
+            params: vec![Symbol::from("id")],
             steps: vec![ActionStep {
                 step_type: "entity:delete".to_string(),
-                target: "Item".to_string(),
+                target: Symbol::from("Item"),
                 args,
             }],
         },

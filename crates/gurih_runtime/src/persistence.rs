@@ -1,5 +1,5 @@
 use crate::store::DbPool;
-use gurih_ir::{EntitySchema, FieldType, Schema, TableSchema};
+use gurih_ir::{EntitySchema, FieldType, Schema, Symbol, TableSchema};
 use sha2::{Digest, Sha256};
 // use sqlx::{AnyPool, Row}; // Removed
 use sqlx::Row;
@@ -90,8 +90,13 @@ impl SchemaManager {
         );
 
         // Helper to find field type
-        let get_type =
-            |name: &str| -> Option<&FieldType> { entity.fields.iter().find(|f| f.name == name).map(|f| &f.field_type) };
+        let get_type = |name: &str| -> Option<&FieldType> {
+            entity
+                .fields
+                .iter()
+                .find(|f| f.name == Symbol::from(name))
+                .map(|f| &f.field_type)
+        };
 
         match &self.pool {
             DbPool::Sqlite(p) => {
@@ -339,10 +344,10 @@ impl SchemaManager {
         let mut tables_to_drop = Vec::new();
 
         for name in self.schema.tables.keys() {
-            tables_to_drop.push(name.clone());
+            tables_to_drop.push(*name);
         }
         for name in self.schema.entities.keys() {
-            tables_to_drop.push(name.clone());
+            tables_to_drop.push(*name);
         }
 
         for table in tables_to_drop {
@@ -478,7 +483,7 @@ impl SchemaManager {
 
             let mut def = format!("\"{}\" {}", field.name, col_type);
 
-            if field.name == "id" {
+            if field.name == Symbol::from("id") {
                 def.push_str(" PRIMARY KEY");
             }
 
@@ -496,7 +501,7 @@ impl SchemaManager {
         for rel in &entity.relationships {
             if rel.rel_type == "belongs_to" {
                 let col_name = format!("{}_id", rel.name);
-                if !entity.fields.iter().any(|f| f.name == col_name) {
+                if !entity.fields.iter().any(|f| f.name == Symbol::from(col_name.as_str())) {
                     let def = format!("\"{}\" TEXT", col_name);
                     defs.push(def);
                 }

@@ -1,11 +1,13 @@
 use crate::ast;
 use crate::errors::CompileError;
 use crate::parser::parse;
+use gurih_ir::Symbol;
 use gurih_ir::{
     ActionSchema, ColumnSchema, DashboardSchema, DatabaseSchema, DatatableColumnSchema, DatatableSchema, EntitySchema,
     FieldSchema, FieldType, FormSchema, FormSection, LayoutSchema, MenuItemSchema, MenuSchema, PageContentSchema,
-    PageSchema, PrintSchema, QueryFormula, QueryJoin, QuerySchema, QuerySelection, RelationshipSchema, RouteSchema,
-    Schema, SerialGeneratorSchema, StorageSchema, TableSchema, Transition, WidgetSchema, WorkflowSchema,
+    PageSchema, PermissionSchema, PrintSchema, QueryFormula, QueryJoin, QuerySchema, QuerySelection,
+    RelationshipSchema, RouteSchema, Schema, SerialGeneratorSchema, StorageSchema, TableSchema, Transition,
+    WidgetSchema, WorkflowSchema,
 };
 use std::collections::HashMap;
 
@@ -15,30 +17,36 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     // Validation Context
     let mut entity_names = HashMap::new();
 
-    let mut ir_entities = HashMap::new();
-    let mut ir_tables = HashMap::new();
-    let mut ir_modules = HashMap::new();
-    let mut ir_workflows = HashMap::new();
-    let mut ir_forms = HashMap::new();
-    let ir_permissions = HashMap::new();
-    let mut ir_layouts = HashMap::new();
-    let mut ir_menus = HashMap::new();
-    let mut ir_routes = HashMap::new();
-    let mut ir_pages = HashMap::new();
-    let mut ir_dashboards = HashMap::new();
-    let mut ir_serial_generators = HashMap::new();
-    let mut ir_prints = HashMap::new();
-    let mut ir_storages = HashMap::new();
-    let mut ir_queries = HashMap::new();
+    let mut ir_entities: HashMap<Symbol, EntitySchema> = HashMap::new();
+    let mut ir_tables: HashMap<Symbol, TableSchema> = HashMap::new();
+    let mut ir_modules: HashMap<Symbol, gurih_ir::ModuleSchema> = HashMap::new();
+    let mut ir_workflows: HashMap<Symbol, WorkflowSchema> = HashMap::new();
+    let mut ir_forms: HashMap<Symbol, FormSchema> = HashMap::new();
+    let ir_permissions: HashMap<Symbol, PermissionSchema> = HashMap::new();
+    let mut ir_layouts: HashMap<Symbol, LayoutSchema> = HashMap::new();
+    let mut ir_menus: HashMap<Symbol, MenuSchema> = HashMap::new();
+    let mut ir_routes: HashMap<String, RouteSchema> = HashMap::new();
+    let mut ir_pages: HashMap<Symbol, PageSchema> = HashMap::new();
+    let mut ir_dashboards: HashMap<Symbol, DashboardSchema> = HashMap::new();
+    let mut ir_serial_generators: HashMap<Symbol, SerialGeneratorSchema> = HashMap::new();
+    let mut ir_prints: HashMap<Symbol, PrintSchema> = HashMap::new();
+    let mut ir_storages: HashMap<Symbol, StorageSchema> = HashMap::new();
+    let mut ir_queries: HashMap<Symbol, QuerySchema> = HashMap::new();
 
     // 0. Collect all enums (including from modules)
-    let mut enums = HashMap::new();
+    let mut enums: HashMap<String, Vec<Symbol>> = HashMap::new();
     for e in &ast_root.enums {
-        enums.insert(e.name.clone(), e.variants.clone());
+        enums.insert(
+            e.name.clone(),
+            e.variants.iter().map(|v| Symbol::from(v.as_str())).collect(),
+        );
     }
     for m in &ast_root.modules {
         for e in &m.enums {
-            enums.insert(e.name.clone(), e.variants.clone());
+            enums.insert(
+                e.name.clone(),
+                e.variants.iter().map(|v| Symbol::from(v.as_str())).collect(),
+            );
         }
     }
 
@@ -63,14 +71,14 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
                 let field_type = parse_field_type(&field_def.type_name, &enums, &field_def.references)?;
                 fields.push(FieldSchema {
-                    name: field_def.name.clone(),
+                    name: field_def.name.as_str().into(),
                     field_type,
                     required: field_def.required,
                     unique: field_def.unique,
                     default: field_def.default.clone(),
-                    references: field_def.references.clone(),
-                    serial_generator: field_def.serial_generator.clone(),
-                    storage: field_def.storage.clone(),
+                    references: field_def.references.as_ref().map(|s| s.as_str().into()),
+                    serial_generator: field_def.serial_generator.as_ref().map(|s| s.as_str().into()),
+                    storage: field_def.storage.as_ref().map(|s| s.as_str().into()),
                     resize: field_def.resize.clone(),
                     filetype: field_def.filetype.clone(),
                 });
@@ -80,8 +88,8 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 .relationships
                 .iter()
                 .map(|r| RelationshipSchema {
-                    name: r.name.clone(),
-                    target_entity: r.target_entity.clone(),
+                    name: r.name.as_str().into(),
+                    target_entity: r.target_entity.as_str().into(),
                     rel_type: match r.rel_type {
                         ast::RelationshipType::BelongsTo => "belongs_to".to_string(),
                         ast::RelationshipType::HasMany => "has_many".to_string(),
@@ -102,7 +110,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             }
 
             Ok(EntitySchema {
-                name: entity_def.name.clone(),
+                name: entity_def.name.as_str().into(),
                 fields,
                 relationships,
                 options,
@@ -139,14 +147,14 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             module_entities.push(entity_def.name.clone());
 
             let entity_schema = process_entity(entity_def, Some(&module_def.name))?;
-            ir_entities.insert(entity_def.name.clone(), entity_schema);
+            ir_entities.insert(entity_def.name.as_str().into(), entity_schema);
         }
 
         ir_modules.insert(
-            module_def.name.clone(),
+            module_def.name.as_str().into(),
             gurih_ir::ModuleSchema {
-                name: module_def.name.clone(),
-                entities: module_entities,
+                name: module_def.name.as_str().into(),
+                entities: module_entities.iter().map(|s| Symbol::from(s.as_str())).collect(),
             },
         );
     }
@@ -163,7 +171,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         entity_names.insert(entity_def.name.clone(), entity_def.span);
 
         let entity_schema = process_entity(entity_def, None)?;
-        ir_entities.insert(entity_def.name.clone(), entity_schema);
+        ir_entities.insert(entity_def.name.as_str().into(), entity_schema);
     }
 
     // 3. Process Tables
@@ -172,7 +180,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             .columns
             .iter()
             .map(|c| ColumnSchema {
-                name: c.name.clone(),
+                name: c.name.as_str().into(),
                 type_name: c.type_name.clone(),
                 props: c.props.clone(),
                 primary: c.primary,
@@ -181,9 +189,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             .collect();
 
         ir_tables.insert(
-            table_def.name.clone(),
+            table_def.name.as_str().into(),
             TableSchema {
-                name: table_def.name.clone(),
+                name: table_def.name.as_str().into(),
                 columns,
             },
         );
@@ -192,25 +200,25 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     // 4. Process Workflows
     for wf_def in &ast_root.workflows {
         ir_workflows.insert(
-            wf_def.name.clone(),
+            wf_def.name.as_str().into(),
             WorkflowSchema {
-                name: wf_def.name.clone(),
-                entity: wf_def.entity.clone(),
+                name: wf_def.name.as_str().into(),
+                entity: wf_def.entity.as_str().into(),
                 initial_state: wf_def
                     .states
                     .iter()
                     .find(|s| s.initial)
-                    .map(|s| s.name.clone())
-                    .unwrap_or_default(),
-                states: wf_def.states.iter().map(|s| s.name.clone()).collect(),
+                    .map(|s| s.name.as_str().into())
+                    .unwrap_or_else(|| Symbol::from("")),
+                states: wf_def.states.iter().map(|s| Symbol::from(s.name.as_str())).collect(),
                 transitions: wf_def
                     .transitions
                     .iter()
                     .map(|t| Transition {
-                        name: t.name.clone(),
-                        from: t.from.clone(),
-                        to: t.to.clone(),
-                        required_permission: t.permission.clone(),
+                        name: t.name.as_str().into(),
+                        from: t.from.as_str().into(),
+                        to: t.to.as_str().into(),
+                        required_permission: t.permission.as_ref().map(|p| Symbol::from(p.as_str())),
                     })
                     .collect(),
             },
@@ -225,9 +233,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         let props = header_props;
 
         ir_layouts.insert(
-            layout_def.name.clone(),
+            layout_def.name.as_str().into(),
             LayoutSchema {
-                name: layout_def.name.clone(),
+                name: layout_def.name.as_str().into(),
                 header_enabled,
                 sidebar_enabled: layout_def.sidebar.as_ref().map(|s| s.enabled).unwrap_or(false),
                 footer: layout_def.footer.clone(),
@@ -256,9 +264,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
     for menu_def in &ast_root.menus {
         ir_menus.insert(
-            menu_def.name.clone(),
+            menu_def.name.as_str().into(),
             MenuSchema {
-                name: menu_def.name.clone(),
+                name: menu_def.name.as_str().into(),
                 items: menu_def.items.iter().map(convert_menu_item).collect(),
             },
         );
@@ -268,13 +276,13 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     for page_def in &ast_root.pages {
         let content = match &page_def.content {
             ast::PageContent::Datatable(dt) => PageContentSchema::Datatable(DatatableSchema {
-                entity: dt.entity.clone(),
-                query: dt.query.clone(),
+                entity: dt.entity.as_ref().map(|s| s.as_str().into()),
+                query: dt.query.as_ref().map(|s| s.as_str().into()),
                 columns: dt
                     .columns
                     .iter()
                     .map(|c| DatatableColumnSchema {
-                        field: c.field.clone(),
+                        field: c.field.as_str().into(),
                         label: c.label.clone(),
                     })
                     .collect(),
@@ -283,7 +291,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     .iter()
                     .map(|a| ActionSchema {
                         label: a.label.clone(),
-                        to: a.to.clone(),
+                        to: a.to.as_ref().map(|s| s.as_str().into()),
                         method: a.method.clone().map(|m| match m {
                             ast::RouteVerb::Get => "GET".to_string(),
                             ast::RouteVerb::Post => "POST".to_string(),
@@ -295,8 +303,8 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     })
                     .collect(),
             }),
-            ast::PageContent::Form(f) => PageContentSchema::Form(f.name.clone()),
-            ast::PageContent::Dashboard => PageContentSchema::Dashboard("".to_string()),
+            ast::PageContent::Form(f) => PageContentSchema::Form(f.name.as_str().into()),
+            ast::PageContent::Dashboard => PageContentSchema::Dashboard(Symbol::from("")),
             ast::PageContent::None => PageContentSchema::None,
         };
 
@@ -308,16 +316,16 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             };
 
             ir_forms.insert(
-                form_name.clone(),
+                form_name.as_str().into(),
                 FormSchema {
-                    name: form_name,
-                    entity: form_def.entity.clone(),
+                    name: form_name.as_str().into(),
+                    entity: form_def.entity.as_str().into(),
                     sections: form_def
                         .sections
                         .iter()
                         .map(|s| FormSection {
                             title: s.title.clone(),
-                            fields: s.fields.clone(),
+                            fields: s.fields.iter().map(|f| Symbol::from(f.as_str())).collect(),
                         })
                         .collect(),
                 },
@@ -325,9 +333,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         }
 
         ir_pages.insert(
-            page_def.name.clone(),
+            page_def.name.as_str().into(),
             PageSchema {
-                name: page_def.name.clone(),
+                name: page_def.name.as_str().into(),
                 title: page_def.title.clone(),
                 content,
             },
@@ -337,15 +345,15 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     // 8. Process Dashboards
     for db_def in &ast_root.dashboards {
         ir_dashboards.insert(
-            db_def.name.clone(),
+            db_def.name.as_str().into(),
             DashboardSchema {
-                name: db_def.name.clone(),
+                name: db_def.name.as_str().into(),
                 title: db_def.title.clone(),
                 widgets: db_def
                     .widgets
                     .iter()
                     .map(|w| WidgetSchema {
-                        name: w.name.clone(),
+                        name: w.name.as_str().into(),
                         widget_type: match &w.widget_type {
                             ast::WidgetType::Stat => "stat".to_string(),
                             ast::WidgetType::Chart => "chart".to_string(),
@@ -364,9 +372,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     // 9. Process Serials
     for serial_def in &ast_root.serial_generators {
         ir_serial_generators.insert(
-            serial_def.name.clone(),
+            serial_def.name.as_str().into(),
             SerialGeneratorSchema {
-                name: serial_def.name.clone(),
+                name: serial_def.name.as_str().into(),
                 prefix: serial_def.prefix.clone(),
                 digits: serial_def.sequence_digits,
             },
@@ -374,7 +382,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     }
 
     // 10. Process Action Logic
-    let mut ir_actions = HashMap::new();
+    let mut ir_actions: HashMap<Symbol, gurih_ir::ActionLogic> = HashMap::new();
 
     let convert_action = |action_def: &ast::ActionLogicDef| -> gurih_ir::ActionLogic {
         let steps = action_def
@@ -387,41 +395,42 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     ast::ActionStepType::EntityCreate => "entity:create".to_string(),
                     ast::ActionStepType::Custom(s) => s.clone(),
                 },
-                target: s.target.clone(),
+                target: s.target.as_str().into(),
                 args: s.args.clone(),
             })
             .collect();
 
         gurih_ir::ActionLogic {
-            name: action_def.name.clone(),
-            params: action_def.params.clone(),
+            name: action_def.name.as_str().into(),
+            params: action_def.params.iter().map(|p| Symbol::from(p.as_str())).collect(),
             steps,
         }
     };
 
     for action_def in &ast_root.actions {
-        ir_actions.insert(action_def.name.clone(), convert_action(action_def));
+        ir_actions.insert(action_def.name.as_str().into(), convert_action(action_def));
     }
 
     for module_def in &ast_root.modules {
         for action_def in &module_def.actions {
-            ir_actions.insert(action_def.name.clone(), convert_action(action_def));
+            ir_actions.insert(action_def.name.as_str().into(), convert_action(action_def));
         }
     }
 
     // 11. Process Routes
-    let mut valid_targets: std::collections::HashSet<&str> = ir_pages.keys().map(|s| s.as_str()).collect();
-    valid_targets.extend(ir_dashboards.keys().map(|s| s.as_str()));
-    valid_targets.extend(ir_actions.keys().map(|s| s.as_str()));
+    let mut valid_targets: std::collections::HashSet<String> =
+        ir_pages.keys().map(|s: &Symbol| s.as_str().to_string()).collect();
+    valid_targets.extend(ir_dashboards.keys().map(|s: &Symbol| s.as_str().to_string()));
+    valid_targets.extend(ir_actions.keys().map(|s: &Symbol| s.as_str().to_string()));
 
     fn process_route_node(
         node: &ast::RouteNode,
-        valid_targets: &std::collections::HashSet<&str>,
+        valid_targets: &std::collections::HashSet<String>,
         src: &str,
     ) -> Result<RouteSchema, CompileError> {
         match node {
             ast::RouteNode::Route(r) => {
-                if !valid_targets.contains(r.action.as_str()) {
+                if !valid_targets.contains(&r.action) {
                     return Err(CompileError::ValidationError {
                         src: src.to_string(),
                         span: r.span,
@@ -436,9 +445,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                         ast::RouteVerb::Delete => "DELETE".to_string(),
                     },
                     path: r.path.clone(),
-                    action: r.action.clone(),
-                    layout: r.layout.clone(),
-                    permission: r.permission.clone(),
+                    action: r.action.as_str().into(),
+                    layout: r.layout.as_ref().map(|l| l.as_str().into()),
+                    permission: r.permission.as_ref().map(|p| p.as_str().into()),
                     children: vec![],
                 })
             }
@@ -450,9 +459,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 Ok(RouteSchema {
                     verb: "ALL".to_string(),
                     path: g.path.clone(),
-                    action: "".to_string(),
-                    layout: g.layout.clone(),
-                    permission: g.permission.clone(),
+                    action: Symbol::from(""),
+                    layout: g.layout.as_ref().map(|l| l.as_str().into()),
+                    permission: g.permission.as_ref().map(|p| p.as_str().into()),
                     children,
                 })
             }
@@ -469,10 +478,10 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     // 12. Process Prints
     for print_def in &ast_root.prints {
         ir_prints.insert(
-            print_def.name.clone(),
+            print_def.name.as_str().into(),
             PrintSchema {
-                name: print_def.name.clone(),
-                entity: print_def.entity.clone(),
+                name: print_def.name.as_str().into(),
+                entity: print_def.entity.as_str().into(),
                 title: print_def.title.clone(),
             },
         );
@@ -481,9 +490,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     // 13. Process Storages
     for storage_def in &ast_root.storages {
         ir_storages.insert(
-            storage_def.name.clone(),
+            storage_def.name.as_str().into(),
             StorageSchema {
-                name: storage_def.name.clone(),
+                name: storage_def.name.as_str().into(),
                 driver: match &storage_def.driver {
                     ast::StorageDriver::S3 => "s3".to_string(),
                     ast::StorageDriver::Local => "local".to_string(),
@@ -498,11 +507,11 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     // 14. Process Queries
     fn convert_expr(e: &crate::expr::Expr) -> gurih_ir::Expression {
         match e {
-            crate::expr::Expr::Field(n, _) => gurih_ir::Expression::Field(n.clone()),
+            crate::expr::Expr::Field(n, _) => gurih_ir::Expression::Field(n.as_str().into()),
             crate::expr::Expr::Literal(n, _) => gurih_ir::Expression::Literal(*n),
             crate::expr::Expr::StringLiteral(s, _) => gurih_ir::Expression::StringLiteral(s.clone()),
             crate::expr::Expr::FunctionCall { name, args, .. } => gurih_ir::Expression::FunctionCall {
-                name: name.clone(),
+                name: name.as_str().into(),
                 args: args.iter().map(convert_expr).collect(),
             },
             crate::expr::Expr::BinaryOp { left, op, right, .. } => gurih_ir::Expression::BinaryOp {
@@ -519,30 +528,29 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         }
     }
 
-    fn convert_query_join(def: &ast::QueryJoinDef, src: &str) -> Result<QueryJoin, CompileError> {
+    fn convert_query_join(def: &ast::QueryJoinDef) -> Result<QueryJoin, CompileError> {
         let formulas: Result<Vec<QueryFormula>, CompileError> = def
             .formulas
             .iter()
             .map(|f| {
                 let expr = crate::expr::parse_expression(&f.expression, f.span.offset())?;
                 Ok(QueryFormula {
-                    name: f.name.clone(),
+                    name: f.name.as_str().into(),
                     expression: convert_expr(&expr),
                 })
             })
             .collect();
 
-        let joins: Result<Vec<QueryJoin>, CompileError> =
-            def.joins.iter().map(|j| convert_query_join(j, src)).collect();
+        let joins: Result<Vec<QueryJoin>, CompileError> = def.joins.iter().map(convert_query_join).collect();
 
         Ok(QueryJoin {
-            target_entity: def.target_entity.clone(),
+            target_entity: def.target_entity.as_str().into(),
             selections: def
                 .selections
                 .iter()
                 .map(|s| QuerySelection {
-                    field: s.field.clone(),
-                    alias: s.alias.clone(),
+                    field: s.field.as_str().into(),
+                    alias: s.alias.as_ref().map(|s| s.as_str().into()),
                 })
                 .collect(),
             formulas: formulas?,
@@ -557,14 +565,13 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             .map(|f| {
                 let expr = crate::expr::parse_expression(&f.expression, f.span.offset())?;
                 Ok(QueryFormula {
-                    name: f.name.clone(),
+                    name: f.name.as_str().into(),
                     expression: convert_expr(&expr),
                 })
             })
             .collect();
 
-        let joins: Result<Vec<QueryJoin>, CompileError> =
-            query_def.joins.iter().map(|j| convert_query_join(j, src)).collect();
+        let joins: Result<Vec<QueryJoin>, CompileError> = query_def.joins.iter().map(convert_query_join).collect();
 
         let filters: Result<Vec<gurih_ir::Expression>, CompileError> = query_def
             .filters
@@ -576,10 +583,10 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             .collect();
 
         ir_queries.insert(
-            query_def.name.clone(),
+            query_def.name.as_str().into(),
             QuerySchema {
-                name: query_def.name.clone(),
-                root_entity: query_def.root_entity.clone(),
+                name: query_def.name.as_str().into(),
+                root_entity: query_def.root_entity.as_str().into(),
                 query_type: match query_def.query_type {
                     ast::QueryType::Nested => gurih_ir::QueryType::Nested,
                     ast::QueryType::Flat => gurih_ir::QueryType::Flat,
@@ -588,8 +595,8 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     .selections
                     .iter()
                     .map(|s| QuerySelection {
-                        field: s.field.clone(),
-                        alias: s.alias.clone(),
+                        field: s.field.as_str().into(),
+                        alias: s.alias.as_ref().map(|s| s.as_str().into()),
                     })
                     .collect(),
                 formulas: formulas?,
@@ -600,7 +607,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     }
 
     Ok(Schema {
-        name: ast_root.name.unwrap_or("GurihApp".to_string()),
+        name: ast_root.name.unwrap_or("GurihApp".to_string()).as_str().into(),
         version: ast_root.version.unwrap_or("1.0.0".to_string()),
         database,
         storages: ir_storages,
@@ -624,7 +631,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
 fn parse_field_type(
     field_type: &ast::FieldType,
-    enums: &HashMap<String, Vec<String>>,
+    enums: &HashMap<String, Vec<Symbol>>,
     references: &Option<String>,
 ) -> Result<FieldType, CompileError> {
     match field_type {

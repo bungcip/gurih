@@ -1,4 +1,4 @@
-use gurih_ir::Schema;
+use gurih_ir::{Schema, Symbol};
 use serde_json::{Value, json};
 
 pub struct PortalEngine;
@@ -16,7 +16,7 @@ impl PortalEngine {
 
     pub fn generate_navigation(&self, schema: &Schema) -> Result<Value, String> {
         // Prioritize explicit "MainMenu" or any menu if available
-        if let Some(main_menu) = schema.menus.get("MainMenu") {
+        if let Some(main_menu) = schema.menus.get(&Symbol::from("MainMenu")) {
             let mut modules = vec![];
             let mut top_level_items = vec![];
 
@@ -113,13 +113,13 @@ impl PortalEngine {
         let mut target = None;
         // Direct match in routes
         if let Some(r) = schema.routes.get(path) {
-            if !r.action.is_empty() {
-                target = Some(r.action.clone());
+            if r.action != Symbol::from("") {
+                target = Some(r.action.as_str().to_string());
             } else {
                 // If it's a group, check child "/"
                 for child in &r.children {
-                    if child.path == "/" && !child.action.is_empty() {
-                        target = Some(child.action.clone());
+                    if child.path == "/" && child.action != Symbol::from("") {
+                        target = Some(child.action.as_str().to_string());
                         break;
                     }
                 }
@@ -133,14 +133,14 @@ impl PortalEngine {
         // Fallback: search strings in path
         for page_name in schema.pages.keys() {
             let path_lower = path.to_lowercase();
-            if path_lower.contains(&page_name.to_lowercase()) {
-                return Some(Self::resolve_entity_from_target(schema, page_name));
+            if path_lower.contains(&page_name.as_str().to_lowercase()) {
+                return Some(Self::resolve_entity_from_target(schema, page_name.as_str()));
             }
         }
 
         for entity_name in schema.entities.keys() {
-            if path.to_lowercase().contains(&entity_name.to_lowercase()) {
-                return Some(entity_name.clone());
+            if path.to_lowercase().contains(&entity_name.as_str().to_lowercase()) {
+                return Some(entity_name.as_str().to_string());
             }
         }
 
@@ -149,27 +149,27 @@ impl PortalEngine {
 
     fn resolve_entity_from_target(schema: &Schema, target: &str) -> String {
         // If target is an entity name, return it
-        if schema.entities.contains_key(target) {
+        if schema.entities.contains_key(&Symbol::from(target)) {
             return target.to_string();
         }
 
         // If target is a page name, return the entity it's for
-        if let Some(page) = schema.pages.get(target) {
+        if let Some(page) = schema.pages.get(&Symbol::from(target)) {
             match &page.content {
                 gurih_ir::PageContentSchema::Datatable(dt) => {
                     if let Some(param) = &dt.entity {
-                        return param.clone();
+                        return param.as_str().to_string();
                     }
-                    if let Some(q_name) = &dt.query {
-                        if let Some(q) = schema.queries.get(q_name) {
-                            return q.root_entity.clone();
-                        }
+                    if let Some(q_name) = &dt.query
+                        && let Some(q) = schema.queries.get(q_name)
+                    {
+                        return q.root_entity.as_str().to_string();
                     }
                     return "".to_string();
                 }
                 gurih_ir::PageContentSchema::Form(form_name) => {
                     if let Some(form) = schema.forms.get(form_name) {
-                        return form.entity.clone();
+                        return form.entity.as_str().to_string();
                     }
                 }
                 _ => {}

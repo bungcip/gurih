@@ -1,4 +1,4 @@
-use gurih_ir::{EntitySchema, FieldSchema, FieldType, Schema};
+use gurih_ir::{EntitySchema, FieldSchema, FieldType, Schema, Symbol};
 use gurih_runtime::form::FormEngine;
 use std::collections::HashMap;
 
@@ -8,7 +8,7 @@ fn test_default_form_label_generation() {
 
     let fields = vec![
         FieldSchema {
-            name: "employee_id".to_string(),
+            name: Symbol::from("employee_id"),
             field_type: FieldType::String,
             required: false,
             unique: false,
@@ -20,7 +20,7 @@ fn test_default_form_label_generation() {
             filetype: None,
         },
         FieldSchema {
-            name: "enrolled_at".to_string(),
+            name: Symbol::from("enrolled_at"),
             field_type: FieldType::Date,
             required: false,
             unique: false,
@@ -32,7 +32,7 @@ fn test_default_form_label_generation() {
             filetype: None,
         },
         FieldSchema {
-            name: "sync_date".to_string(),
+            name: Symbol::from("sync_date"),
             field_type: FieldType::DateTime,
             required: false,
             unique: false,
@@ -46,14 +46,14 @@ fn test_default_form_label_generation() {
     ];
 
     let entity = EntitySchema {
-        name: "TestEntity".to_string(),
+        name: Symbol::from("TestEntity"),
         fields,
         relationships: vec![],
         options: HashMap::new(),
         seeds: None,
     };
 
-    schema.entities.insert("TestEntity".to_string(), entity);
+    schema.entities.insert(Symbol::from("TestEntity"), entity);
 
     let engine = FormEngine::new();
     let form_json = engine

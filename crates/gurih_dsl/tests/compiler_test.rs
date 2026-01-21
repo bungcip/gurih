@@ -1,4 +1,5 @@
 use gurih_dsl::compiler::compile;
+use gurih_ir::Symbol;
 use std::fs;
 
 #[test]
@@ -10,16 +11,16 @@ fn test_compile_golden_master() {
     let schema = compile(&src, file_path.parent()).expect("Failed to compile");
 
     println!("Compiled Schema: {}", schema.name);
-    assert_eq!(schema.name, "GurihHR");
+    assert_eq!(schema.name, Symbol::from("GurihHR"));
 
     // Check Modules
-    assert!(schema.modules.contains_key("Organization"));
-    assert!(schema.modules.contains_key("Personnel"));
-    assert!(schema.modules.contains_key("Leave"));
+    assert!(schema.modules.contains_key(&Symbol::from("Organization")));
+    assert!(schema.modules.contains_key(&Symbol::from("Personnel")));
+    assert!(schema.modules.contains_key(&Symbol::from("Leave")));
 
     // Check Entities (Validation that they are registered in the global map)
-    assert!(schema.entities.contains_key("Employee"));
-    let emp = schema.entities.get("Employee").unwrap();
+    assert!(schema.entities.contains_key(&Symbol::from("Employee")));
+    let emp = schema.entities.get(&Symbol::from("Employee")).unwrap();
 
     // Check Fields & Serials
     assert_eq!(emp.fields.len(), 7, "Employee should have 7 fields");
@@ -28,9 +29,9 @@ fn test_compile_golden_master() {
     let code_field = emp
         .fields
         .iter()
-        .find(|f| f.name == "employee_id")
+        .find(|f| f.name == Symbol::from("employee_id"))
         .expect("Should have employee_id field");
-    assert_eq!(code_field.serial_generator.as_deref(), Some("EmpCode"));
+    assert_eq!(code_field.serial_generator, Some(Symbol::from("EmpCode")));
 
     // Check Relationships
     // belongs_to Department, Position
@@ -41,22 +42,22 @@ fn test_compile_golden_master() {
     assert_eq!(emp.options.get("track_changes").map(|s| s.as_str()), Some("true"));
 
     // Check Serials Definition
-    assert!(schema.serial_generators.contains_key("EmpCode"));
+    assert!(schema.serial_generators.contains_key(&Symbol::from("EmpCode")));
 
     // Check Layouts
-    assert!(schema.layouts.contains_key("MainLayout"));
-    let layout = schema.layouts.get("MainLayout").unwrap();
+    assert!(schema.layouts.contains_key(&Symbol::from("MainLayout")));
+    let layout = schema.layouts.get(&Symbol::from("MainLayout")).unwrap();
     assert!(layout.header_enabled);
     assert!(layout.props.contains_key("search_bar"));
 
     // Check Menus
-    assert!(schema.menus.contains_key("MainMenu"));
+    assert!(schema.menus.contains_key(&Symbol::from("MainMenu")));
 
     // Check Dashboards
-    assert!(schema.dashboards.contains_key("HRDashboard"));
+    assert!(schema.dashboards.contains_key(&Symbol::from("HRDashboard")));
 
     // Check Pages
-    assert!(schema.pages.contains_key("EmployeeList"));
+    assert!(schema.pages.contains_key(&Symbol::from("EmployeeList")));
 
     // Check Routes
     assert!(schema.routes.contains_key("/"));
@@ -77,9 +78,12 @@ fn test_compile_widget_icon() {
     "#;
 
     let schema = compile(src, None).expect("Failed to compile");
-    let dash = schema.dashboards.get("MainDash").expect("Dashboard not found");
+    let dash = schema
+        .dashboards
+        .get(&Symbol::from("MainDash"))
+        .expect("Dashboard not found");
     let widget = dash.widgets.first().expect("Widget not found");
 
-    assert_eq!(widget.name, "Stats");
+    assert_eq!(widget.name, Symbol::from("Stats"));
     assert_eq!(widget.icon, Some("lucide:users".to_string()));
 }

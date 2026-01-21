@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_s3::{Client, config::Region};
-use gurih_ir::StorageSchema;
+use gurih_ir::{StorageSchema, Symbol};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -114,8 +114,10 @@ pub struct StorageEngine {
     drivers: HashMap<String, Arc<dyn FileDriver>>,
 }
 
+// ... (existing code for drivers) ...
+
 impl StorageEngine {
-    pub async fn new(configs: &HashMap<String, StorageSchema>) -> Self {
+    pub async fn new(configs: &HashMap<Symbol, StorageSchema>) -> Self {
         let mut drivers = HashMap::new();
 
         for (name, config) in configs {
@@ -127,7 +129,7 @@ impl StorageEngine {
                     continue;
                 }
             };
-            drivers.insert(name.clone(), driver);
+            drivers.insert(name.to_string(), driver);
         }
 
         Self { drivers }

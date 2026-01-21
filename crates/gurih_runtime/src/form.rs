@@ -1,4 +1,4 @@
-use gurih_ir::Schema;
+use gurih_ir::{Schema, Symbol};
 use serde_json::{Value, json};
 
 pub struct FormEngine;
@@ -16,11 +16,11 @@ impl FormEngine {
 
     pub fn generate_ui_schema(&self, schema: &Schema, name: &str) -> Result<Value, String> {
         // 1. Try direct Form lookup
-        let mut target_form = schema.forms.get(name);
+        let mut target_form = schema.forms.get(&Symbol::from(name));
 
         // 2. Fallback: Search for a form that targets this name as an entity
         if target_form.is_none() {
-            target_form = schema.forms.values().find(|f| f.entity == name);
+            target_form = schema.forms.values().find(|f| f.entity == Symbol::from(name));
         }
 
         if let Some(form) = target_form {
@@ -37,7 +37,7 @@ impl FormEngine {
                     let ui_field = if let Some(field_def) = entity.fields.iter().find(|f| &f.name == field_name) {
                         let mut field_json = json!({
                             "name": field_def.name,
-                            "label": to_title_case(&field_def.name),
+                            "label": to_title_case(&field_def.name.to_string()),
                             "widget": self.map_field_type_to_widget(&field_def.field_type),
                             "required": field_def.required
                         });
@@ -59,8 +59,8 @@ impl FormEngine {
                         field_json
                     } else if let Some(rel_def) = entity.relationships.iter().find(|r| &r.name == field_name) {
                         json!({
-                            "name": format!("{}_id", rel_def.name.to_lowercase()),
-                            "label": to_title_case(&rel_def.name),
+                            "name": format!("{}_id", rel_def.name.to_string().to_lowercase()),
+                            "label": to_title_case(&rel_def.name.to_string()),
                             "widget": "RelationPicker",
                             "required": false // Default for relation
                         })
@@ -84,7 +84,7 @@ impl FormEngine {
             }))
         } else {
             // 3. Fallback: Try generating default form if it's an entity name
-            if schema.entities.contains_key(name) {
+            if schema.entities.contains_key(&Symbol::from(name)) {
                 return self.generate_default_form(schema, name);
             }
             Err(format!("Form or Entity '{}' not found", name))
@@ -92,20 +92,23 @@ impl FormEngine {
     }
 
     pub fn generate_default_form(&self, schema: &Schema, entity_name: &str) -> Result<Value, String> {
-        let entity = schema.entities.get(entity_name).ok_or("Entity not found")?;
+        let entity = schema
+            .entities
+            .get(&Symbol::from(entity_name))
+            .ok_or("Entity not found")?;
 
         let mut ui_fields = vec![];
 
         // Add regular fields
         for field_def in &entity.fields {
             // Skip ID usually or show as readonly? Let's keep it for now but maybe skip 'id' name
-            if field_def.name == "id" {
+            if field_def.name == Symbol::from("id") {
                 continue;
             }
 
             let mut field_json = json!({
                 "name": field_def.name,
-                "label": to_title_case(&field_def.name),
+                "label": to_title_case(field_def.name.as_str()),
                 "widget": self.map_field_type_to_widget(&field_def.field_type),
                 "required": field_def.required
             });
@@ -131,8 +134,8 @@ impl FormEngine {
         for rel in &entity.relationships {
             if rel.rel_type == "belongs_to" {
                 ui_fields.push(json!({
-                    "name": format!("{}_id", rel.name.to_lowercase()),
-                    "label": to_title_case(&rel.name),
+                    "name": format!("{}_id", rel.name.to_string().to_lowercase()),
+                    "label": to_title_case(&rel.name.to_string()),
                     "widget": "RelationPicker",
                     "required": false
                 }));

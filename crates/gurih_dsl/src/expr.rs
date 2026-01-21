@@ -142,7 +142,7 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
                 let mut content = String::new();
                 let mut len = 1;
                 let mut closed = false;
-                while let Some(ch) = chars.next() {
+                for ch in chars.by_ref() {
                     len += ch.len_utf8();
                     if ch == ']' {
                         closed = true;
@@ -170,7 +170,7 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
                 let mut content = String::new();
                 let mut len = 1;
                 let mut closed = false;
-                while let Some(ch) = chars.next() {
+                for ch in chars.by_ref() {
                     len += ch.len_utf8();
                     if ch == '"' {
                         closed = true;
@@ -191,11 +191,11 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
                 });
                 current_pos += len;
             }
-            _ if c.is_digit(10) => {
+            _ if c.is_ascii_digit() => {
                 let mut content = String::new();
                 let mut len = 0;
                 while let Some(&ch) = chars.peek() {
-                    if ch.is_digit(10) || ch == '.' {
+                    if ch.is_ascii_digit() || ch == '.' {
                         chars.next();
                         content.push(ch);
                         len += ch.len_utf8();
@@ -336,7 +336,7 @@ impl<'a> Parser<'a> {
         if self.is_at_end() {
             return Err(CompileError::ParseError {
                 src: self.src.to_string(),
-                span: (self.tokens.last().unwrap().span).into(),
+                span: (self.tokens.last().unwrap().span),
                 message: "Unexpected end of expression".to_string(),
             });
         }
@@ -373,7 +373,7 @@ impl<'a> Parser<'a> {
                     if !self.match_token(&[TokenKind::RParen]) {
                         return Err(CompileError::ParseError {
                             src: self.src.to_string(),
-                            span: self.peek().span.into(),
+                            span: self.peek().span,
                             message: "Expect ')' after function arguments.".to_string(),
                         });
                     }
@@ -386,7 +386,7 @@ impl<'a> Parser<'a> {
                 } else {
                     Err(CompileError::ParseError {
                         src: self.src.to_string(),
-                        span: token.span.into(),
+                        span: token.span,
                         message: format!("Unexpected identifier '{}'. Fields use []. Functions use NAME().", name),
                     })
                 }
@@ -397,7 +397,7 @@ impl<'a> Parser<'a> {
                 if !self.match_token(&[TokenKind::RParen]) {
                     return Err(CompileError::ParseError {
                         src: self.src.to_string(),
-                        span: self.peek().span.into(),
+                        span: self.peek().span,
                         message: "Expect ')' after expression.".to_string(),
                     });
                 }
@@ -410,7 +410,7 @@ impl<'a> Parser<'a> {
             }
             _ => Err(CompileError::ParseError {
                 src: self.src.to_string(),
-                span: token.span.into(),
+                span: token.span,
                 message: format!("Expect expression, found {:?}", token.kind),
             }),
         }
@@ -431,17 +431,16 @@ impl<'a> Parser<'a> {
         if self.is_at_end() {
             return false;
         }
-        match (&self.peek().kind, kind) {
-            (TokenKind::Plus, TokenKind::Plus) => true,
-            (TokenKind::Minus, TokenKind::Minus) => true,
-            (TokenKind::Star, TokenKind::Star) => true,
-            (TokenKind::Slash, TokenKind::Slash) => true,
-            (TokenKind::LParen, TokenKind::LParen) => true,
-            (TokenKind::RParen, TokenKind::RParen) => true,
-            (TokenKind::Comma, TokenKind::Comma) => true,
-
-            _ => false,
-        }
+        matches!(
+            (&self.peek().kind, kind),
+            (TokenKind::Plus, TokenKind::Plus)
+                | (TokenKind::Minus, TokenKind::Minus)
+                | (TokenKind::Star, TokenKind::Star)
+                | (TokenKind::Slash, TokenKind::Slash)
+                | (TokenKind::LParen, TokenKind::LParen)
+                | (TokenKind::RParen, TokenKind::RParen)
+                | (TokenKind::Comma, TokenKind::Comma)
+        )
     }
 
     fn check(&self, kind: TokenKind) -> bool {
@@ -456,10 +455,7 @@ impl<'a> Parser<'a> {
     }
 
     fn is_at_end(&self) -> bool {
-        match self.peek().kind {
-            TokenKind::Eof => true,
-            _ => false,
-        }
+        matches!(self.peek().kind, TokenKind::Eof)
     }
 
     fn peek(&self) -> &Token {

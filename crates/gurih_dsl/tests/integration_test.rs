@@ -1,4 +1,5 @@
 use gurih_dsl::compile;
+use gurih_ir::Symbol;
 
 #[test]
 fn test_compile_valid_schema() {
@@ -16,8 +17,8 @@ fn test_compile_valid_schema() {
     "#;
 
     let schema = compile(src, None).expect("Should compile");
-    assert!(schema.entities.contains_key("Book"));
-    assert!(schema.workflows.contains_key("BookPublishing"));
+    assert!(schema.entities.contains_key(&Symbol::from("Book")));
+    assert!(schema.workflows.contains_key(&Symbol::from("BookPublishing")));
 }
 
 #[test]
@@ -39,8 +40,8 @@ fn test_compile_invalid_schema() {
     // Changing expectation: It should compile and default to String.
     assert!(result.is_ok());
     let schema = result.unwrap();
-    let entity = schema.entities.get("Book").unwrap();
-    let field = entity.fields.iter().find(|f| f.name == "title").unwrap();
+    let entity = schema.entities.get(&Symbol::from("Book")).unwrap();
+    let field = entity.fields.iter().find(|f| f.name == Symbol::from("title")).unwrap();
     // Assuming UnknownType becomes String
     assert_eq!(format!("{:?}", field.field_type), "String");
 }

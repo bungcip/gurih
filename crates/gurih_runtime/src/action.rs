@@ -1,12 +1,12 @@
-use gurih_ir::{ActionLogic, ActionStep};
+use gurih_ir::{ActionLogic, ActionStep, Symbol};
 use std::collections::HashMap;
 
 pub struct ActionEngine {
-    actions: HashMap<String, ActionLogic>,
+    actions: HashMap<Symbol, ActionLogic>,
 }
 
 impl ActionEngine {
-    pub fn new(actions: HashMap<String, ActionLogic>) -> Self {
+    pub fn new(actions: HashMap<Symbol, ActionLogic>) -> Self {
         Self { actions }
     }
 
@@ -19,7 +19,7 @@ impl ActionEngine {
         // Use simple result for now
         let action = self
             .actions
-            .get(action_name)
+            .get(&Symbol::from(action_name))
             .ok_or_else(|| format!("Action not found: {}", action_name))?;
 
         // 1. Validate params
@@ -64,7 +64,7 @@ impl ActionEngine {
                 // Assuming data_engine has a delete method
                 println!("Executing Delete on {} with ID {}", target_entity, id);
                 data_engine
-                    .delete(target_entity, &id)
+                    .delete(target_entity.as_str(), &id)
                     .await
                     .map_err(|e| e.to_string())?;
             }

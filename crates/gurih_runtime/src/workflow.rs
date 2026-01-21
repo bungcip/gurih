@@ -1,4 +1,4 @@
-use gurih_ir::Schema;
+use gurih_ir::{Schema, Symbol};
 
 pub struct WorkflowEngine;
 
@@ -21,7 +21,10 @@ impl WorkflowEngine {
         new_state: &str,
     ) -> Result<(), String> {
         // Find workflow for entity
-        let workflow = schema.workflows.values().find(|w| w.entity == entity_name);
+        let workflow = schema
+            .workflows
+            .values()
+            .find(|w| w.entity == Symbol::from(entity_name));
 
         if let Some(wf) = workflow {
             // If staying in same state, it's usually allowed (update other fields)
@@ -33,7 +36,7 @@ impl WorkflowEngine {
             let valid = wf
                 .transitions
                 .iter()
-                .any(|t| t.from == current_state && t.to == new_state);
+                .any(|t| t.from == Symbol::from(current_state) && t.to == Symbol::from(new_state));
             if !valid {
                 return Err(format!(
                     "Invalid transition from '{}' to '{}' for entity '{}'",
@@ -49,8 +52,8 @@ impl WorkflowEngine {
         schema
             .workflows
             .values()
-            .find(|w| w.entity == entity_name)
-            .map(|w| w.initial_state.clone())
+            .find(|w| w.entity == Symbol::from(entity_name))
+            .map(|w| w.initial_state.to_string())
     }
 
     pub fn get_transition_permission(
@@ -64,11 +67,14 @@ impl WorkflowEngine {
             return None;
         }
 
-        let workflow = schema.workflows.values().find(|w| w.entity == entity_name)?;
+        let workflow = schema
+            .workflows
+            .values()
+            .find(|w| w.entity == Symbol::from(entity_name))?;
         workflow
             .transitions
             .iter()
-            .find(|t| t.from == current_state && t.to == new_state)
-            .and_then(|t| t.required_permission.clone())
+            .find(|t| t.from == Symbol::from(current_state) && t.to == Symbol::from(new_state))
+            .and_then(|t| t.required_permission.as_ref().map(|s: &Symbol| s.to_string()))
     }
 }

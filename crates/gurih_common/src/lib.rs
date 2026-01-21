@@ -1,3 +1,5 @@
+pub use symbol_table::GlobalSymbol as Symbol;
+
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }

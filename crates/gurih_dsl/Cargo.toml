@@ -9,6 +9,7 @@ gurih_ir = { workspace = true }
 kdl = { workspace = true }
 miette = { workspace = true }
 thiserror = { workspace = true }
+symbol_table = {workspace = true }
 
 [dev-dependencies]
 insta = { workspace = true }

@@ -1,4 +1,5 @@
 use gurih_dsl::compile;
+use gurih_ir::Symbol;
 
 #[test]
 fn test_compile_table_and_database() {
@@ -27,11 +28,11 @@ fn test_compile_table_and_database() {
     assert_eq!(db.url, "env:DATABASE_URL");
 
     // Check Table
-    assert!(schema.tables.contains_key("products"));
-    let table = schema.tables.get("products").unwrap();
+    assert!(schema.tables.contains_key(&Symbol::from("products")));
+    let table = schema.tables.get(&Symbol::from("products")).unwrap();
     assert_eq!(table.columns.len(), 3);
 
-    let col_code = table.columns.iter().find(|c| c.name == "code").unwrap();
+    let col_code = table.columns.iter().find(|c| c.name == Symbol::from("code")).unwrap();
     assert_eq!(col_code.type_name, "varchar");
     assert!(col_code.unique);
     assert_eq!(col_code.props.get("len").map(|s| s.as_str()), Some("50"));

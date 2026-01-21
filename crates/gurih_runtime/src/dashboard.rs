@@ -1,5 +1,5 @@
 use crate::storage::Storage;
-use gurih_ir::Schema;
+use gurih_ir::{Schema, Symbol};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -18,7 +18,10 @@ impl DashboardEngine {
     }
 
     pub fn generate_ui_schema(&self, schema: &Schema, dashboard_name: &str) -> Result<Value, String> {
-        let dashboard = schema.dashboards.get(dashboard_name).ok_or("Dashboard not found")?;
+        let dashboard = schema
+            .dashboards
+            .get(&Symbol::from(dashboard_name))
+            .ok_or("Dashboard not found")?;
 
         let widgets: Vec<Value> = dashboard
             .widgets
@@ -48,7 +51,10 @@ impl DashboardEngine {
         dashboard_name: &str,
         storage: &Arc<dyn Storage>,
     ) -> Result<Value, String> {
-        let dashboard = schema.dashboards.get(dashboard_name).ok_or("Dashboard not found")?;
+        let dashboard = schema
+            .dashboards
+            .get(&Symbol::from(dashboard_name))
+            .ok_or("Dashboard not found")?;
 
         let mut widgets = vec![];
         for w in &dashboard.widgets {

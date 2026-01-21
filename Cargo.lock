@@ -1388,6 +1388,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
+ "symbol_table",
  "tokio",
  "tower-http",
  "uuid",
@@ -1398,6 +1399,7 @@ name = "gurih_common"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "symbol_table",
  "thiserror",
 ]
 
@@ -1410,6 +1412,7 @@ dependencies = [
  "insta",
  "kdl",
  "miette",
+ "symbol_table",
  "thiserror",
 ]
 
@@ -1417,8 +1420,10 @@ dependencies = [
 name = "gurih_ir"
 version = "0.1.0"
 dependencies = [
+ "gurih_common",
  "serde",
  "serde_json",
+ "symbol_table",
 ]
 
 [[package]]
@@ -1438,6 +1443,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "sqlx",
+ "symbol_table",
  "tokio",
  "uuid",
 ]
@@ -3338,6 +3344,18 @@ name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
+
+[[package]]
+name = "symbol_table"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aabf1e4bbb0a27b4b9bf61d9f634f6ef9d897bc139454b111e1f0cd4bfbe5641"
+dependencies = [
+ "crossbeam-utils",
+ "foldhash",
+ "hashbrown 0.15.5",
+ "serde",
+]
 
 [[package]]
 name = "syn"
