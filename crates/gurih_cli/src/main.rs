@@ -269,20 +269,55 @@ async fn start_server(
                 }
 
                 let pool = if db_config.db_type == gurih_ir::DatabaseType::Sqlite {
-                    let path = url
+                    let mut db_path = url
                         .trim_start_matches("sqlite://")
                         .trim_start_matches("sqlite:")
-                        .trim_start_matches("file:");
-                    let mut url = url.clone();
-                    if !url.starts_with("sqlite:") {
-                        url = format!("sqlite://{}", path);
+                        .trim_start_matches("file:")
+                        .to_string();
+
+                    if db_path != ":memory:" {
+                        let path_obj = std::path::Path::new(&db_path);
+                        let mut full_path = if path_obj.is_relative() {
+                            if let Some(parent) = file.parent() {
+                                parent.join(path_obj)
+                            } else {
+                                std::env::current_dir().unwrap().join(path_obj)
+                            }
+                        } else {
+                            path_obj.to_path_buf()
+                        };
+
+                        // Ensure absolute
+                        if full_path.is_relative() {
+                            full_path = std::env::current_dir().unwrap().join(full_path);
+                        }
+
+                        // Ensure parent directory exists
+                        if let Some(parent) = full_path.parent() {
+                            if !parent.as_os_str().is_empty() && !parent.exists() {
+                                fs::create_dir_all(parent).expect("Failed to create database directory");
+                            }
+                        }
+
+                        // Explicitly create file if not exists
+                        if !full_path.exists() {
+                            fs::File::create(&full_path).expect("Failed to create database file");
+                        }
+
+                        db_path = full_path.to_string_lossy().to_string();
                     }
+
+                    let url = if db_path == ":memory:" {
+                        "sqlite::memory:".to_string()
+                    } else {
+                        format!("sqlite://{}", db_path)
+                    };
 
                     let p = SqlitePoolOptions::new()
                         .max_connections(5)
                         .connect(&url)
                         .await
-                        .expect("Failed to connect to SQLite DB");
+                        .expect(&format!("Failed to connect to SQLite DB at {}", url));
                     DbPool::Sqlite(p)
                 } else if db_config.db_type == gurih_ir::DatabaseType::Postgres {
                     let p = PgPoolOptions::new()
