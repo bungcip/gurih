@@ -5,39 +5,53 @@ pub struct Ast {
     pub name: Option<String>,
     pub version: Option<String>,
     pub database: Option<DatabaseDef>,
-    pub storages: Vec<StorageDef>, // Added
+    pub storages: Vec<StorageDef>,
     pub icons: Vec<IconDef>,
     pub layouts: Vec<LayoutDef>,
     pub modules: Vec<ModuleDef>,
     pub entities: Vec<EntityDef>,
-    pub tables: Vec<TableDef>, // Added
+    pub tables: Vec<TableDef>,
     pub enums: Vec<EnumDef>,
     pub serial_generators: Vec<SerialGeneratorDef>,
     pub workflows: Vec<WorkflowDef>,
     pub dashboards: Vec<DashboardDef>,
     pub pages: Vec<PageDef>,
-    pub actions: Vec<ActionLogicDef>, // Added
+    pub actions: Vec<ActionLogicDef>,
     pub routes: Vec<RoutesDef>,
     pub menus: Vec<MenuDef>,
     pub prints: Vec<PrintDef>,
-    pub queries: Vec<QueryDef>,          // Added
-    pub permissions: Vec<PermissionDef>, // Global roles/permissions
+    pub queries: Vec<QueryDef>,
+    pub permissions: Vec<PermissionDef>,
 }
 
 #[derive(Debug, Clone)]
 pub struct DatabaseDef {
-    pub db_type: String, // postgres | sqlite
+    pub db_type: DatabaseType,
     pub url: String,
     pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DatabaseType {
+    Postgres,
+    Sqlite,
+    Unknown(String),
 }
 
 #[derive(Debug, Clone)]
 pub struct StorageDef {
     pub name: String,
-    pub driver: String,
+    pub driver: StorageDriver,
     pub location: Option<String>,
     pub props: std::collections::HashMap<String, String>,
     pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum StorageDriver {
+    S3,
+    Local,
+    Unknown(String),
 }
 
 #[derive(Debug, Clone)]
@@ -59,7 +73,7 @@ pub struct LayoutDef {
 #[derive(Debug, Clone)]
 pub struct LayoutSectionDef {
     pub enabled: bool,
-    pub props: std::collections::HashMap<String, String>, // generic props like search_bar=true
+    pub props: std::collections::HashMap<String, String>,
     pub menu_ref: Option<String>,
     pub span: SourceSpan,
 }
@@ -109,19 +123,42 @@ pub struct EntityOptions {
 #[derive(Debug, Clone)]
 pub struct FieldDef {
     pub name: String,
-    pub type_name: String,                // Semantic Type
-    pub serial_generator: Option<String>, // if type is code
+    pub type_name: FieldType,
+    pub serial_generator: Option<String>,
     pub required: bool,
     pub unique: bool,
     pub default: Option<String>,
-    pub references: Option<String>, // For simple refs or enum links
+    pub references: Option<String>,
     pub storage: Option<String>,
     pub resize: Option<String>,
     pub filetype: Option<String>,
     pub span: SourceSpan,
 }
 
-// Added Table Definitions
+#[derive(Debug, Clone, PartialEq)]
+pub enum FieldType {
+    String,
+    Text,
+    Integer,
+    Float,
+    Boolean,
+    Date,
+    DateTime,
+    Password,
+    Relation,
+    Photo,
+    File,
+    Enum,
+    Serial,
+    Code,
+    Money,
+    Email,
+    Phone,
+    Name,
+    Description,
+    Custom(String),
+}
+
 #[derive(Debug, Clone)]
 pub struct TableDef {
     pub name: String,
@@ -132,8 +169,8 @@ pub struct TableDef {
 #[derive(Debug, Clone)]
 pub struct ColumnDef {
     pub name: String,
-    pub type_name: String,                                // "serial", "varchar", etc.
-    pub props: std::collections::HashMap<String, String>, // len, precision, etc.
+    pub type_name: String, // Keeping as String for raw SQL types unless we want to enumerate them
+    pub props: std::collections::HashMap<String, String>,
     pub primary: bool,
     pub unique: bool,
     pub span: SourceSpan,
@@ -149,7 +186,7 @@ pub enum RelationshipType {
 #[derive(Debug, Clone)]
 pub struct RelationshipDef {
     pub rel_type: RelationshipType,
-    pub name: String, // field name, e.g. "orders"
+    pub name: String,
     pub target_entity: String,
     pub span: SourceSpan,
 }
@@ -175,7 +212,7 @@ pub struct StateDef {
 pub struct TransitionDef {
     pub name: String,
     pub from: String,
-    pub to: String, // could be single or multiple if strictly parsed, but DSL ex suggests single
+    pub to: String,
     pub permission: Option<String>,
     pub span: SourceSpan,
 }
@@ -184,20 +221,27 @@ pub struct TransitionDef {
 pub struct DashboardDef {
     pub name: String,
     pub title: String,
-    pub widgets: Vec<WidgetDef>, // Simplified: flatten grid/row for now or recurse
+    pub widgets: Vec<WidgetDef>,
     pub span: SourceSpan,
 }
 
 #[derive(Debug, Clone)]
 pub struct WidgetDef {
     pub name: String,
-    pub widget_type: String, // stat, chart, list
+    pub widget_type: WidgetType,
     pub label: Option<String>,
-    pub value: Option<String>, // expression
+    pub value: Option<String>,
     pub icon: Option<String>,
-    // Add more specific props as map if needed
     pub query: Option<String>,
     pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum WidgetType {
+    Stat,
+    Chart,
+    List,
+    Unknown(String),
 }
 
 #[derive(Debug, Clone)]
@@ -213,7 +257,7 @@ pub struct PageDef {
 pub enum PageContent {
     Datatable(DatatableDef),
     Form(FormDef),
-    Dashboard, // Placeholder if page wraps dashboard
+    Dashboard,
     None,
 }
 
@@ -221,10 +265,10 @@ pub enum PageContent {
 pub struct QueryDef {
     pub name: String,
     pub root_entity: String,
-    pub query_type: QueryType, // Added
+    pub query_type: QueryType,
     pub selections: Vec<QuerySelectionDef>,
     pub formulas: Vec<QueryFormulaDef>,
-    pub filters: Vec<String>, // Added partial expression string
+    pub filters: Vec<String>,
     pub joins: Vec<QueryJoinDef>,
     pub span: SourceSpan,
 }
@@ -238,7 +282,7 @@ pub enum QueryType {
 #[derive(Debug, Clone)]
 pub struct QuerySelectionDef {
     pub field: String,
-    pub alias: Option<String>, // Added
+    pub alias: Option<String>,
     pub span: SourceSpan,
 }
 
@@ -278,14 +322,14 @@ pub struct ActionDef {
     pub label: String,
     pub icon: Option<String>,
     pub to: Option<String>,
-    pub method: Option<String>, // Added support for explicit method (DELETE, POST)
+    pub method: Option<RouteVerb>,
     pub variant: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 pub struct FormDef {
     pub name: String,
-    pub entity: String, // can be anonymous if embedded
+    pub entity: String,
     pub sections: Vec<FormSectionDef>,
     pub span: SourceSpan,
 }
@@ -293,7 +337,7 @@ pub struct FormDef {
 #[derive(Debug, Clone)]
 pub struct FormSectionDef {
     pub title: String,
-    pub fields: Vec<String>, // simple field names
+    pub fields: Vec<String>,
     pub span: SourceSpan,
 }
 
@@ -307,10 +351,18 @@ pub struct ActionLogicDef {
 
 #[derive(Debug, Clone)]
 pub struct ActionStepDef {
-    pub step_type: String,                               // entity:delete, entity:update, etc.
-    pub target: String,                                  // Entity Name or variable
-    pub args: std::collections::HashMap<String, String>, // id=param("id")
+    pub step_type: ActionStepType,
+    pub target: String,
+    pub args: std::collections::HashMap<String, String>,
     pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ActionStepType {
+    EntityDelete,
+    EntityUpdate,
+    EntityCreate,
+    Custom(String),
 }
 
 #[derive(Debug, Clone)]
@@ -337,8 +389,8 @@ pub enum RouteVerb {
 pub struct RouteDef {
     pub verb: RouteVerb,
     pub path: String,
-    pub action: String,         // Action Name (e.g. "DeletePosition")
-    pub layout: Option<String>, // Maybe not needed for API routes but kept for legacy pages
+    pub action: String,
+    pub layout: Option<String>,
     pub permission: Option<String>,
     pub span: SourceSpan,
 }
@@ -398,6 +450,6 @@ pub struct PermissionDef {
 
 #[derive(Debug, Clone)]
 pub struct AllowDef {
-    pub resource: String,        // url or permission key like sales.*
-    pub actions: Option<String>, // read,write
+    pub resource: String,
+    pub actions: Option<String>,
 }

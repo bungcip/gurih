@@ -29,7 +29,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     let mut ir_serial_generators = HashMap::new();
     let mut ir_prints = HashMap::new();
     let mut ir_storages = HashMap::new();
-    let mut ir_queries = HashMap::new(); // Added
+    let mut ir_queries = HashMap::new();
 
     // 0. Collect all enums (including from modules)
     let mut enums = HashMap::new();
@@ -61,13 +61,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 }
                 field_names.insert(field_def.name.clone(), field_def.span);
 
-                let type_name = if field_def.type_name == "Enum" {
-                    field_def.references.as_deref().unwrap_or("Enum")
-                } else {
-                    &field_def.type_name
-                };
-
-                let field_type = parse_field_type(type_name, &enums, src, &field_def.span)?;
+                let field_type = parse_field_type(&field_def.type_name, &enums, &field_def.references)?;
                 fields.push(FieldSchema {
                     name: field_def.name.clone(),
                     field_type,
@@ -122,7 +116,11 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
     // 0. Process Database
     let database = ast_root.database.map(|d| DatabaseSchema {
-        db_type: d.db_type,
+        db_type: match d.db_type {
+            ast::DatabaseType::Postgres => "postgres".to_string(),
+            ast::DatabaseType::Sqlite => "sqlite".to_string(),
+            ast::DatabaseType::Unknown(s) => s,
+        },
         url: d.url,
     });
 
@@ -193,7 +191,6 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
     // 4. Process Workflows
     for wf_def in &ast_root.workflows {
-        // ... (validation logic similar to before)
         ir_workflows.insert(
             wf_def.name.clone(),
             WorkflowSchema {
@@ -225,7 +222,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         let header_enabled = layout_def.header.as_ref().map(|h| h.enabled).unwrap_or(false);
         let header_props = layout_def.header.as_ref().map(|h| h.props.clone()).unwrap_or_default();
 
-        let props = header_props; // Merge props? Simple flattening for now
+        let props = header_props;
 
         ir_layouts.insert(
             layout_def.name.clone(),
@@ -287,18 +284,22 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     .map(|a| ActionSchema {
                         label: a.label.clone(),
                         to: a.to.clone(),
-                        method: a.method.clone(), // Added
+                        method: a.method.clone().map(|m| match m {
+                            ast::RouteVerb::Get => "GET".to_string(),
+                            ast::RouteVerb::Post => "POST".to_string(),
+                            ast::RouteVerb::Put => "PUT".to_string(),
+                            ast::RouteVerb::Delete => "DELETE".to_string(),
+                        }),
                         icon: a.icon.clone(),
                         variant: a.variant.clone(),
                     })
                     .collect(),
             }),
-            ast::PageContent::Form(f) => PageContentSchema::Form(f.name.clone()), // Logic ref: Store form definition separately?
-            ast::PageContent::Dashboard => PageContentSchema::Dashboard("".to_string()), // Placeholder
+            ast::PageContent::Form(f) => PageContentSchema::Form(f.name.clone()),
+            ast::PageContent::Dashboard => PageContentSchema::Dashboard("".to_string()),
             ast::PageContent::None => PageContentSchema::None,
         };
 
-        // If page has an embedded form definition, add it to ir_forms
         if let ast::PageContent::Form(form_def) = &page_def.content {
             let form_name = if form_def.name == "DefaultForm" {
                 format!("{}_Form", page_def.name)
@@ -345,7 +346,12 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     .iter()
                     .map(|w| WidgetSchema {
                         name: w.name.clone(),
-                        widget_type: w.widget_type.clone(),
+                        widget_type: match &w.widget_type {
+                            ast::WidgetType::Stat => "stat".to_string(),
+                            ast::WidgetType::Chart => "chart".to_string(),
+                            ast::WidgetType::List => "list".to_string(),
+                            ast::WidgetType::Unknown(s) => s.clone(),
+                        },
                         label: w.label.clone(),
                         value: w.value.clone(),
                         icon: w.icon.clone(),
@@ -375,7 +381,12 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             .steps
             .iter()
             .map(|s| gurih_ir::ActionStep {
-                step_type: s.step_type.clone(),
+                step_type: match &s.step_type {
+                    ast::ActionStepType::EntityDelete => "entity:delete".to_string(),
+                    ast::ActionStepType::EntityUpdate => "entity:update".to_string(),
+                    ast::ActionStepType::EntityCreate => "entity:create".to_string(),
+                    ast::ActionStepType::Custom(s) => s.clone(),
+                },
                 target: s.target.clone(),
                 args: s.args.clone(),
             })
@@ -399,7 +410,6 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     }
 
     // 11. Process Routes
-    // Flatten routes for schema
     let mut valid_targets: std::collections::HashSet<&str> = ir_pages.keys().map(|s| s.as_str()).collect();
     valid_targets.extend(ir_dashboards.keys().map(|s| s.as_str()));
     valid_targets.extend(ir_actions.keys().map(|s| s.as_str()));
@@ -452,8 +462,6 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     for routes_def in &ast_root.routes {
         for route_node in &routes_def.routes {
             let schema = process_route_node(route_node, &valid_targets, src)?;
-            // Use path as key? Or accumulate in a list.
-            // Schema defines routes: HashMap<String, RouteSchema>.
             ir_routes.insert(schema.path.clone(), schema);
         }
     }
@@ -476,7 +484,11 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             storage_def.name.clone(),
             StorageSchema {
                 name: storage_def.name.clone(),
-                driver: storage_def.driver.clone(),
+                driver: match &storage_def.driver {
+                    ast::StorageDriver::S3 => "s3".to_string(),
+                    ast::StorageDriver::Local => "local".to_string(),
+                    ast::StorageDriver::Unknown(s) => s.clone(),
+                },
                 location: storage_def.location.clone(),
                 props: storage_def.props.clone(),
             },
@@ -558,10 +570,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             .filters
             .iter()
             .map(|f_str| {
-                let expr = crate::expr::parse_expression(f_str, 0)?; // Should use real offset if possible, but AST currently stores String. 
-                // Wait, AST stores String. `f.span` is missing in `filters` Vec<String>.
-                // I updated AST to `filters: Vec<String>`.
-                // Ah, I should have used struct to capture span. For now use 0 offset.
+                let expr = crate::expr::parse_expression(f_str, 0)?;
                 Ok(convert_expr(&expr))
             })
             .collect();
@@ -594,13 +603,13 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         name: ast_root.name.unwrap_or("GurihApp".to_string()),
         version: ast_root.version.unwrap_or("1.0.0".to_string()),
         database,
-        storages: ir_storages, // Added
+        storages: ir_storages,
         modules: ir_modules,
         entities: ir_entities,
         tables: ir_tables,
         workflows: ir_workflows,
         forms: ir_forms,
-        actions: ir_actions, // Added
+        actions: ir_actions,
         permissions: ir_permissions,
         layouts: ir_layouts,
         menus: ir_menus,
@@ -609,36 +618,44 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         dashboards: ir_dashboards,
         serial_generators: ir_serial_generators,
         prints: ir_prints,
-        queries: ir_queries, // Added
+        queries: ir_queries,
     })
 }
 
 fn parse_field_type(
-    type_name: &str,
+    field_type: &ast::FieldType,
     enums: &HashMap<String, Vec<String>>,
-    _src: &str,
-    _span: &crate::diagnostics::SourceSpan,
+    references: &Option<String>,
 ) -> Result<FieldType, CompileError> {
-    if let Some(variants) = enums.get(type_name) {
-        return Ok(FieldType::Enum(variants.clone()));
-    }
-
-    match type_name {
-        "String" | "Code" | "Serial" | "Money" | "Email" | "Phone" | "Name" | "Description" => Ok(FieldType::String),
-        "Text" => Ok(FieldType::Text),
-        "Integer" | "Int" | "Pk" => Ok(FieldType::Integer),
-        "Float" | "Decimal" => Ok(FieldType::Float),
-        "Boolean" | "Bool" => Ok(FieldType::Boolean),
-        "Date" => Ok(FieldType::Date),
-        "DateTime" => Ok(FieldType::DateTime),
-        "Password" => Ok(FieldType::Password),
-        "Relation" => Ok(FieldType::Relation),
-        "Photo" => Ok(FieldType::Photo),
-        "File" => Ok(FieldType::File),
-        "Enum" => Ok(FieldType::Enum(vec![])),
-        _ => {
-            // If unknown, default to string
-            Ok(FieldType::String)
+    match field_type {
+        ast::FieldType::String | ast::FieldType::Code | ast::FieldType::Serial | ast::FieldType::Money | ast::FieldType::Email | ast::FieldType::Phone | ast::FieldType::Name | ast::FieldType::Description => Ok(FieldType::String),
+        ast::FieldType::Text => Ok(FieldType::Text),
+        ast::FieldType::Integer => Ok(FieldType::Integer),
+        ast::FieldType::Float => Ok(FieldType::Float),
+        ast::FieldType::Boolean => Ok(FieldType::Boolean),
+        ast::FieldType::Date => Ok(FieldType::Date),
+        ast::FieldType::DateTime => Ok(FieldType::DateTime),
+        ast::FieldType::Password => Ok(FieldType::Password),
+        ast::FieldType::Relation => Ok(FieldType::Relation),
+        ast::FieldType::Photo => Ok(FieldType::Photo),
+        ast::FieldType::File => Ok(FieldType::File),
+        ast::FieldType::Enum => {
+             // For explicit Enum type, references should be set to the enum name.
+             let variants = if let Some(ref_name) = references {
+                 enums.get(ref_name).cloned().unwrap_or_default()
+             } else {
+                 vec![]
+             };
+             Ok(FieldType::Enum(variants))
+        },
+        ast::FieldType::Custom(s) => {
+            // Check if it matches an enum name
+            if let Some(variants) = enums.get(s) {
+                Ok(FieldType::Enum(variants.clone()))
+            } else {
+                // If unknown, default to string
+                Ok(FieldType::String)
+            }
         }
     }
 }
