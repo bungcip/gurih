@@ -97,7 +97,7 @@ impl QueryEngine {
                     .iter()
                     .find(|r| r.target_entity == *target_entity_name)
             {
-                if rel.rel_type == "belongs_to" {
+                if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
                     // Parent has FK: parent.rel_id = target.id
                     join_condition = format!("{}.{}_id = {}.id", parent_table, rel.name, target_table);
                 } else {

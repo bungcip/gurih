@@ -268,7 +268,7 @@ async fn start_server(
                     panic!("Database URL is empty or env var not set.");
                 }
 
-                let pool = if db_config.db_type == "sqlite" {
+                let pool = if db_config.db_type == gurih_ir::DatabaseType::Sqlite {
                     let path = url
                         .trim_start_matches("sqlite://")
                         .trim_start_matches("sqlite:")
@@ -284,7 +284,7 @@ async fn start_server(
                         .await
                         .expect("Failed to connect to SQLite DB");
                     DbPool::Sqlite(p)
-                } else if db_config.db_type == "postgresql" || db_config.db_type == "postgres" {
+                } else if db_config.db_type == gurih_ir::DatabaseType::Postgres {
                     let p = PgPoolOptions::new()
                         .max_connections(5)
                         .connect(&url)
@@ -292,10 +292,10 @@ async fn start_server(
                         .expect("Failed to connect to Postgres DB");
                     DbPool::Postgres(p)
                 } else {
-                    panic!("Unsupported database type: {}", db_config.db_type);
+                    panic!("Unsupported database type: {:?}", db_config.db_type);
                 };
 
-                let manager = SchemaManager::new(pool.clone(), schema.clone(), db_config.db_type.clone());
+                let manager = SchemaManager::new(pool.clone(), schema.clone(), format!("{:?}", db_config.db_type));
                 manager.migrate().await.expect("Migration failed");
 
                 Arc::new(DatabaseStorage::new(pool))
@@ -793,14 +793,6 @@ fn register_routes<'a>(
 
         // Only register if it is an actionable route (Action exists)
         if route_def.action != Symbol::from("") && schema.actions.contains_key(&route_def.action) {
-            let verb_filter = match route_def.verb.as_str() {
-                "GET" => MethodFilter::GET,
-                "POST" => MethodFilter::POST,
-                "PUT" => MethodFilter::PUT,
-                "DELETE" => MethodFilter::DELETE,
-                _ => MethodFilter::GET,
-            };
-
             let action_name = route_def.action;
             let handler = move |State(state): State<AppState>,
                                 Path(params): Path<HashMap<String, String>>,
@@ -808,8 +800,21 @@ fn register_routes<'a>(
                 handle_dynamic_action(state, params, query, action_name.to_string())
             };
 
-            // println!("Registering route: {} {} -> {}", route_def.verb, path, route_def.action);
-            app = app.route(&path, on(verb_filter, handler));
+            match route_def.verb {
+                gurih_ir::RouteVerb::All => {
+                    app = app.route(&path, axum::routing::any(handler));
+                }
+                _ => {
+                    let verb_filter = match route_def.verb {
+                        gurih_ir::RouteVerb::Get => MethodFilter::GET,
+                        gurih_ir::RouteVerb::Post => MethodFilter::POST,
+                        gurih_ir::RouteVerb::Put => MethodFilter::PUT,
+                        gurih_ir::RouteVerb::Delete => MethodFilter::DELETE,
+                        _ => MethodFilter::GET,
+                    };
+                    app = app.route(&path, on(verb_filter, handler));
+                }
+            }
         }
 
         // Recursively register children

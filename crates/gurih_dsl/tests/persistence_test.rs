@@ -24,7 +24,7 @@ fn test_compile_table_and_database() {
 
     // Check Database
     let db = schema.database.expect("Database should be present");
-    assert_eq!(db.db_type, "postgres");
+    assert_eq!(db.db_type, gurih_ir::DatabaseType::Postgres);
     assert_eq!(db.url, "env:DATABASE_URL");
 
     // Check Table

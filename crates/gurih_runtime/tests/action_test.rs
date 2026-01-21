@@ -62,7 +62,7 @@ async fn test_action_execution_delete() {
             name: Symbol::from("DeleteItem"),
             params: vec![Symbol::from("id")],
             steps: vec![ActionStep {
-                step_type: "entity:delete".to_string(),
+                step_type: gurih_ir::ActionStepType::EntityDelete,
                 target: Symbol::from("Item"),
                 args,
             }],

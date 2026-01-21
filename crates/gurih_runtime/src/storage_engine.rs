@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_s3::{Client, config::Region};
-use gurih_ir::{StorageSchema, Symbol};
+use gurih_ir::{StorageDriver, StorageSchema, Symbol};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -121,13 +121,11 @@ impl StorageEngine {
         let mut drivers = HashMap::new();
 
         for (name, config) in configs {
-            let driver: Arc<dyn FileDriver> = match config.driver.as_str() {
-                "file" => Arc::new(LocalFileDriver::new(config.location.as_deref().unwrap_or("./storage"))),
-                "s3" => Arc::new(S3FileDriver::new(&config.props).await),
-                _ => {
-                    eprintln!("Unknown storage driver: {}", config.driver);
-                    continue;
+            let driver: Arc<dyn FileDriver> = match config.driver {
+                StorageDriver::Local => {
+                    Arc::new(LocalFileDriver::new(config.location.as_deref().unwrap_or("./storage")))
                 }
+                StorageDriver::S3 => Arc::new(S3FileDriver::new(&config.props).await),
             };
             drivers.insert(name.to_string(), driver);
         }

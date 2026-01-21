@@ -91,9 +91,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     name: r.name.as_str().into(),
                     target_entity: r.target_entity.as_str().into(),
                     rel_type: match r.rel_type {
-                        ast::RelationshipType::BelongsTo => "belongs_to".to_string(),
-                        ast::RelationshipType::HasMany => "has_many".to_string(),
-                        ast::RelationshipType::HasOne => "has_one".to_string(),
+                        ast::RelationshipType::BelongsTo => gurih_ir::RelationshipType::BelongsTo,
+                        ast::RelationshipType::HasMany => gurih_ir::RelationshipType::HasMany,
+                        ast::RelationshipType::HasOne => gurih_ir::RelationshipType::HasOne,
                     },
                 })
                 .collect();
@@ -125,8 +125,8 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     // 0. Process Database
     let database = ast_root.database.map(|d| DatabaseSchema {
         db_type: match d.db_type {
-            ast::DatabaseType::Postgres => "postgres".to_string(),
-            ast::DatabaseType::Sqlite => "sqlite".to_string(),
+            ast::DatabaseType::Postgres => gurih_ir::DatabaseType::Postgres,
+            ast::DatabaseType::Sqlite => gurih_ir::DatabaseType::Sqlite,
         },
         url: d.url,
     });
@@ -292,10 +292,10 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                         label: a.label.clone(),
                         to: a.to.as_ref().map(|s| s.as_str().into()),
                         method: a.method.clone().map(|m| match m {
-                            ast::RouteVerb::Get => "GET".to_string(),
-                            ast::RouteVerb::Post => "POST".to_string(),
-                            ast::RouteVerb::Put => "PUT".to_string(),
-                            ast::RouteVerb::Delete => "DELETE".to_string(),
+                            ast::RouteVerb::Get => gurih_ir::RouteVerb::Get,
+                            ast::RouteVerb::Post => gurih_ir::RouteVerb::Post,
+                            ast::RouteVerb::Put => gurih_ir::RouteVerb::Put,
+                            ast::RouteVerb::Delete => gurih_ir::RouteVerb::Delete,
                         }),
                         icon: a.icon.clone(),
                         variant: a.variant.clone(),
@@ -354,10 +354,10 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     .map(|w| WidgetSchema {
                         name: w.name.as_str().into(),
                         widget_type: match &w.widget_type {
-                            ast::WidgetType::Stat => "stat".to_string(),
-                            ast::WidgetType::Chart => "chart".to_string(),
-                            ast::WidgetType::List => "list".to_string(),
-                            ast::WidgetType::Pie => "pie".to_string(),
+                            ast::WidgetType::Stat => gurih_ir::WidgetType::Stat,
+                            ast::WidgetType::Chart => gurih_ir::WidgetType::Chart,
+                            ast::WidgetType::List => gurih_ir::WidgetType::List,
+                            ast::WidgetType::Pie => gurih_ir::WidgetType::Pie,
                         },
                         label: w.label.clone(),
                         value: w.value.clone(),
@@ -389,9 +389,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             .iter()
             .map(|s| gurih_ir::ActionStep {
                 step_type: match &s.step_type {
-                    ast::ActionStepType::EntityDelete => "entity:delete".to_string(),
-                    ast::ActionStepType::EntityUpdate => "entity:update".to_string(),
-                    ast::ActionStepType::EntityCreate => "entity:create".to_string(),
+                    ast::ActionStepType::EntityDelete => gurih_ir::ActionStepType::EntityDelete,
+                    ast::ActionStepType::EntityUpdate => gurih_ir::ActionStepType::EntityUpdate,
+                    ast::ActionStepType::EntityCreate => gurih_ir::ActionStepType::EntityCreate,
                 },
                 target: s.target.as_str().into(),
                 args: s.args.clone(),
@@ -437,10 +437,10 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 }
                 Ok(RouteSchema {
                     verb: match r.verb {
-                        ast::RouteVerb::Get => "GET".to_string(),
-                        ast::RouteVerb::Post => "POST".to_string(),
-                        ast::RouteVerb::Put => "PUT".to_string(),
-                        ast::RouteVerb::Delete => "DELETE".to_string(),
+                        ast::RouteVerb::Get => gurih_ir::RouteVerb::Get,
+                        ast::RouteVerb::Post => gurih_ir::RouteVerb::Post,
+                        ast::RouteVerb::Put => gurih_ir::RouteVerb::Put,
+                        ast::RouteVerb::Delete => gurih_ir::RouteVerb::Delete,
                     },
                     path: r.path.clone(),
                     action: r.action.as_str().into(),
@@ -455,7 +455,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     children.push(process_route_node(child, valid_targets, src)?);
                 }
                 Ok(RouteSchema {
-                    verb: "ALL".to_string(),
+                    verb: gurih_ir::RouteVerb::All,
                     path: g.path.clone(),
                     action: Symbol::from(""),
                     layout: g.layout.as_ref().map(|l| l.as_str().into()),
@@ -492,8 +492,8 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             StorageSchema {
                 name: storage_def.name.as_str().into(),
                 driver: match &storage_def.driver {
-                    ast::StorageDriver::S3 => "s3".to_string(),
-                    ast::StorageDriver::Local => "local".to_string(),
+                    ast::StorageDriver::S3 => gurih_ir::StorageDriver::S3,
+                    ast::StorageDriver::Local => gurih_ir::StorageDriver::Local,
                 },
                 location: storage_def.location.clone(),
                 props: storage_def.props.clone(),

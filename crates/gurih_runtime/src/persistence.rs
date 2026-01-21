@@ -499,7 +499,7 @@ impl SchemaManager {
 
         // Process Relationships (belongs_to -> foreign key column)
         for rel in &entity.relationships {
-            if rel.rel_type == "belongs_to" {
+            if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
                 let col_name = format!("{}_id", rel.name);
                 if !entity.fields.iter().any(|f| f.name == Symbol::from(col_name.as_str())) {
                     let def = format!("\"{}\" TEXT", col_name);

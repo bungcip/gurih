@@ -101,27 +101,32 @@ pub struct QueryJoin {
     pub joins: Vec<QueryJoin>,
 }
 
-// ... existing code ...
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_serialization() {
-        // ... (simplified test)
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseSchema {
-    pub db_type: String,
+    pub db_type: DatabaseType,
     pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DatabaseType {
+    Postgres,
+    Sqlite,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageSchema {
     pub name: Symbol,
-    pub driver: String,
+    pub driver: StorageDriver,
     pub location: Option<String>,
     pub props: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum StorageDriver {
+    S3,
+    Local,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -158,7 +163,15 @@ pub struct ColumnSchema {
 pub struct RelationshipSchema {
     pub name: Symbol,
     pub target_entity: Symbol,
-    pub rel_type: String, // belongs_to, has_many, has_one
+    pub rel_type: RelationshipType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RelationshipType {
+    BelongsTo,
+    HasMany,
+    HasOne,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -253,7 +266,7 @@ pub struct MenuItemSchema {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RouteSchema {
-    pub verb: String,
+    pub verb: RouteVerb,
     pub path: String,
     pub action: Symbol,
     pub layout: Option<Symbol>,
@@ -261,11 +274,21 @@ pub struct RouteSchema {
     pub children: Vec<RouteSchema>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum RouteVerb {
+    Get,
+    Post,
+    Put,
+    Delete,
+    All,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionSchema {
     pub label: String,
     pub to: Option<Symbol>,
-    pub method: Option<String>,
+    pub method: Option<RouteVerb>,
     pub icon: Option<String>,
     pub variant: Option<String>,
 }
@@ -279,9 +302,17 @@ pub struct ActionLogic {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionStep {
-    pub step_type: String,
+    pub step_type: ActionStepType,
     pub target: Symbol,
     pub args: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ActionStepType {
+    EntityDelete,
+    EntityUpdate,
+    EntityCreate,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -294,10 +325,19 @@ pub struct DashboardSchema {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WidgetSchema {
     pub name: Symbol,
-    pub widget_type: String,
+    pub widget_type: WidgetType,
     pub label: Option<String>,
     pub value: Option<String>,
     pub icon: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum WidgetType {
+    Stat,
+    Chart,
+    List,
+    Pie,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

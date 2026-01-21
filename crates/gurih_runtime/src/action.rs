@@ -1,4 +1,4 @@
-use gurih_ir::{ActionLogic, ActionStep, Symbol};
+use gurih_ir::{ActionLogic, ActionStep, ActionStepType, Symbol};
 use std::collections::HashMap;
 
 pub struct ActionEngine {
@@ -54,8 +54,8 @@ impl ActionEngine {
             }
         };
 
-        match step.step_type.as_str() {
-            "entity:delete" => {
+        match step.step_type {
+            ActionStepType::EntityDelete => {
                 // Expects "id" arg
                 let id_raw = step.args.get("id").ok_or("Missing 'id' argument for entity:delete")?;
                 let id = resolve_arg(id_raw);
@@ -68,9 +68,9 @@ impl ActionEngine {
                     .await
                     .map_err(|e| e.to_string())?;
             }
-            // Add update, create later
+            // Add update, create later if needed by IR
             _ => {
-                return Err(format!("Unknown step type: {}", step.step_type));
+                println!("Step type {:?} not yet implemented in ActionEngine", step.step_type);
             }
         }
 

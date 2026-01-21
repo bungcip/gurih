@@ -132,7 +132,7 @@ impl FormEngine {
 
         // Add relationship fields
         for rel in &entity.relationships {
-            if rel.rel_type == "belongs_to" {
+            if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
                 ui_fields.push(json!({
                     "name": format!("{}_id", rel.name.to_string().to_lowercase()),
                     "label": to_title_case(&rel.name.to_string()),
