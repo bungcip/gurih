@@ -36,10 +36,21 @@ const emit = defineEmits(['update:modelValue'])
 
 const displayValue = ref('')
 
+function parseCurrency(value) {
+  if (value === null || value === undefined || value === '') return 0;
+  if (typeof value === 'number') return value;
+  
+  const cleanValue = props.decimals > 0 
+    ? value.replace(/[^0-9,-]+/g, '').replace(',', '.') 
+    : value.replace(/[^0-9-]+/g, '');
+    
+  return parseFloat(cleanValue) || 0;
+}
+
 function formatCurrency(value) {
   if (value === null || value === undefined || value === '') return ''
   
-  const number = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]+/g, '')) : value
+  const number = typeof value === 'string' ? parseCurrency(value) : value
   if (isNaN(number)) return ''
 
   return new Intl.NumberFormat('id-ID', {
@@ -50,17 +61,12 @@ function formatCurrency(value) {
 }
 
 function updateValue(event) {
-  const input = event.target.value
-  // Remove all non-numeric characters except decimal point and minus sign
-  const numericString = input.replace(/[^0-9.-]+/g, '')
-  const numericValue = numericString === '' ? 0 : parseFloat(numericString)
-  
-  displayValue.value = formatCurrency(numericValue)
+  const numericValue = parseCurrency(event.target.value)
   emit('update:modelValue', numericValue)
 }
 
 watch(() => props.modelValue, (newVal) => {
-  const currentNumeric = parseFloat(displayValue.value.replace(/[^0-9.-]+/g, ''))
+  const currentNumeric = parseCurrency(displayValue.value)
   if (newVal !== currentNumeric) {
     displayValue.value = formatCurrency(newVal)
   }

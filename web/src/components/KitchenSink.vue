@@ -44,7 +44,11 @@ const options = [
 const radioValue = ref(1)
 const switchValue = ref(false)
 const activeTab = ref(0)
-const tabItems = ['Account', 'Password', 'Notifications']
+const tabItems = [
+    { label: 'Account', badge: 5 },
+    { label: 'Security' },
+    { label: 'Notifications', badge: 12 }
+]
 
 const timelineItems = [
   {
@@ -173,6 +177,14 @@ function toggleLoading() {
                 <Button variant="ghost">Ghost</Button>
                 <Button variant="primary" :loading="true">Loading</Button>
                 <Button variant="primary" disabled>Disabled</Button>
+            </div>
+            
+            <div class="flex flex-wrap gap-4 pt-4 border-t border-gray-100">
+                <Button variant="primary" icon="lucide:plus">Add Item</Button>
+                <Button variant="outline" icon="lucide:settings">Settings</Button>
+                <Button variant="danger" icon="lucide:trash-2" iconPosition="right">Delete</Button>
+                <Button variant="secondary" icon="lucide:users">View Users</Button>
+                <Button variant="ghost-primary" icon="lucide:calendar">Pick Date</Button>
             </div>
         </section>
 
