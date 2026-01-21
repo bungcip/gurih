@@ -1,4 +1,4 @@
-use super::Storage;
+use super::DataStore;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use serde_json::Value;
@@ -6,11 +6,11 @@ use sqlx::{Column, PgPool, Row, TypeInfo};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-pub struct PostgresStorage {
+pub struct PostgresDataStore {
     pool: PgPool,
 }
 
-impl PostgresStorage {
+impl PostgresDataStore {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
@@ -56,18 +56,10 @@ impl PostgresStorage {
         }
         Value::Object(map)
     }
-
-    pub async fn query(&self, sql: &str) -> Result<Vec<Arc<Value>>, String> {
-        let rows = sqlx::query(sql)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
-        Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
-    }
 }
 
 #[async_trait]
-impl Storage for PostgresStorage {
+impl DataStore for PostgresDataStore {
     async fn insert(&self, entity: &str, record: Value) -> Result<String, String> {
         let obj = record.as_object().ok_or("Record must be object")?;
         let mut query = format!("INSERT INTO \"{}\" (", entity);
@@ -288,5 +280,13 @@ impl Storage for PostgresStorage {
         }
 
         Ok(results)
+    }
+
+    async fn query(&self, sql: &str) -> Result<Vec<Arc<Value>>, String> {
+        let rows = sqlx::query(sql)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
     }
 }

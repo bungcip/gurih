@@ -1,6 +1,6 @@
 use crate::context::RuntimeContext;
+use crate::datastore::DataStore;
 use crate::query_engine::{QueryEngine, QueryPlan};
-use crate::storage::Storage;
 use crate::workflow::WorkflowEngine;
 use gurih_ir::{FieldType, Schema, Symbol};
 use serde_json::Value;
@@ -8,15 +8,15 @@ use std::sync::Arc;
 
 pub struct DataEngine {
     schema: Arc<Schema>,
-    storage: Arc<dyn Storage>,
+    datastore: Arc<dyn DataStore>,
     workflow: WorkflowEngine,
 }
 
 impl DataEngine {
-    pub fn new(schema: Arc<Schema>, storage: Arc<dyn Storage>) -> Self {
+    pub fn new(schema: Arc<Schema>, datastore: Arc<dyn DataStore>) -> Self {
         Self {
             schema,
-            storage,
+            datastore,
             workflow: WorkflowEngine::new(),
         }
     }
@@ -25,8 +25,8 @@ impl DataEngine {
         &self.schema
     }
 
-    pub fn storage(&self) -> &Arc<dyn Storage> {
-        &self.storage
+    pub fn datastore(&self) -> &Arc<dyn DataStore> {
+        &self.datastore
     }
 
     pub async fn create(&self, entity_name: &str, mut data: Value, _ctx: &RuntimeContext) -> Result<String, String> {
@@ -63,14 +63,14 @@ impl DataEngine {
             return Err("Data must be an object".to_string());
         }
 
-        self.storage.insert(entity_name, data).await
+        self.datastore.insert(entity_name, data).await
     }
 
     pub async fn read(&self, entity_name: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
         if !self.schema.entities.contains_key(&Symbol::from(entity_name)) {
             return Err(format!("Entity '{}' not defined", entity_name));
         }
-        self.storage.get(entity_name, id).await
+        self.datastore.get(entity_name, id).await
     }
 
     pub async fn update(&self, entity_name: &str, id: &str, data: Value, ctx: &RuntimeContext) -> Result<(), String> {
@@ -89,7 +89,7 @@ impl DataEngine {
                 .values()
                 .any(|w| w.entity == Symbol::from(entity_name))
             {
-                let current_record = self.storage.get(entity_name, id).await?.ok_or("Record not found")?;
+                let current_record = self.datastore.get(entity_name, id).await?.ok_or("Record not found")?;
 
                 let current_state = current_record.get("state").and_then(|v| v.as_str()).unwrap_or(""); // Assume empty state if missing
 
@@ -119,14 +119,14 @@ impl DataEngine {
             }
         }
 
-        self.storage.update(entity_name, id, data).await
+        self.datastore.update(entity_name, id, data).await
     }
 
     pub async fn delete(&self, entity_name: &str, id: &str) -> Result<(), String> {
         if !self.schema.entities.contains_key(&Symbol::from(entity_name)) {
             return Err(format!("Entity '{}' not defined", entity_name));
         }
-        self.storage.delete(entity_name, id).await
+        self.datastore.delete(entity_name, id).await
     }
 
     pub async fn list(
@@ -144,7 +144,7 @@ impl DataEngine {
                 if let Some(o) = offset {
                     sql.push_str(&format!(" OFFSET {}", o));
                 }
-                return self.storage.query(&sql).await;
+                return self.datastore.query(&sql).await;
             }
             return Err("Query engine failed to produce SQL plan".to_string());
         }
@@ -152,7 +152,7 @@ impl DataEngine {
         if !self.schema.entities.contains_key(&Symbol::from(entity)) {
             return Err(format!("Entity or Query '{}' not defined", entity));
         }
-        self.storage.list(entity, limit, offset).await
+        self.datastore.list(entity, limit, offset).await
     }
 }
 

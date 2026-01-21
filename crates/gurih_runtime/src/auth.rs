@@ -1,22 +1,22 @@
 use crate::context::RuntimeContext;
-use crate::storage::Storage;
+use crate::datastore::DataStore;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct AuthEngine {
-    storage: Arc<dyn Storage>,
+    datastore: Arc<dyn DataStore>,
 }
 
 impl AuthEngine {
-    pub fn new(storage: Arc<dyn Storage>) -> Self {
-        Self { storage }
+    pub fn new(datastore: Arc<dyn DataStore>) -> Self {
+        Self { datastore }
     }
 
     pub async fn login(&self, username: &str, password: &str) -> Result<RuntimeContext, String> {
         let mut filters = HashMap::new();
         filters.insert("username".to_string(), username.to_string());
 
-        let users = self.storage.find("User", filters).await?;
+        let users = self.datastore.find("User", filters).await?;
         if users.is_empty() {
             return Err("Invalid username or password".to_string());
         }

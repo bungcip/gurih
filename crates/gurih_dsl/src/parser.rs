@@ -82,7 +82,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
                     });
                 }
             }
-            "database" => ast.database = Some(parse_database(node, src)?),
+            "database" | "persistence" | "datastore" => ast.database = Some(parse_database(node, src)?),
             "icons" => ast.icons.extend(parse_icons(node, src)?),
             "layout" => ast.layouts.push(parse_layout(node, src)?),
             "module" => ast.modules.push(parse_module(node, src)?),

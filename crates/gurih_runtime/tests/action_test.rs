@@ -2,7 +2,7 @@ use gurih_ir::{ActionLogic, ActionStep, EntitySchema, FieldSchema, FieldType, Sc
 use gurih_runtime::action::ActionEngine;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
-use gurih_runtime::storage::MemoryStorage;
+use gurih_runtime::datastore::MemoryDataStore;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -77,8 +77,8 @@ async fn test_action_execution_delete() {
     let schema_arc = Arc::new(schema);
 
     // 3. Setup Engines
-    let storage = Arc::new(MemoryStorage::new());
-    let data_engine = DataEngine::new(schema_arc.clone(), storage.clone());
+    let datastore = Arc::new(MemoryDataStore::new());
+    let data_engine = DataEngine::new(schema_arc.clone(), datastore.clone());
     let action_engine = ActionEngine::new(actions);
 
     // 4. Pre-populate Data

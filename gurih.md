@@ -9,9 +9,14 @@ Every GurihERP project starts with global settings.
 name "GurihERP"
 version "0.1.0"
 
-database {
+persistence { // Alias: database, datastore
     type "postgres" // or "sqlite"
     url "env:DATABASE_URL"
+}
+
+storage "default" {
+    driver "local"
+    location "./storage"
 }
 
 icons {
@@ -70,7 +75,26 @@ table "products" {
 - `field:string`: String pendek biasa.
 - `field:text`: Penjelasan panjang biasa (textarea).
 - `field:image`: Gambar biasa.
-- `field:file`: File biasa.
+- `field:file`: File biasa (requires `storage` property).
+
+### 3.2.1 Storage vs Persistence
+GurihERP distinguishes between **Persistence** (data stored in a database) and **Storage** (files or documents stored in a file system or S3).
+
+- **Persistence/DataStore**: Where your entities and their fields are stored. Configured using `persistence { ... }`.
+- **Storage**: Where files (images, documents) are stored. Configured using `storage "name" { ... }`.
+
+Example:
+```kdl
+storage "s3_public" {
+    driver "s3"
+    props bucket="my-bucket" region="us-east-1"
+}
+
+entity "User" {
+    field:pk id
+    field:avatar "photo" storage="s3_public"
+}
+```
 
 > [!TIP]
 > You can use `nullable=#true` to explicitly mark a field as optional (which translates to `required=false`). By default, fields are optional unless `required=#true` is set.

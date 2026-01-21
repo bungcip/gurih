@@ -13,11 +13,11 @@ use gurih_runtime::action::ActionEngine;
 use gurih_runtime::auth::AuthEngine;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
+use gurih_runtime::datastore::{DataStore, DatabaseDataStore, MemoryDataStore};
 use gurih_runtime::form::FormEngine;
 use gurih_runtime::page::PageEngine;
 use gurih_runtime::persistence::SchemaManager;
 use gurih_runtime::portal::PortalEngine;
-use gurih_runtime::storage::{DatabaseStorage, MemoryStorage, Storage}; // Changed
 use gurih_runtime::store::DbPool;
 use notify::{RecursiveMode, Watcher};
 use serde_json::Value;
@@ -74,7 +74,7 @@ struct AppState {
     data_engine: Arc<DataEngine>,
     action_engine: Arc<ActionEngine>,
     auth_engine: Arc<AuthEngine>,
-    storage_engine: Arc<gurih_runtime::storage_engine::StorageEngine>,
+    storage_engine: Arc<gurih_runtime::storage::StorageEngine>,
 }
 
 #[tokio::main]
@@ -253,8 +253,8 @@ async fn start_server(
             println!("✔ Schema loaded. Starting runtime...");
             let schema = Arc::new(schema);
 
-            // Initialize Storage
-            let storage: Arc<dyn Storage> = if let Some(db_config) = &schema.database {
+            // Initialize DataStore
+            let datastore: Arc<dyn DataStore> = if let Some(db_config) = &schema.database {
                 sqlx::any::install_default_drivers();
                 println!("🔌 Connecting to database...");
                 // Handle env:DATABASE_URL
@@ -298,14 +298,14 @@ async fn start_server(
                 let manager = SchemaManager::new(pool.clone(), schema.clone(), format!("{:?}", db_config.db_type));
                 manager.migrate().await.expect("Migration failed");
 
-                Arc::new(DatabaseStorage::new(pool))
+                Arc::new(DatabaseDataStore::new(pool))
             } else {
-                println!("⚠️ No database configured. Using in-memory storage.");
-                Arc::new(MemoryStorage::new())
+                println!("⚠️ No database configured. Using in-memory datastore.");
+                Arc::new(MemoryDataStore::new())
             };
 
-            let engine = Arc::new(DataEngine::new(schema.clone(), storage.clone()));
-            let auth_engine = Arc::new(AuthEngine::new(storage));
+            let engine = Arc::new(DataEngine::new(schema.clone(), datastore.clone()));
+            let auth_engine = Arc::new(AuthEngine::new(datastore));
 
             println!("Runtime initialized with {} entities.", schema.entities.len());
 
@@ -381,8 +381,8 @@ async fn start_server(
             // Initialize Action Engine
             let action_engine = Arc::new(ActionEngine::new(schema.actions.clone()));
 
-            // Initialize Storage Engine
-            let storage_engine = Arc::new(gurih_runtime::storage_engine::StorageEngine::new(&schema.storages).await);
+            // Initialize Storage Engine (File Storage)
+            let storage_engine = Arc::new(gurih_runtime::storage::StorageEngine::new(&schema.storages).await);
 
             let mut app = Router::new()
                 .route("/api/auth/login", post(login_handler))
@@ -730,7 +730,7 @@ async fn get_form_config(State(state): State<AppState>, Path(entity): Path<Strin
 async fn get_dashboard_data(State(state): State<AppState>, Path(name): Path<String>) -> impl IntoResponse {
     let engine = gurih_runtime::dashboard::DashboardEngine::new();
     match engine
-        .evaluate(state.data_engine.get_schema(), &name, state.data_engine.storage())
+        .evaluate(state.data_engine.get_schema(), &name, state.data_engine.datastore())
         .await
     {
         Ok(config) => (StatusCode::OK, Json(config)).into_response(),

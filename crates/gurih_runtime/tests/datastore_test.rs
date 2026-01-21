@@ -1,4 +1,4 @@
-use gurih_runtime::storage::{DatabaseStorage, Storage};
+use gurih_runtime::datastore::{DataStore, DatabaseDataStore};
 use gurih_runtime::store::DbPool;
 use serde_json::json;
 use sqlx::sqlite::SqlitePoolOptions;
@@ -20,14 +20,14 @@ async fn bench_list_large_dataset() {
         .unwrap();
 
     let db_pool = DbPool::Sqlite(pool);
-    let storage = DatabaseStorage::new(db_pool);
-    let storage_arc = Arc::new(storage);
+    let datastore = DatabaseDataStore::new(db_pool);
+    let datastore_arc = Arc::new(datastore);
 
     // Insert 10,000 records
     let n = 10000;
     println!("Inserting {} records...", n);
     for i in 0..n {
-        storage_arc
+        datastore_arc
             .insert(
                 "test_entity",
                 json!({
@@ -42,7 +42,7 @@ async fn bench_list_large_dataset() {
 
     // Measure list all
     let start = Instant::now();
-    let items = storage_arc.list("test_entity", None, None).await.unwrap();
+    let items = datastore_arc.list("test_entity", None, None).await.unwrap();
     let duration = start.elapsed();
 
     println!("List all returned {} items in {:?}", items.len(), duration);
@@ -51,7 +51,7 @@ async fn bench_list_large_dataset() {
 
     // Measure list with limit
     let start_limit = Instant::now();
-    let limit_items = storage_arc.list("test_entity", Some(10), Some(5)).await.unwrap();
+    let limit_items = datastore_arc.list("test_entity", Some(10), Some(5)).await.unwrap();
     let duration_limit = start_limit.elapsed();
 
     println!(

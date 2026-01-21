@@ -1,4 +1,4 @@
-use crate::storage::Storage;
+use crate::datastore::DataStore;
 use gurih_ir::{Schema, Symbol};
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -49,7 +49,7 @@ impl DashboardEngine {
         &self,
         schema: &Schema,
         dashboard_name: &str,
-        storage: &Arc<dyn Storage>,
+        datastore: &Arc<dyn DataStore>,
     ) -> Result<Value, String> {
         let dashboard = schema
             .dashboards
@@ -81,7 +81,7 @@ impl DashboardEngine {
                         }
                     }
 
-                    let count = storage.count(entity, filters).await?;
+                    let count = datastore.count(entity, filters).await?;
                     evaluated_value = json!(count);
                 } else if let Some(rest) = val_str.strip_prefix("group:") {
                     // Parse group:Entity[field]
@@ -94,7 +94,7 @@ impl DashboardEngine {
                     };
 
                     if let Some(field) = group_by {
-                        let results = storage.aggregate(entity, field, HashMap::new()).await?;
+                        let results = datastore.aggregate(entity, field, HashMap::new()).await?;
                         let data: Vec<Value> = results.iter().map(|(k, v)| json!({"label": k, "value": v})).collect();
                         evaluated_value = json!(data);
                     }

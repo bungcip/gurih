@@ -1,306 +1,147 @@
 use async_trait::async_trait;
-use serde_json::Value;
-// use sqlx::any::AnyRow; // Removed
-// use sqlx::{AnyPool, Column, Row, TypeInfo}; // Removed
+use aws_config::meta::region::RegionProviderChain;
+use aws_sdk_s3::{Client, config::Region};
+use gurih_ir::{StorageDriver, StorageSchema, Symbol};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use uuid::Uuid;
+use std::path::Path;
+use std::sync::Arc;
+use tokio::io::AsyncWriteExt;
 
 #[async_trait]
-pub trait Storage: Send + Sync {
-    async fn insert(&self, entity: &str, record: Value) -> Result<String, String>;
-    async fn get(&self, entity: &str, id: &str) -> Result<Option<Arc<Value>>, String>;
-    async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String>;
-    async fn delete(&self, entity: &str, id: &str) -> Result<(), String>;
-    async fn list(&self, entity: &str, limit: Option<usize>, offset: Option<usize>) -> Result<Vec<Arc<Value>>, String>;
-    async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String>;
-    async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String>;
-    async fn aggregate(
-        &self,
-        entity: &str,
-        group_by: &str,
-        filters: HashMap<String, String>,
-    ) -> Result<Vec<(String, i64)>, String>;
-    async fn query(&self, sql: &str) -> Result<Vec<Arc<Value>>, String>;
+pub trait FileDriver: Send + Sync {
+    async fn put(&self, filename: &str, data: &[u8]) -> Result<String, String>;
+    async fn get_url(&self, filename: &str) -> String;
 }
 
-type StorageData = HashMap<String, HashMap<String, Arc<Value>>>;
-
-pub struct MemoryStorage {
-    data: Arc<Mutex<StorageData>>,
+pub struct LocalFileDriver {
+    base_path: String,
+    base_url: String,
 }
 
-impl Default for MemoryStorage {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl MemoryStorage {
-    pub fn new() -> Self {
+impl LocalFileDriver {
+    pub fn new(location: &str) -> Self {
+        std::fs::create_dir_all(location).unwrap_or_default();
         Self {
-            data: Arc::new(Mutex::new(HashMap::new())),
+            base_path: location.to_string(),
+            base_url: "/storage".to_string(),
         }
     }
 }
 
 #[async_trait]
-impl Storage for MemoryStorage {
-    async fn insert(&self, entity: &str, mut record: Value) -> Result<String, String> {
-        let mut data = self.data.lock().unwrap();
-        let table = data.entry(entity.to_string()).or_default();
-
-        let id = Uuid::new_v4().to_string();
-        if let Some(obj) = record.as_object_mut() {
-            obj.insert("id".to_string(), Value::String(id.clone()));
+impl FileDriver for LocalFileDriver {
+    async fn put(&self, filename: &str, data: &[u8]) -> Result<String, String> {
+        let path = Path::new(&self.base_path).join(filename);
+        if let Some(parent) = path.parent() {
+            tokio::fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
         }
+        let mut file = tokio::fs::File::create(&path).await.map_err(|e| e.to_string())?;
+        file.write_all(data).await.map_err(|e| e.to_string())?;
 
-        table.insert(id.clone(), Arc::new(record));
-        Ok(id)
+        Ok(format!("{}/{}", self.base_url, filename))
     }
 
-    async fn get(&self, entity: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
-        let data = self.data.lock().unwrap();
-        if let Some(table) = data.get(entity) {
-            Ok(table.get(id).cloned())
-        } else {
-            Ok(None)
-        }
-    }
-
-    async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String> {
-        let mut data = self.data.lock().unwrap();
-        let table = data.entry(entity.to_string()).or_default();
-
-        if table.contains_key(id) {
-            let mut record = record;
-            if let Some(obj) = record.as_object_mut() {
-                obj.insert("id".to_string(), Value::String(id.to_string()));
-            }
-            table.insert(id.to_string(), Arc::new(record));
-            Ok(())
-        } else {
-            Err("Record not found".to_string())
-        }
-    }
-
-    async fn delete(&self, entity: &str, id: &str) -> Result<(), String> {
-        let mut data = self.data.lock().unwrap();
-        if let Some(table) = data.get_mut(entity) {
-            if table.remove(id).is_some() {
-                Ok(())
-            } else {
-                Err("Record not found".to_string())
-            }
-        } else {
-            Err("Record not found".to_string())
-        }
-    }
-
-    async fn list(&self, entity: &str, limit: Option<usize>, offset: Option<usize>) -> Result<Vec<Arc<Value>>, String> {
-        let data = self.data.lock().unwrap();
-        if let Some(table) = data.get(entity) {
-            let skip = offset.unwrap_or(0);
-            let take = limit.unwrap_or(usize::MAX);
-            Ok(table.values().skip(skip).take(take).cloned().collect())
-        } else {
-            Ok(vec![])
-        }
-    }
-
-    async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
-        let data = self.data.lock().unwrap();
-        if let Some(table) = data.get(entity) {
-            let results: Vec<Arc<Value>> = table
-                .values()
-                .filter(|record| {
-                    for (k, v) in &filters {
-                        if let Some(val) = record.get(k).and_then(|val| val.as_str()) {
-                            if val != v {
-                                return false;
-                            }
-                        } else {
-                            return false;
-                        }
-                    }
-                    true
-                })
-                .cloned()
-                .collect();
-            Ok(results)
-        } else {
-            Ok(vec![])
-        }
-    }
-
-    async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String> {
-        let data = self.data.lock().unwrap();
-        if let Some(table) = data.get(entity) {
-            let count = table
-                .values()
-                .filter(|record| {
-                    for (k, v) in &filters {
-                        if let Some(val) = record.get(k).and_then(|val| val.as_str()) {
-                            if val != v {
-                                return false;
-                            }
-                        } else {
-                            // If field is missing or not a string, for now assume no match
-                            // Ideally handle other types by converting to string
-                            return false;
-                        }
-                    }
-                    true
-                })
-                .count();
-            Ok(count as i64)
-        } else {
-            Ok(0)
-        }
-    }
-
-    async fn aggregate(
-        &self,
-        entity: &str,
-        group_by: &str,
-        filters: HashMap<String, String>,
-    ) -> Result<Vec<(String, i64)>, String> {
-        let data = self.data.lock().unwrap();
-        if let Some(table) = data.get(entity) {
-            let mut groups: HashMap<String, i64> = HashMap::new();
-
-            for record in table.values() {
-                // Filter first
-                let mut match_filter = true;
-                for (k, v) in &filters {
-                    if let Some(val) = record.get(k).and_then(|val| val.as_str()) {
-                        if val != v {
-                            match_filter = false;
-                            break;
-                        }
-                    } else {
-                        match_filter = false;
-                        break;
-                    }
-                }
-                if !match_filter {
-                    continue;
-                }
-
-                // Group
-                let group_key = record
-                    .get(group_by)
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Unknown")
-                    .to_string();
-                *groups.entry(group_key).or_insert(0) += 1;
-            }
-
-            Ok(groups.into_iter().collect())
-        } else {
-            Ok(vec![])
-        }
-    }
-
-    async fn query(&self, _sql: &str) -> Result<Vec<Arc<Value>>, String> {
-        Err("Raw SQL query not supported in MemoryStorage".to_string())
+    async fn get_url(&self, filename: &str) -> String {
+        format!("{}/{}", self.base_url, filename)
     }
 }
 
-use crate::store::postgres::PostgresStorage;
-use crate::store::sqlite::SqliteStorage;
-use crate::store::{DbPool, Storage as BackendStorage};
-
-pub struct DatabaseStorage {
-    pool: DbPool,
-    sqlite: SqliteStorage,
-    postgres: PostgresStorage,
+pub struct S3FileDriver {
+    client: Client,
+    bucket: String,
+    public_url: Option<String>,
 }
 
-impl DatabaseStorage {
-    pub fn new(pool: DbPool) -> Self {
-        match &pool {
-            DbPool::Sqlite(p) => Self {
-                pool: pool.clone(),
-                sqlite: SqliteStorage::new(p.clone()),
-                postgres: PostgresStorage::new(sqlx::PgPool::connect_lazy("postgres://").unwrap()), // Dummy
-            },
-            DbPool::Postgres(p) => Self {
-                pool: pool.clone(),
-                sqlite: SqliteStorage::new(sqlx::SqlitePool::connect_lazy("sqlite::memory:").unwrap()), // Dummy
-                postgres: PostgresStorage::new(p.clone()),
-            },
+impl S3FileDriver {
+    pub async fn new(props: &HashMap<String, String>) -> Self {
+        let region = props.get("region").cloned().unwrap_or_else(|| "us-east-1".to_string());
+        let bucket = props.get("bucket").cloned().expect("Bucket is required for S3");
+        let endpoint = props.get("endpoint").cloned();
+        let access_key = props.get("access_key").cloned();
+        let secret_key = props.get("secret_key").cloned();
+        let public_url = props.get("public_url").cloned();
+
+        let region_provider = RegionProviderChain::first_try(Region::new(region.clone()));
+
+        let mut config_loader = aws_config::defaults(aws_config::BehaviorVersion::latest()).region(region_provider);
+
+        if let Some(endpoint) = endpoint {
+            config_loader = config_loader.endpoint_url(endpoint);
+        }
+
+        if let (Some(ak), Some(sk)) = (access_key, secret_key) {
+            let creds = aws_sdk_s3::config::Credentials::new(ak, sk, None, None, "kdl");
+            config_loader = config_loader.credentials_provider(creds);
+        }
+
+        let config = config_loader.load().await;
+        let client = Client::new(&config);
+
+        Self {
+            client,
+            bucket,
+            public_url,
         }
     }
 }
 
 #[async_trait]
-impl Storage for DatabaseStorage {
-    async fn insert(&self, entity: &str, record: Value) -> Result<String, String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.insert(entity, record).await,
-            DbPool::Postgres(_) => self.postgres.insert(entity, record).await,
-        }
+impl FileDriver for S3FileDriver {
+    async fn put(&self, filename: &str, data: &[u8]) -> Result<String, String> {
+        let body = aws_sdk_s3::primitives::ByteStream::from(data.to_vec());
+        self.client
+            .put_object()
+            .bucket(&self.bucket)
+            .key(filename)
+            .body(body)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        Ok(self.get_url(filename).await)
     }
 
-    async fn get(&self, entity: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.get(entity, id).await,
-            DbPool::Postgres(_) => self.postgres.get(entity, id).await,
+    async fn get_url(&self, filename: &str) -> String {
+        if let Some(base) = &self.public_url {
+            format!("{}/{}", base.trim_end_matches('/'), filename)
+        } else {
+            format!("https://{}.s3.amazonaws.com/{}", self.bucket, filename)
         }
     }
+}
 
-    async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.update(entity, id, record).await,
-            DbPool::Postgres(_) => self.postgres.update(entity, id, record).await,
+pub struct StorageEngine {
+    drivers: HashMap<String, Arc<dyn FileDriver>>,
+}
+
+// ... (existing code for drivers) ...
+
+impl StorageEngine {
+    pub async fn new(configs: &HashMap<Symbol, StorageSchema>) -> Self {
+        let mut drivers = HashMap::new();
+
+        for (name, config) in configs {
+            let driver: Arc<dyn FileDriver> = match config.driver {
+                StorageDriver::Local => {
+                    Arc::new(LocalFileDriver::new(config.location.as_deref().unwrap_or("./storage")))
+                }
+                StorageDriver::S3 => Arc::new(S3FileDriver::new(&config.props).await),
+            };
+            drivers.insert(name.to_string(), driver);
         }
+
+        Self { drivers }
     }
 
-    async fn delete(&self, entity: &str, id: &str) -> Result<(), String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.delete(entity, id).await,
-            DbPool::Postgres(_) => self.postgres.delete(entity, id).await,
-        }
+    pub fn get(&self, name: &str) -> Option<Arc<dyn FileDriver>> {
+        self.drivers.get(name).cloned()
     }
 
-    async fn list(&self, entity: &str, limit: Option<usize>, offset: Option<usize>) -> Result<Vec<Arc<Value>>, String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.list(entity, limit, offset).await,
-            DbPool::Postgres(_) => self.postgres.list(entity, limit, offset).await,
-        }
-    }
-
-    async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.find(entity, filters).await,
-            DbPool::Postgres(_) => self.postgres.find(entity, filters).await,
-        }
-    }
-
-    async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.count(entity, filters).await,
-            DbPool::Postgres(_) => self.postgres.count(entity, filters).await,
-        }
-    }
-
-    async fn aggregate(
-        &self,
-        entity: &str,
-        group_by: &str,
-        filters: HashMap<String, String>,
-    ) -> Result<Vec<(String, i64)>, String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.aggregate(entity, group_by, filters).await,
-            DbPool::Postgres(_) => self.postgres.aggregate(entity, group_by, filters).await,
-        }
-    }
-
-    async fn query(&self, sql: &str) -> Result<Vec<Arc<Value>>, String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.query(sql).await,
-            DbPool::Postgres(_) => self.postgres.query(sql).await,
+    pub async fn upload(&self, storage_name: &str, filename: &str, data: &[u8]) -> Result<String, String> {
+        if let Some(driver) = self.get(storage_name) {
+            driver.put(filename, data).await
+        } else {
+            Err(format!("Storage '{}' not found", storage_name))
         }
     }
 }

@@ -1,4 +1,4 @@
-use super::Storage;
+use super::DataStore;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use serde_json::Value;
@@ -6,11 +6,11 @@ use sqlx::{Column, Row, SqlitePool, TypeInfo};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-pub struct SqliteStorage {
+pub struct SqliteDataStore {
     pool: SqlitePool,
 }
 
-impl SqliteStorage {
+impl SqliteDataStore {
     pub fn new(pool: SqlitePool) -> Self {
         Self { pool }
     }
@@ -58,18 +58,10 @@ impl SqliteStorage {
         }
         Value::Object(map)
     }
-
-    pub async fn query(&self, sql: &str) -> Result<Vec<Arc<Value>>, String> {
-        let rows = sqlx::query(sql)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
-        Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
-    }
 }
 
 #[async_trait]
-impl Storage for SqliteStorage {
+impl DataStore for SqliteDataStore {
     async fn insert(&self, entity: &str, record: Value) -> Result<String, String> {
         let obj = record.as_object().ok_or("Record must be object")?;
 
@@ -303,5 +295,13 @@ impl Storage for SqliteStorage {
         }
 
         Ok(results)
+    }
+
+    async fn query(&self, sql: &str) -> Result<Vec<Arc<Value>>, String> {
+        let rows = sqlx::query(sql)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
     }
 }

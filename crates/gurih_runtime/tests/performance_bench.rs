@@ -1,10 +1,10 @@
-use gurih_runtime::storage::{MemoryStorage, Storage};
+use gurih_runtime::datastore::{DataStore, MemoryDataStore};
 use serde_json::json;
 use std::time::Instant;
 
 #[tokio::test]
 async fn bench_list_performance() {
-    let storage = MemoryStorage::new();
+    let datastore = MemoryDataStore::new();
     let entity = "bench_entity";
     let count = 50000; // Large enough to notice difference
 
@@ -19,12 +19,12 @@ async fn bench_list_performance() {
                 "active": true
             }
         });
-        storage.insert(entity, record).await.unwrap();
+        datastore.insert(entity, record).await.unwrap();
     }
     println!("Seeding complete.");
 
     let start = Instant::now();
-    let items = storage.list(entity, None, None).await.unwrap();
+    let items = datastore.list(entity, None, None).await.unwrap();
     let duration = start.elapsed();
 
     println!("BENCH_RESULT: List {} items took: {:?}", items.len(), duration);
