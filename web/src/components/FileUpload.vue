@@ -29,6 +29,10 @@ const props = defineProps({
   disabled: {
     type: Boolean,
     default: false
+  },
+  id: {
+    type: String,
+    default: null
   }
 })
 
@@ -124,7 +128,8 @@ function getPreviewUrl(file) {
 
 <template>
   <div class="w-full space-y-2">
-    <label v-if="label" class="block text-sm font-medium text-gray-700">
+    <!-- Note: If parent provides label via prop, we use it here. If parent provides label via slot/outside, it should use 'for' pointing to this ID. -->
+    <label v-if="label" :for="id" class="block text-sm font-medium text-gray-700">
         {{ label }}
     </label>
 
@@ -139,8 +144,15 @@ function getPreviewUrl(file) {
         @dragover.prevent
         @drop.prevent="onDrop"
         @click="!disabled && fileInput.click()"
+        @keydown.enter="!disabled && fileInput.click()"
+        @keydown.space="!disabled && fileInput.click()"
+        tabindex="0"
+        role="button"
+        :aria-label="label ? 'Upload ' + label : 'Upload file'"
+        :aria-disabled="disabled"
     >
         <input
+            :id="id"
             ref="fileInput"
             type="file"
             class="hidden"
@@ -148,6 +160,7 @@ function getPreviewUrl(file) {
             :multiple="multiple"
             :disabled="disabled"
             @change="onChange"
+            tabindex="-1"
         >
         
         <div class="space-y-2 pointer-events-none">
@@ -201,6 +214,7 @@ function getPreviewUrl(file) {
                 @click="removeFile(index)"
                 :disabled="disabled"
                 class="p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Remove file"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />

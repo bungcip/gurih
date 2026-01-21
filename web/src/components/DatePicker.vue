@@ -9,6 +9,10 @@ const props = defineProps({
   required: {
     type: Boolean,
     default: false
+  },
+  id: {
+    type: String,
+    default: null
   }
 })
 
@@ -53,6 +57,7 @@ function showPicker() {
   <div class="space-y-2">
     <div class="relative">
         <input 
+            :id="id"
             ref="inputRef"
             v-model="dateValue" 
             type="date" 
