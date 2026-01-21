@@ -72,16 +72,30 @@ impl SqliteStorage {
 impl Storage for SqliteStorage {
     async fn insert(&self, entity: &str, record: Value) -> Result<String, String> {
         let obj = record.as_object().ok_or("Record must be object")?;
-        let mut query = format!("INSERT INTO \"{}\" (", entity);
-        let mut params = vec![];
-        let mut values_clause = String::from(") VALUES (");
+
+        // Estimate capacity to reduce reallocations
+        // A rough guess: each field adds ~10-20 chars for column name + overhead, and 2-3 chars for value placeholder
+        let estimated_cols = obj.len() * 16;
+        let estimated_vals = obj.len() * 3;
+
+        let mut query = String::with_capacity(30 + entity.len() + estimated_cols + estimated_vals);
+        query.push_str("INSERT INTO \"");
+        query.push_str(entity);
+        query.push_str("\" (");
+
+        let mut values_clause = String::with_capacity(12 + estimated_vals);
+        values_clause.push_str(") VALUES (");
+
+        let mut params = Vec::with_capacity(obj.len());
 
         for (i, (k, v)) in obj.iter().enumerate() {
             if i > 0 {
                 query.push_str(", ");
                 values_clause.push_str(", ");
             }
-            query.push_str(&format!("\"{}\"", k));
+            query.push('"');
+            query.push_str(k);
+            query.push('"');
             values_clause.push('?'); // SQLite uses ?
             params.push(v);
         }
