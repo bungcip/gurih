@@ -141,7 +141,7 @@ impl SchemaManager {
                     let ftype = get_type(k);
                     match ftype {
                         Some(FieldType::Integer) => {
-                            let i = v.parse::<i32>().unwrap_or(0); // Postgres INT usually i32, SERIAL i32/i64
+                            let i = v.parse::<i32>().unwrap_or(0);
                             query = query.bind(i);
                         }
                         Some(FieldType::Boolean) => {
@@ -152,7 +152,6 @@ impl SchemaManager {
                             let f = v.parse::<f64>().unwrap_or(0.0);
                             query = query.bind(f);
                         }
-                        // Date/DateTime handled as string by driver often works if format is ISO
                         _ => {
                             query = query.bind(v.to_string());
                         }
@@ -443,9 +442,24 @@ impl SchemaManager {
 
         for field in &entity.fields {
             let col_type = match &field.field_type {
-                FieldType::String => "TEXT",
-                FieldType::Password => "TEXT",
-                FieldType::Text => "TEXT",
+                FieldType::Pk
+                | FieldType::Serial
+                | FieldType::Sku
+                | FieldType::Name
+                | FieldType::Title
+                | FieldType::Description
+                | FieldType::Avatar
+                | FieldType::Money
+                | FieldType::Email
+                | FieldType::Phone
+                | FieldType::Address
+                | FieldType::Password
+                | FieldType::String
+                | FieldType::Text
+                | FieldType::Image
+                | FieldType::File
+                | FieldType::Relation
+                | FieldType::Enum(_) => "TEXT",
                 FieldType::Integer => {
                     if db_kind == "PostgreSQL" {
                         "INT"
@@ -467,18 +481,14 @@ impl SchemaManager {
                         "INTEGER"
                     }
                 }
-                FieldType::Date => "DATE", // Native DATE now supported by our store logic!
-                FieldType::DateTime => {
+                FieldType::Date => "DATE",
+                FieldType::Timestamp => {
                     if db_kind == "PostgreSQL" {
                         "TIMESTAMP"
                     } else {
                         "TEXT"
                     }
                 }
-                FieldType::Relation => "TEXT",
-                FieldType::Enum(_) => "TEXT",
-                FieldType::Photo => "TEXT",
-                FieldType::File => "TEXT",
             };
 
             let mut def = format!("\"{}\" {}", field.name, col_type);

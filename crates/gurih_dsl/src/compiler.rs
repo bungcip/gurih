@@ -56,6 +56,12 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             let mut fields = vec![];
             let mut field_names = HashMap::new();
 
+            let mut has_pk = false;
+            let mut name_count = 0;
+            let mut title_count = 0;
+            let mut description_count = 0;
+            let mut avatar_count = 0;
+
             for field_def in &entity_def.fields {
                 if field_names.contains_key(&field_def.name) {
                     return Err(CompileError::ValidationError {
@@ -70,6 +76,16 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 field_names.insert(field_def.name.clone(), field_def.span);
 
                 let field_type = parse_field_type(&field_def.type_name, &enums, &field_def.references)?;
+
+                match field_type {
+                    gurih_ir::FieldType::Pk => has_pk = true,
+                    gurih_ir::FieldType::Name => name_count += 1,
+                    gurih_ir::FieldType::Title => title_count += 1,
+                    gurih_ir::FieldType::Description => description_count += 1,
+                    gurih_ir::FieldType::Avatar => avatar_count += 1,
+                    _ => {}
+                }
+
                 fields.push(FieldSchema {
                     name: field_def.name.as_str().into(),
                     field_type,
@@ -81,6 +97,46 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     storage: field_def.storage.as_ref().map(|s| s.as_str().into()),
                     resize: field_def.resize.clone(),
                     filetype: field_def.filetype.clone(),
+                });
+            }
+
+            if !has_pk {
+                return Err(CompileError::ValidationError {
+                    src: src.to_string(),
+                    span: entity_def.span,
+                    message: format!(
+                        "Entity '{}' must have at least one primary key (field:pk)",
+                        entity_def.name
+                    ),
+                });
+            }
+
+            if name_count > 1 {
+                return Err(CompileError::ValidationError {
+                    src: src.to_string(),
+                    span: entity_def.span,
+                    message: format!("Entity '{}' can have at most one field:name", entity_def.name),
+                });
+            }
+            if title_count > 1 {
+                return Err(CompileError::ValidationError {
+                    src: src.to_string(),
+                    span: entity_def.span,
+                    message: format!("Entity '{}' can have at most one field:title", entity_def.name),
+                });
+            }
+            if description_count > 1 {
+                return Err(CompileError::ValidationError {
+                    src: src.to_string(),
+                    span: entity_def.span,
+                    message: format!("Entity '{}' can have at most one field:description", entity_def.name),
+                });
+            }
+            if avatar_count > 1 {
+                return Err(CompileError::ValidationError {
+                    src: src.to_string(),
+                    span: entity_def.span,
+                    message: format!("Entity '{}' can have at most one field:avatar", entity_def.name),
                 });
             }
 
@@ -632,24 +688,29 @@ fn parse_field_type(
     references: &Option<String>,
 ) -> Result<FieldType, CompileError> {
     match field_type {
-        ast::FieldType::String
-        | ast::FieldType::Code
-        | ast::FieldType::Serial
-        | ast::FieldType::Money
-        | ast::FieldType::Email
-        | ast::FieldType::Phone
-        | ast::FieldType::Name
-        | ast::FieldType::Description => Ok(FieldType::String),
-        ast::FieldType::Text => Ok(FieldType::Text),
+        ast::FieldType::Pk => Ok(FieldType::Pk),
+        ast::FieldType::Serial => Ok(FieldType::Serial),
+        ast::FieldType::Sku => Ok(FieldType::Sku),
+        ast::FieldType::Name => Ok(FieldType::Name),
+        ast::FieldType::Title => Ok(FieldType::Title),
+        ast::FieldType::Description => Ok(FieldType::Description),
+        ast::FieldType::Avatar => Ok(FieldType::Avatar),
+        ast::FieldType::Money => Ok(FieldType::Money),
+        ast::FieldType::Email => Ok(FieldType::Email),
+        ast::FieldType::Phone => Ok(FieldType::Phone),
+        ast::FieldType::Address => Ok(FieldType::Address),
+        ast::FieldType::Password => Ok(FieldType::Password),
         ast::FieldType::Integer => Ok(FieldType::Integer),
         ast::FieldType::Float => Ok(FieldType::Float),
-        ast::FieldType::Boolean => Ok(FieldType::Boolean),
         ast::FieldType::Date => Ok(FieldType::Date),
-        ast::FieldType::DateTime => Ok(FieldType::DateTime),
-        ast::FieldType::Password => Ok(FieldType::Password),
-        ast::FieldType::Relation => Ok(FieldType::Relation),
-        ast::FieldType::Photo => Ok(FieldType::Photo),
+        ast::FieldType::Timestamp => Ok(FieldType::Timestamp),
+        ast::FieldType::String => Ok(FieldType::String),
+        ast::FieldType::Text => Ok(FieldType::Text),
+        ast::FieldType::Image => Ok(FieldType::Image),
         ast::FieldType::File => Ok(FieldType::File),
+        ast::FieldType::Relation => Ok(FieldType::Relation),
+        ast::FieldType::Boolean => Ok(FieldType::Boolean),
+        ast::FieldType::Code => Ok(FieldType::String), // Code is semantically string for now
         ast::FieldType::Enum => {
             // For explicit Enum type, references should be set to the enum name.
             let variants = if let Some(ref_name) = references {

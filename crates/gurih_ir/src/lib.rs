@@ -191,19 +191,29 @@ pub struct FieldSchema {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum FieldType {
-    String,
-    Text, // Long string
-    Integer,
-    Float,
-    Boolean,
-    Date,
-    DateTime,
+    Pk,
+    Serial,
+    Sku,
+    Name,
+    Title,
+    Description,
+    Avatar,
+    Money,
+    Email,
+    Phone,
+    Address,
     Password,
     Enum(Vec<Symbol>),
-    Relation, // One-to-One or Many-to-One usually
-    Photo,
+    Integer,
+    Float,
+    Date,
+    Timestamp,
+    String,
+    Text,
+    Image,
     File,
-    // JSON,
+    Relation,
+    Boolean,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

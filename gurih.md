@@ -54,17 +54,23 @@ table "products" {
 `entity` adalah model bisnis utama. Tipe datanya tidak menggunakan istilah teknis (`varchar`, `int`), melainkan menggunakan tipe data yang bermakna bisnis (**Semantic Types**).
 
 **Semantic Types:**
-- `field:pk`: Primary key.
+- `field:pk`: Primary key (minimal ada satu di tiap entity).
 - `field:serial`: Human-readable unique identifier (e.g., INV/2024/001). Usually linked to a `serial_generator`.
 - `field:sku`: Specialized code for inventory/items.
-- `field:name`: Nama orang atau barang.
-- `field:string`: Judul atau label pendek.
-- `field:text`: Penjelasan panjang (textarea).
+- `field:name`: Nama orang atau barang. (hanya boleh ada satu di tiap entity)
+- `field:title`: Judul atau label pendek. (hanya boleh ada satu di tiap entity)
+- `field:description`: Deskripsi atau penjelasan panjang. (hanya boleh ada satu di tiap entity)
+- `field:avatar`: Foto dari entity (hanya boleh ada satu di tiap entity).
 - `field:money`: Nilai mata uang.
-- `field:int` / `field:float`: Angka.
 - `field:email` / `field:phone` / `field:address`: Data kontak.
+- `field:password`: Password.
 - `field:enum`: Keadaan (biasanya merujuk ke Enum).
+- `field:int` / `field:float`: Angka.
 - `field:date` / `field:timestamp`: Waktu.
+- `field:string`: String pendek biasa.
+- `field:text`: Penjelasan panjang biasa (textarea).
+- `field:image`: Gambar biasa.
+- `field:file`: File biasa.
 
 > [!TIP]
 > You can use `nullable=#true` to explicitly mark a field as optional (which translates to `required=false`). By default, fields are optional unless `required=#true` is set.

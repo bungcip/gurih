@@ -3,9 +3,10 @@ source: crates/gurih_dsl/tests/error_snapshots.rs
 expression: s
 ---
 error[validation_error]: Duplicate entity name: Employee
- --> test.kdl:6:5
-  |
-6 | /     entity "Employee" {
-7 | |         string "another_field"
-8 | |     }
-  | |_____^ Duplicate entity name: Employee
+  --> test.kdl:7:5
+   |
+ 7 | /     entity "Employee" {
+ 8 | |         pk "id"
+ 9 | |         string "another_field"
+10 | |     }
+   | |_____^ Duplicate entity name: Employee

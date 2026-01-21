@@ -416,7 +416,8 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                     });
                 }
                 "string" | "text" | "int" | "integer" | "float" | "decimal" | "bool" | "boolean" | "date"
-                | "datetime" | "time" | "money" | "code" | "enum" | "name" | "email" | "phone" | "description" => {
+                | "datetime" | "timestamp" | "time" | "money" | "code" | "enum" | "name" | "email" | "phone"
+                | "description" | "pk" | "serial" | "sku" | "title" | "avatar" | "address" | "image" | "file" => {
                     let type_name = parse_field_type_str(child_name);
                     let field_name = get_arg_string(child, 0, src).unwrap_or(child_name.to_string());
 
@@ -561,25 +562,30 @@ fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
 
 fn parse_field_type_str(s: &str) -> FieldType {
     match s.to_lowercase().as_str() {
-        "string" => FieldType::String,
-        "text" => FieldType::Text,
-        "int" | "integer" => FieldType::Integer,
-        "float" | "decimal" => FieldType::Float,
-        "bool" | "boolean" => FieldType::Boolean,
-        "date" => FieldType::Date,
-        "datetime" => FieldType::DateTime,
-        "password" => FieldType::Password,
-        "relation" => FieldType::Relation,
-        "photo" | "image" => FieldType::Photo,
-        "file" => FieldType::File,
-        "enum" => FieldType::Enum,
+        "pk" => FieldType::Pk,
         "serial" => FieldType::Serial,
-        "code" => FieldType::Code,
+        "sku" => FieldType::Sku,
+        "name" => FieldType::Name,
+        "title" => FieldType::Title,
+        "description" => FieldType::Description,
+        "avatar" => FieldType::Avatar,
         "money" => FieldType::Money,
         "email" => FieldType::Email,
         "phone" => FieldType::Phone,
-        "name" => FieldType::Name,
-        "description" => FieldType::Description,
+        "address" => FieldType::Address,
+        "password" => FieldType::Password,
+        "enum" => FieldType::Enum,
+        "int" | "integer" => FieldType::Integer,
+        "float" | "decimal" => FieldType::Float,
+        "date" => FieldType::Date,
+        "datetime" | "timestamp" => FieldType::Timestamp,
+        "string" => FieldType::String,
+        "text" => FieldType::Text,
+        "image" | "photo" => FieldType::Image,
+        "file" => FieldType::File,
+        "relation" => FieldType::Relation,
+        "bool" | "boolean" => FieldType::Boolean,
+        "code" => FieldType::Code,
         _ => FieldType::Custom(capitalize(s)),
     }
 }

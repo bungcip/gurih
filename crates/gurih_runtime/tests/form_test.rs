@@ -33,7 +33,7 @@ fn test_default_form_label_generation() {
         },
         FieldSchema {
             name: Symbol::from("sync_date"),
-            field_type: FieldType::DateTime,
+            field_type: FieldType::Timestamp,
             required: false,
             unique: false,
             default: None,

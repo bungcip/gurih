@@ -16,6 +16,7 @@ fn test_compile_table_and_database() {
     }
 
     entity "Product" {
+        pk "id"
         field "name" type="String"
     }
     "#;

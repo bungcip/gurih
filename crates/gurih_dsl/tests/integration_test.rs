@@ -5,6 +5,7 @@ use gurih_ir::Symbol;
 fn test_compile_valid_schema() {
     let src = r#"
     entity "Book" {
+        pk "id"
         field "title" type="String" required="true"
         field "author" type="String"
     }
@@ -25,6 +26,7 @@ fn test_compile_valid_schema() {
 fn test_compile_invalid_schema() {
     let src = r#"
     entity "Book" {
+        pk "id"
         field "title" type="UnknownType"
     }
     "#;

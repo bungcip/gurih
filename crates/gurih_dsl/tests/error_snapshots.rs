@@ -5,10 +5,12 @@ use gurih_dsl::diagnostics::{ErrorFormatter, IntoDiagnostic};
 fn test_duplicate_entity_error() {
     let src = r#"
     entity "Employee" {
+        pk "id"
         string "name"
     }
 
     entity "Employee" {
+        pk "id"
         string "another_field"
     }
     "#;
@@ -111,6 +113,7 @@ fn test_route_to_unrecognized_page() {
 fn test_duplicate_field_error() {
     let src = r#"
     entity "User" {
+        pk "id"
         string "email"
         string "email"
     }

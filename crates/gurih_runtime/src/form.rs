@@ -156,18 +156,29 @@ impl FormEngine {
 
     fn map_field_type_to_widget(&self, field_type: &gurih_ir::FieldType) -> String {
         match field_type {
-            gurih_ir::FieldType::String => "TextInput".to_string(),
+            gurih_ir::FieldType::Pk => "TextInput".to_string(),
+            gurih_ir::FieldType::Serial => "TextInput".to_string(),
+            gurih_ir::FieldType::Sku => "TextInput".to_string(),
+            gurih_ir::FieldType::Name => "TextInput".to_string(),
+            gurih_ir::FieldType::Title => "TextInput".to_string(),
+            gurih_ir::FieldType::Description => "TextArea".to_string(),
+            gurih_ir::FieldType::Avatar => "ImageUpload".to_string(),
+            gurih_ir::FieldType::Money => "NumberInput".to_string(),
+            gurih_ir::FieldType::Email => "TextInput".to_string(),
+            gurih_ir::FieldType::Phone => "TextInput".to_string(),
+            gurih_ir::FieldType::Address => "TextArea".to_string(),
             gurih_ir::FieldType::Password => "PasswordInput".to_string(),
-            gurih_ir::FieldType::Text => "TextArea".to_string(),
             gurih_ir::FieldType::Integer => "NumberInput".to_string(),
             gurih_ir::FieldType::Float => "NumberInput".to_string(),
             gurih_ir::FieldType::Boolean => "Checkbox".to_string(),
             gurih_ir::FieldType::Date => "DatePicker".to_string(),
-            gurih_ir::FieldType::DateTime => "DateTimePicker".to_string(),
+            gurih_ir::FieldType::Timestamp => "DateTimePicker".to_string(),
+            gurih_ir::FieldType::String => "TextInput".to_string(),
+            gurih_ir::FieldType::Text => "TextArea".to_string(),
+            gurih_ir::FieldType::Image => "ImageUpload".to_string(),
+            gurih_ir::FieldType::File => "FileUpload".to_string(),
             gurih_ir::FieldType::Enum(_) => "Select".to_string(),
             gurih_ir::FieldType::Relation => "RelationPicker".to_string(),
-            gurih_ir::FieldType::Photo => "ImageUpload".to_string(),
-            gurih_ir::FieldType::File => "FileUpload".to_string(),
         }
     }
 }
