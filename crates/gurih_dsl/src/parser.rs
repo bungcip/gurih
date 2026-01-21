@@ -14,7 +14,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
         layouts: vec![],
         modules: vec![],
         entities: vec![],
-        tables: vec![], // Added
+        tables: vec![],
         enums: vec![],
         serial_generators: vec![],
         workflows: vec![],
@@ -26,7 +26,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
         permissions: vec![],
         actions: vec![],
         storages: vec![],
-        queries: vec![], // Added
+        queries: vec![],
     };
 
     for node in doc.nodes() {
@@ -86,13 +86,13 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
             "layout" => ast.layouts.push(parse_layout(node, src)?),
             "module" => ast.modules.push(parse_module(node, src)?),
             "entity" => ast.entities.push(parse_entity(node, src)?),
-            "table" => ast.tables.push(parse_table(node, src)?), // Added
+            "table" => ast.tables.push(parse_table(node, src)?),
             "enum" => ast.enums.push(parse_enum(node, src)?),
             "serial_generator" => ast.serial_generators.push(parse_serial_generator(node, src)?),
             "workflow" => ast.workflows.push(parse_workflow(node, src)?),
             "dashboard" => ast.dashboards.push(parse_dashboard(node, src)?),
             "page" => ast.pages.push(parse_page(node, src)?),
-            "action" => ast.actions.push(parse_action_logic(node, src)?), // Added
+            "action" => ast.actions.push(parse_action_logic(node, src)?),
             "routes" => ast.routes.push(parse_routes(node, src)?),
             "menu" => ast.menus.push(parse_menu(node, src)?),
             "print" => ast.prints.push(parse_print(node, src)?),
@@ -112,8 +112,6 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
     Ok(ast)
 }
 
-// ... existing code ...
-
 #[allow(clippy::collapsible_if)]
 fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
@@ -126,7 +124,8 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
                 "param" => params.push(get_arg_string(child, 0, src)?),
                 "step" => {
                     // step "entity:delete" target="Position" ...
-                    let step_type = get_arg_string(child, 0, src)?;
+                    let step_type_str = get_arg_string(child, 0, src)?;
+                    let step_type = parse_step_type(&step_type_str);
                     let target = get_prop_string(child, "target", src)?;
                     let mut args = std::collections::HashMap::new();
                     for entry in child.entries() {
@@ -146,7 +145,7 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
                         span: child.span().into(),
                     });
                 }
-                step_type if step_type.starts_with("step:") => {
+                step_type_str if step_type_str.starts_with("step:") => {
                     // e.g. step:entity:delete "Position" id=param("id")
                     // target is arg 0
                     let target = get_arg_string(child, 0, src)?;
@@ -159,7 +158,7 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
                         }
                     }
                     steps.push(ActionStepDef {
-                        step_type: step_type.to_string(),
+                        step_type: parse_step_type(step_type_str.strip_prefix("step:").unwrap_or(step_type_str)),
                         target,
                         args,
                         span: child.span().into(),
@@ -178,14 +177,30 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
     })
 }
 
+fn parse_step_type(s: &str) -> ActionStepType {
+    match s {
+        "entity:delete" => ActionStepType::EntityDelete,
+        "entity:update" => ActionStepType::EntityUpdate,
+        "entity:create" => ActionStepType::EntityCreate,
+        _ => ActionStepType::Custom(s.to_string()),
+    }
+}
+
 fn parse_database(node: &KdlNode, src: &str) -> Result<DatabaseDef, CompileError> {
-    let mut db_type = String::new();
+    let mut db_type = DatabaseType::Unknown("".to_string());
     let mut url = String::new();
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
-                "type" => db_type = get_arg_string(child, 0, src)?,
+                "type" => {
+                    let t = get_arg_string(child, 0, src)?;
+                    db_type = match t.as_str() {
+                        "postgres" => DatabaseType::Postgres,
+                        "sqlite" => DatabaseType::Sqlite,
+                        _ => DatabaseType::Unknown(t),
+                    };
+                }
                 "url" => url = get_arg_string(child, 0, src)?,
                 _ => {}
             }
@@ -203,12 +218,6 @@ fn parse_icons(node: &KdlNode, src: &str) -> Result<Vec<IconDef>, CompileError> 
     let mut icons = vec![];
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            // Icon alias is the node name if quoted? KDL node names can be strings.
-            // But usually KDL is `node "arg"`. DSL ex: `"trash" "lucide:trash"`
-            // Wait, standard KDL `trash "lucide:trash"` is node name "trash".
-            // DSL ex says: `"trash" "lucide:trash-2"`.
-            // If the node name is "trash", then arg 0 is "lucide:trash-2".
-
             let name = child.name().value().to_string();
             let uri = get_arg_string(child, 0, src)?;
             icons.push(IconDef {
@@ -248,10 +257,6 @@ fn parse_layout(node: &KdlNode, src: &str) -> Result<LayoutDef, CompileError> {
 }
 
 fn parse_layout_section(node: &KdlNode, src: &str) -> Result<LayoutSectionDef, CompileError> {
-    // Check if simple `header false` or block `header { ... }`
-    // If it has args and no children, treat as bool/string?
-    // DSL ex: `header false` or `header { search_bar true }`
-
     let enabled = get_arg_bool(node, 0).unwrap_or(true);
 
     let mut props = std::collections::HashMap::new();
@@ -314,22 +319,10 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
             let child_name = child.name().value();
             match child_name {
                 "field" => fields.push(parse_field(child, src)?),
-                // Handle field:<type> syntax
                 name if name.starts_with("field:") => {
-                    let type_part = &name[6..]; // strip "field:"
-                    // We treat this as a field definition where type is explicitly provided in the node name
-                    // parse_field expects "field" node or similar, but let's reuse logic or helper
-
+                    let type_part = &name[6..];
                     let mut field_def = parse_field(child, src)?;
-                    // Override type_name with the one from node name
-                    field_def.type_name = capitalize(type_part);
-
-                    // Special handling for "field:serial" which might carry extra props usually on "code"
-                    if type_part == "serial" {
-                        // field:serial "name" serial_generator="Code"
-                        // parse_field already reads `serial` prop if present
-                    }
-
+                    field_def.type_name = parse_field_type_str(type_part);
                     fields.push(field_def);
                 }
                 "options" => {
@@ -347,9 +340,6 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                 "seed" => {
                     if let Some(rows) = child.children() {
                         for row_node in rows.nodes() {
-                            // Support `row` or `data` or just any node
-                            // Let's assume standard is `row prop="val"` or just `prop="val"` ?
-                            // The plan said: seed { row name="Alice" }
                             if row_node.name().value() == "row" || row_node.name().value() == "data" {
                                 let mut row_data = HashMap::new();
                                 for entry in row_node.entries() {
@@ -379,15 +369,10 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                         _ => unreachable!(),
                     };
 
-                    // has_many "orders" "Order"
-                    // belongs_to "Department" (implies name="department", target="Department")
-
                     let arg0 = get_arg_string(child, 0, src)?;
                     let (name, target) = if let Ok(arg1) = get_arg_string(child, 1, src) {
-                        (arg0, arg1) // name, target
+                        (arg0, arg1)
                     } else {
-                        // Infer name from target
-                        // e.g. target="Department" -> name="department"
                         (arg0.to_lowercase(), arg0.clone())
                     };
 
@@ -398,12 +383,10 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                         span: child.span().into(),
                     });
                 }
-
-                // Semantic types shorthand (Backward compatibility or if user mixes styles)
                 "id" => {
                     fields.push(FieldDef {
                         name: "id".to_string(),
-                        type_name: "Integer".to_string(),
+                        type_name: FieldType::Integer,
                         serial_generator: None,
                         required: true,
                         unique: true,
@@ -417,10 +400,7 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                 }
                 "string" | "text" | "int" | "integer" | "float" | "decimal" | "bool" | "boolean" | "date"
                 | "datetime" | "time" | "money" | "code" | "enum" | "name" | "email" | "phone" | "description" => {
-                    // code "field_name" serial_generator="GenName"
-                    // enum "status" "StatusEnum" default="Draft"
-
-                    let type_name = capitalize(child_name);
+                    let type_name = parse_field_type_str(child_name);
                     let field_name = get_arg_string(child, 0, src).unwrap_or(child_name.to_string());
 
                     let required = get_prop_bool(child, "required").unwrap_or(false);
@@ -428,7 +408,6 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                     let default = get_prop_string(child, "default", src).ok();
                     let serial_generator = get_prop_string(child, "serial_generator", src).ok();
 
-                    // For Enum, the second arg is the enum name
                     let references = if child_name == "enum" {
                         Some(get_arg_string(child, 1, src)?)
                     } else {
@@ -468,7 +447,6 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
     })
 }
 
-// Added Table Parser
 fn parse_table(node: &KdlNode, src: &str) -> Result<TableDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
     let mut columns = vec![];
@@ -495,7 +473,6 @@ fn parse_column(node: &KdlNode, src: &str) -> Result<ColumnDef, CompileError> {
     let unique = get_prop_bool(node, "unique").unwrap_or(false);
 
     let mut props = std::collections::HashMap::new();
-    // collect other props like len, precision
     for entry in node.entries() {
         if let Some(key) = entry.name() {
             let k = key.value();
@@ -521,12 +498,10 @@ fn parse_column(node: &KdlNode, src: &str) -> Result<ColumnDef, CompileError> {
 
 fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
     let name = get_arg_string(node, 0, src).unwrap_or_else(|_| "unknown".to_string());
-    // if type_name is missing, it might come from keys like field:pk
-    // but here we just read explicit type prop/arg or fallback
 
-    let type_name = get_prop_string(node, "type", src).unwrap_or_else(|_| "String".to_string());
+    let type_str = get_prop_string(node, "type", src).unwrap_or_else(|_| "String".to_string());
+    let type_name = parse_field_type_str(&type_str);
 
-    // Check for enum second arg
     let references = if node.name().value() == "enum" || node.name().value() == "field:enum" {
         get_arg_string(node, 1, src)
             .ok()
@@ -538,11 +513,6 @@ fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
     let required_prop = get_prop_bool(node, "required");
     let nullable_prop = get_prop_bool(node, "nullable");
 
-    // Determine required status. explicit nullable overrides default required=false.
-    // If both are present, we prefer 'required' if they agree (req=true, null=false),
-    // otherwise if they conflict, let's favor the explicit 'nullable' request if provided, or just canonical required.
-    // Simpler: If nullable is provided, correct required is !nullable.
-    // If nullable is NOT provided, use required_prop or default false.
     let required = if let Some(n) = nullable_prop {
         !n
     } else {
@@ -552,13 +522,6 @@ fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
     let unique = get_prop_bool(node, "unique").unwrap_or(false);
     let default = get_prop_string(node, "default", src).ok();
     let serial_generator = get_prop_string(node, "serial_generator", src).ok();
-
-    // Special handling for field:pk which usually has "id" as arg 0, but no type
-    // If we call parse_field for field:pk node, we expect type_name to be set by caller usually
-    // But parse_field itself returns a valid FieldDef
-
-    // If name is "unknown" it means missing arg 0.
-    // e.g. field:pk id -> name="id"
 
     let storage = get_prop_string(node, "storage", src).ok();
     let resize = get_prop_string(node, "resize", src).ok();
@@ -579,19 +542,50 @@ fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
     })
 }
 
+fn parse_field_type_str(s: &str) -> FieldType {
+    match s.to_lowercase().as_str() {
+        "string" => FieldType::String,
+        "text" => FieldType::Text,
+        "int" | "integer" => FieldType::Integer,
+        "float" | "decimal" => FieldType::Float,
+        "bool" | "boolean" => FieldType::Boolean,
+        "date" => FieldType::Date,
+        "datetime" => FieldType::DateTime,
+        "password" => FieldType::Password,
+        "relation" => FieldType::Relation,
+        "photo" | "image" => FieldType::Photo,
+        "file" => FieldType::File,
+        "enum" => FieldType::Enum,
+        "serial" => FieldType::Serial,
+        "code" => FieldType::Code,
+        "money" => FieldType::Money,
+        "email" => FieldType::Email,
+        "phone" => FieldType::Phone,
+        "name" => FieldType::Name,
+        "description" => FieldType::Description,
+        _ => FieldType::Custom(capitalize(s)),
+    }
+}
+
 fn parse_storage(node: &KdlNode, src: &str) -> Result<StorageDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
-    let mut driver = String::new();
+    let mut driver = StorageDriver::Unknown("".to_string());
     let mut location = None;
     let mut props = std::collections::HashMap::new();
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
-                "driver" => driver = get_arg_string(child, 0, src)?,
+                "driver" => {
+                    let d = get_arg_string(child, 0, src)?;
+                    driver = match d.as_str() {
+                        "s3" => StorageDriver::S3,
+                        "file" | "local" => StorageDriver::Local,
+                        _ => StorageDriver::Unknown(d),
+                    };
+                }
                 "location" => location = Some(get_arg_string(child, 0, src)?),
                 key => {
-                    // Collect other properties like access_key, secret_key, etc.
                     if let Ok(val) = get_arg_string(child, 0, src) {
                         props.insert(key.to_string(), val);
                     }
@@ -611,7 +605,6 @@ fn parse_storage(node: &KdlNode, src: &str) -> Result<StorageDef, CompileError> 
 
 fn parse_workflow(node: &KdlNode, src: &str) -> Result<WorkflowDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
-    // support 'for' or 'entity'
     let entity = get_prop_string(node, "for", src).or_else(|_| get_prop_string(node, "entity", src))?;
 
     let field = get_prop_string(node, "field", src)?;
@@ -716,13 +709,12 @@ fn parse_section(node: &KdlNode, src: &str) -> Result<FormSectionDef, CompileErr
 }
 
 fn parse_permission(node: &KdlNode, src: &str) -> Result<PermissionDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?; // role "Admin"
+    let name = get_arg_string(node, 0, src)?;
     let mut allows = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             if child.name().value() == "allow" {
-                // allow "resource" "action"
                 let resource = get_arg_string(child, 0, src)?;
                 let actions = get_arg_string(child, 1, src).ok();
 
@@ -744,7 +736,6 @@ fn parse_enum(node: &KdlNode, src: &str) -> Result<EnumDef, CompileError> {
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            // Enum variants are simple nodes, e.g. `Draft`
             variants.push(child.name().value().to_string());
         }
     }
@@ -760,7 +751,7 @@ fn parse_serial_generator(node: &KdlNode, src: &str) -> Result<SerialGeneratorDe
     let name = get_arg_string(node, 0, src)?;
     let mut prefix = None;
     let mut date_format = None;
-    let mut sequence_digits = 4; // default
+    let mut sequence_digits = 4;
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
@@ -796,7 +787,6 @@ fn parse_dashboard(node: &KdlNode, src: &str) -> Result<DashboardDef, CompileErr
             match child.name().value() {
                 "title" => title = get_arg_string(child, 0, src)?,
                 "grid" | "row" => {
-                    // Flatten widgets for now, recursively
                     if let Some(grid_children) = child.children() {
                         for w in grid_children.nodes() {
                             if w.name().value() == "widget" {
@@ -821,7 +811,13 @@ fn parse_dashboard(node: &KdlNode, src: &str) -> Result<DashboardDef, CompileErr
 
 fn parse_widget(node: &KdlNode, src: &str) -> Result<WidgetDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
-    let widget_type = get_prop_string(node, "type", src)?;
+    let widget_type_str = get_prop_string(node, "type", src)?;
+    let widget_type = match widget_type_str.as_str() {
+        "stat" => WidgetType::Stat,
+        "chart" => WidgetType::Chart,
+        "list" => WidgetType::List,
+        _ => WidgetType::Unknown(widget_type_str),
+    };
 
     let mut label = None;
     let mut value = None;
@@ -905,7 +901,14 @@ fn parse_datatable(node: &KdlNode, src: &str) -> Result<DatatableDef, CompileErr
                     let label = get_arg_string(child, 0, src)?;
                     let icon = get_prop_string(child, "icon", src).ok();
                     let to = get_prop_string(child, "to", src).ok();
-                    let method = get_prop_string(child, "method", src).ok();
+                    let method_str = get_prop_string(child, "method", src).ok();
+                    let method = method_str.map(|m| match m.to_uppercase().as_str() {
+                        "GET" => RouteVerb::Get,
+                        "POST" => RouteVerb::Post,
+                        "PUT" => RouteVerb::Put,
+                        "DELETE" => RouteVerb::Delete,
+                        _ => RouteVerb::Get, // Fallback? Or should we handle error? For now default.
+                    });
                     let variant = get_prop_string(child, "variant", src).ok();
 
                     actions.push(ActionDef {
@@ -956,7 +959,7 @@ fn parse_route_node(node: &KdlNode, src: &str) -> Result<RouteNode, CompileError
             };
 
             let path = get_arg_string(node, 0, src)?;
-            let action = get_prop_string(node, "action", src).or_else(|_| get_prop_string(node, "to", src))?; // Support both
+            let action = get_prop_string(node, "action", src).or_else(|_| get_prop_string(node, "to", src))?;
 
             let layout = get_prop_string(node, "layout", src).ok();
             let permission = get_prop_string(node, "permission", src).ok();
