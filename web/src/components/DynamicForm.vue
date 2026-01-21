@@ -162,35 +162,63 @@ onMounted(() => {
                         
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
                             <div v-for="field in section.fields" :key="field.name">
-                                <label class="block text-[13px] font-medium text-gray-500 mb-2">
+                                <label :for="field.name" class="block text-[13px] font-medium text-gray-500 mb-2">
                                     {{ field.label }} 
                                     <span v-if="field.required" class="text-red-500">*</span>
                                 </label>
                                 
                                 <div v-if="field.widget === 'TextInput'">
-                                    <input v-model="formData[field.name]" type="text" class="input-field" :required="field.required">
+                                    <input
+                                        :id="field.name"
+                                        v-model="formData[field.name]"
+                                        type="text"
+                                        class="input-field"
+                                        :required="field.required"
+                                    >
                                 </div>
                                 
                                 <div v-if="field.widget === 'NumberInput'">
-                                    <input v-model.number="formData[field.name]" type="number" class="input-field" :required="field.required">
+                                    <input
+                                        :id="field.name"
+                                        v-model.number="formData[field.name]"
+                                        type="number"
+                                        class="input-field"
+                                        :required="field.required"
+                                    >
                                 </div>
 
                                 <div v-if="field.widget === 'TextArea'">
-                                    <textarea v-model="formData[field.name]" class="input-field min-h-[120px] resize-y" :required="field.required"></textarea>
+                                    <textarea
+                                        :id="field.name"
+                                        v-model="formData[field.name]"
+                                        class="input-field min-h-[120px] resize-y"
+                                        :required="field.required"
+                                    ></textarea>
                                 </div>
 
                                 <div v-if="field.widget === 'DatePicker'">
-                                    <DatePicker v-model="formData[field.name]" :required="field.required" />
+                                    <DatePicker
+                                        :id="field.name"
+                                        v-model="formData[field.name]"
+                                        :required="field.required"
+                                    />
                                 </div>
 
                                 <div v-if="field.widget === 'DateTimePicker'">
-                                    <input v-model="formData[field.name]" type="datetime-local" class="input-field" :required="field.required">
+                                    <input
+                                        :id="field.name"
+                                        v-model="formData[field.name]"
+                                        type="datetime-local"
+                                        class="input-field"
+                                        :required="field.required"
+                                    >
                                 </div>
 
                                 <div v-if="field.widget === 'CurrencyInput'">
                                     <CurrencyInput 
+                                        :id="field.name"
                                         v-model="formData[field.name]" 
-                                        :label="field.label"
+                                        :label="null"
                                         :prefix="field.prefix || 'Rp'"
                                         :decimals="field.decimals ?? 0"
                                         :required="field.required"
@@ -199,8 +227,9 @@ onMounted(() => {
 
                                 <div v-if="field.widget === 'FileUpload'">
                                     <FileUpload 
+                                        :id="field.name"
                                         v-model="formData[field.name]" 
-                                        :label="field.label"
+                                        :label="null"
                                         :required="field.required"
                                         :accept="field.accept"
                                         :multiple="field.multiple"
@@ -209,6 +238,7 @@ onMounted(() => {
 
                                 <div v-if="field.widget === 'Checkbox'" class="flex items-center h-10">
                                     <Switch 
+                                        :id="field.name"
                                         v-model="formData[field.name]" 
                                         label="Enabled"
                                     />
@@ -216,6 +246,7 @@ onMounted(() => {
                                 
                                 <div v-if="field.widget === 'RelationPicker' || field.widget === 'Select'">
                                     <SelectInput 
+                                        :id="field.name"
                                         v-model="formData[field.name]" 
                                         :options="field.options || relationOptions[field.name] || []"
                                         :placeholder="'Select ' + field.label + '...'"

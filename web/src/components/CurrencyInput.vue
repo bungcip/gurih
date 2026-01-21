@@ -25,6 +25,10 @@ const props = defineProps({
   disabled: {
     type: Boolean,
     default: false
+  },
+  id: {
+    type: String,
+    default: null
   }
 })
 
@@ -69,7 +73,8 @@ onMounted(() => {
 
 <template>
   <div class="w-full">
-    <label v-if="label" class="block text-sm font-medium text-gray-700 mb-1">
+    <!-- Label is handled by parent usually if this is part of dynamic form, but it has internal label prop too -->
+    <label v-if="label" :for="id" class="block text-sm font-medium text-gray-700 mb-1">
       {{ label }}
     </label>
     <div class="relative flex items-center">
@@ -77,6 +82,7 @@ onMounted(() => {
         <span class="text-gray-500 sm:text-sm font-medium">{{ prefix }}</span>
       </div>
       <input
+        :id="id"
         type="text"
         :value="displayValue"
         @input="updateValue"

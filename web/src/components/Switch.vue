@@ -7,6 +7,10 @@ const props = defineProps({
   label: {
     type: String,
     default: ''
+  },
+  id: {
+    type: String,
+    default: null
   }
 })
 
@@ -14,9 +18,10 @@ defineEmits(['update:modelValue'])
 </script>
 
 <template>
-  <label class="inline-flex items-center cursor-pointer gap-3">
+  <label class="inline-flex items-center cursor-pointer gap-3" :for="id">
     <div class="relative">
       <input 
+        :id="id"
         type="checkbox" 
         class="sr-only peer" 
         :checked="modelValue" 

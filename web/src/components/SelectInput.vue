@@ -21,6 +21,10 @@ const props = defineProps({
   required: {
     type: Boolean,
     default: false
+  },
+  id: {
+    type: String,
+    default: null
   }
 })
 
@@ -65,9 +69,16 @@ onUnmounted(() => {
 <template>
   <div class="relative" ref="containerRef">
     <div 
+      :id="id"
       @click="toggle"
+      @keydown.enter.prevent="toggle"
+      @keydown.space.prevent="toggle"
       class="input-field flex items-center justify-between cursor-pointer bg-white"
       :class="{'text-gray-500': !isSelected, 'border-primary ring-1 ring-primary/20': isOpen}"
+      tabindex="0"
+      role="combobox"
+      :aria-expanded="isOpen"
+      aria-haspopup="listbox"
     >
       <span class="truncate block">{{ selectedLabel }}</span>
       <svg 
@@ -92,10 +103,13 @@ onUnmounted(() => {
       <div 
         v-if="isOpen" 
         class="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto py-1 focus:outline-none"
+        role="listbox"
       >
         <div 
             v-if="options.length === 0" 
             class="px-4 py-2 text-sm text-gray-500"
+            role="option"
+            aria-disabled="true"
         >
             No options available
         </div>
@@ -103,8 +117,13 @@ onUnmounted(() => {
           v-for="option in options" 
           :key="option.value"
           @click="select(option)"
+          @keydown.enter.prevent="select(option)"
+          @keydown.space.prevent="select(option)"
           class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary cursor-pointer flex items-center justify-between group"
           :class="{'bg-blue-50 text-blue-600 font-medium': option.value === modelValue}"
+          role="option"
+          :aria-selected="option.value === modelValue"
+          tabindex="0"
         >
           <span>{{ option.label }}</span>
           <svg v-if="option.value === modelValue" class="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
