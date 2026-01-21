@@ -35,7 +35,6 @@ pub struct DatabaseDef {
 pub enum DatabaseType {
     Postgres,
     Sqlite,
-    Unknown(String),
 }
 
 #[derive(Debug, Clone)]
@@ -51,7 +50,6 @@ pub struct StorageDef {
 pub enum StorageDriver {
     S3,
     Local,
-    Unknown(String),
 }
 
 #[derive(Debug, Clone)]
@@ -241,7 +239,7 @@ pub enum WidgetType {
     Stat,
     Chart,
     List,
-    Unknown(String),
+    Pie,
 }
 
 #[derive(Debug, Clone)]
@@ -362,7 +360,6 @@ pub enum ActionStepType {
     EntityDelete,
     EntityUpdate,
     EntityCreate,
-    Custom(String),
 }
 
 #[derive(Debug, Clone)]

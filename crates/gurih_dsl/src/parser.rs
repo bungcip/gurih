@@ -1,4 +1,5 @@
 use crate::ast::*;
+use crate::diagnostics::SourceSpan;
 use crate::errors::CompileError;
 use kdl::{KdlDocument, KdlNode};
 use std::collections::HashMap;
@@ -125,7 +126,8 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
                 "step" => {
                     // step "entity:delete" target="Position" ...
                     let step_type_str = get_arg_string(child, 0, src)?;
-                    let step_type = parse_step_type(&step_type_str);
+                    let span = child.span();
+                    let step_type = parse_step_type(&step_type_str, span.into(), src)?;
                     let target = get_prop_string(child, "target", src)?;
                     let mut args = std::collections::HashMap::new();
                     for entry in child.entries() {
@@ -142,7 +144,7 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
                         step_type,
                         target,
                         args,
-                        span: child.span().into(),
+                        span: span.into(),
                     });
                 }
                 step_type_str if step_type_str.starts_with("step:") => {
@@ -157,11 +159,16 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
                             }
                         }
                     }
+                    let span = child.span();
                     steps.push(ActionStepDef {
-                        step_type: parse_step_type(step_type_str.strip_prefix("step:").unwrap_or(step_type_str)),
+                        step_type: parse_step_type(
+                            step_type_str.strip_prefix("step:").unwrap_or(step_type_str),
+                            span.into(),
+                            src,
+                        )?,
                         target,
                         args,
-                        span: child.span().into(),
+                        span: span.into(),
                     });
                 }
                 _ => {}
@@ -177,17 +184,21 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
     })
 }
 
-fn parse_step_type(s: &str) -> ActionStepType {
+fn parse_step_type(s: &str, span: SourceSpan, src: &str) -> Result<ActionStepType, CompileError> {
     match s {
-        "entity:delete" => ActionStepType::EntityDelete,
-        "entity:update" => ActionStepType::EntityUpdate,
-        "entity:create" => ActionStepType::EntityCreate,
-        _ => ActionStepType::Custom(s.to_string()),
+        "entity:delete" => Ok(ActionStepType::EntityDelete),
+        "entity:update" => Ok(ActionStepType::EntityUpdate),
+        "entity:create" => Ok(ActionStepType::EntityCreate),
+        _ => Err(CompileError::ParseError {
+            src: src.to_string(),
+            span: span.into(),
+            message: format!("Unknown action step type: {}", s),
+        }),
     }
 }
 
 fn parse_database(node: &KdlNode, src: &str) -> Result<DatabaseDef, CompileError> {
-    let mut db_type = DatabaseType::Unknown("".to_string());
+    let mut db_type = DatabaseType::Postgres;
     let mut url = String::new();
 
     if let Some(children) = node.children() {
@@ -195,10 +206,16 @@ fn parse_database(node: &KdlNode, src: &str) -> Result<DatabaseDef, CompileError
             match child.name().value() {
                 "type" => {
                     let t = get_arg_string(child, 0, src)?;
-                    db_type = match t.as_str() {
+                    db_type = match t.to_lowercase().as_str() {
                         "postgres" => DatabaseType::Postgres,
                         "sqlite" => DatabaseType::Sqlite,
-                        _ => DatabaseType::Unknown(t),
+                        _ => {
+                            return Err(CompileError::ParseError {
+                                src: src.to_string(),
+                                span: child.span().into(),
+                                message: format!("Unsupported database type: {}", t),
+                            });
+                        }
                     };
                 }
                 "url" => url = get_arg_string(child, 0, src)?,
@@ -569,7 +586,7 @@ fn parse_field_type_str(s: &str) -> FieldType {
 
 fn parse_storage(node: &KdlNode, src: &str) -> Result<StorageDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
-    let mut driver = StorageDriver::Unknown("".to_string());
+    let mut driver = StorageDriver::Local;
     let mut location = None;
     let mut props = std::collections::HashMap::new();
 
@@ -578,10 +595,16 @@ fn parse_storage(node: &KdlNode, src: &str) -> Result<StorageDef, CompileError> 
             match child.name().value() {
                 "driver" => {
                     let d = get_arg_string(child, 0, src)?;
-                    driver = match d.as_str() {
+                    driver = match d.to_lowercase().as_str() {
                         "s3" => StorageDriver::S3,
                         "file" | "local" => StorageDriver::Local,
-                        _ => StorageDriver::Unknown(d),
+                        _ => {
+                            return Err(CompileError::ParseError {
+                                src: src.to_string(),
+                                span: child.span().into(),
+                                message: format!("Unsupported storage driver: {}", d),
+                            });
+                        }
                     };
                 }
                 "location" => location = Some(get_arg_string(child, 0, src)?),
@@ -812,11 +835,18 @@ fn parse_dashboard(node: &KdlNode, src: &str) -> Result<DashboardDef, CompileErr
 fn parse_widget(node: &KdlNode, src: &str) -> Result<WidgetDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
     let widget_type_str = get_prop_string(node, "type", src)?;
-    let widget_type = match widget_type_str.as_str() {
+    let widget_type = match widget_type_str.to_lowercase().as_str() {
         "stat" => WidgetType::Stat,
         "chart" => WidgetType::Chart,
         "list" => WidgetType::List,
-        _ => WidgetType::Unknown(widget_type_str),
+        "pie" => WidgetType::Pie,
+        _ => {
+            return Err(CompileError::ParseError {
+                src: src.to_string(),
+                span: node.span().into(),
+                message: format!("Unsupported widget type: {}", widget_type_str),
+            });
+        }
     };
 
     let mut label = None;
@@ -902,13 +932,22 @@ fn parse_datatable(node: &KdlNode, src: &str) -> Result<DatatableDef, CompileErr
                     let icon = get_prop_string(child, "icon", src).ok();
                     let to = get_prop_string(child, "to", src).ok();
                     let method_str = get_prop_string(child, "method", src).ok();
-                    let method = method_str.map(|m| match m.to_uppercase().as_str() {
-                        "GET" => RouteVerb::Get,
-                        "POST" => RouteVerb::Post,
-                        "PUT" => RouteVerb::Put,
-                        "DELETE" => RouteVerb::Delete,
-                        _ => RouteVerb::Get, // Fallback? Or should we handle error? For now default.
-                    });
+                    let method = match method_str {
+                        Some(m) => match m.to_uppercase().as_str() {
+                            "GET" => Some(RouteVerb::Get),
+                            "POST" => Some(RouteVerb::Post),
+                            "PUT" => Some(RouteVerb::Put),
+                            "DELETE" => Some(RouteVerb::Delete),
+                            _ => {
+                                return Err(CompileError::ParseError {
+                                    src: src.to_string(),
+                                    span: child.span().into(),
+                                    message: format!("Unsupported HTTP method: {}", m),
+                                });
+                            }
+                        },
+                        None => None,
+                    };
                     let variant = get_prop_string(child, "variant", src).ok();
 
                     actions.push(ActionDef {
