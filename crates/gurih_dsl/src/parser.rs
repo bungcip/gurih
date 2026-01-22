@@ -678,11 +678,70 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
     let to = get_prop_string(node, "to", src)?;
     let permission = get_prop_string(node, "permission", src).ok();
 
+    let mut preconditions = vec![];
+    let mut effects = vec![];
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            match child.name().value() {
+                "requires" => {
+                    if let Some(req_children) = child.children() {
+                        for req in req_children.nodes() {
+                            match req.name().value() {
+                                "document" => {
+                                    let doc_name = get_arg_string(req, 0, src)?;
+                                    preconditions.push(TransitionPreconditionDef::Document {
+                                        name: doc_name,
+                                        span: req.span().into(),
+                                    });
+                                }
+                                "min_years_of_service" => {
+                                    let years = get_arg_int(req, 0, src)? as u32;
+                                    preconditions.push(TransitionPreconditionDef::MinYearsOfService {
+                                        years,
+                                        span: req.span().into(),
+                                    });
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                "effects" => {
+                    if let Some(eff_children) = child.children() {
+                        for eff in eff_children.nodes() {
+                            match eff.name().value() {
+                                "suspend_payroll" => {
+                                    let suspend = get_arg_bool(eff, 0)?;
+                                    effects.push(TransitionEffectDef::SuspendPayroll {
+                                        active: !suspend,
+                                        span: eff.span().into(),
+                                    });
+                                }
+                                "notify" => {
+                                    let target = get_arg_string(eff, 0, src)?;
+                                    effects.push(TransitionEffectDef::Notify {
+                                        target,
+                                        span: eff.span().into(),
+                                    });
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
     Ok(TransitionDef {
         name,
         from,
         to,
         permission,
+        preconditions,
+        effects,
         span: node.span().into(),
     })
 }
@@ -1282,6 +1341,16 @@ fn get_arg_bool(node: &KdlNode, index: usize) -> Result<bool, CompileError> {
             src: "".to_string(),
             span: node.span().into(),
             message: format!("Missing or invalid bool argument at index {}", index),
+        })
+}
+
+fn get_arg_int(node: &KdlNode, index: usize, src: &str) -> Result<i64, CompileError> {
+    node.entry(index)
+        .and_then(|val| val.value().as_integer().map(|i| i as i64))
+        .ok_or_else(|| CompileError::ParseError {
+            src: src.to_string(),
+            span: node.span().into(),
+            message: format!("Missing or invalid int argument at index {}", index),
         })
 }
 

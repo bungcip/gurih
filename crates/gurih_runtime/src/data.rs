@@ -40,11 +40,18 @@ impl DataEngine {
             .ok_or_else(|| format!("Entity '{}' not defined", entity_name))?;
 
         // Workflow: Set initial state if applicable
-        if let Some(initial_state) = self.workflow.get_initial_state(&self.schema, entity_name)
+        if let Some(wf) = self
+            .schema
+            .workflows
+            .values()
+            .find(|w| w.entity == Symbol::from(entity_name))
             && let Some(obj) = data.as_object_mut()
-            && !obj.contains_key("state")
+            && !obj.contains_key(wf.field.as_str())
         {
-            obj.insert("state".to_string(), Value::String(initial_state));
+            obj.insert(
+                wf.field.to_string(),
+                Value::String(wf.initial_state.to_string()),
+            );
         }
 
         // Validation & Transformation (Hashing)
@@ -87,22 +94,41 @@ impl DataEngine {
             .get(&Symbol::from(entity_name))
             .ok_or_else(|| format!("Entity '{}' not defined", entity_name))?;
 
+        let mut data = data;
+
         // Workflow Transition Check
-        if let Some(new_state) = data.get("state").and_then(|v| v.as_str()) {
-            // We only check if there IS a workflow for this entity
-            if self
-                .schema
-                .workflows
-                .values()
-                .any(|w| w.entity == Symbol::from(entity_name))
-            {
+        if let Some(wf) = self
+            .schema
+            .workflows
+            .values()
+            .find(|w| w.entity == Symbol::from(entity_name))
+        {
+            if let Some(new_state) = data.get(wf.field.as_str()).and_then(|v| v.as_str()) {
                 let current_record = self.datastore.get(entity_name, id).await?.ok_or("Record not found")?;
 
-                let current_state = current_record.get("state").and_then(|v| v.as_str()).unwrap_or(""); // Assume empty state if missing
+                let current_state = current_record
+                    .get(wf.field.as_str())
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(""); // Assume empty state if missing
+
+                // Merge data for validation
+                let mut merged_record = (*current_record).clone();
+                if let Some(target) = merged_record.as_object_mut() {
+                    if let Some(source) = data.as_object() {
+                        for (k, v) in source {
+                            target.insert(k.clone(), v.clone());
+                        }
+                    }
+                }
 
                 // Validate transition logic
-                self.workflow
-                    .validate_transition(&self.schema, entity_name, current_state, new_state)?;
+                self.workflow.validate_transition(
+                    &self.schema,
+                    entity_name,
+                    current_state,
+                    new_state,
+                    &merged_record,
+                )?;
 
                 // Validate permissions for transition
                 if let Some(perm) =
@@ -112,11 +138,32 @@ impl DataEngine {
                 {
                     return Err(format!("Missing permission '{}' for transition", perm));
                 }
+
+                // Apply Side Effects
+                let (updates, notifications) = self.workflow.apply_effects(
+                    &self.schema,
+                    entity_name,
+                    current_state,
+                    new_state,
+                    &merged_record,
+                );
+
+                for notification in notifications {
+                    println!("NOTIFICATION: {}", notification);
+                }
+
+                // Merge updates into data
+                if let Some(obj) = data.as_object_mut() {
+                    if let Value::Object(update_map) = updates {
+                        for (k, v) in update_map {
+                            obj.insert(k, v);
+                        }
+                    }
+                }
             }
         }
 
         // Validation & Transformation (Hashing)
-        let mut data = data;
         if let Some(obj) = data.as_object_mut() {
             for field in &entity_schema.fields {
                 if let Some(val) = obj.get_mut(field.name.as_str()) {

@@ -1438,6 +1438,7 @@ dependencies = [
  "bytes",
  "chrono",
  "gurih_common",
+ "gurih_dsl",
  "gurih_ir",
  "hex",
  "image",

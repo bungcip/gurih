@@ -220,6 +220,7 @@ pub enum FieldType {
 pub struct WorkflowSchema {
     pub name: Symbol,
     pub entity: Symbol,
+    pub field: Symbol,
     pub initial_state: Symbol,
     pub states: Vec<Symbol>,
     pub transitions: Vec<Transition>,
@@ -231,6 +232,22 @@ pub struct Transition {
     pub from: Symbol,
     pub to: Symbol,
     pub required_permission: Option<Symbol>,
+    #[serde(default)]
+    pub preconditions: Vec<TransitionPrecondition>,
+    #[serde(default)]
+    pub effects: Vec<TransitionEffect>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TransitionPrecondition {
+    Document(Symbol),
+    MinYearsOfService(u32),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TransitionEffect {
+    SuspendPayroll(bool),
+    Notify(Symbol),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

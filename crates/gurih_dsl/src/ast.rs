@@ -217,7 +217,21 @@ pub struct TransitionDef {
     pub from: String,
     pub to: String,
     pub permission: Option<String>,
+    pub preconditions: Vec<TransitionPreconditionDef>,
+    pub effects: Vec<TransitionEffectDef>,
     pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone)]
+pub enum TransitionPreconditionDef {
+    Document { name: String, span: SourceSpan },
+    MinYearsOfService { years: u32, span: SourceSpan },
+}
+
+#[derive(Debug, Clone)]
+pub enum TransitionEffectDef {
+    SuspendPayroll { active: bool, span: SourceSpan },
+    Notify { target: String, span: SourceSpan },
 }
 
 #[derive(Debug, Clone)]
