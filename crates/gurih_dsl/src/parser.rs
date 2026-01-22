@@ -697,8 +697,17 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
                                 }
                                 "min_years_of_service" => {
                                     let years = get_arg_int(req, 0, src)? as u32;
+                                    let from_field = get_prop_string(req, "from", src).ok();
                                     preconditions.push(TransitionPreconditionDef::MinYearsOfService {
                                         years,
+                                        from_field,
+                                        span: req.span().into(),
+                                    });
+                                }
+                                "valid_effective_date" => {
+                                    let field = get_arg_string(req, 0, src)?;
+                                    preconditions.push(TransitionPreconditionDef::ValidEffectiveDate {
+                                        field,
                                         span: req.span().into(),
                                     });
                                 }
@@ -722,6 +731,22 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
                                     let target = get_arg_string(eff, 0, src)?;
                                     effects.push(TransitionEffectDef::Notify {
                                         target,
+                                        span: eff.span().into(),
+                                    });
+                                }
+                                "update_rank_eligibility" => {
+                                    let active = get_arg_bool(eff, 0)?;
+                                    effects.push(TransitionEffectDef::UpdateRankEligibility {
+                                        active,
+                                        span: eff.span().into(),
+                                    });
+                                }
+                                "update" => {
+                                    let field = get_arg_string(eff, 0, src)?;
+                                    let value = get_arg_string(eff, 1, src)?;
+                                    effects.push(TransitionEffectDef::UpdateField {
+                                        field,
+                                        value,
                                         span: eff.span().into(),
                                     });
                                 }

@@ -54,20 +54,51 @@ impl WorkflowEngine {
                                 return Err(format!("Missing required document: {}", doc_name));
                             }
                         }
-                        TransitionPrecondition::MinYearsOfService(min_years) => {
+                        TransitionPrecondition::MinYearsOfService { years, from_field } => {
+                            let field_name = from_field
+                                .as_ref()
+                                .map(|s| s.as_str())
+                                .unwrap_or("tmt_cpns");
+
                             let join_date_str = entity_data
-                                .get("tmt_cpns")
-                                .or_else(|| entity_data.get("join_date"))
+                                .get(field_name)
+                                .or_else(|| {
+                                    if from_field.is_none() {
+                                        entity_data.get("join_date")
+                                    } else {
+                                        None
+                                    }
+                                })
                                 .and_then(|v| v.as_str());
 
                             if let Some(date_str) = join_date_str {
-                                if !check_min_years(date_str, *min_years) {
-                                    return Err(format!("Minimum {} years of service required", min_years));
+                                if !check_min_years(date_str, *years) {
+                                    return Err(format!("Minimum {} years of service required", years));
                                 }
                             } else {
-                                return Err(
-                                    "Cannot determine years of service (missing 'tmt_cpns' or 'join_date')".to_string()
-                                );
+                                return Err(format!(
+                                    "Cannot determine years of service (missing '{}')",
+                                    field_name
+                                ));
+                            }
+                        }
+                        TransitionPrecondition::ValidEffectiveDate(field) => {
+                            let date_val = entity_data.get(field.as_str());
+                            match date_val {
+                                Some(Value::String(s)) => {
+                                    if NaiveDate::parse_from_str(s, "%Y-%m-%d").is_err() {
+                                        return Err(format!(
+                                            "Field '{}' must be a valid date (YYYY-MM-DD)",
+                                            field
+                                        ));
+                                    }
+                                }
+                                _ => {
+                                    return Err(format!(
+                                        "Missing or invalid effective date in field '{}'",
+                                        field
+                                    ))
+                                }
                             }
                         }
                     }
@@ -113,6 +144,12 @@ impl WorkflowEngine {
                         }
                         TransitionEffect::Notify(target) => {
                             notifications.push(target.to_string());
+                        }
+                        TransitionEffect::UpdateRankEligibility(active) => {
+                            updates.insert("rank_eligible".to_string(), Value::Bool(*active));
+                        }
+                        TransitionEffect::UpdateField { field, value } => {
+                            updates.insert(field.to_string(), Value::String(value.clone()));
                         }
                     }
                 }

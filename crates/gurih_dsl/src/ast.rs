@@ -224,14 +224,40 @@ pub struct TransitionDef {
 
 #[derive(Debug, Clone)]
 pub enum TransitionPreconditionDef {
-    Document { name: String, span: SourceSpan },
-    MinYearsOfService { years: u32, span: SourceSpan },
+    Document {
+        name: String,
+        span: SourceSpan,
+    },
+    MinYearsOfService {
+        years: u32,
+        from_field: Option<String>,
+        span: SourceSpan,
+    },
+    ValidEffectiveDate {
+        field: String,
+        span: SourceSpan,
+    },
 }
 
 #[derive(Debug, Clone)]
 pub enum TransitionEffectDef {
-    SuspendPayroll { active: bool, span: SourceSpan },
-    Notify { target: String, span: SourceSpan },
+    SuspendPayroll {
+        active: bool,
+        span: SourceSpan,
+    },
+    Notify {
+        target: String,
+        span: SourceSpan,
+    },
+    UpdateRankEligibility {
+        active: bool,
+        span: SourceSpan,
+    },
+    UpdateField {
+        field: String,
+        value: String,
+        span: SourceSpan,
+    },
 }
 
 #[derive(Debug, Clone)]
