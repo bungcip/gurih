@@ -1,0 +1,123 @@
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+enum "JenisCuti" {
+    Cuti_Tahunan
+    Cuti_Sakit
+    Cuti_Melahirkan
+    Cuti_Besar
+    Cuti_Alasan_Penting
+    Cuti_Di_Luar_Tanggungan_Negara
+}
+
+enum "StatusCuti" {
+    Draft
+    Diajukan
+    Disetujui
+    Ditolak
+    Dibatalkan
+}
+
+// -----------------------------------------------------------------------------
+// MODULE: CUTI
+// -----------------------------------------------------------------------------
+module "Cuti" {
+
+    entity "PengajuanCuti" {
+        field:pk id
+        belongs_to "Pegawai"
+
+        field:enum "jenis_cuti" "JenisCuti"
+        field:date "tgl_mulai"
+        field:date "tgl_selesai"
+        field:text "alasan"
+        field:enum "status" "StatusCuti" default="Draft"
+        field:text "catatan_atasan" required=#false
+
+        options {
+            is_submittable #true
+            track_changes #true
+        }
+    }
+
+    workflow "AlurCuti" for="PengajuanCuti" field="status" {
+        state "Draft" initial="true"
+        state "Diajukan"
+        state "Disetujui"
+        state "Ditolak"
+        state "Dibatalkan"
+
+        transition "ajukan" {
+            from "Draft"
+            to "Diajukan"
+        }
+
+        transition "setujui" {
+            from "Diajukan"
+            to "Disetujui"
+        }
+
+        transition "tolak" {
+            from "Diajukan"
+            to "Ditolak"
+        }
+
+        transition "batalkan" {
+            from "Draft" "Diajukan"
+            to "Dibatalkan"
+        }
+    }
+
+    action "DeletePengajuanCuti" {
+        params "id"
+        step "entity:delete" target="PengajuanCuti" id="param(\"id\")"
+    }
+}
+
+// -----------------------------------------------------------------------------
+// QUERIES
+// -----------------------------------------------------------------------------
+query:flat "PengajuanCutiQuery" for="PengajuanCuti" {
+    select "id"
+    select "jenis_cuti"
+    select "tgl_mulai"
+    select "tgl_selesai"
+    select "status"
+
+    join "Pegawai" {
+        select "nama" as="nama_pegawai"
+    }
+}
+
+// -----------------------------------------------------------------------------
+// UI PAGES: CUTI
+// -----------------------------------------------------------------------------
+page "DaftarCuti" {
+    title "Daftar Pengajuan Cuti"
+    datatable for="PengajuanCuti" query="PengajuanCutiQuery" {
+        column "nama_pegawai" label="Nama Pegawai"
+        column "jenis_cuti" label="Jenis"
+        column "tgl_mulai" label="Mulai"
+        column "tgl_selesai" label="Selesai"
+        column "status" label="Status"
+
+        action "Review" icon="check" to="/cuti/pengajuan/:id"
+    }
+}
+
+page "FormCuti" {
+    title "Form Pengajuan Cuti"
+    form for="PengajuanCuti" {
+        section "Detail Pengajuan" {
+            field "pegawai"
+            field "jenis_cuti"
+            field "tgl_mulai"
+            field "tgl_selesai"
+            field "alasan"
+        }
+        section "Status" {
+            field "status"
+            field "catatan_atasan"
+        }
+    }
+}

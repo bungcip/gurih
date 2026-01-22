@@ -1,0 +1,222 @@
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+enum "JenisJabatan" {
+    Struktural
+    Fungsional
+    Pelaksana
+}
+
+enum "Agama" {
+    Islam
+    Kristen
+    Katolik
+    Hindu
+    Buddha
+    Konghucu
+    Lainnya
+}
+
+enum "JenisKelamin" {
+    Laki_Laki
+    Perempuan
+}
+
+// -----------------------------------------------------------------------------
+// MODULE: MASTER DATA
+// -----------------------------------------------------------------------------
+module "MasterData" {
+
+    // --- GOLONGAN ---
+    entity "Golongan" {
+        field:pk id
+        field:name "nama" unique=#true // e.g. III/a
+        field:string "pangkat"         // e.g. Penata Muda
+        field:integer "level"          // e.g. 31 (for sorting)
+
+        has_many "pegawai" "Pegawai"
+    }
+
+    // --- JABATAN ---
+    entity "Jabatan" {
+        field:pk id
+        field:name "nama" unique=#true
+        field:enum "jenis" "JenisJabatan"
+        field:string "eselon" required=#false
+        field:money "tunjangan"
+
+        has_many "pegawai" "Pegawai"
+        has_many "riwayat_jabatan" "RiwayatJabatan"
+    }
+
+    // --- UNOR (Unit Organisasi) ---
+    entity "Unor" {
+        field:pk id
+        field:name "nama"
+        belongs_to "Unor" // Parent Unit
+
+        has_many "pegawai" "Pegawai"
+        has_many "sub_unor" "Unor"
+    }
+
+    // --- JENIS PENGHARGAAN ---
+    entity "JenisPenghargaan" {
+        field:pk id
+        field:name "nama" unique=#true // e.g. Satyalancana Karya Satya 10 Tahun
+        field:text "deskripsi"
+
+        has_many "riwayat_penghargaan" "RiwayatPenghargaan"
+
+        seed {
+            row nama="Satyalancana Karya Satya 10 Tahun" deskripsi="Pengabdian 10 Tahun"
+            row nama="Satyalancana Karya Satya 20 Tahun" deskripsi="Pengabdian 20 Tahun"
+            row nama="Satyalancana Karya Satya 30 Tahun" deskripsi="Pengabdian 30 Tahun"
+        }
+    }
+
+    // --- JENIS SERTIFIKASI ---
+    entity "JenisSertifikasi" {
+        field:pk id
+        field:name "nama" unique=#true
+        field:string "kategori" // e.g. Teknis, Manajerial
+
+        has_many "riwayat_sertifikasi" "RiwayatSertifikasi"
+    }
+
+    // --- ACTIONS ---
+    action "DeleteGolongan" {
+        params "id"
+        step "entity:delete" target="Golongan" id="param(\"id\")"
+    }
+    action "DeleteJabatan" {
+        params "id"
+        step "entity:delete" target="Jabatan" id="param(\"id\")"
+    }
+    action "DeleteUnor" {
+        params "id"
+        step "entity:delete" target="Unor" id="param(\"id\")"
+    }
+    action "DeleteJenisPenghargaan" {
+        params "id"
+        step "entity:delete" target="JenisPenghargaan" id="param(\"id\")"
+    }
+    action "DeleteJenisSertifikasi" {
+        params "id"
+        step "entity:delete" target="JenisSertifikasi" id="param(\"id\")"
+    }
+}
+
+// -----------------------------------------------------------------------------
+// UI PAGES: MASTER DATA
+// -----------------------------------------------------------------------------
+
+// --- GOLONGAN UI ---
+page "DaftarGolongan" {
+    title "Master Data Golongan"
+    datatable for="Golongan" {
+        column "nama" label="Golongan"
+        column "pangkat" label="Pangkat"
+        column "level" label="Urutan"
+
+        action "Edit" icon="pencil" to="/master/golongan/:id"
+        action "Hapus" icon="trash" variant="danger" to="/master/golongan/:id" method="DELETE"
+    }
+}
+page "FormGolongan" {
+    title "Form Golongan"
+    form for="Golongan" {
+        section "Data Golongan" {
+            field "nama"
+            field "pangkat"
+            field "level"
+        }
+    }
+}
+
+// --- JABATAN UI ---
+page "DaftarJabatan" {
+    title "Master Data Jabatan"
+    datatable for="Jabatan" {
+        column "nama" label="Nama Jabatan"
+        column "jenis" label="Jenis"
+        column "eselon" label="Eselon"
+        column "tunjangan" label="Tunjangan"
+
+        action "Edit" icon="pencil" to="/master/jabatan/:id"
+        action "Hapus" icon="trash" variant="danger" to="/master/jabatan/:id" method="DELETE"
+    }
+}
+page "FormJabatan" {
+    title "Form Jabatan"
+    form for="Jabatan" {
+        section "Data Jabatan" {
+            field "nama"
+            field "jenis"
+            field "eselon"
+            field "tunjangan"
+        }
+    }
+}
+
+// --- UNOR UI ---
+page "DaftarUnor" {
+    title "Master Unit Organisasi"
+    datatable for="Unor" {
+        column "nama" label="Nama Unit"
+        column "unor_id" label="Induk Unit ID" // Displaying ID for now as joining self requires query
+
+        action "Edit" icon="pencil" to="/master/unor/:id"
+        action "Hapus" icon="trash" variant="danger" to="/master/unor/:id" method="DELETE"
+    }
+}
+page "FormUnor" {
+    title "Form Unit Organisasi"
+    form for="Unor" {
+        section "Data Unit" {
+            field "nama"
+            field "unor" // This should render a Select for Parent Unor
+        }
+    }
+}
+
+// --- JENIS PENGHARGAAN UI ---
+page "DaftarJenisPenghargaan" {
+    title "Master Jenis Penghargaan"
+    datatable for="JenisPenghargaan" {
+        column "nama" label="Nama Penghargaan"
+        column "deskripsi"
+
+        action "Edit" icon="pencil" to="/master/penghargaan/:id"
+        action "Hapus" icon="trash" variant="danger" to="/master/penghargaan/:id" method="DELETE"
+    }
+}
+page "FormJenisPenghargaan" {
+    title "Form Jenis Penghargaan"
+    form for="JenisPenghargaan" {
+        section "Data" {
+            field "nama"
+            field "deskripsi"
+        }
+    }
+}
+
+// --- JENIS SERTIFIKASI UI ---
+page "DaftarJenisSertifikasi" {
+    title "Master Jenis Sertifikasi"
+    datatable for="JenisSertifikasi" {
+        column "nama" label="Nama Sertifikasi"
+        column "kategori"
+
+        action "Edit" icon="pencil" to="/master/sertifikasi/:id"
+        action "Hapus" icon="trash" variant="danger" to="/master/sertifikasi/:id" method="DELETE"
+    }
+}
+page "FormJenisSertifikasi" {
+    title "Form Jenis Sertifikasi"
+    form for="JenisSertifikasi" {
+        section "Data" {
+            field "nama"
+            field "kategori"
+        }
+    }
+}

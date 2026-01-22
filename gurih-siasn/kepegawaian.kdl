@@ -1,0 +1,326 @@
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+enum "StatusPegawai" {
+    CPNS
+    PNS
+    PPPK
+    Honorer
+}
+
+// -----------------------------------------------------------------------------
+// MODULE: KEPEGAWAIAN
+// -----------------------------------------------------------------------------
+module "Kepegawaian" {
+
+    // --- PEGAWAI ---
+    entity "Pegawai" {
+        field:pk id
+        field:string "nip" unique=#true
+        field:name "nama"
+        field:string "gelar_depan" required=#false
+        field:string "gelar_belakang" required=#false
+        field:string "tempat_lahir"
+        field:date "tanggal_lahir"
+        field:enum "jenis_kelamin" "JenisKelamin"
+        field:enum "agama" "Agama"
+        field:enum "status_pegawai" "StatusPegawai"
+
+        field:image "foto" required=#false
+
+        // Current Position/Unit (Denormalized or Main Reference)
+        belongs_to "Jabatan"
+        belongs_to "Unor"
+        belongs_to "Golongan"
+
+        has_many "riwayat_jabatan" "RiwayatJabatan"
+        has_many "riwayat_unor" "RiwayatUnor"
+        has_many "riwayat_penghargaan" "RiwayatPenghargaan"
+        has_many "riwayat_sertifikasi" "RiwayatSertifikasi"
+        has_many "riwayat_skp" "RiwayatSKP"
+
+        // For Cuti module
+        has_many "pengajuan_cuti" "PengajuanCuti"
+    }
+
+    // --- RIWAYAT JABATAN ---
+    entity "RiwayatJabatan" {
+        field:pk id
+        belongs_to "Pegawai"
+        belongs_to "Jabatan"
+        field:date "tmt_mulai"
+        field:date "tmt_selesai" required=#false
+        field:string "nomor_sk"
+        field:date "tanggal_sk"
+        field:file "file_sk" required=#false
+    }
+
+    // --- RIWAYAT UNOR ---
+    entity "RiwayatUnor" {
+        field:pk id
+        belongs_to "Pegawai"
+        belongs_to "Unor"
+        field:date "tmt_mulai"
+        field:date "tmt_selesai" required=#false
+        field:string "nomor_sk"
+    }
+
+    // --- RIWAYAT PENGHARGAAN ---
+    entity "RiwayatPenghargaan" {
+        field:pk id
+        belongs_to "Pegawai"
+        belongs_to "JenisPenghargaan"
+        field:integer "tahun"
+        field:string "nomor_sk"
+        field:date "tanggal_sk"
+    }
+
+    // --- RIWAYAT SERTIFIKASI ---
+    entity "RiwayatSertifikasi" {
+        field:pk id
+        belongs_to "Pegawai"
+        belongs_to "JenisSertifikasi"
+        field:string "nama_sertifikasi" // Specific name if needed
+        field:date "tanggal_lulus"
+        field:string "nomor_sertifikat"
+    }
+
+    // --- RIWAYAT SKP ---
+    entity "RiwayatSKP" {
+        field:pk id
+        belongs_to "Pegawai"
+        field:integer "tahun"
+        field:float "nilai"
+        field:string "predikat" // e.g. Sangat Baik, Baik
+    }
+
+    // --- ACTIONS ---
+    action "DeletePegawai" { params "id" step "entity:delete" target="Pegawai" id="param(\"id\")" }
+    action "DeleteRiwayatJabatan" { params "id" step "entity:delete" target="RiwayatJabatan" id="param(\"id\")" }
+    action "DeleteRiwayatUnor" { params "id" step "entity:delete" target="RiwayatUnor" id="param(\"id\")" }
+    action "DeleteRiwayatPenghargaan" { params "id" step "entity:delete" target="RiwayatPenghargaan" id="param(\"id\")" }
+    action "DeleteRiwayatSertifikasi" { params "id" step "entity:delete" target="RiwayatSertifikasi" id="param(\"id\")" }
+    action "DeleteRiwayatSKP" { params "id" step "entity:delete" target="RiwayatSKP" id="param(\"id\")" }
+}
+
+// -----------------------------------------------------------------------------
+// QUERIES
+// -----------------------------------------------------------------------------
+query:flat "PegawaiQuery" for="Pegawai" {
+    select "id"
+    select "nip"
+    select "nama"
+    select "status_pegawai"
+
+    join "Jabatan" { select "nama" as="nama_jabatan" }
+    join "Unor" { select "nama" as="nama_unor" }
+    join "Golongan" { select "nama" as="nama_golongan" }
+}
+
+query:flat "RiwayatJabatanQuery" for="RiwayatJabatan" {
+    select "id"
+    select "tmt_mulai"
+    select "nomor_sk"
+    join "Pegawai" { select "nama" as="nama_pegawai" }
+    join "Jabatan" { select "nama" as="nama_jabatan" }
+}
+
+query:flat "RiwayatUnorQuery" for="RiwayatUnor" {
+    select "id"
+    select "tmt_mulai"
+    join "Pegawai" { select "nama" as="nama_pegawai" }
+    join "Unor" { select "nama" as="nama_unor" }
+}
+
+query:flat "RiwayatPenghargaanQuery" for="RiwayatPenghargaan" {
+    select "id"
+    select "tahun"
+    select "nomor_sk"
+    join "Pegawai" { select "nama" as="nama_pegawai" }
+    join "JenisPenghargaan" { select "nama" as="nama_penghargaan" }
+}
+
+query:flat "RiwayatSertifikasiQuery" for="RiwayatSertifikasi" {
+    select "id"
+    select "tahun"
+    select "nomor_sertifikat"
+    join "Pegawai" { select "nama" as="nama_pegawai" }
+    join "JenisSertifikasi" { select "nama" as="jenis_sertifikasi" }
+}
+
+query:flat "RiwayatSKPQuery" for="RiwayatSKP" {
+    select "id"
+    select "tahun"
+    select "nilai"
+    select "predikat"
+    join "Pegawai" { select "nama" as="nama_pegawai" }
+}
+
+
+// -----------------------------------------------------------------------------
+// UI PAGES: KEPEGAWAIAN
+// -----------------------------------------------------------------------------
+
+// --- PEGAWAI ---
+page "DaftarPegawai" {
+    title "Data Pegawai"
+    datatable for="Pegawai" query="PegawaiQuery" {
+        column "nip" label="NIP"
+        column "nama" label="Nama"
+        column "nama_jabatan" label="Jabatan"
+        column "nama_unor" label="Unit Kerja"
+        column "status_pegawai" label="Status"
+
+        action "Detail" icon="user" to="/kepegawaian/pegawai/:id"
+        action "Hapus" icon="trash" variant="danger" to="/kepegawaian/pegawai/:id" method="DELETE"
+    }
+}
+
+page "FormPegawai" {
+    title "Form Pegawai"
+    form for="Pegawai" {
+        section "Identitas" {
+            field "nip"
+            field "nama"
+            field "gelar_depan"
+            field "gelar_belakang"
+            field "foto"
+        }
+        section "Biodata" {
+            field "tempat_lahir"
+            field "tanggal_lahir"
+            field "jenis_kelamin"
+            field "agama"
+        }
+        section "Kepegawaian" {
+            field "status_pegawai"
+            field "golongan"
+            field "jabatan"
+            field "unor"
+        }
+    }
+}
+
+// --- RIWAYAT LISTS ---
+
+page "DaftarRiwayatJabatan" {
+    title "Riwayat Jabatan"
+    datatable for="RiwayatJabatan" query="RiwayatJabatanQuery" {
+        column "nama_pegawai" label="Pegawai"
+        column "nama_jabatan" label="Jabatan"
+        column "tmt_mulai" label="TMT Mulai"
+
+        action "Edit" icon="pencil" to="/kepegawaian/riwayat-jabatan/:id"
+        action "Hapus" icon="trash" variant="danger" to="/kepegawaian/riwayat-jabatan/:id" method="DELETE"
+    }
+}
+page "FormRiwayatJabatan" {
+    title "Form Riwayat Jabatan"
+    form for="RiwayatJabatan" {
+        section "Data" {
+            field "pegawai"
+            field "jabatan"
+            field "tmt_mulai"
+            field "tmt_selesai"
+            field "nomor_sk"
+            field "tanggal_sk"
+            field "file_sk"
+        }
+    }
+}
+
+page "DaftarRiwayatUnor" {
+    title "Riwayat Unit Organisasi"
+    datatable for="RiwayatUnor" query="RiwayatUnorQuery" {
+        column "nama_pegawai" label="Pegawai"
+        column "nama_unor" label="Unit Kerja"
+        column "tmt_mulai" label="TMT Mulai"
+
+        action "Edit" icon="pencil" to="/kepegawaian/riwayat-unor/:id"
+        action "Hapus" icon="trash" variant="danger" to="/kepegawaian/riwayat-unor/:id" method="DELETE"
+    }
+}
+page "FormRiwayatUnor" {
+    title "Form Riwayat Unor"
+    form for="RiwayatUnor" {
+        section "Data" {
+            field "pegawai"
+            field "unor"
+            field "tmt_mulai"
+            field "tmt_selesai"
+            field "nomor_sk"
+        }
+    }
+}
+
+page "DaftarRiwayatPenghargaan" {
+    title "Riwayat Penghargaan"
+    datatable for="RiwayatPenghargaan" query="RiwayatPenghargaanQuery" {
+        column "nama_pegawai" label="Pegawai"
+        column "nama_penghargaan" label="Penghargaan"
+        column "tahun" label="Tahun"
+
+        action "Edit" icon="pencil" to="/kepegawaian/riwayat-penghargaan/:id"
+        action "Hapus" icon="trash" variant="danger" to="/kepegawaian/riwayat-penghargaan/:id" method="DELETE"
+    }
+}
+page "FormRiwayatPenghargaan" {
+    title "Form Riwayat Penghargaan"
+    form for="RiwayatPenghargaan" {
+        section "Data" {
+            field "pegawai"
+            field "jenis_penghargaan"
+            field "tahun"
+            field "nomor_sk"
+            field "tanggal_sk"
+        }
+    }
+}
+
+page "DaftarRiwayatSertifikasi" {
+    title "Riwayat Sertifikasi"
+    datatable for="RiwayatSertifikasi" query="RiwayatSertifikasiQuery" {
+        column "nama_pegawai" label="Pegawai"
+        column "jenis_sertifikasi" label="Jenis"
+        column "nomor_sertifikat" label="Nomor"
+
+        action "Edit" icon="pencil" to="/kepegawaian/riwayat-sertifikasi/:id"
+        action "Hapus" icon="trash" variant="danger" to="/kepegawaian/riwayat-sertifikasi/:id" method="DELETE"
+    }
+}
+page "FormRiwayatSertifikasi" {
+    title "Form Riwayat Sertifikasi"
+    form for="RiwayatSertifikasi" {
+        section "Data" {
+            field "pegawai"
+            field "jenis_sertifikasi"
+            field "nama_sertifikasi"
+            field "tanggal_lulus"
+            field "nomor_sertifikat"
+        }
+    }
+}
+
+page "DaftarRiwayatSKP" {
+    title "Riwayat SKP"
+    datatable for="RiwayatSKP" query="RiwayatSKPQuery" {
+        column "nama_pegawai" label="Pegawai"
+        column "tahun" label="Tahun"
+        column "nilai" label="Nilai"
+        column "predikat" label="Predikat"
+
+        action "Edit" icon="pencil" to="/kepegawaian/riwayat-skp/:id"
+        action "Hapus" icon="trash" variant="danger" to="/kepegawaian/riwayat-skp/:id" method="DELETE"
+    }
+}
+page "FormRiwayatSKP" {
+    title "Form Riwayat SKP"
+    form for="RiwayatSKP" {
+        section "Data" {
+            field "pegawai"
+            field "tahun"
+            field "nilai"
+            field "predikat"
+        }
+    }
+}
