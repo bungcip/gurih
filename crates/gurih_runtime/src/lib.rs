@@ -4,6 +4,7 @@ pub mod context;
 pub mod dashboard;
 pub mod data;
 pub mod datastore;
+pub mod faker;
 pub mod form;
 pub mod image_processor;
 pub mod page;
