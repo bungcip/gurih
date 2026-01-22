@@ -7,7 +7,7 @@ use gurih_ir::{
     FieldSchema, FieldType, FormSchema, FormSection, LayoutSchema, MenuItemSchema, MenuSchema, PageContentSchema,
     PageSchema, PermissionSchema, PrintSchema, QueryFormula, QueryJoin, QuerySchema, QuerySelection,
     RelationshipSchema, RouteSchema, Schema, SerialGeneratorSchema, StorageSchema, TableSchema, Transition,
-    WidgetSchema, WorkflowSchema,
+    TransitionEffect, TransitionPrecondition, WidgetSchema, WorkflowSchema,
 };
 use std::collections::HashMap;
 
@@ -259,6 +259,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             WorkflowSchema {
                 name: wf_def.name.as_str().into(),
                 entity: wf_def.entity.as_str().into(),
+                field: wf_def.field.as_str().into(),
                 initial_state: wf_def
                     .states
                     .iter()
@@ -274,6 +275,30 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                         from: t.from.as_str().into(),
                         to: t.to.as_str().into(),
                         required_permission: t.permission.as_ref().map(|p| Symbol::from(p.as_str())),
+                        preconditions: t
+                            .preconditions
+                            .iter()
+                            .map(|p| match p {
+                                ast::TransitionPreconditionDef::Document { name, .. } => {
+                                    TransitionPrecondition::Document(Symbol::from(name.as_str()))
+                                }
+                                ast::TransitionPreconditionDef::MinYearsOfService { years, .. } => {
+                                    TransitionPrecondition::MinYearsOfService(*years)
+                                }
+                            })
+                            .collect(),
+                        effects: t
+                            .effects
+                            .iter()
+                            .map(|e| match e {
+                                ast::TransitionEffectDef::SuspendPayroll { active, .. } => {
+                                    TransitionEffect::SuspendPayroll(*active)
+                                }
+                                ast::TransitionEffectDef::Notify { target, .. } => {
+                                    TransitionEffect::Notify(Symbol::from(target.as_str()))
+                                }
+                            })
+                            .collect(),
                     })
                     .collect(),
             },

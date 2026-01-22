@@ -72,12 +72,24 @@ impl DataStore for MemoryDataStore {
         let mut data = self.data.lock().unwrap();
         let table = data.entry(entity.to_string()).or_default();
 
-        if table.contains_key(id) {
-            let mut record = record;
-            if let Some(obj) = record.as_object_mut() {
+        if let Some(existing) = table.get(id) {
+            // Merge existing with new record
+            let mut new_record = (**existing).clone();
+
+            if let Some(target) = new_record.as_object_mut() {
+                if let Some(source) = record.as_object() {
+                    for (k, v) in source {
+                        target.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+
+            // Ensure ID is preserved/set
+            if let Some(obj) = new_record.as_object_mut() {
                 obj.insert("id".to_string(), Value::String(id.to_string()));
             }
-            table.insert(id.to_string(), Arc::new(record));
+
+            table.insert(id.to_string(), Arc::new(new_record));
             Ok(())
         } else {
             Err("Record not found".to_string())

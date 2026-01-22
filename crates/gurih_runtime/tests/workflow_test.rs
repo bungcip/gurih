@@ -1,5 +1,6 @@
 use gurih_ir::{Schema, Symbol, Transition, WorkflowSchema};
 use gurih_runtime::workflow::WorkflowEngine;
+use serde_json::Value;
 
 #[test]
 fn test_workflow_transitions() {
@@ -12,6 +13,7 @@ fn test_workflow_transitions() {
     let workflow = WorkflowSchema {
         name: Symbol::from("OrderWorkflow"),
         entity: entity_name.clone(),
+        field: Symbol::from("state"),
         initial_state: initial_state.clone(),
         states: vec![initial_state.clone(), state_submitted.clone(), state_approved.clone()],
         transitions: vec![
@@ -20,12 +22,16 @@ fn test_workflow_transitions() {
                 from: initial_state.clone(),
                 to: state_submitted.clone(),
                 required_permission: None,
+                preconditions: vec![],
+                effects: vec![],
             },
             Transition {
                 name: Symbol::from("Approve"),
                 from: state_submitted.clone(),
                 to: state_approved.clone(),
                 required_permission: Some(Symbol::from("can_approve")),
+                preconditions: vec![],
+                effects: vec![],
             },
         ],
     };
@@ -40,17 +46,21 @@ fn test_workflow_transitions() {
     // 2. Valid Transition
     assert!(
         engine
-            .validate_transition(&schema, "Order", "Draft", "Submitted")
+            .validate_transition(&schema, "Order", "Draft", "Submitted", &Value::Null)
             .is_ok()
     );
 
     // 3. Same State Transition (Always allowed)
-    assert!(engine.validate_transition(&schema, "Order", "Draft", "Draft").is_ok());
+    assert!(
+        engine
+            .validate_transition(&schema, "Order", "Draft", "Draft", &Value::Null)
+            .is_ok()
+    );
 
     // 4. Invalid Transition
     assert!(
         engine
-            .validate_transition(&schema, "Order", "Draft", "Approved")
+            .validate_transition(&schema, "Order", "Draft", "Approved", &Value::Null)
             .is_err()
     );
 
