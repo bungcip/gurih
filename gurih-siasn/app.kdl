@@ -1,0 +1,213 @@
+name "GurihSIASN"
+version "0.1.0"
+
+database {
+    type "sqlite"
+    url "file:siasn.db"
+}
+
+// -----------------------------------------------------------------------------
+// ICONS
+// -----------------------------------------------------------------------------
+icons {
+    "dashboard" "lucide:layout-dashboard"
+    "users" "lucide:users"
+    "user" "lucide:user"
+    "calendar" "lucide:calendar"
+    "settings" "lucide:settings"
+    "check" "lucide:check-circle"
+    "x" "lucide:x-circle"
+    "clock" "lucide:clock"
+    "plus" "lucide:plus"
+    "pencil" "lucide:pencil"
+    "trash" "lucide:trash-2"
+    "award" "lucide:award"
+    "file" "lucide:file-text"
+    "briefcase" "lucide:briefcase"
+    "building" "lucide:building"
+}
+
+// -----------------------------------------------------------------------------
+// LAYOUTS
+// -----------------------------------------------------------------------------
+layout "MainLayout" {
+    header {
+        search_bar "true"
+        user_menu "true"
+    }
+    sidebar {
+        menu_ref "MainMenu"
+        collapsible "true"
+    }
+    footer "Gurih SIASN © 2026 - Kementerian Republik Indonesia"
+}
+
+// -----------------------------------------------------------------------------
+// INCLUDES
+// -----------------------------------------------------------------------------
+include "master.kdl"
+include "kepegawaian.kdl"
+include "cuti.kdl"
+
+// -----------------------------------------------------------------------------
+// DASHBOARD
+// -----------------------------------------------------------------------------
+dashboard "DashboardUtama" {
+    title "Dashboard Statistik Pegawai"
+
+    grid columns=3 {
+        widget "TotalPegawai" type="stat" {
+            label "Total ASN"
+            value "count:Pegawai"
+            icon "users"
+        }
+        widget "PermohonanCuti" type="stat" {
+            label "Cuti Menunggu Persetujuan"
+            value "count:PengajuanCuti[status=Diajukan]"
+            icon "clock"
+            color "warning"
+        }
+        widget "StatistikStatus" type="pie" {
+            label "Komposisi Status Pegawai"
+            value "group:Pegawai[status_pegawai]"
+        }
+        widget "StatistikGender" type="pie" {
+            label "Komposisi Gender"
+            value "group:Pegawai[jenis_kelamin]"
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// ROUTES
+// -----------------------------------------------------------------------------
+routes {
+    route "/" to="DashboardUtama" layout="MainLayout"
+
+    // --- MASTER DATA ROUTES ---
+    group "/master" layout="MainLayout" {
+        group "/golongan" {
+            route "/" to="DaftarGolongan"
+            route "/new" to="FormGolongan"
+            route "/:id" to="FormGolongan"
+            route:delete "/:id" action="DeleteGolongan"
+        }
+        group "/jabatan" {
+            route "/" to="DaftarJabatan"
+            route "/new" to="FormJabatan"
+            route "/:id" to="FormJabatan"
+            route:delete "/:id" action="DeleteJabatan"
+        }
+        group "/unor" {
+            route "/" to="DaftarUnor"
+            route "/new" to="FormUnor"
+            route "/:id" to="FormUnor"
+            route:delete "/:id" action="DeleteUnor"
+        }
+        group "/penghargaan" {
+            route "/" to="DaftarJenisPenghargaan"
+            route "/new" to="FormJenisPenghargaan"
+            route "/:id" to="FormJenisPenghargaan"
+            route:delete "/:id" action="DeleteJenisPenghargaan"
+        }
+        group "/sertifikasi" {
+            route "/" to="DaftarJenisSertifikasi"
+            route "/new" to="FormJenisSertifikasi"
+            route "/:id" to="FormJenisSertifikasi"
+            route:delete "/:id" action="DeleteJenisSertifikasi"
+        }
+    }
+
+    // --- KEPEGAWAIAN ROUTES ---
+    group "/kepegawaian" layout="MainLayout" {
+        group "/pegawai" {
+            route "/" to="DaftarPegawai"
+            route "/new" to="FormPegawai"
+            route "/:id" to="FormPegawai"
+            route:delete "/:id" action="DeletePegawai"
+        }
+        // Riwayat Sub-routes
+        group "/riwayat-jabatan" {
+            route "/" to="DaftarRiwayatJabatan"
+            route "/new" to="FormRiwayatJabatan"
+            route "/:id" to="FormRiwayatJabatan"
+            route:delete "/:id" action="DeleteRiwayatJabatan"
+        }
+        group "/riwayat-unor" {
+            route "/" to="DaftarRiwayatUnor"
+            route "/new" to="FormRiwayatUnor"
+            route "/:id" to="FormRiwayatUnor"
+            route:delete "/:id" action="DeleteRiwayatUnor"
+        }
+        group "/riwayat-penghargaan" {
+            route "/" to="DaftarRiwayatPenghargaan"
+            route "/new" to="FormRiwayatPenghargaan"
+            route "/:id" to="FormRiwayatPenghargaan"
+            route:delete "/:id" action="DeleteRiwayatPenghargaan"
+        }
+        group "/riwayat-sertifikasi" {
+            route "/" to="DaftarRiwayatSertifikasi"
+            route "/new" to="FormRiwayatSertifikasi"
+            route "/:id" to="FormRiwayatSertifikasi"
+            route:delete "/:id" action="DeleteRiwayatSertifikasi"
+        }
+        group "/riwayat-skp" {
+            route "/" to="DaftarRiwayatSKP"
+            route "/new" to="FormRiwayatSKP"
+            route "/:id" to="FormRiwayatSKP"
+            route:delete "/:id" action="DeleteRiwayatSKP"
+        }
+    }
+
+    // --- CUTI ROUTES ---
+    group "/cuti" layout="MainLayout" {
+        group "/pengajuan" {
+            route "/" to="DaftarCuti"
+            route "/new" to="FormCuti"
+            route "/:id" to="FormCuti"
+            // Delete might be restricted by workflow, but adding for admin
+            route:delete "/:id" action="DeletePengajuanCuti"
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// MENUS
+// -----------------------------------------------------------------------------
+menu "MainMenu" {
+    item "Dashboard" to="/" icon="dashboard"
+
+    group "Kepegawaian" icon="users" {
+        item "Data Pegawai" to="/kepegawaian/pegawai"
+        item "Riwayat Jabatan" to="/kepegawaian/riwayat-jabatan"
+        item "Riwayat Unit Kerja" to="/kepegawaian/riwayat-unor"
+        item "Riwayat Penghargaan" to="/kepegawaian/riwayat-penghargaan"
+        item "Riwayat Sertifikasi" to="/kepegawaian/riwayat-sertifikasi"
+        item "Riwayat SKP" to="/kepegawaian/riwayat-skp"
+    }
+
+    group "Layanan" icon="calendar" {
+        item "Pengajuan Cuti" to="/cuti/pengajuan"
+    }
+
+    group "Master Data" icon="settings" {
+        item "Golongan" to="/master/golongan"
+        item "Jabatan" to="/master/jabatan"
+        item "Unit Organisasi" to="/master/unor"
+        item "Jenis Penghargaan" to="/master/penghargaan"
+        item "Jenis Sertifikasi" to="/master/sertifikasi"
+    }
+}
+
+// -----------------------------------------------------------------------------
+// ROLES
+// -----------------------------------------------------------------------------
+role "Admin" {
+    allow "*"
+}
+
+role "Pegawai" {
+    allow "*" "read"
+    allow "/cuti/pengajuan/new" "create"
+    allow "/cuti/pengajuan/*" "read,write" // Simplified
+}
