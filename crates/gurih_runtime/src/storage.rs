@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_s3::{Client, config::Region};
+use bytes::Bytes;
 use gurih_ir::{StorageDriver, StorageSchema, Symbol};
 use std::collections::HashMap;
 use std::path::Path;
@@ -9,7 +10,7 @@ use tokio::io::AsyncWriteExt;
 
 #[async_trait]
 pub trait FileDriver: Send + Sync {
-    async fn put(&self, filename: &str, data: &[u8]) -> Result<String, String>;
+    async fn put(&self, filename: &str, data: Bytes) -> Result<String, String>;
     async fn get_url(&self, filename: &str) -> String;
 }
 
@@ -30,13 +31,13 @@ impl LocalFileDriver {
 
 #[async_trait]
 impl FileDriver for LocalFileDriver {
-    async fn put(&self, filename: &str, data: &[u8]) -> Result<String, String> {
+    async fn put(&self, filename: &str, data: Bytes) -> Result<String, String> {
         let path = Path::new(&self.base_path).join(filename);
         if let Some(parent) = path.parent() {
             tokio::fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
         }
         let mut file = tokio::fs::File::create(&path).await.map_err(|e| e.to_string())?;
-        file.write_all(data).await.map_err(|e| e.to_string())?;
+        file.write_all(&data).await.map_err(|e| e.to_string())?;
 
         Ok(format!("{}/{}", self.base_url, filename))
     }
@@ -87,8 +88,9 @@ impl S3FileDriver {
 
 #[async_trait]
 impl FileDriver for S3FileDriver {
-    async fn put(&self, filename: &str, data: &[u8]) -> Result<String, String> {
-        let body = aws_sdk_s3::primitives::ByteStream::from(data.to_vec());
+    async fn put(&self, filename: &str, data: Bytes) -> Result<String, String> {
+        // Optimization: Use Bytes directly to avoid unnecessary clone/allocation
+        let body = aws_sdk_s3::primitives::ByteStream::from(data);
         self.client
             .put_object()
             .bucket(&self.bucket)
@@ -137,7 +139,7 @@ impl StorageEngine {
         self.drivers.get(name).cloned()
     }
 
-    pub async fn upload(&self, storage_name: &str, filename: &str, data: &[u8]) -> Result<String, String> {
+    pub async fn upload(&self, storage_name: &str, filename: &str, data: Bytes) -> Result<String, String> {
         if let Some(driver) = self.get(storage_name) {
             driver.put(filename, data).await
         } else {
