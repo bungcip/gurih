@@ -418,6 +418,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                         label: w.label.clone(),
                         value: w.value.clone(),
                         icon: w.icon.clone(),
+                        roles: w.roles.clone(),
                     })
                     .collect(),
             },

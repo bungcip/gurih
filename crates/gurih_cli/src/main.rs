@@ -2,7 +2,7 @@ use axum::{
     Router,
     body::Body,
     extract::{Json, Multipart, Path, Query, State},
-    http::{Request, StatusCode},
+    http::{HeaderMap, Request, StatusCode},
     response::{Html, IntoResponse},
     routing::{MethodFilter, get, on, post},
 };
@@ -762,10 +762,25 @@ async fn get_form_config(State(state): State<AppState>, Path(entity): Path<Strin
     }
 }
 
-async fn get_dashboard_data(State(state): State<AppState>, Path(name): Path<String>) -> impl IntoResponse {
+async fn get_dashboard_data(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    let roles = if let Some(role_hdr) = headers.get("x-gurih-role") {
+        vec![role_hdr.to_str().unwrap_or("").to_string()]
+    } else {
+        vec![]
+    };
+
     let engine = gurih_runtime::dashboard::DashboardEngine::new();
     match engine
-        .evaluate(state.data_engine.get_schema(), &name, state.data_engine.datastore())
+        .evaluate(
+            state.data_engine.get_schema(),
+            &name,
+            state.data_engine.datastore(),
+            &roles,
+        )
         .await
     {
         Ok(config) => (StatusCode::OK, Json(config)).into_response(),

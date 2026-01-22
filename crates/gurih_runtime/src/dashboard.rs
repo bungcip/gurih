@@ -50,6 +50,7 @@ impl DashboardEngine {
         schema: &Schema,
         dashboard_name: &str,
         datastore: &Arc<dyn DataStore>,
+        user_roles: &[String],
     ) -> Result<Value, String> {
         let dashboard = schema
             .dashboards
@@ -58,6 +59,12 @@ impl DashboardEngine {
 
         let mut widgets = vec![];
         for w in &dashboard.widgets {
+            if let Some(required_roles) = &w.roles {
+                if !required_roles.is_empty() && !required_roles.iter().any(|r| user_roles.contains(r)) {
+                    continue;
+                }
+            }
+
             let mut evaluated_value = json!(null);
 
             if let Some(val_str) = &w.value {

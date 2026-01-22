@@ -236,6 +236,7 @@ pub struct WidgetDef {
     pub value: Option<String>,
     pub icon: Option<String>,
     pub query: Option<String>,
+    pub roles: Option<Vec<String>>,
     pub span: SourceSpan,
 }
 
