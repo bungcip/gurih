@@ -1399,6 +1399,7 @@ dependencies = [
 name = "gurih_common"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "serde",
  "symbol_table",
  "thiserror",

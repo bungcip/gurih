@@ -459,6 +459,8 @@ impl SchemaManager {
                 | FieldType::Image
                 | FieldType::File
                 | FieldType::Relation
+                | FieldType::Code
+                | FieldType::Custom(_)
                 | FieldType::Enum(_) => "TEXT",
                 FieldType::Integer => {
                     if db_kind == "PostgreSQL" {

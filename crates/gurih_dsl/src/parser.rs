@@ -574,7 +574,7 @@ fn parse_field_type_str(s: &str) -> FieldType {
         "phone" => FieldType::Phone,
         "address" => FieldType::Address,
         "password" => FieldType::Password,
-        "enum" => FieldType::Enum,
+        "enum" => FieldType::Enum(vec![]),
         "int" | "integer" => FieldType::Integer,
         "float" | "decimal" => FieldType::Float,
         "date" => FieldType::Date,

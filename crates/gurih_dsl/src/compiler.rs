@@ -1,6 +1,7 @@
 use crate::ast;
 use crate::errors::CompileError;
 use crate::parser::parse;
+use crate::validator::Validator;
 use gurih_ir::Symbol;
 use gurih_ir::{
     ActionSchema, ColumnSchema, DashboardSchema, DatabaseSchema, DatatableColumnSchema, DatatableSchema, EntitySchema,
@@ -14,8 +15,8 @@ use std::collections::HashMap;
 pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema, CompileError> {
     let ast_root = parse(src, base_path)?;
 
-    // Validation Context
-    let mut entity_names = HashMap::new();
+    // Run Validation
+    Validator::new(src).validate(&ast_root)?;
 
     let mut ir_entities: HashMap<Symbol, EntitySchema> = HashMap::new();
     let mut ir_tables: HashMap<Symbol, TableSchema> = HashMap::new();
@@ -54,37 +55,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     let process_entity =
         |entity_def: &ast::EntityDef, _module_name: Option<&str>| -> Result<EntitySchema, CompileError> {
             let mut fields = vec![];
-            let mut field_names = HashMap::new();
-
-            let mut has_pk = false;
-            let mut name_count = 0;
-            let mut title_count = 0;
-            let mut description_count = 0;
-            let mut avatar_count = 0;
 
             for field_def in &entity_def.fields {
-                if field_names.contains_key(&field_def.name) {
-                    return Err(CompileError::ValidationError {
-                        src: src.to_string(),
-                        span: field_def.span,
-                        message: format!(
-                            "Duplicate field name '{}' in entity '{}'",
-                            field_def.name, entity_def.name
-                        ),
-                    });
-                }
-                field_names.insert(field_def.name.clone(), field_def.span);
-
                 let field_type = parse_field_type(&field_def.type_name, &enums, &field_def.references)?;
-
-                match field_type {
-                    gurih_ir::FieldType::Pk => has_pk = true,
-                    gurih_ir::FieldType::Name => name_count += 1,
-                    gurih_ir::FieldType::Title => title_count += 1,
-                    gurih_ir::FieldType::Description => description_count += 1,
-                    gurih_ir::FieldType::Avatar => avatar_count += 1,
-                    _ => {}
-                }
 
                 fields.push(FieldSchema {
                     name: field_def.name.as_str().into(),
@@ -100,57 +73,13 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 });
             }
 
-            if !has_pk {
-                return Err(CompileError::ValidationError {
-                    src: src.to_string(),
-                    span: entity_def.span,
-                    message: format!(
-                        "Entity '{}' must have at least one primary key (field:pk)",
-                        entity_def.name
-                    ),
-                });
-            }
-
-            if name_count > 1 {
-                return Err(CompileError::ValidationError {
-                    src: src.to_string(),
-                    span: entity_def.span,
-                    message: format!("Entity '{}' can have at most one field:name", entity_def.name),
-                });
-            }
-            if title_count > 1 {
-                return Err(CompileError::ValidationError {
-                    src: src.to_string(),
-                    span: entity_def.span,
-                    message: format!("Entity '{}' can have at most one field:title", entity_def.name),
-                });
-            }
-            if description_count > 1 {
-                return Err(CompileError::ValidationError {
-                    src: src.to_string(),
-                    span: entity_def.span,
-                    message: format!("Entity '{}' can have at most one field:description", entity_def.name),
-                });
-            }
-            if avatar_count > 1 {
-                return Err(CompileError::ValidationError {
-                    src: src.to_string(),
-                    span: entity_def.span,
-                    message: format!("Entity '{}' can have at most one field:avatar", entity_def.name),
-                });
-            }
-
             let relationships = entity_def
                 .relationships
                 .iter()
                 .map(|r| RelationshipSchema {
                     name: r.name.as_str().into(),
                     target_entity: r.target_entity.as_str().into(),
-                    rel_type: match r.rel_type {
-                        ast::RelationshipType::BelongsTo => gurih_ir::RelationshipType::BelongsTo,
-                        ast::RelationshipType::HasMany => gurih_ir::RelationshipType::HasMany,
-                        ast::RelationshipType::HasOne => gurih_ir::RelationshipType::HasOne,
-                    },
+                    rel_type: r.rel_type.clone(),
                 })
                 .collect();
 
@@ -180,10 +109,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
     // 0. Process Database
     let database = ast_root.database.map(|d| DatabaseSchema {
-        db_type: match d.db_type {
-            ast::DatabaseType::Postgres => gurih_ir::DatabaseType::Postgres,
-            ast::DatabaseType::Sqlite => gurih_ir::DatabaseType::Sqlite,
-        },
+        db_type: d.db_type,
         url: d.url,
     });
 
@@ -191,16 +117,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     for module_def in &ast_root.modules {
         let mut module_entities = vec![];
         for entity_def in &module_def.entities {
-            if entity_names.contains_key(&entity_def.name) {
-                return Err(CompileError::ValidationError {
-                    src: src.to_string(),
-                    span: entity_def.span,
-                    message: format!("Duplicate entity name: {}", entity_def.name),
-                });
-            }
-            entity_names.insert(entity_def.name.clone(), entity_def.span);
             module_entities.push(entity_def.name.clone());
-
             let entity_schema = process_entity(entity_def, Some(&module_def.name))?;
             ir_entities.insert(entity_def.name.as_str().into(), entity_schema);
         }
@@ -216,15 +133,6 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
     // 2. Process Top-Level Entities
     for entity_def in &ast_root.entities {
-        if entity_names.contains_key(&entity_def.name) {
-            return Err(CompileError::ValidationError {
-                src: src.to_string(),
-                span: entity_def.span,
-                message: format!("Duplicate entity name: {}", entity_def.name),
-            });
-        }
-        entity_names.insert(entity_def.name.clone(), entity_def.span);
-
         let entity_schema = process_entity(entity_def, None)?;
         ir_entities.insert(entity_def.name.as_str().into(), entity_schema);
     }
@@ -372,12 +280,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     .map(|a| ActionSchema {
                         label: a.label.clone(),
                         to: a.to.as_ref().map(|s| s.as_str().into()),
-                        method: a.method.clone().map(|m| match m {
-                            ast::RouteVerb::Get => gurih_ir::RouteVerb::Get,
-                            ast::RouteVerb::Post => gurih_ir::RouteVerb::Post,
-                            ast::RouteVerb::Put => gurih_ir::RouteVerb::Put,
-                            ast::RouteVerb::Delete => gurih_ir::RouteVerb::Delete,
-                        }),
+                        method: a.method.clone(),
                         icon: a.icon.clone(),
                         variant: a.variant.clone(),
                     })
@@ -434,12 +337,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     .iter()
                     .map(|w| WidgetSchema {
                         name: w.name.as_str().into(),
-                        widget_type: match &w.widget_type {
-                            ast::WidgetType::Stat => gurih_ir::WidgetType::Stat,
-                            ast::WidgetType::Chart => gurih_ir::WidgetType::Chart,
-                            ast::WidgetType::List => gurih_ir::WidgetType::List,
-                            ast::WidgetType::Pie => gurih_ir::WidgetType::Pie,
-                        },
+                        widget_type: w.widget_type.clone(),
                         label: w.label.clone(),
                         value: w.value.clone(),
                         icon: w.icon.clone(),
@@ -470,11 +368,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             .steps
             .iter()
             .map(|s| gurih_ir::ActionStep {
-                step_type: match &s.step_type {
-                    ast::ActionStepType::EntityDelete => gurih_ir::ActionStepType::EntityDelete,
-                    ast::ActionStepType::EntityUpdate => gurih_ir::ActionStepType::EntityUpdate,
-                    ast::ActionStepType::EntityCreate => gurih_ir::ActionStepType::EntityCreate,
-                },
+                step_type: s.step_type.clone(),
                 target: s.target.as_str().into(),
                 args: s.args.clone(),
             })
@@ -498,32 +392,14 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     }
 
     // 11. Process Routes
-    let mut valid_targets: std::collections::HashSet<String> =
-        ir_pages.keys().map(|s: &Symbol| s.as_str().to_string()).collect();
-    valid_targets.extend(ir_dashboards.keys().map(|s: &Symbol| s.as_str().to_string()));
-    valid_targets.extend(ir_actions.keys().map(|s: &Symbol| s.as_str().to_string()));
-
     fn process_route_node(
         node: &ast::RouteNode,
-        valid_targets: &std::collections::HashSet<String>,
         src: &str,
     ) -> Result<RouteSchema, CompileError> {
         match node {
             ast::RouteNode::Route(r) => {
-                if !valid_targets.contains(&r.action) {
-                    return Err(CompileError::ValidationError {
-                        src: src.to_string(),
-                        span: r.span,
-                        message: format!("Route target '{}' not found in pages, dashboards or actions", r.action),
-                    });
-                }
                 Ok(RouteSchema {
-                    verb: match r.verb {
-                        ast::RouteVerb::Get => gurih_ir::RouteVerb::Get,
-                        ast::RouteVerb::Post => gurih_ir::RouteVerb::Post,
-                        ast::RouteVerb::Put => gurih_ir::RouteVerb::Put,
-                        ast::RouteVerb::Delete => gurih_ir::RouteVerb::Delete,
-                    },
+                    verb: r.verb.clone(),
                     path: r.path.clone(),
                     action: r.action.as_str().into(),
                     layout: r.layout.as_ref().map(|l| l.as_str().into()),
@@ -534,7 +410,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             ast::RouteNode::Group(g) => {
                 let mut children = vec![];
                 for child in &g.children {
-                    children.push(process_route_node(child, valid_targets, src)?);
+                    children.push(process_route_node(child, src)?);
                 }
                 Ok(RouteSchema {
                     verb: gurih_ir::RouteVerb::All,
@@ -550,7 +426,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
     for routes_def in &ast_root.routes {
         for route_node in &routes_def.routes {
-            let schema = process_route_node(route_node, &valid_targets, src)?;
+            let schema = process_route_node(route_node, src)?;
             ir_routes.insert(schema.path.clone(), schema);
         }
     }
@@ -573,10 +449,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             storage_def.name.as_str().into(),
             StorageSchema {
                 name: storage_def.name.as_str().into(),
-                driver: match &storage_def.driver {
-                    ast::StorageDriver::S3 => gurih_ir::StorageDriver::S3,
-                    ast::StorageDriver::Local => gurih_ir::StorageDriver::Local,
-                },
+                driver: storage_def.driver.clone(),
                 location: storage_def.location.clone(),
                 props: storage_def.props.clone(),
             },
@@ -709,35 +582,12 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 }
 
 fn parse_field_type(
-    field_type: &ast::FieldType,
+    field_type: &FieldType,
     enums: &HashMap<String, Vec<Symbol>>,
     references: &Option<String>,
 ) -> Result<FieldType, CompileError> {
     match field_type {
-        ast::FieldType::Pk => Ok(FieldType::Pk),
-        ast::FieldType::Serial => Ok(FieldType::Serial),
-        ast::FieldType::Sku => Ok(FieldType::Sku),
-        ast::FieldType::Name => Ok(FieldType::Name),
-        ast::FieldType::Title => Ok(FieldType::Title),
-        ast::FieldType::Description => Ok(FieldType::Description),
-        ast::FieldType::Avatar => Ok(FieldType::Avatar),
-        ast::FieldType::Money => Ok(FieldType::Money),
-        ast::FieldType::Email => Ok(FieldType::Email),
-        ast::FieldType::Phone => Ok(FieldType::Phone),
-        ast::FieldType::Address => Ok(FieldType::Address),
-        ast::FieldType::Password => Ok(FieldType::Password),
-        ast::FieldType::Integer => Ok(FieldType::Integer),
-        ast::FieldType::Float => Ok(FieldType::Float),
-        ast::FieldType::Date => Ok(FieldType::Date),
-        ast::FieldType::Timestamp => Ok(FieldType::Timestamp),
-        ast::FieldType::String => Ok(FieldType::String),
-        ast::FieldType::Text => Ok(FieldType::Text),
-        ast::FieldType::Image => Ok(FieldType::Image),
-        ast::FieldType::File => Ok(FieldType::File),
-        ast::FieldType::Relation => Ok(FieldType::Relation),
-        ast::FieldType::Boolean => Ok(FieldType::Boolean),
-        ast::FieldType::Code => Ok(FieldType::String), // Code is semantically string for now
-        ast::FieldType::Enum => {
+        FieldType::Enum(_) => {
             // For explicit Enum type, references should be set to the enum name.
             let variants = if let Some(ref_name) = references {
                 enums.get(ref_name).cloned().unwrap_or_default()
@@ -746,7 +596,7 @@ fn parse_field_type(
             };
             Ok(FieldType::Enum(variants))
         }
-        ast::FieldType::Custom(s) => {
+        FieldType::Custom(s) => {
             // Check if it matches an enum name
             if let Some(variants) = enums.get(s) {
                 Ok(FieldType::Enum(variants.clone()))
@@ -755,5 +605,7 @@ fn parse_field_type(
                 Ok(FieldType::String)
             }
         }
+        FieldType::Code => Ok(FieldType::Code),
+        other => Ok(other.clone()),
     }
 }

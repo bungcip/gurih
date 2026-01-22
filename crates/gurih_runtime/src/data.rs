@@ -57,19 +57,8 @@ impl DataEngine {
                 if field.required && !obj.contains_key(&field.name.to_string()) {
                     return Err(format!("Missing required field: {}", field.name));
                 }
-
-                if let Some(val) = obj.get_mut(field.name.as_str()) {
-                    if !validate_type(val, &field.field_type) {
-                        return Err(format!("Invalid type for field: {}", field.name));
-                    }
-                    // Hash password if applicable
-                    if field.field_type == FieldType::Password {
-                        if let Value::String(pass) = val {
-                            *val = Value::String(hash_password(pass));
-                        }
-                    }
-                }
             }
+            self.process_data_fields(entity_schema, obj)?;
         } else {
             return Err("Data must be an object".to_string());
         }
@@ -158,19 +147,7 @@ impl DataEngine {
 
         // Validation & Transformation (Hashing)
         if let Some(obj) = data.as_object_mut() {
-            for field in &entity_schema.fields {
-                if let Some(val) = obj.get_mut(field.name.as_str()) {
-                    if !validate_type(val, &field.field_type) {
-                        return Err(format!("Invalid type for field: {}", field.name));
-                    }
-                    // Hash password if applicable
-                    if field.field_type == FieldType::Password {
-                        if let Value::String(pass) = val {
-                            *val = Value::String(hash_password(pass));
-                        }
-                    }
-                }
-            }
+            self.process_data_fields(entity_schema, obj)?;
         }
 
         self.datastore.update(entity_name, id, data).await
@@ -181,6 +158,27 @@ impl DataEngine {
             return Err(format!("Entity '{}' not defined", entity_name));
         }
         self.datastore.delete(entity_name, id).await
+    }
+
+    fn process_data_fields(
+        &self,
+        entity_schema: &gurih_ir::EntitySchema,
+        obj: &mut serde_json::Map<String, Value>,
+    ) -> Result<(), String> {
+        for field in &entity_schema.fields {
+            if let Some(val) = obj.get_mut(field.name.as_str()) {
+                if !crate::validation::validate_type(val, &field.field_type) {
+                    return Err(format!("Invalid type for field: {}", field.name));
+                }
+                // Hash password if applicable
+                if field.field_type == FieldType::Password {
+                    if let Value::String(pass) = val {
+                        *val = Value::String(hash_password(pass));
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     pub async fn list(
@@ -210,30 +208,3 @@ impl DataEngine {
     }
 }
 
-fn validate_type(val: &Value, field_type: &FieldType) -> bool {
-    match field_type {
-        FieldType::Pk
-        | FieldType::Serial
-        | FieldType::Sku
-        | FieldType::Name
-        | FieldType::Title
-        | FieldType::Description
-        | FieldType::Avatar
-        | FieldType::Money
-        | FieldType::Email
-        | FieldType::Phone
-        | FieldType::Address
-        | FieldType::Password
-        | FieldType::Enum(_)
-        | FieldType::Date
-        | FieldType::Timestamp
-        | FieldType::String
-        | FieldType::Text
-        | FieldType::Image
-        | FieldType::File
-        | FieldType::Relation => val.is_string() || val.is_null(),
-        FieldType::Integer => val.is_i64() || val.is_null(),
-        FieldType::Float => val.is_f64() || val.is_null(),
-        FieldType::Boolean => val.is_boolean() || val.is_null(),
-    }
-}
