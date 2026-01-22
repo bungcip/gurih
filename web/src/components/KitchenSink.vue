@@ -11,6 +11,7 @@ import FileUpload from './FileUpload.vue'
 import CurrencyInput from './CurrencyInput.vue'
 import StatusBadge from './StatusBadge.vue'
 import Modal from './Modal.vue'
+import Timeline from './Timeline.vue'
 import { inject } from 'vue'
 
 const selectValue = ref(null)
@@ -40,6 +41,37 @@ const radioValue = ref(1)
 const switchValue = ref(false)
 const activeTab = ref(0)
 const tabItems = ['Account', 'Password', 'Notifications']
+
+const timelineItems = [
+  {
+    title: 'Order Delivered',
+    description: 'Package delivered to reception.',
+    date: 'Oct 12, 2023 14:30',
+    variant: 'success',
+    icon: 'check-circle'
+  },
+  {
+    title: 'Out for Delivery',
+    description: 'Courier is on the way.',
+    date: 'Oct 12, 2023 09:15',
+    variant: 'info',
+    icon: 'clock'
+  },
+  {
+    title: 'Payment Issue',
+    description: 'Payment failed initially, retrying.',
+    date: 'Oct 11, 2023 18:00',
+    variant: 'danger',
+    icon: 'alert-circle'
+  },
+  {
+    title: 'Order Placed',
+    description: 'Order #12345 confirmed.',
+    date: 'Oct 11, 2023 17:45',
+    variant: 'gray',
+    icon: 'plus'
+  }
+]
 
 function toggleLoading() {
     loading.value = !loading.value
@@ -227,6 +259,25 @@ function toggleLoading() {
              <div class="p-4 bg-gray-50 rounded border border-gray-200">
                  Panel content
              </div>
+        </section>
+
+        <!-- Timeline -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Timeline & History</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Standard History</h3>
+                    <Timeline :items="timelineItems" />
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Loading State</h3>
+                    <Timeline loading />
+                </div>
+                 <div>
+                    <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Empty State</h3>
+                    <Timeline :items="[]" emptyText="No activity logs found." />
+                </div>
+            </div>
         </section>
     </div>
 </template>
