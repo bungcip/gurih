@@ -19,7 +19,7 @@ gurih_runtime = { version = "0.1.0", path = "crates/gurih_runtime" }
 annotate-snippets = "0.12"
 async-trait = "0.1.89"
 axum = "0.8.8"
-clap = { version = "4.5.54", features = ["derive"] }
+clap = { version = "4.5.54", features = ["derive", "env"] }
 insta = "1.40"
 kdl = "6.5.0"
 miette = { version = "7.6.0", default-features = false }

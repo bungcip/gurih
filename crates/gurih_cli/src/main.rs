@@ -52,7 +52,7 @@ enum Commands {
     /// Run the runtime with the given DSL file (in-memory)
     Run {
         file: PathBuf,
-        #[arg(long, default_value = "3000")]
+        #[arg(long, env = "PORT", default_value = "3000")]
         port: u16,
         /// Only run the backend server, skip frontend and browser
         #[arg(long)]
@@ -61,7 +61,7 @@ enum Commands {
     /// Run the runtime in watch mode, restarting on file changes
     Watch {
         file: PathBuf,
-        #[arg(long, default_value = "3000")]
+        #[arg(long, env = "PORT", default_value = "3000")]
         port: u16,
         /// Only run the backend server, skip frontend and browser
         #[arg(long)]
