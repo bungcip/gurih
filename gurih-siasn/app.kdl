@@ -56,24 +56,37 @@ dashboard "DashboardUtama" {
     title "Dashboard Statistik Pegawai"
 
     grid columns=3 {
-        widget "TotalPegawai" type="stat" {
+        // Admin Widgets
+        widget "TotalPegawai" type="stat" role="Admin" {
             label "Total ASN"
             value "count:Pegawai"
             icon "users"
         }
-        widget "PermohonanCuti" type="stat" {
+        widget "PermohonanCuti" type="stat" role="Admin" {
             label "Cuti Menunggu Persetujuan"
             value "count:PengajuanCuti[status=Diajukan]"
             icon "clock"
             color "warning"
         }
-        widget "StatistikStatus" type="pie" {
+        widget "StatistikStatus" type="pie" role="Admin" {
             label "Komposisi Status Pegawai"
             value "group:Pegawai[status_pegawai]"
         }
-        widget "StatistikGender" type="pie" {
+        widget "StatistikGender" type="pie" role="Admin" {
             label "Komposisi Gender"
             value "group:Pegawai[jenis_kelamin]"
+        }
+
+        // Pegawai Widgets
+        widget "StatusKepegawaian" type="stat" role="Pegawai" {
+            label "Status Anda"
+            value "Aktif"
+            icon "check"
+        }
+        widget "SisaCuti" type="stat" role="Pegawai" {
+            label "Sisa Cuti Tahunan"
+            value "12"
+            icon "calendar"
         }
     }
 }

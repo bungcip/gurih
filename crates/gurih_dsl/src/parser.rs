@@ -859,6 +859,7 @@ fn parse_widget(node: &KdlNode, src: &str) -> Result<WidgetDef, CompileError> {
     let mut value = None;
     let mut icon = None;
     let mut query = None;
+    let mut roles = get_prop_string(node, "role", src).ok().map(|r| vec![r]);
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
@@ -867,6 +868,7 @@ fn parse_widget(node: &KdlNode, src: &str) -> Result<WidgetDef, CompileError> {
                 "value" => value = Some(get_arg_string(child, 0, src)?),
                 "icon" => icon = Some(get_arg_string(child, 0, src)?),
                 "query" => query = Some(get_arg_string(child, 0, src)?),
+                "role" => roles = Some(vec![get_arg_string(child, 0, src)?]),
                 _ => {}
             }
         }
@@ -879,6 +881,7 @@ fn parse_widget(node: &KdlNode, src: &str) -> Result<WidgetDef, CompileError> {
         value,
         icon,
         query,
+        roles,
         span: node.span().into(),
     })
 }

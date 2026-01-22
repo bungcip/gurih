@@ -339,6 +339,7 @@ pub struct WidgetSchema {
     pub label: Option<String>,
     pub value: Option<String>,
     pub icon: Option<String>,
+    pub roles: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
