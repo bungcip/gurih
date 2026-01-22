@@ -13,11 +13,7 @@ fn test_workflow_transitions() {
         name: Symbol::from("OrderWorkflow"),
         entity: entity_name.clone(),
         initial_state: initial_state.clone(),
-        states: vec![
-            initial_state.clone(),
-            state_submitted.clone(),
-            state_approved.clone(),
-        ],
+        states: vec![initial_state.clone(), state_submitted.clone(), state_approved.clone()],
         transitions: vec![
             Transition {
                 name: Symbol::from("Submit"),
@@ -39,25 +35,24 @@ fn test_workflow_transitions() {
     let engine = WorkflowEngine::new();
 
     // 1. Initial State
-    assert_eq!(
-        engine.get_initial_state(&schema, "Order"),
-        Some("Draft".to_string())
-    );
+    assert_eq!(engine.get_initial_state(&schema, "Order"), Some("Draft".to_string()));
 
     // 2. Valid Transition
-    assert!(engine
-        .validate_transition(&schema, "Order", "Draft", "Submitted")
-        .is_ok());
+    assert!(
+        engine
+            .validate_transition(&schema, "Order", "Draft", "Submitted")
+            .is_ok()
+    );
 
     // 3. Same State Transition (Always allowed)
-    assert!(engine
-        .validate_transition(&schema, "Order", "Draft", "Draft")
-        .is_ok());
+    assert!(engine.validate_transition(&schema, "Order", "Draft", "Draft").is_ok());
 
     // 4. Invalid Transition
-    assert!(engine
-        .validate_transition(&schema, "Order", "Draft", "Approved")
-        .is_err());
+    assert!(
+        engine
+            .validate_transition(&schema, "Order", "Draft", "Approved")
+            .is_err()
+    );
 
     // 5. Transition with Permission
     let perm = engine.get_transition_permission(&schema, "Order", "Submitted", "Approved");
