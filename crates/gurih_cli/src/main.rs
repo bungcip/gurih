@@ -687,7 +687,7 @@ async fn upload_handler(
 
         let data_bytes = if let Some(resize_dim) = &field.resize {
             match gurih_runtime::image_processor::resize_image(&data, resize_dim) {
-                Ok(d) => d.into(),
+                Ok(d) => bytes::Bytes::from(d),
                 Err(e) => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": e}))).into_response(),
             }
         } else {
@@ -702,7 +702,7 @@ async fn upload_handler(
 
         match state
             .storage_engine
-            .upload(storage_name, &unique_name, &data_bytes)
+            .upload(storage_name, &unique_name, data_bytes)
             .await
         {
             Ok(url) => {

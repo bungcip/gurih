@@ -1380,6 +1380,7 @@ name = "gurih_cli"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "bytes",
  "clap",
  "gurih_dsl",
  "gurih_ir",
@@ -1434,6 +1435,7 @@ dependencies = [
  "aws-config",
  "aws-sdk-s3",
  "base64 0.21.7",
+ "bytes",
  "chrono",
  "gurih_common",
  "gurih_ir",
