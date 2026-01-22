@@ -66,8 +66,7 @@ impl WorkflowEngine {
                                 }
                             } else {
                                 return Err(
-                                    "Cannot determine years of service (missing 'tmt_cpns' or 'join_date')"
-                                        .to_string(),
+                                    "Cannot determine years of service (missing 'tmt_cpns' or 'join_date')".to_string()
                                 );
                             }
                         }

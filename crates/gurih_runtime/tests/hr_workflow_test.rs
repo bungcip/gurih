@@ -1,10 +1,10 @@
+use chrono::Utc;
 use gurih_dsl::compiler::compile;
+use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::{DataStore, MemoryDataStore};
-use gurih_runtime::context::RuntimeContext;
 use serde_json::json;
 use std::sync::Arc;
-use chrono::Utc;
 
 #[tokio::test]
 async fn test_hr_workflow_rules() {
@@ -77,7 +77,10 @@ async fn test_hr_workflow_rules() {
     // Update join date to today (0 years)
     let now = Utc::now();
     let recent_join = now.format("%Y-%m-%d").to_string();
-    engine.update("Employee", &id, json!({"tmt_cpns": recent_join}), &ctx).await.unwrap();
+    engine
+        .update("Employee", &id, json!({"tmt_cpns": recent_join}), &ctx)
+        .await
+        .unwrap();
 
     let res = engine.update("Employee", &id, update_data.clone(), &ctx).await;
     assert!(res.is_err());
@@ -86,8 +89,13 @@ async fn test_hr_workflow_rules() {
     assert!(err_msg.contains("years of service required"));
 
     // 5. Update join date to 2 years ago
-    let old_join = (now.date_naive() - chrono::Duration::days(365 * 2)).format("%Y-%m-%d").to_string();
-    engine.update("Employee", &id, json!({"tmt_cpns": old_join}), &ctx).await.unwrap();
+    let old_join = (now.date_naive() - chrono::Duration::days(365 * 2))
+        .format("%Y-%m-%d")
+        .to_string();
+    engine
+        .update("Employee", &id, json!({"tmt_cpns": old_join}), &ctx)
+        .await
+        .unwrap();
 
     // 6. Attempt valid transition
     let res = engine.update("Employee", &id, update_data, &ctx).await;

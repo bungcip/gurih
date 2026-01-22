@@ -48,10 +48,7 @@ impl DataEngine {
             && let Some(obj) = data.as_object_mut()
             && !obj.contains_key(wf.field.as_str())
         {
-            obj.insert(
-                wf.field.to_string(),
-                Value::String(wf.initial_state.to_string()),
-            );
+            obj.insert(wf.field.to_string(), Value::String(wf.initial_state.to_string()));
         }
 
         // Validation & Transformation (Hashing)
@@ -140,13 +137,9 @@ impl DataEngine {
                 }
 
                 // Apply Side Effects
-                let (updates, notifications) = self.workflow.apply_effects(
-                    &self.schema,
-                    entity_name,
-                    current_state,
-                    new_state,
-                    &merged_record,
-                );
+                let (updates, notifications) =
+                    self.workflow
+                        .apply_effects(&self.schema, entity_name, current_state, new_state, &merged_record);
 
                 for notification in notifications {
                     println!("NOTIFICATION: {}", notification);
