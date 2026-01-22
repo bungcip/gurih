@@ -1,3 +1,4 @@
+use crate::auth::hash_password;
 use crate::context::RuntimeContext;
 use crate::datastore::DataStore;
 use crate::query_engine::{QueryEngine, QueryPlan};
@@ -46,17 +47,23 @@ impl DataEngine {
             obj.insert("state".to_string(), Value::String(initial_state));
         }
 
-        // Validation
-        if let Some(obj) = data.as_object() {
+        // Validation & Transformation (Hashing)
+        if let Some(obj) = data.as_object_mut() {
             for field in &entity_schema.fields {
                 if field.required && !obj.contains_key(&field.name.to_string()) {
                     return Err(format!("Missing required field: {}", field.name));
                 }
 
-                if let Some(val) = obj.get(field.name.as_str())
-                    && !validate_type(val, &field.field_type)
-                {
-                    return Err(format!("Invalid type for field: {}", field.name));
+                if let Some(val) = obj.get_mut(field.name.as_str()) {
+                    if !validate_type(val, &field.field_type) {
+                        return Err(format!("Invalid type for field: {}", field.name));
+                    }
+                    // Hash password if applicable
+                    if field.field_type == FieldType::Password {
+                        if let Value::String(pass) = val {
+                            *val = Value::String(hash_password(pass));
+                        }
+                    }
                 }
             }
         } else {
@@ -108,13 +115,20 @@ impl DataEngine {
             }
         }
 
-        // Validation
-        if let Some(obj) = data.as_object() {
+        // Validation & Transformation (Hashing)
+        let mut data = data;
+        if let Some(obj) = data.as_object_mut() {
             for field in &entity_schema.fields {
-                if let Some(val) = obj.get(field.name.as_str())
-                    && !validate_type(val, &field.field_type)
-                {
-                    return Err(format!("Invalid type for field: {}", field.name));
+                if let Some(val) = obj.get_mut(field.name.as_str()) {
+                    if !validate_type(val, &field.field_type) {
+                        return Err(format!("Invalid type for field: {}", field.name));
+                    }
+                    // Hash password if applicable
+                    if field.field_type == FieldType::Password {
+                        if let Value::String(pass) = val {
+                            *val = Value::String(hash_password(pass));
+                        }
+                    }
                 }
             }
         }
