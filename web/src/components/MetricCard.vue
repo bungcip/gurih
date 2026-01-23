@@ -119,8 +119,14 @@ const variantClasses = {
                     }"
                     class="font-medium flex items-center gap-1"
                 >
-                    <span v-if="trendDirection === 'up'">↑</span>
-                    <span v-else-if="trendDirection === 'down'">↓</span>
+                    <Icon v-if="trendDirection === 'up'" name="arrow-up" size="16" aria-hidden="true" />
+                    <Icon v-else-if="trendDirection === 'down'" name="arrow-down" size="16" aria-hidden="true" />
+                    <Icon v-else name="minus" size="16" aria-hidden="true" />
+
+                    <span class="sr-only" v-if="trendDirection === 'up'">Trending up</span>
+                    <span class="sr-only" v-else-if="trendDirection === 'down'">Trending down</span>
+                    <span class="sr-only" v-else>No change</span>
+
                     {{ trend }}
                 </span>
                 <span class="text-text-muted opacity-80 ml-2 text-xs">vs last period</span>
