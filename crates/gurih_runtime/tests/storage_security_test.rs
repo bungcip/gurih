@@ -1,5 +1,5 @@
-use gurih_runtime::storage::{FileDriver, LocalFileDriver};
 use bytes::Bytes;
+use gurih_runtime::storage::{FileDriver, LocalFileDriver};
 use std::fs;
 
 #[tokio::test]
@@ -23,7 +23,11 @@ async fn test_path_traversal_vulnerability() {
     assert!(result.is_err(), "Path traversal should be rejected");
 
     let err_msg = result.err().unwrap();
-    assert!(err_msg.contains("Path traversal '..' is not allowed"), "Unexpected error message: {}", err_msg);
+    assert!(
+        err_msg.contains("Path traversal '..' is not allowed"),
+        "Unexpected error message: {}",
+        err_msg
+    );
 
     let pwned_path = temp_dir.join("pwned.txt");
     assert!(!pwned_path.exists(), "File should not be written outside base path");
