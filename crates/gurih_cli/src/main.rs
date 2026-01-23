@@ -116,25 +116,23 @@ async fn main() {
         } => {
             watch_loop(file, port, server_only).await;
         }
-        Commands::Faker { file, count } => {
-            match read_and_compile_with_diagnostics(&file) {
-                Ok(schema) => {
-                    let schema = Arc::new(schema);
-                    let datastore = create_datastore(schema.clone(), &file).await;
-                    let faker = gurih_runtime::faker::FakerEngine::new();
-                    let count = count.unwrap_or(10);
-                    println!("🌱 Generating {} fake records per entity...", count);
-                    match faker.seed_entities(&schema, datastore.as_ref(), count).await {
-                         Ok(_) => println!("✔ Faker completed successfully."),
-                         Err(e) => {
-                             eprintln!("❌ Faker failed: {}", e);
-                             std::process::exit(1);
-                         }
+        Commands::Faker { file, count } => match read_and_compile_with_diagnostics(&file) {
+            Ok(schema) => {
+                let schema = Arc::new(schema);
+                let datastore = create_datastore(schema.clone(), &file).await;
+                let faker = gurih_runtime::faker::FakerEngine::new();
+                let count = count.unwrap_or(10);
+                println!("🌱 Generating {} fake records per entity...", count);
+                match faker.seed_entities(&schema, datastore.as_ref(), count).await {
+                    Ok(_) => println!("✔ Faker completed successfully."),
+                    Err(e) => {
+                        eprintln!("❌ Faker failed: {}", e);
+                        std::process::exit(1);
                     }
                 }
-                Err(_) => std::process::exit(1),
             }
-        }
+            Err(_) => std::process::exit(1),
+        },
     }
 }
 

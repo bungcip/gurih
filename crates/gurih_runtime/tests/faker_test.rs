@@ -24,14 +24,23 @@ async fn test_faker_generation() {
     let datastore: Arc<dyn DataStore> = Arc::new(MemoryDataStore::new());
 
     let faker = FakerEngine::new();
-    faker.seed_entities(&schema, datastore.as_ref(), 10).await.expect("Faker failed");
+    faker
+        .seed_entities(&schema, datastore.as_ref(), 10)
+        .await
+        .expect("Faker failed");
 
     // Verify Department count
-    let count_dept = datastore.count("Department", std::collections::HashMap::new()).await.unwrap();
+    let count_dept = datastore
+        .count("Department", std::collections::HashMap::new())
+        .await
+        .unwrap();
     assert_eq!(count_dept, 10);
 
     // Verify Employee count
-    let count_emp = datastore.count("Employee", std::collections::HashMap::new()).await.unwrap();
+    let count_emp = datastore
+        .count("Employee", std::collections::HashMap::new())
+        .await
+        .unwrap();
     assert_eq!(count_emp, 10);
 
     // Verify Relationship (Employee has department_id)
@@ -57,7 +66,10 @@ async fn test_faker_generation() {
             let dept = datastore.get("Department", dept_id).await.unwrap();
             assert!(dept.is_some(), "Referenced Department should exist for key {}", key);
         } else {
-             panic!("Employee should have department_id populated by FakerEngine for implicit relationship. Found keys: {:?}", emp.as_object().unwrap().keys());
+            panic!(
+                "Employee should have department_id populated by FakerEngine for implicit relationship. Found keys: {:?}",
+                emp.as_object().unwrap().keys()
+            );
         }
     }
 }
