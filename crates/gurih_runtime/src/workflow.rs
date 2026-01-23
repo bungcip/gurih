@@ -1,4 +1,5 @@
-use crate::constants::{FIELD_IS_PAYROLL_ACTIVE, FIELD_JOIN_DATE, FIELD_TMT_CPNS};
+use crate::constants::FIELD_IS_PAYROLL_ACTIVE;
+use chrono::NaiveDate;
 use gurih_common::time::check_min_years;
 use gurih_ir::{Schema, Symbol, TransitionEffect, TransitionPrecondition};
 use serde_json::Value;
@@ -49,17 +50,14 @@ impl WorkflowEngine {
                         TransitionPrecondition::Document(doc_name) => {
                             let has_doc = entity_data
                                 .get(doc_name.as_str())
-                                .map(|v| !v.is_null() && v.as_str().unwrap_or("") != "")
+                                .map(|v| !v.is_null() && !v.as_str().unwrap_or("").is_empty())
                                 .unwrap_or(false);
                             if !has_doc {
                                 return Err(format!("Missing required document: {}", doc_name));
                             }
                         }
                         TransitionPrecondition::MinYearsOfService { years, from_field } => {
-                            let field_name = from_field
-                                .as_ref()
-                                .map(|s| s.as_str())
-                                .unwrap_or("tmt_cpns");
+                            let field_name = from_field.as_ref().map(|s| s.as_str()).unwrap_or("tmt_cpns");
 
                             let join_date_str = entity_data
                                 .get(field_name)
@@ -77,10 +75,7 @@ impl WorkflowEngine {
                                     return Err(format!("Minimum {} years of service required", years));
                                 }
                             } else {
-                                return Err(format!(
-                                    "Cannot determine years of service (missing '{}')",
-                                    field_name
-                                ));
+                                return Err(format!("Cannot determine years of service (missing '{}')", field_name));
                             }
                         }
                         TransitionPrecondition::ValidEffectiveDate(field) => {
@@ -88,18 +83,10 @@ impl WorkflowEngine {
                             match date_val {
                                 Some(Value::String(s)) => {
                                     if NaiveDate::parse_from_str(s, "%Y-%m-%d").is_err() {
-                                        return Err(format!(
-                                            "Field '{}' must be a valid date (YYYY-MM-DD)",
-                                            field
-                                        ));
+                                        return Err(format!("Field '{}' must be a valid date (YYYY-MM-DD)", field));
                                     }
                                 }
-                                _ => {
-                                    return Err(format!(
-                                        "Missing or invalid effective date in field '{}'",
-                                        field
-                                    ))
-                                }
+                                _ => return Err(format!("Missing or invalid effective date in field '{}'", field)),
                             }
                         }
                     }
@@ -132,26 +119,25 @@ impl WorkflowEngine {
             .values()
             .find(|w| w.entity == Symbol::from(entity_name));
 
-        if let Some(wf) = workflow {
-            if let Some(t) = wf
+        if let Some(wf) = workflow
+            && let Some(t) = wf
                 .transitions
                 .iter()
                 .find(|t| t.from == Symbol::from(current_state) && t.to == Symbol::from(new_state))
-            {
-                for effect in &t.effects {
-                    match effect {
-                        TransitionEffect::SuspendPayroll(active) => {
-                            updates.insert(FIELD_IS_PAYROLL_ACTIVE.to_string(), Value::Bool(*active));
-                        }
-                        TransitionEffect::Notify(target) => {
-                            notifications.push(target.to_string());
-                        }
-                        TransitionEffect::UpdateRankEligibility(active) => {
-                            updates.insert("rank_eligible".to_string(), Value::Bool(*active));
-                        }
-                        TransitionEffect::UpdateField { field, value } => {
-                            updates.insert(field.to_string(), Value::String(value.clone()));
-                        }
+        {
+            for effect in &t.effects {
+                match effect {
+                    TransitionEffect::SuspendPayroll(active) => {
+                        updates.insert(FIELD_IS_PAYROLL_ACTIVE.to_string(), Value::Bool(*active));
+                    }
+                    TransitionEffect::Notify(target) => {
+                        notifications.push(target.to_string());
+                    }
+                    TransitionEffect::UpdateRankEligibility(active) => {
+                        updates.insert("rank_eligible".to_string(), Value::Bool(*active));
+                    }
+                    TransitionEffect::UpdateField { field, value } => {
+                        updates.insert(field.to_string(), Value::String(value.clone()));
                     }
                 }
             }
@@ -190,4 +176,3 @@ impl WorkflowEngine {
             .and_then(|t| t.required_permission.as_ref().map(|s: &Symbol| s.to_string()))
     }
 }
-

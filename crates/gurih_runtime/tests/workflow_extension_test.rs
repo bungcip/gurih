@@ -1,6 +1,6 @@
-use gurih_ir::{Schema, Symbol, Transition, WorkflowSchema, TransitionPrecondition, TransitionEffect};
+use gurih_ir::{Schema, Symbol, Transition, TransitionEffect, TransitionPrecondition, WorkflowSchema};
 use gurih_runtime::workflow::WorkflowEngine;
-use serde_json::{json, Value};
+use serde_json::json;
 
 #[test]
 fn test_workflow_extensions() {
@@ -11,35 +11,33 @@ fn test_workflow_extensions() {
 
     let workflow = WorkflowSchema {
         name: Symbol::from("PegawaiWorkflow"),
-        entity: entity_name.clone(),
+        entity: entity_name,
         field: Symbol::from("status_pegawai"),
-        initial_state: state_cpns.clone(),
-        states: vec![state_cpns.clone(), state_pns.clone()],
-        transitions: vec![
-            Transition {
-                name: Symbol::from("AngkatPNS"),
-                from: state_cpns.clone(),
-                to: state_pns.clone(),
-                required_permission: None,
-                preconditions: vec![
-                    TransitionPrecondition::MinYearsOfService {
-                        years: 1,
-                        from_field: Some(Symbol::from("tmt_cpns")),
-                    },
-                    TransitionPrecondition::ValidEffectiveDate(Symbol::from("tmt_pns")),
-                ],
-                effects: vec![
-                    TransitionEffect::UpdateRankEligibility(true),
-                    TransitionEffect::UpdateField {
-                        field: Symbol::from("custom_field"),
-                        value: "updated".to_string(),
-                    },
-                ],
-            },
-        ],
+        initial_state: state_cpns,
+        states: vec![state_cpns, state_pns],
+        transitions: vec![Transition {
+            name: Symbol::from("AngkatPNS"),
+            from: state_cpns,
+            to: state_pns,
+            required_permission: None,
+            preconditions: vec![
+                TransitionPrecondition::MinYearsOfService {
+                    years: 1,
+                    from_field: Some(Symbol::from("tmt_cpns")),
+                },
+                TransitionPrecondition::ValidEffectiveDate(Symbol::from("tmt_pns")),
+            ],
+            effects: vec![
+                TransitionEffect::UpdateRankEligibility(true),
+                TransitionEffect::UpdateField {
+                    field: Symbol::from("custom_field"),
+                    value: "updated".to_string(),
+                },
+            ],
+        }],
     };
 
-    schema.workflows.insert(workflow.name.clone(), workflow);
+    schema.workflows.insert(workflow.name, workflow);
     let engine = WorkflowEngine::new();
 
     // Test Case 1: Fail Min Years
@@ -67,7 +65,11 @@ fn test_workflow_extensions() {
     let res_fail_date = engine.validate_transition(&schema, "Pegawai", "CPNS", "PNS", &data_fail_date);
     assert!(res_fail_date.is_err());
     let err_msg_date = res_fail_date.unwrap_err();
-    assert!(err_msg_date.contains("valid date"), "Unexpected error: {}", err_msg_date);
+    assert!(
+        err_msg_date.contains("valid date"),
+        "Unexpected error: {}",
+        err_msg_date
+    );
 
     // Test Case 3: Success
     let data_success = json!({

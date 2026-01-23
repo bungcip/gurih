@@ -190,14 +190,12 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                                 ast::TransitionPreconditionDef::Document { name, .. } => {
                                     TransitionPrecondition::Document(Symbol::from(name.as_str()))
                                 }
-                                ast::TransitionPreconditionDef::MinYearsOfService {
-                                    years,
-                                    from_field,
-                                    ..
-                                } => TransitionPrecondition::MinYearsOfService {
-                                    years: *years,
-                                    from_field: from_field.as_ref().map(|s| Symbol::from(s.as_str())),
-                                },
+                                ast::TransitionPreconditionDef::MinYearsOfService { years, from_field, .. } => {
+                                    TransitionPrecondition::MinYearsOfService {
+                                        years: *years,
+                                        from_field: from_field.as_ref().map(|s| Symbol::from(s.as_str())),
+                                    }
+                                }
                                 ast::TransitionPreconditionDef::ValidEffectiveDate { field, .. } => {
                                     TransitionPrecondition::ValidEffectiveDate(Symbol::from(field.as_str()))
                                 }
@@ -409,21 +407,16 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     }
 
     // 11. Process Routes
-    fn process_route_node(
-        node: &ast::RouteNode,
-        src: &str,
-    ) -> Result<RouteSchema, CompileError> {
+    fn process_route_node(node: &ast::RouteNode, src: &str) -> Result<RouteSchema, CompileError> {
         match node {
-            ast::RouteNode::Route(r) => {
-                Ok(RouteSchema {
-                    verb: r.verb.clone(),
-                    path: r.path.clone(),
-                    action: r.action.as_str().into(),
-                    layout: r.layout.as_ref().map(|l| l.as_str().into()),
-                    permission: r.permission.as_ref().map(|p| p.as_str().into()),
-                    children: vec![],
-                })
-            }
+            ast::RouteNode::Route(r) => Ok(RouteSchema {
+                verb: r.verb.clone(),
+                path: r.path.clone(),
+                action: r.action.as_str().into(),
+                layout: r.layout.as_ref().map(|l| l.as_str().into()),
+                permission: r.permission.as_ref().map(|p| p.as_str().into()),
+                children: vec![],
+            }),
             ast::RouteNode::Group(g) => {
                 let mut children = vec![];
                 for child in &g.children {

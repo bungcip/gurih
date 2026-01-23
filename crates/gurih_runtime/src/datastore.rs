@@ -76,11 +76,11 @@ impl DataStore for MemoryDataStore {
             // Merge existing with new record
             let mut new_record = (**existing).clone();
 
-            if let Some(target) = new_record.as_object_mut() {
-                if let Some(source) = record.as_object() {
-                    for (k, v) in source {
-                        target.insert(k.clone(), v.clone());
-                    }
+            if let Some(target) = new_record.as_object_mut()
+                && let Some(source) = record.as_object()
+            {
+                for (k, v) in source {
+                    target.insert(k.clone(), v.clone());
                 }
             }
 
@@ -228,10 +228,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::sqlite::SqlitePoolOptions;
 use std::path::Path;
 
-pub async fn init_datastore(
-    schema: Arc<Schema>,
-    base_path: Option<&Path>,
-) -> Result<Arc<dyn DataStore>, String> {
+pub async fn init_datastore(schema: Arc<Schema>, base_path: Option<&Path>) -> Result<Arc<dyn DataStore>, String> {
     if let Some(db_config) = &schema.database {
         sqlx::any::install_default_drivers();
         println!("🔌 Connecting to database...");
@@ -259,9 +256,7 @@ pub async fn init_datastore(
                     if let Some(parent) = base_path {
                         parent.join(path_obj)
                     } else {
-                        std::env::current_dir()
-                            .map_err(|e| e.to_string())?
-                            .join(path_obj)
+                        std::env::current_dir().map_err(|e| e.to_string())?.join(path_obj)
                     }
                 } else {
                     path_obj.to_path_buf()
@@ -269,16 +264,15 @@ pub async fn init_datastore(
 
                 // Ensure absolute
                 if full_path.is_relative() {
-                    full_path = std::env::current_dir()
-                        .map_err(|e| e.to_string())?
-                        .join(full_path);
+                    full_path = std::env::current_dir().map_err(|e| e.to_string())?.join(full_path);
                 }
 
                 // Ensure parent directory exists
-                if let Some(parent) = full_path.parent() {
-                    if !parent.as_os_str().is_empty() && !parent.exists() {
-                        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-                    }
+                if let Some(parent) = full_path.parent()
+                    && !parent.as_os_str().is_empty()
+                    && !parent.exists()
+                {
+                    std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
                 }
 
                 // Explicitly create file if not exists
@@ -312,8 +306,7 @@ pub async fn init_datastore(
             return Err(format!("Unsupported database type: {:?}", db_config.db_type));
         };
 
-        let manager =
-            SchemaManager::new(pool.clone(), schema.clone(), format!("{:?}", db_config.db_type));
+        let manager = SchemaManager::new(pool.clone(), schema.clone(), format!("{:?}", db_config.db_type));
         manager.migrate().await?;
 
         Ok(Arc::new(DatabaseDataStore::new(pool)))

@@ -59,10 +59,11 @@ impl DashboardEngine {
 
         let mut widgets = vec![];
         for w in &dashboard.widgets {
-            if let Some(required_roles) = &w.roles {
-                if !required_roles.is_empty() && !required_roles.iter().any(|r| user_roles.contains(r)) {
-                    continue;
-                }
+            if let Some(required_roles) = &w.roles
+                && !required_roles.is_empty()
+                && !required_roles.iter().any(|r| user_roles.contains(r))
+            {
+                continue;
             }
 
             let mut evaluated_value = json!(null);

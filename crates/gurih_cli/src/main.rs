@@ -13,6 +13,7 @@ use gurih_runtime::action::ActionEngine;
 use gurih_runtime::auth::AuthEngine;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
+use gurih_runtime::datastore::DataStore;
 use gurih_runtime::form::FormEngine;
 use gurih_runtime::page::PageEngine;
 use gurih_runtime::portal::PortalEngine;
@@ -237,22 +238,17 @@ async fn watch_loop(file: PathBuf, port: u16, server_only: bool) {
     }
 }
 
-async fn create_datastore(schema: Arc<gurih_ir::Schema>, file: &PathBuf) -> Arc<dyn DataStore> {
-    if let Some(db_config) = &schema.database {
-        sqlx::any::install_default_drivers();
-        println!("🔌 Connecting to database...");
-        // Handle env:DATABASE_URL
-        let url = if db_config.url.starts_with("env:") {
-            std::env::var(&db_config.url[4..]).unwrap_or_else(|_| "".to_string())
-        } else {
-            db_config.url.clone()
-        };
-
-            // Initialize DataStore
-            let datastore =
-                gurih_runtime::datastore::init_datastore(schema.clone(), file.parent())
-                    .await
-                    .expect("Failed to initialize datastore");
+async fn start_server(
+    file: PathBuf,
+    port: u16,
+    server_only: bool,
+    watch_mode: bool,
+    open_browser: bool,
+) -> Result<(), ()> {
+    match read_and_compile_with_diagnostics(&file) {
+        Ok(schema) => {
+            let schema = Arc::new(schema);
+            let datastore = create_datastore(schema.clone(), &file).await;
 
             let engine = Arc::new(DataEngine::new(schema.clone(), datastore.clone()));
             let auth_engine = Arc::new(AuthEngine::new(datastore));
@@ -396,23 +392,23 @@ async fn create_datastore(schema: Arc<gurih_ir::Schema>, file: &PathBuf) -> Arc<
         Err(_) => {
             if watch_mode {
                 println!("Waiting for changes...");
-                // Keep the task alive (completed with error) so loop can restart on next change.
-                // But the loop is: spawn -> select(rx, ctrl_c).
-                // If this returns, the task finishes.
-                // We need to keep the process running.
-                // So if we return error, we should return Ok(()) to the loop, but maybe sleep?
-                // Actually, if compilation fails, we print error and return Err.
-                // The spawned task finishes.
-                // The loop is `select! { _ = rx.recv(), _ = ctrlc }`.
-                // It does NOT select on `server_task`.
-                // So if server_task finishes (due to error), the loop sits waiting for `rx` (file change).
-                // This is EXACTLY what we want!
                 Err(())
             } else {
                 Err(())
             }
         }
     }
+}
+
+async fn create_datastore(schema: Arc<gurih_ir::Schema>, file: &std::path::Path) -> Arc<dyn DataStore> {
+    if schema.database.is_some() {
+        sqlx::any::install_default_drivers();
+        println!("🔌 Connecting to database...");
+    }
+
+    gurih_runtime::datastore::init_datastore(schema.clone(), file.parent())
+        .await
+        .expect("Failed to initialize datastore")
 }
 
 fn read_and_compile_with_diagnostics(path: &PathBuf) -> Result<gurih_ir::Schema, ()> {

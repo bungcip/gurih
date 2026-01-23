@@ -37,10 +37,7 @@ pub fn ensure_frontend_built() -> Option<PathBuf> {
             #[cfg(not(windows))]
             let npm_cmd = "npm";
 
-            let install_status = Command::new(npm_cmd)
-                .arg("install")
-                .current_dir(web_dir)
-                .status();
+            let install_status = Command::new(npm_cmd).arg("install").current_dir(web_dir).status();
 
             if let Ok(status) = install_status {
                 if status.success() {
