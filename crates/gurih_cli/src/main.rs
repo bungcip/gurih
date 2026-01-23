@@ -13,16 +13,11 @@ use gurih_runtime::action::ActionEngine;
 use gurih_runtime::auth::AuthEngine;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
-use gurih_runtime::datastore::{DataStore, DatabaseDataStore, MemoryDataStore};
 use gurih_runtime::form::FormEngine;
 use gurih_runtime::page::PageEngine;
-use gurih_runtime::persistence::SchemaManager;
 use gurih_runtime::portal::PortalEngine;
-use gurih_runtime::store::DbPool;
 use notify::{RecursiveMode, Watcher};
 use serde_json::Value;
-use sqlx::postgres::PgPoolOptions;
-use sqlx::sqlite::SqlitePoolOptions;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -30,6 +25,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
+
+mod frontend;
 
 #[derive(Parser)]
 #[command(name = "gurih")]
@@ -142,30 +139,6 @@ enum WatchEvent {
     Frontend,
 }
 
-fn rebuild_frontend() {
-    println!("📦 Rebuilding frontend...");
-    #[cfg(windows)]
-    let npm_cmd = "npm.cmd";
-    #[cfg(not(windows))]
-    let npm_cmd = "npm";
-
-    let web_dir = std::path::Path::new("web");
-    if !web_dir.exists() {
-        return;
-    }
-
-    let status = std::process::Command::new(npm_cmd)
-        .arg("run")
-        .arg("build")
-        .current_dir(web_dir)
-        .status();
-
-    match status {
-        Ok(s) if s.success() => println!("✅ Frontend rebuilt."),
-        _ => eprintln!("❌ Frontend build failed."),
-    }
-}
-
 async fn watch_loop(file: PathBuf, port: u16, server_only: bool) {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
@@ -248,7 +221,7 @@ async fn watch_loop(file: PathBuf, port: u16, server_only: bool) {
                             // Rebuild frontend without killing server
                             // blocking task to allow build to finish
                             let _ = tokio::task::spawn_blocking(|| {
-                                rebuild_frontend();
+                                frontend::rebuild_frontend();
                             }).await;
                         }
                         None => return,
@@ -275,96 +248,11 @@ async fn create_datastore(schema: Arc<gurih_ir::Schema>, file: &PathBuf) -> Arc<
             db_config.url.clone()
         };
 
-        if url.is_empty() {
-            panic!("Database URL is empty or env var not set.");
-        }
-
-        let pool = if db_config.db_type == gurih_ir::DatabaseType::Sqlite {
-            let mut db_path = url
-                .trim_start_matches("sqlite://")
-                .trim_start_matches("sqlite:")
-                .trim_start_matches("file:")
-                .to_string();
-
-            if db_path != ":memory:" {
-                let path_obj = std::path::Path::new(&db_path);
-                let mut full_path = if path_obj.is_relative() {
-                    if let Some(parent) = file.parent() {
-                        parent.join(path_obj)
-                    } else {
-                        std::env::current_dir().unwrap().join(path_obj)
-                    }
-                } else {
-                    path_obj.to_path_buf()
-                };
-
-                // Ensure absolute
-                if full_path.is_relative() {
-                    full_path = std::env::current_dir().unwrap().join(full_path);
-                }
-
-                // Ensure parent directory exists
-                if let Some(parent) = full_path.parent() {
-                    if !parent.as_os_str().is_empty() && !parent.exists() {
-                        fs::create_dir_all(parent).expect("Failed to create database directory");
-                    }
-                }
-
-                // Explicitly create file if not exists
-                if !full_path.exists() {
-                    fs::File::create(&full_path).expect("Failed to create database file");
-                }
-
-                db_path = full_path.to_string_lossy().to_string();
-            }
-
-            let url = if db_path == ":memory:" {
-                "sqlite::memory:".to_string()
-            } else {
-                format!("sqlite://{}", db_path)
-            };
-
-            let p = SqlitePoolOptions::new()
-                .max_connections(5)
-                .connect(&url)
-                .await
-                .expect(&format!("Failed to connect to SQLite DB at {}", url));
-            DbPool::Sqlite(p)
-        } else if db_config.db_type == gurih_ir::DatabaseType::Postgres {
-            let p = PgPoolOptions::new()
-                .max_connections(5)
-                .connect(&url)
-                .await
-                .expect("Failed to connect to Postgres DB");
-            DbPool::Postgres(p)
-        } else {
-            panic!("Unsupported database type: {:?}", db_config.db_type);
-        };
-
-        let manager = SchemaManager::new(pool.clone(), schema.clone(), format!("{:?}", db_config.db_type));
-        manager.migrate().await.expect("Migration failed");
-
-        Arc::new(DatabaseDataStore::new(pool))
-    } else {
-        println!("⚠️ No database configured. Using in-memory datastore.");
-        Arc::new(MemoryDataStore::new())
-    }
-}
-
-async fn start_server(
-    file: PathBuf,
-    port: u16,
-    server_only: bool,
-    watch_mode: bool,
-    open_browser: bool,
-) -> Result<(), ()> {
-    match read_and_compile_with_diagnostics(&file) {
-        Ok(schema) => {
-            println!("✔ Schema loaded. Starting runtime...");
-            let schema = Arc::new(schema);
-
             // Initialize DataStore
-            let datastore: Arc<dyn DataStore> = create_datastore(schema.clone(), &file).await;
+            let datastore =
+                gurih_runtime::datastore::init_datastore(schema.clone(), file.parent())
+                    .await
+                    .expect("Failed to initialize datastore");
 
             let engine = Arc::new(DataEngine::new(schema.clone(), datastore.clone()));
             let auth_engine = Arc::new(AuthEngine::new(datastore));
@@ -375,52 +263,9 @@ async fn start_server(
             let mut web_dist_path = PathBuf::from("web/dist");
 
             if !server_only {
-                let web_dir = std::path::Path::new("web");
-                let dist_dir = web_dir.join("dist");
-
-                if web_dir.exists() {
-                    if !dist_dir.exists() {
-                        println!("📦 Frontend build not found in web/dist. Attempting to build...");
-                        #[cfg(windows)]
-                        let npm_cmd = "npm.cmd";
-                        #[cfg(not(windows))]
-                        let npm_cmd = "npm";
-
-                        let install_status = std::process::Command::new(npm_cmd)
-                            .arg("install")
-                            .current_dir(web_dir)
-                            .status();
-
-                        if let Ok(status) = install_status {
-                            if status.success() {
-                                let build_status = std::process::Command::new(npm_cmd)
-                                    .arg("run")
-                                    .arg("build")
-                                    .current_dir(web_dir)
-                                    .status();
-
-                                if let Ok(b_status) = build_status {
-                                    if !b_status.success() {
-                                        eprintln!("⚠️ Failed to build frontend.");
-                                    }
-                                } else {
-                                    eprintln!("⚠️ Failed to run npm run build.");
-                                }
-                            } else {
-                                eprintln!("⚠️ Failed to run npm install.");
-                            }
-                        } else {
-                            eprintln!("⚠️ Failed to run npm.");
-                        }
-                    }
-
-                    if dist_dir.exists() {
-                        println!("🚀 Serving frontend from {}", dist_dir.display());
-                        static_service = Some(ServeDir::new(&dist_dir));
-                        web_dist_path = dist_dir;
-                    } else {
-                        eprintln!("⚠️ Frontend build not found. Dashboard will not be available.");
-                    }
+                if let Some(dist_dir) = frontend::ensure_frontend_built() {
+                    static_service = Some(ServeDir::new(&dist_dir));
+                    web_dist_path = dist_dir;
                 }
 
                 // Open Browser

@@ -219,9 +219,109 @@ impl DataStore for MemoryDataStore {
     }
 }
 
+use crate::persistence::SchemaManager;
 use crate::store::DbPool;
 use crate::store::postgres::PostgresDataStore;
 use crate::store::sqlite::SqliteDataStore;
+use gurih_ir::{DatabaseType, Schema};
+use sqlx::postgres::PgPoolOptions;
+use sqlx::sqlite::SqlitePoolOptions;
+use std::path::Path;
+
+pub async fn init_datastore(
+    schema: Arc<Schema>,
+    base_path: Option<&Path>,
+) -> Result<Arc<dyn DataStore>, String> {
+    if let Some(db_config) = &schema.database {
+        sqlx::any::install_default_drivers();
+        println!("🔌 Connecting to database...");
+        // Handle env:DATABASE_URL
+        let url = if db_config.url.starts_with("env:") {
+            std::env::var(&db_config.url[4..]).unwrap_or_else(|_| "".to_string())
+        } else {
+            db_config.url.clone()
+        };
+
+        if url.is_empty() {
+            return Err("Database URL is empty or env var not set.".to_string());
+        }
+
+        let pool = if db_config.db_type == DatabaseType::Sqlite {
+            let mut db_path = url
+                .trim_start_matches("sqlite://")
+                .trim_start_matches("sqlite:")
+                .trim_start_matches("file:")
+                .to_string();
+
+            if db_path != ":memory:" {
+                let path_obj = Path::new(&db_path);
+                let mut full_path = if path_obj.is_relative() {
+                    if let Some(parent) = base_path {
+                        parent.join(path_obj)
+                    } else {
+                        std::env::current_dir()
+                            .map_err(|e| e.to_string())?
+                            .join(path_obj)
+                    }
+                } else {
+                    path_obj.to_path_buf()
+                };
+
+                // Ensure absolute
+                if full_path.is_relative() {
+                    full_path = std::env::current_dir()
+                        .map_err(|e| e.to_string())?
+                        .join(full_path);
+                }
+
+                // Ensure parent directory exists
+                if let Some(parent) = full_path.parent() {
+                    if !parent.as_os_str().is_empty() && !parent.exists() {
+                        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                    }
+                }
+
+                // Explicitly create file if not exists
+                if !full_path.exists() {
+                    std::fs::File::create(&full_path).map_err(|e| e.to_string())?;
+                }
+
+                db_path = full_path.to_string_lossy().to_string();
+            }
+
+            let url = if db_path == ":memory:" {
+                "sqlite::memory:".to_string()
+            } else {
+                format!("sqlite://{}", db_path)
+            };
+
+            let p = SqlitePoolOptions::new()
+                .max_connections(5)
+                .connect(&url)
+                .await
+                .map_err(|e| format!("Failed to connect to SQLite DB at {}: {}", url, e))?;
+            DbPool::Sqlite(p)
+        } else if db_config.db_type == DatabaseType::Postgres {
+            let p = PgPoolOptions::new()
+                .max_connections(5)
+                .connect(&url)
+                .await
+                .map_err(|e| format!("Failed to connect to Postgres DB: {}", e))?;
+            DbPool::Postgres(p)
+        } else {
+            return Err(format!("Unsupported database type: {:?}", db_config.db_type));
+        };
+
+        let manager =
+            SchemaManager::new(pool.clone(), schema.clone(), format!("{:?}", db_config.db_type));
+        manager.migrate().await?;
+
+        Ok(Arc::new(DatabaseDataStore::new(pool)))
+    } else {
+        println!("⚠️ No database configured. Using in-memory datastore.");
+        Ok(Arc::new(MemoryDataStore::new()))
+    }
+}
 
 pub struct DatabaseDataStore {
     pool: DbPool,
