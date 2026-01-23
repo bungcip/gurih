@@ -190,8 +190,16 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                                 ast::TransitionPreconditionDef::Document { name, .. } => {
                                     TransitionPrecondition::Document(Symbol::from(name.as_str()))
                                 }
-                                ast::TransitionPreconditionDef::MinYearsOfService { years, .. } => {
-                                    TransitionPrecondition::MinYearsOfService(*years)
+                                ast::TransitionPreconditionDef::MinYearsOfService {
+                                    years,
+                                    from_field,
+                                    ..
+                                } => TransitionPrecondition::MinYearsOfService {
+                                    years: *years,
+                                    from_field: from_field.as_ref().map(|s| Symbol::from(s.as_str())),
+                                },
+                                ast::TransitionPreconditionDef::ValidEffectiveDate { field, .. } => {
+                                    TransitionPrecondition::ValidEffectiveDate(Symbol::from(field.as_str()))
                                 }
                             })
                             .collect(),
@@ -204,6 +212,15 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                                 }
                                 ast::TransitionEffectDef::Notify { target, .. } => {
                                     TransitionEffect::Notify(Symbol::from(target.as_str()))
+                                }
+                                ast::TransitionEffectDef::UpdateRankEligibility { active, .. } => {
+                                    TransitionEffect::UpdateRankEligibility(*active)
+                                }
+                                ast::TransitionEffectDef::UpdateField { field, value, .. } => {
+                                    TransitionEffect::UpdateField {
+                                        field: Symbol::from(field.as_str()),
+                                        value: value.clone(),
+                                    }
                                 }
                             })
                             .collect(),

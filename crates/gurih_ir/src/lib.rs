@@ -244,13 +244,19 @@ pub struct Transition {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransitionPrecondition {
     Document(Symbol),
-    MinYearsOfService(u32),
+    MinYearsOfService {
+        years: u32,
+        from_field: Option<Symbol>,
+    },
+    ValidEffectiveDate(Symbol),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransitionEffect {
     SuspendPayroll(bool),
     Notify(Symbol),
+    UpdateRankEligibility(bool),
+    UpdateField { field: Symbol, value: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
