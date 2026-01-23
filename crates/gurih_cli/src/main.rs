@@ -67,6 +67,12 @@ enum Commands {
         #[arg(long)]
         server_only: bool,
     },
+    /// Generate fake test data for entities
+    Faker {
+        file: PathBuf,
+        #[arg(long, default_value = "10")]
+        count: Option<usize>,
+    },
 }
 
 #[derive(Clone)]
@@ -110,6 +116,23 @@ async fn main() {
         } => {
             watch_loop(file, port, server_only).await;
         }
+        Commands::Faker { file, count } => match read_and_compile_with_diagnostics(&file) {
+            Ok(schema) => {
+                let schema = Arc::new(schema);
+                let datastore = create_datastore(schema.clone(), &file).await;
+                let faker = gurih_runtime::faker::FakerEngine::new();
+                let count = count.unwrap_or(10);
+                println!("🌱 Generating {} fake records per entity...", count);
+                match faker.seed_entities(&schema, datastore.as_ref(), count).await {
+                    Ok(_) => println!("✔ Faker completed successfully."),
+                    Err(e) => {
+                        eprintln!("❌ Faker failed: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+            Err(_) => std::process::exit(1),
+        },
     }
 }
 
@@ -241,6 +264,93 @@ async fn watch_loop(file: PathBuf, port: u16, server_only: bool) {
     }
 }
 
+async fn create_datastore(schema: Arc<gurih_ir::Schema>, file: &PathBuf) -> Arc<dyn DataStore> {
+    if let Some(db_config) = &schema.database {
+        sqlx::any::install_default_drivers();
+        println!("🔌 Connecting to database...");
+        // Handle env:DATABASE_URL
+        let url = if db_config.url.starts_with("env:") {
+            std::env::var(&db_config.url[4..]).unwrap_or_else(|_| "".to_string())
+        } else {
+            db_config.url.clone()
+        };
+
+        if url.is_empty() {
+            panic!("Database URL is empty or env var not set.");
+        }
+
+        let pool = if db_config.db_type == gurih_ir::DatabaseType::Sqlite {
+            let mut db_path = url
+                .trim_start_matches("sqlite://")
+                .trim_start_matches("sqlite:")
+                .trim_start_matches("file:")
+                .to_string();
+
+            if db_path != ":memory:" {
+                let path_obj = std::path::Path::new(&db_path);
+                let mut full_path = if path_obj.is_relative() {
+                    if let Some(parent) = file.parent() {
+                        parent.join(path_obj)
+                    } else {
+                        std::env::current_dir().unwrap().join(path_obj)
+                    }
+                } else {
+                    path_obj.to_path_buf()
+                };
+
+                // Ensure absolute
+                if full_path.is_relative() {
+                    full_path = std::env::current_dir().unwrap().join(full_path);
+                }
+
+                // Ensure parent directory exists
+                if let Some(parent) = full_path.parent() {
+                    if !parent.as_os_str().is_empty() && !parent.exists() {
+                        fs::create_dir_all(parent).expect("Failed to create database directory");
+                    }
+                }
+
+                // Explicitly create file if not exists
+                if !full_path.exists() {
+                    fs::File::create(&full_path).expect("Failed to create database file");
+                }
+
+                db_path = full_path.to_string_lossy().to_string();
+            }
+
+            let url = if db_path == ":memory:" {
+                "sqlite::memory:".to_string()
+            } else {
+                format!("sqlite://{}", db_path)
+            };
+
+            let p = SqlitePoolOptions::new()
+                .max_connections(5)
+                .connect(&url)
+                .await
+                .expect(&format!("Failed to connect to SQLite DB at {}", url));
+            DbPool::Sqlite(p)
+        } else if db_config.db_type == gurih_ir::DatabaseType::Postgres {
+            let p = PgPoolOptions::new()
+                .max_connections(5)
+                .connect(&url)
+                .await
+                .expect("Failed to connect to Postgres DB");
+            DbPool::Postgres(p)
+        } else {
+            panic!("Unsupported database type: {:?}", db_config.db_type);
+        };
+
+        let manager = SchemaManager::new(pool.clone(), schema.clone(), format!("{:?}", db_config.db_type));
+        manager.migrate().await.expect("Migration failed");
+
+        Arc::new(DatabaseDataStore::new(pool))
+    } else {
+        println!("⚠️ No database configured. Using in-memory datastore.");
+        Arc::new(MemoryDataStore::new())
+    }
+}
+
 async fn start_server(
     file: PathBuf,
     port: u16,
@@ -254,90 +364,7 @@ async fn start_server(
             let schema = Arc::new(schema);
 
             // Initialize DataStore
-            let datastore: Arc<dyn DataStore> = if let Some(db_config) = &schema.database {
-                sqlx::any::install_default_drivers();
-                println!("🔌 Connecting to database...");
-                // Handle env:DATABASE_URL
-                let url = if db_config.url.starts_with("env:") {
-                    std::env::var(&db_config.url[4..]).unwrap_or_else(|_| "".to_string())
-                } else {
-                    db_config.url.clone()
-                };
-
-                if url.is_empty() {
-                    panic!("Database URL is empty or env var not set.");
-                }
-
-                let pool = if db_config.db_type == gurih_ir::DatabaseType::Sqlite {
-                    let mut db_path = url
-                        .trim_start_matches("sqlite://")
-                        .trim_start_matches("sqlite:")
-                        .trim_start_matches("file:")
-                        .to_string();
-
-                    if db_path != ":memory:" {
-                        let path_obj = std::path::Path::new(&db_path);
-                        let mut full_path = if path_obj.is_relative() {
-                            if let Some(parent) = file.parent() {
-                                parent.join(path_obj)
-                            } else {
-                                std::env::current_dir().unwrap().join(path_obj)
-                            }
-                        } else {
-                            path_obj.to_path_buf()
-                        };
-
-                        // Ensure absolute
-                        if full_path.is_relative() {
-                            full_path = std::env::current_dir().unwrap().join(full_path);
-                        }
-
-                        // Ensure parent directory exists
-                        if let Some(parent) = full_path.parent() {
-                            if !parent.as_os_str().is_empty() && !parent.exists() {
-                                fs::create_dir_all(parent).expect("Failed to create database directory");
-                            }
-                        }
-
-                        // Explicitly create file if not exists
-                        if !full_path.exists() {
-                            fs::File::create(&full_path).expect("Failed to create database file");
-                        }
-
-                        db_path = full_path.to_string_lossy().to_string();
-                    }
-
-                    let url = if db_path == ":memory:" {
-                        "sqlite::memory:".to_string()
-                    } else {
-                        format!("sqlite://{}", db_path)
-                    };
-
-                    let p = SqlitePoolOptions::new()
-                        .max_connections(5)
-                        .connect(&url)
-                        .await
-                        .expect(&format!("Failed to connect to SQLite DB at {}", url));
-                    DbPool::Sqlite(p)
-                } else if db_config.db_type == gurih_ir::DatabaseType::Postgres {
-                    let p = PgPoolOptions::new()
-                        .max_connections(5)
-                        .connect(&url)
-                        .await
-                        .expect("Failed to connect to Postgres DB");
-                    DbPool::Postgres(p)
-                } else {
-                    panic!("Unsupported database type: {:?}", db_config.db_type);
-                };
-
-                let manager = SchemaManager::new(pool.clone(), schema.clone(), format!("{:?}", db_config.db_type));
-                manager.migrate().await.expect("Migration failed");
-
-                Arc::new(DatabaseDataStore::new(pool))
-            } else {
-                println!("⚠️ No database configured. Using in-memory datastore.");
-                Arc::new(MemoryDataStore::new())
-            };
+            let datastore: Arc<dyn DataStore> = create_datastore(schema.clone(), &file).await;
 
             let engine = Arc::new(DataEngine::new(schema.clone(), datastore.clone()));
             let auth_engine = Arc::new(AuthEngine::new(datastore));
