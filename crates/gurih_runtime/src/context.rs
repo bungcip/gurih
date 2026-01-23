@@ -20,3 +20,26 @@ impl RuntimeContext {
         self.permissions.contains(&"*".to_string()) || self.permissions.contains(&permission.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_runtime_context_permissions() {
+        // Case 1: System context has all permissions
+        let sys = RuntimeContext::system();
+        assert!(sys.has_permission("any_permission"));
+
+        // Case 2: Specific permissions
+        let user = RuntimeContext {
+            user_id: "user".to_string(),
+            roles: vec!["user".to_string()],
+            permissions: vec!["read".to_string(), "write".to_string()],
+        };
+
+        assert!(user.has_permission("read"));
+        assert!(user.has_permission("write"));
+        assert!(!user.has_permission("delete"));
+    }
+}
