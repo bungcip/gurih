@@ -32,6 +32,17 @@ impl LocalFileDriver {
 #[async_trait]
 impl FileDriver for LocalFileDriver {
     async fn put(&self, filename: &str, data: Bytes) -> Result<String, String> {
+        // Validation: Prevent path traversal and absolute paths
+        let check_path = Path::new(filename);
+        if check_path.is_absolute() {
+            return Err("Absolute paths are not allowed in storage".to_string());
+        }
+        for component in check_path.components() {
+            if matches!(component, std::path::Component::ParentDir) {
+                return Err("Path traversal '..' is not allowed in storage".to_string());
+            }
+        }
+
         let path = Path::new(&self.base_path).join(filename);
         if let Some(parent) = path.parent() {
             tokio::fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
