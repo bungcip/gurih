@@ -272,7 +272,6 @@ mod tests {
                 // Assuming parser parses `<` as something or I'll just use BinaryOp for now.
                 // Wait, if parser doesn't support `<`, then user request `[published_at] < DATE` won't parse.
                 // I need to update Expression/Parser to support `<`.
-                // I will add TODO comment and use supported operator for this test.
                 right: Box::new(Expression::FunctionCall {
                     name: "DATE".into(),
                     args: vec![],
