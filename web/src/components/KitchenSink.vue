@@ -13,6 +13,7 @@ import StatusBadge from './StatusBadge.vue'
 import Modal from './Modal.vue'
 import Timeline from './Timeline.vue'
 import MetricCard from './MetricCard.vue'
+import DescriptionList from './DescriptionList.vue'
 import { inject } from 'vue'
 
 const selectValue = ref(null)
@@ -72,6 +73,25 @@ const timelineItems = [
     variant: 'gray',
     icon: 'plus'
   }
+]
+
+const employeeDetails = [
+  { label: 'Full Name', value: 'Budi Santoso' },
+  { label: 'Employee ID', value: 'EMP-2023-001', type: 'code' },
+  { label: 'Department', value: 'Engineering' },
+  { label: 'Role', value: 'Senior Frontend Engineer' },
+  { label: 'Status', value: 'Active', type: 'status', variant: 'success' },
+  { label: 'Join Date', value: '2022-03-15', type: 'date' },
+  { label: 'Monthly Salary', value: 18500000, type: 'currency' },
+  { label: 'Email', value: 'budi.santoso@company.com', type: 'link', href: 'mailto:budi.santoso@company.com' },
+  { label: 'Notes', value: 'High performer. Currently leading the UI migration project.', span: 2 }
+]
+
+const systemInfo = [
+  { label: 'Version', value: 'v2.4.0', type: 'code' },
+  { label: 'Environment', value: 'Production', type: 'status', variant: 'warning' },
+  { label: 'Last Deployed', value: '2023-10-20', type: 'date' },
+  { label: 'Uptime', value: '99.99%' }
 ]
 
 function toggleLoading() {
@@ -333,6 +353,57 @@ function toggleLoading() {
                  <div>
                     <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Empty State</h3>
                     <Timeline :items="[]" emptyText="No activity logs found." />
+                </div>
+            </div>
+        </section>
+
+        <!-- Description Lists -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Data Display</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Example 1: Employee Profile (2 Cols) -->
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Entity Details (2 Cols)</h3>
+                    <DescriptionList
+                        title="Employee Profile"
+                        :items="employeeDetails"
+                        :columns="2"
+                    >
+                        <template #header-action>
+                             <Button size="sm" variant="ghost-primary">Edit</Button>
+                        </template>
+                    </DescriptionList>
+                </div>
+
+                <div class="space-y-8">
+                    <!-- Example 2: System Info (1 Col) -->
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Simple List (1 Col)</h3>
+                        <DescriptionList
+                            title="System Info"
+                            :items="systemInfo"
+                        />
+                    </div>
+
+                    <!-- Example 3: States -->
+                    <div>
+                         <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">States (Loading / Empty / Error)</h3>
+                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <DescriptionList
+                                :loading="true"
+                                :columns="1"
+                             />
+                             <DescriptionList
+                                :items="[]"
+                                emptyText="No data found for this record."
+                             />
+                             <div class="md:col-span-2">
+                                <DescriptionList
+                                    error="Failed to load employee data. Please try again later."
+                                />
+                             </div>
+                         </div>
+                    </div>
                 </div>
             </div>
         </section>
