@@ -214,6 +214,9 @@ pub enum FieldType {
     File,
     Relation,
     Boolean,
+    // AST-only or unresolved types
+    Code,
+    Custom(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

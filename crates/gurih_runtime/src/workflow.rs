@@ -1,4 +1,5 @@
-use chrono::{Datelike, NaiveDate, Utc};
+use crate::constants::{FIELD_IS_PAYROLL_ACTIVE, FIELD_JOIN_DATE, FIELD_TMT_CPNS};
+use gurih_common::time::check_min_years;
 use gurih_ir::{Schema, Symbol, TransitionEffect, TransitionPrecondition};
 use serde_json::Value;
 
@@ -140,7 +141,7 @@ impl WorkflowEngine {
                 for effect in &t.effects {
                     match effect {
                         TransitionEffect::SuspendPayroll(active) => {
-                            updates.insert("is_payroll_active".to_string(), Value::Bool(*active));
+                            updates.insert(FIELD_IS_PAYROLL_ACTIVE.to_string(), Value::Bool(*active));
                         }
                         TransitionEffect::Notify(target) => {
                             notifications.push(target.to_string());
@@ -190,16 +191,3 @@ impl WorkflowEngine {
     }
 }
 
-fn check_min_years(date_str: &str, min_years: u32) -> bool {
-    if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
-        let now = Utc::now().date_naive();
-        let years = now.year() - date.year();
-        let mut diff = years;
-        if now.month() < date.month() || (now.month() == date.month() && now.day() < date.day()) {
-            diff -= 1;
-        }
-        diff >= min_years as i32
-    } else {
-        false
-    }
-}

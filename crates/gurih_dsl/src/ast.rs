@@ -1,4 +1,7 @@
 use crate::diagnostics::SourceSpan;
+pub use gurih_ir::{
+    ActionStepType, DatabaseType, FieldType, RelationshipType, RouteVerb, StorageDriver, WidgetType,
+};
 
 #[derive(Debug, Clone)]
 pub struct Ast {
@@ -31,12 +34,6 @@ pub struct DatabaseDef {
     pub span: SourceSpan,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum DatabaseType {
-    Postgres,
-    Sqlite,
-}
-
 #[derive(Debug, Clone)]
 pub struct StorageDef {
     pub name: String,
@@ -44,12 +41,6 @@ pub struct StorageDef {
     pub location: Option<String>,
     pub props: std::collections::HashMap<String, String>,
     pub span: SourceSpan,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum StorageDriver {
-    S3,
-    Local,
 }
 
 #[derive(Debug, Clone)]
@@ -133,35 +124,6 @@ pub struct FieldDef {
     pub span: SourceSpan,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum FieldType {
-    Pk,
-    Serial,
-    Sku,
-    Name,
-    Title,
-    Description,
-    Avatar,
-    Money,
-    Email,
-    Phone,
-    Address,
-    Password,
-    Enum,
-    Integer,
-    Float,
-    Date,
-    Timestamp,
-    String,
-    Text,
-    Image,
-    File,
-    Relation,
-    Boolean,
-    Code,
-    Custom(String),
-}
-
 #[derive(Debug, Clone)]
 pub struct TableDef {
     pub name: String,
@@ -177,13 +139,6 @@ pub struct ColumnDef {
     pub primary: bool,
     pub unique: bool,
     pub span: SourceSpan,
-}
-
-#[derive(Debug, Clone)]
-pub enum RelationshipType {
-    BelongsTo,
-    HasMany,
-    HasOne,
 }
 
 #[derive(Debug, Clone)]
@@ -278,14 +233,6 @@ pub struct WidgetDef {
     pub query: Option<String>,
     pub roles: Option<Vec<String>>,
     pub span: SourceSpan,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum WidgetType {
-    Stat,
-    Chart,
-    List,
-    Pie,
 }
 
 #[derive(Debug, Clone)]
@@ -401,13 +348,6 @@ pub struct ActionStepDef {
     pub span: SourceSpan,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ActionStepType {
-    EntityDelete,
-    EntityUpdate,
-    EntityCreate,
-}
-
 #[derive(Debug, Clone)]
 pub struct RoutesDef {
     pub routes: Vec<RouteNode>,
@@ -418,14 +358,6 @@ pub struct RoutesDef {
 pub enum RouteNode {
     Route(RouteDef),
     Group(RouteGroupDef),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum RouteVerb {
-    Get,
-    Post,
-    Put,
-    Delete,
 }
 
 #[derive(Debug, Clone)]
