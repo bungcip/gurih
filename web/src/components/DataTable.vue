@@ -10,6 +10,19 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['action'])
+
+const currencyFormatters = new Map()
+
+const formatCurrency = (value, currencyCode = 'IDR') => {
+    if (!currencyFormatters.has(currencyCode)) {
+        currencyFormatters.set(currencyCode, new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: currencyCode,
+            minimumFractionDigits: 0
+        }))
+    }
+    return currencyFormatters.get(currencyCode).format(value || 0)
+}
 </script>
 
 <template>
@@ -40,7 +53,7 @@ const emit = defineEmits(['action'])
                           />
                       </template>
                       <template v-else-if="col.type === 'currency'">
-                          {{ new Intl.NumberFormat('id-ID', { style: 'currency', currency: col.currencyCode || 'IDR', minimumFractionDigits: 0 }).format(row[col.key] || 0) }}
+                          {{ formatCurrency(row[col.key], col.currencyCode) }}
                       </template>
                       <template v-else>
                           {{ row[col.key] }}
