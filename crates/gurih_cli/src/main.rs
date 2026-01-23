@@ -64,6 +64,12 @@ enum Commands {
         #[arg(long)]
         server_only: bool,
     },
+    /// Generate fake test data for entities
+    Faker {
+        file: PathBuf,
+        #[arg(long, default_value = "10")]
+        count: Option<usize>,
+    },
 }
 
 #[derive(Clone)]
@@ -107,6 +113,23 @@ async fn main() {
         } => {
             watch_loop(file, port, server_only).await;
         }
+        Commands::Faker { file, count } => match read_and_compile_with_diagnostics(&file) {
+            Ok(schema) => {
+                let schema = Arc::new(schema);
+                let datastore = create_datastore(schema.clone(), &file).await;
+                let faker = gurih_runtime::faker::FakerEngine::new();
+                let count = count.unwrap_or(10);
+                println!("🌱 Generating {} fake records per entity...", count);
+                match faker.seed_entities(&schema, datastore.as_ref(), count).await {
+                    Ok(_) => println!("✔ Faker completed successfully."),
+                    Err(e) => {
+                        eprintln!("❌ Faker failed: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+            Err(_) => std::process::exit(1),
+        },
     }
 }
 
@@ -214,17 +237,16 @@ async fn watch_loop(file: PathBuf, port: u16, server_only: bool) {
     }
 }
 
-async fn start_server(
-    file: PathBuf,
-    port: u16,
-    server_only: bool,
-    watch_mode: bool,
-    open_browser: bool,
-) -> Result<(), ()> {
-    match read_and_compile_with_diagnostics(&file) {
-        Ok(schema) => {
-            println!("✔ Schema loaded. Starting runtime...");
-            let schema = Arc::new(schema);
+async fn create_datastore(schema: Arc<gurih_ir::Schema>, file: &PathBuf) -> Arc<dyn DataStore> {
+    if let Some(db_config) = &schema.database {
+        sqlx::any::install_default_drivers();
+        println!("🔌 Connecting to database...");
+        // Handle env:DATABASE_URL
+        let url = if db_config.url.starts_with("env:") {
+            std::env::var(&db_config.url[4..]).unwrap_or_else(|_| "".to_string())
+        } else {
+            db_config.url.clone()
+        };
 
             // Initialize DataStore
             let datastore =

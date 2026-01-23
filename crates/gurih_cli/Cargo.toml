@@ -18,3 +18,5 @@ tower-http = { workspace = true, features = ["fs"] }
 uuid = { workspace = true }
 symbol_table = {workspace = true }
 bytes = "1.11.0"
+fake = { workspace = true }
+rand = { workspace = true }

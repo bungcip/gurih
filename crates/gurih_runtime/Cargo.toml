@@ -21,6 +21,8 @@ image = "0.24.9"
 base64 = "0.21.7"
 symbol_table = {workspace = true }
 bytes = "1.11.0"
+fake = { workspace = true }
+rand = { workspace = true }
 
 [dev-dependencies]
 gurih_dsl = { workspace = true }

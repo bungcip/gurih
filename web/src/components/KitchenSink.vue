@@ -12,6 +12,7 @@ import CurrencyInput from './CurrencyInput.vue'
 import StatusBadge from './StatusBadge.vue'
 import Modal from './Modal.vue'
 import Timeline from './Timeline.vue'
+import MetricCard from './MetricCard.vue'
 import { inject } from 'vue'
 
 const selectValue = ref(null)
@@ -259,6 +260,62 @@ function toggleLoading() {
              <div class="p-4 bg-gray-50 rounded border border-gray-200">
                  Panel content
              </div>
+        </section>
+
+        <!-- Metric Cards -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Metric Cards</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <MetricCard
+                    label="Total Revenue"
+                    value="$45,231.89"
+                    trend="+20.1%"
+                    trendDirection="up"
+                    variant="success"
+                />
+                 <MetricCard
+                    label="Active Users"
+                    value="2,345"
+                    trend="+180"
+                    trendDirection="up"
+                    icon="users"
+                    variant="primary"
+                />
+                 <MetricCard
+                    label="Pending Issues"
+                    value="12"
+                    trend="-2"
+                    trendDirection="down"
+                    icon="alert-circle"
+                    variant="warning"
+                />
+                <MetricCard
+                    label="Avg. Response"
+                    value="2m 30s"
+                    trend="0%"
+                    trendDirection="neutral"
+                    icon="clock"
+                    variant="info"
+                />
+                 <MetricCard
+                    label="Loading Example"
+                    value="0"
+                    loading
+                />
+                 <MetricCard
+                    label="Error Example"
+                    error="Failed to fetch data from API"
+                />
+                 <MetricCard
+                    label="Empty Example"
+                    icon="dashboard"
+                    empty
+                />
+                 <MetricCard
+                    label="Null Value"
+                    icon="calendar"
+                />
+            </div>
         </section>
 
         <!-- Timeline -->
