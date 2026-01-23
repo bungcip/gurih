@@ -1,7 +1,5 @@
 use crate::diagnostics::SourceSpan;
-pub use gurih_ir::{
-    ActionStepType, DatabaseType, FieldType, RelationshipType, RouteVerb, StorageDriver, WidgetType,
-};
+pub use gurih_ir::{ActionStepType, DatabaseType, FieldType, RelationshipType, RouteVerb, StorageDriver, WidgetType};
 
 #[derive(Debug, Clone)]
 pub struct Ast {

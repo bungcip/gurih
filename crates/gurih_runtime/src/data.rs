@@ -88,59 +88,53 @@ impl DataEngine {
             .workflows
             .values()
             .find(|w| w.entity == Symbol::from(entity_name))
+            && let Some(new_state) = data.get(wf.field.as_str()).and_then(|v| v.as_str())
         {
-            if let Some(new_state) = data.get(wf.field.as_str()).and_then(|v| v.as_str()) {
-                let current_record = self.datastore.get(entity_name, id).await?.ok_or("Record not found")?;
+            let current_record = self.datastore.get(entity_name, id).await?.ok_or("Record not found")?;
 
-                let current_state = current_record
-                    .get(wf.field.as_str())
-                    .and_then(|v| v.as_str())
-                    .unwrap_or(""); // Assume empty state if missing
+            let current_state = current_record
+                .get(wf.field.as_str())
+                .and_then(|v| v.as_str())
+                .unwrap_or(""); // Assume empty state if missing
 
-                // Merge data for validation
-                let mut merged_record = (*current_record).clone();
-                if let Some(target) = merged_record.as_object_mut() {
-                    if let Some(source) = data.as_object() {
-                        for (k, v) in source {
-                            target.insert(k.clone(), v.clone());
-                        }
-                    }
+            // Merge data for validation
+            let mut merged_record = (*current_record).clone();
+            if let Some(target) = merged_record.as_object_mut()
+                && let Some(source) = data.as_object()
+            {
+                for (k, v) in source {
+                    target.insert(k.clone(), v.clone());
                 }
+            }
 
-                // Validate transition logic
-                self.workflow.validate_transition(
-                    &self.schema,
-                    entity_name,
-                    current_state,
-                    new_state,
-                    &merged_record,
-                )?;
+            // Validate transition logic
+            self.workflow
+                .validate_transition(&self.schema, entity_name, current_state, new_state, &merged_record)?;
 
-                // Validate permissions for transition
-                if let Some(perm) =
-                    self.workflow
-                        .get_transition_permission(&self.schema, entity_name, current_state, new_state)
-                    && !ctx.has_permission(&perm)
-                {
-                    return Err(format!("Missing permission '{}' for transition", perm));
-                }
+            // Validate permissions for transition
+            if let Some(perm) =
+                self.workflow
+                    .get_transition_permission(&self.schema, entity_name, current_state, new_state)
+                && !ctx.has_permission(&perm)
+            {
+                return Err(format!("Missing permission '{}' for transition", perm));
+            }
 
-                // Apply Side Effects
-                let (updates, notifications) =
-                    self.workflow
-                        .apply_effects(&self.schema, entity_name, current_state, new_state, &merged_record);
+            // Apply Side Effects
+            let (updates, notifications) =
+                self.workflow
+                    .apply_effects(&self.schema, entity_name, current_state, new_state, &merged_record);
 
-                for notification in notifications {
-                    println!("NOTIFICATION: {}", notification);
-                }
+            for notification in notifications {
+                println!("NOTIFICATION: {}", notification);
+            }
 
-                // Merge updates into data
-                if let Some(obj) = data.as_object_mut() {
-                    if let Value::Object(update_map) = updates {
-                        for (k, v) in update_map {
-                            obj.insert(k, v);
-                        }
-                    }
+            // Merge updates into data
+            if let Some(obj) = data.as_object_mut()
+                && let Value::Object(update_map) = updates
+            {
+                for (k, v) in update_map {
+                    obj.insert(k, v);
                 }
             }
         }
@@ -171,10 +165,10 @@ impl DataEngine {
                     return Err(format!("Invalid type for field: {}", field.name));
                 }
                 // Hash password if applicable
-                if field.field_type == FieldType::Password {
-                    if let Value::String(pass) = val {
-                        *val = Value::String(hash_password(pass));
-                    }
+                if field.field_type == FieldType::Password
+                    && let Value::String(pass) = val
+                {
+                    *val = Value::String(hash_password(pass));
                 }
             }
         }
@@ -207,4 +201,3 @@ impl DataEngine {
         self.datastore.list(entity, limit, offset).await
     }
 }
-

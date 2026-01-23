@@ -12,23 +12,23 @@ fn test_workflow_transitions() {
 
     let workflow = WorkflowSchema {
         name: Symbol::from("OrderWorkflow"),
-        entity: entity_name.clone(),
+        entity: entity_name,
         field: Symbol::from("state"),
-        initial_state: initial_state.clone(),
-        states: vec![initial_state.clone(), state_submitted.clone(), state_approved.clone()],
+        initial_state: initial_state,
+        states: vec![initial_state, state_submitted, state_approved],
         transitions: vec![
             Transition {
                 name: Symbol::from("Submit"),
-                from: initial_state.clone(),
-                to: state_submitted.clone(),
+                from: initial_state,
+                to: state_submitted,
                 required_permission: None,
                 preconditions: vec![],
                 effects: vec![],
             },
             Transition {
                 name: Symbol::from("Approve"),
-                from: state_submitted.clone(),
-                to: state_approved.clone(),
+                from: state_submitted,
+                to: state_approved,
                 required_permission: Some(Symbol::from("can_approve")),
                 preconditions: vec![],
                 effects: vec![],
@@ -36,7 +36,7 @@ fn test_workflow_transitions() {
         ],
     };
 
-    schema.workflows.insert(workflow.name.clone(), workflow);
+    schema.workflows.insert(workflow.name, workflow);
 
     let engine = WorkflowEngine::new();
 

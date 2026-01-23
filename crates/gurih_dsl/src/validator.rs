@@ -62,10 +62,7 @@ impl<'a> Validator<'a> {
                 return Err(CompileError::ValidationError {
                     src: self.src.to_string(),
                     span: field.span,
-                    message: format!(
-                        "Duplicate field name '{}' in entity '{}'",
-                        field.name, entity.name
-                    ),
+                    message: format!("Duplicate field name '{}' in entity '{}'", field.name, entity.name),
                 });
             }
             field_names.insert(field.name.clone(), field.span);
@@ -86,10 +83,7 @@ impl<'a> Validator<'a> {
             return Err(CompileError::ValidationError {
                 src: self.src.to_string(),
                 span: entity.span,
-                message: format!(
-                    "Entity '{}' must have at least one primary key (field:pk)",
-                    entity.name
-                ),
+                message: format!("Entity '{}' must have at least one primary key (field:pk)", entity.name),
             });
         }
 
@@ -111,10 +105,7 @@ impl<'a> Validator<'a> {
             return Err(CompileError::ValidationError {
                 src: self.src.to_string(),
                 span: entity.span,
-                message: format!(
-                    "Entity '{}' can have at most one field:description",
-                    entity.name
-                ),
+                message: format!("Entity '{}' can have at most one field:description", entity.name),
             });
         }
         if avatar_count > 1 {
@@ -156,21 +147,14 @@ impl<'a> Validator<'a> {
         Ok(())
     }
 
-    fn validate_route_node(
-        &self,
-        node: &ast::RouteNode,
-        valid_targets: &HashSet<String>,
-    ) -> Result<(), CompileError> {
+    fn validate_route_node(&self, node: &ast::RouteNode, valid_targets: &HashSet<String>) -> Result<(), CompileError> {
         match node {
             ast::RouteNode::Route(r) => {
                 if !valid_targets.contains(&r.action) {
                     return Err(CompileError::ValidationError {
                         src: self.src.to_string(),
                         span: r.span,
-                        message: format!(
-                            "Route target '{}' not found in pages, dashboards or actions",
-                            r.action
-                        ),
+                        message: format!("Route target '{}' not found in pages, dashboards or actions", r.action),
                     });
                 }
             }

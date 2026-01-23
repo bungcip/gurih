@@ -14,6 +14,12 @@ use std::collections::{HashMap, VecDeque};
 
 pub struct FakerEngine;
 
+impl Default for FakerEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FakerEngine {
     pub fn new() -> Self {
         Self
@@ -60,14 +66,14 @@ impl FakerEngine {
                     if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
                         let field_name = format!("{}_id", rel.name);
                         // Check if already handled by explicit field
-                        if !foreign_keys.contains_key(&field_name) {
+                        if let std::collections::hash_map::Entry::Vacant(e) = foreign_keys.entry(field_name) {
                             // Fetch IDs from target_entity
                             let records = datastore.list(&rel.target_entity.to_string(), Some(1000), None).await?;
                             let ids: Vec<String> = records
                                 .iter()
                                 .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(|s| s.to_string()))
                                 .collect();
-                            foreign_keys.insert(field_name, ids);
+                            e.insert(ids);
                         }
                     }
                 }
@@ -103,14 +109,13 @@ impl FakerEngine {
                     for rel in &entity_schema.relationships {
                         if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
                             let field_name = format!("{}_id", rel.name);
-                            if !record.contains_key(&field_name) {
-                                if let Some(fks) = foreign_keys.get(&field_name) {
-                                    if !fks.is_empty() {
-                                        let mut rng = rand::thread_rng();
-                                        let id = fks.choose(&mut rng).unwrap();
-                                        record.insert(field_name, Value::String(id.clone()));
-                                    }
-                                }
+                            if !record.contains_key(&field_name)
+                                && let Some(fks) = foreign_keys.get(&field_name)
+                                && !fks.is_empty()
+                            {
+                                let mut rng = rand::thread_rng();
+                                let id = fks.choose(&mut rng).unwrap();
+                                record.insert(field_name, Value::String(id.clone()));
                             }
                         }
                     }
@@ -134,8 +139,8 @@ impl FakerEngine {
 
         // Initialize
         for entity in schema.entities.keys() {
-            adj.entry(entity.clone()).or_default();
-            in_degree.insert(entity.clone(), 0);
+            adj.entry(*entity).or_default();
+            in_degree.insert(*entity, 0);
         }
 
         // Build Graph
@@ -143,10 +148,8 @@ impl FakerEngine {
             for rel in &entity_schema.relationships {
                 if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
                     // target -> entity
-                    adj.entry(rel.target_entity.clone())
-                        .or_default()
-                        .push(entity_name.clone());
-                    *in_degree.entry(entity_name.clone()).or_insert(0) += 1;
+                    adj.entry(rel.target_entity).or_default().push(*entity_name);
+                    *in_degree.entry(*entity_name).or_insert(0) += 1;
                 }
             }
 
@@ -168,8 +171,8 @@ impl FakerEngine {
                         // Check if edge exists?
                         // It's cheaper to just add and handle duplicates or let logic handle multiple edges.
                         // Kahn's algo handles multi-edges fine (in-degree will be higher).
-                        adj.entry(target.clone()).or_default().push(entity_name.clone());
-                        *in_degree.entry(entity_name.clone()).or_insert(0) += 1;
+                        adj.entry(*target).or_default().push(*entity_name);
+                        *in_degree.entry(*entity_name).or_insert(0) += 1;
                     }
                 }
             }
@@ -179,20 +182,20 @@ impl FakerEngine {
         let mut queue: VecDeque<Symbol> = VecDeque::new();
         for (entity, &degree) in &in_degree {
             if degree == 0 {
-                queue.push_back(entity.clone());
+                queue.push_back(*entity);
             }
         }
 
         let mut sorted = Vec::new();
         while let Some(u) = queue.pop_front() {
-            sorted.push(u.clone());
+            sorted.push(u);
 
             if let Some(neighbors) = adj.get(&u) {
                 for v in neighbors {
                     if let Some(d) = in_degree.get_mut(v) {
                         *d -= 1;
                         if *d == 0 {
-                            queue.push_back(v.clone());
+                            queue.push_back(*v);
                         }
                     }
                 }
@@ -282,6 +285,12 @@ impl FakerEngine {
             FieldType::File => Value::String("https://placehold.co/file.pdf".to_string()),
             FieldType::Relation => Value::Null, // Should be handled by FK logic, but if not found...
             FieldType::Boolean => Value::Bool(rand::thread_rng().gen_bool(0.5)),
+            FieldType::Code => Value::String(
+                (0..8)
+                    .map(|_| rand::thread_rng().sample(rand::distributions::Alphanumeric) as char)
+                    .collect::<String>(),
+            ),
+            FieldType::Custom(_) => Value::Null,
         }
     }
 }
