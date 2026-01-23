@@ -126,3 +126,77 @@ async fn test_hr_workflow_rules() {
     let res = engine.update("Employee", &id2, atomic_update, &ctx).await;
     assert!(res.is_ok(), "Atomic update failed: {:?}", res.err());
 }
+
+#[tokio::test]
+async fn test_retirement_min_age() {
+    let kdl = r#"
+    database type="sqlite" url=":memory:"
+
+    workflow "Retirement" entity="Employee" field="status" {
+        state "active"
+        state "retired"
+
+        transition "retire" from="active" to="retired" {
+            requires {
+                min_age 58 from="birth_date"
+            }
+            effects {
+                suspend_payroll "true"
+            }
+        }
+    }
+
+    entity "Employee" {
+        field:pk "id"
+        field:string "status"
+        field:date "birth_date"
+        field:bool "is_payroll_active" default="true"
+    }
+    "#;
+
+    let schema = compile(kdl, None).unwrap();
+    let datastore: Arc<dyn DataStore> = Arc::new(MemoryDataStore::new());
+    let engine = DataEngine::new(Arc::new(schema), datastore);
+    let ctx = RuntimeContext::system();
+
+    // Calculate birth date for 50 years old (too young)
+    let now = Utc::now();
+    let birth_date_young = (now.date_naive() - chrono::Duration::days(365 * 50))
+        .format("%Y-%m-%d")
+        .to_string();
+
+    let emp_data = json!({
+        "id": "1",
+        "status": "active",
+        "birth_date": birth_date_young,
+        "is_payroll_active": true
+    });
+
+    let id = engine.create("Employee", emp_data, &ctx).await.unwrap();
+
+    // 1. Attempt retirement (Too young)
+    let update_data = json!({
+        "status": "retired"
+    });
+    let res = engine.update("Employee", &id, update_data.clone(), &ctx).await;
+    assert!(res.is_err());
+    assert!(res.unwrap_err().contains("Minimum age of 58 required"));
+
+    // 2. Update to 60 years old (Old enough)
+    let birth_date_old = (now.date_naive() - chrono::Duration::days(365 * 60))
+        .format("%Y-%m-%d")
+        .to_string();
+
+    engine
+        .update("Employee", &id, json!({"birth_date": birth_date_old}), &ctx)
+        .await
+        .unwrap();
+
+    // 3. Attempt retirement (Success)
+    let res = engine.update("Employee", &id, update_data, &ctx).await;
+    assert!(res.is_ok());
+
+    // 4. Verify payroll suspended
+    let emp = engine.read("Employee", &id).await.unwrap().unwrap();
+    assert_eq!(emp.get("is_payroll_active").unwrap(), false);
+}

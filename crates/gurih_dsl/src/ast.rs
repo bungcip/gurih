@@ -186,6 +186,11 @@ pub enum TransitionPreconditionDef {
         from_field: Option<String>,
         span: SourceSpan,
     },
+    MinAge {
+        age: u32,
+        birth_date_field: Option<String>,
+        span: SourceSpan,
+    },
     ValidEffectiveDate {
         field: String,
         span: SourceSpan,

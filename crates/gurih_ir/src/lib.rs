@@ -245,6 +245,7 @@ pub struct Transition {
 pub enum TransitionPrecondition {
     Document(Symbol),
     MinYearsOfService { years: u32, from_field: Option<Symbol> },
+    MinAge { age: u32, birth_date_field: Option<Symbol> },
     ValidEffectiveDate(Symbol),
 }
 

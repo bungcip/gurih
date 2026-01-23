@@ -196,6 +196,12 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                                         from_field: from_field.as_ref().map(|s| Symbol::from(s.as_str())),
                                     }
                                 }
+                                ast::TransitionPreconditionDef::MinAge { age, birth_date_field, .. } => {
+                                    TransitionPrecondition::MinAge {
+                                        age: *age,
+                                        birth_date_field: birth_date_field.as_ref().map(|s| Symbol::from(s.as_str())),
+                                    }
+                                }
                                 ast::TransitionPreconditionDef::ValidEffectiveDate { field, .. } => {
                                     TransitionPrecondition::ValidEffectiveDate(Symbol::from(field.as_str()))
                                 }

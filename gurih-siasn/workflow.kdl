@@ -7,6 +7,16 @@ workflow "StatusPegawaiWorkflow" for="Pegawai" field="status_pegawai" {
     state "Pensiun"
     state "PindahInstansi"
 
+    transition "PensiunOtomatis" from="PNS" to="Pensiun" {
+        requires {
+             min_age 58 from="tanggal_lahir"
+        }
+        effects {
+             suspend_payroll true
+             notify "taspen"
+        }
+    }
+
     transition "AngkatPNS" from="CPNS" to="PNS" {
         requires {
              min_years_of_service 1 from="tmt_cpns"
