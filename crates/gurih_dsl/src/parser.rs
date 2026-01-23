@@ -704,6 +704,15 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
                                         span: req.span().into(),
                                     });
                                 }
+                                "min_age" => {
+                                    let age = get_arg_int(req, 0, src)? as u32;
+                                    let birth_date_field = get_prop_string(req, "from", src).ok();
+                                    preconditions.push(TransitionPreconditionDef::MinAge {
+                                        age,
+                                        birth_date_field,
+                                        span: req.span().into(),
+                                    });
+                                }
                                 "valid_effective_date" => {
                                     let field = get_arg_string(req, 0, src)?;
                                     preconditions.push(TransitionPreconditionDef::ValidEffectiveDate {

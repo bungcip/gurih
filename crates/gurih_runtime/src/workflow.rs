@@ -78,6 +78,28 @@ impl WorkflowEngine {
                                 return Err(format!("Cannot determine years of service (missing '{}')", field_name));
                             }
                         }
+                        TransitionPrecondition::MinAge { age, birth_date_field } => {
+                            let field_name = birth_date_field.as_ref().map(|s| s.as_str()).unwrap_or("tanggal_lahir");
+
+                            let birth_date_str = entity_data
+                                .get(field_name)
+                                .or_else(|| {
+                                    if birth_date_field.is_none() {
+                                        entity_data.get("birth_date")
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .and_then(|v| v.as_str());
+
+                            if let Some(date_str) = birth_date_str {
+                                if !check_min_years(date_str, *age) {
+                                    return Err(format!("Minimum age of {} required", age));
+                                }
+                            } else {
+                                return Err(format!("Cannot determine age (missing '{}')", field_name));
+                            }
+                        }
                         TransitionPrecondition::ValidEffectiveDate(field) => {
                             let date_val = entity_data.get(field.as_str());
                             match date_val {
