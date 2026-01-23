@@ -1,5 +1,5 @@
 use crate::constants::FIELD_IS_PAYROLL_ACTIVE;
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate, Utc};
 use gurih_common::time::check_min_years;
 use gurih_ir::{Schema, Symbol, TransitionEffect, TransitionPrecondition};
 use serde_json::Value;
@@ -72,7 +72,23 @@ impl WorkflowEngine {
 
                             if let Some(date_str) = join_date_str {
                                 if !check_min_years(date_str, *years) {
-                                    return Err(format!("Minimum {} years of service required", years));
+                                    let current_years =
+                                        if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
+                                            let now = Utc::now().date_naive();
+                                            let mut diff = now.year() - date.year();
+                                            if now.month() < date.month()
+                                                || (now.month() == date.month() && now.day() < date.day())
+                                            {
+                                                diff -= 1;
+                                            }
+                                            diff
+                                        } else {
+                                            0
+                                        };
+                                    return Err(format!(
+                                        "Minimum {} years of service required (Current: {})",
+                                        years, current_years
+                                    ));
                                 }
                             } else {
                                 return Err(format!("Cannot determine years of service (missing '{}')", field_name));
@@ -94,7 +110,23 @@ impl WorkflowEngine {
 
                             if let Some(date_str) = birth_date_str {
                                 if !check_min_years(date_str, *age) {
-                                    return Err(format!("Minimum age of {} required", age));
+                                    let current_age =
+                                        if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
+                                            let now = Utc::now().date_naive();
+                                            let mut diff = now.year() - date.year();
+                                            if now.month() < date.month()
+                                                || (now.month() == date.month() && now.day() < date.day())
+                                            {
+                                                diff -= 1;
+                                            }
+                                            diff
+                                        } else {
+                                            0
+                                        };
+                                    return Err(format!(
+                                        "Minimum age of {} required (Current: {})",
+                                        age, current_age
+                                    ));
                                 }
                             } else {
                                 return Err(format!("Cannot determine age (missing '{}')", field_name));

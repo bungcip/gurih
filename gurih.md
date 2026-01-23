@@ -238,6 +238,50 @@ workflow "LeaveWorkflow" for="LeaveRequest" field="status" {
         to "Cancelled"
     }
 }
+
+### 3.8.1 Workflow Rules
+Transitions can have `requires` (preconditions) and `effects` (side effects).
+
+**Preconditions:**
+- `document "doc_name"`: Requires a document field to be present.
+- `min_years_of_service <years>`: Requires minimum years of service (defaults to calculating from `tmt_cpns` or `join_date`). You can specify `from="field_name"`.
+- `min_age <age>`: Requires minimum age (defaults to calculating from `tanggal_lahir` or `birth_date`). You can specify `from="field_name"`.
+- `valid_effective_date "field_name"`: Requires the specified field to contain a valid date string (YYYY-MM-DD).
+
+**Effects:**
+- `suspend_payroll true`: Sets `is_payroll_active` to false.
+- `notify "target"`: Sends a notification to the target (e.g., unit or role).
+- `update_rank_eligibility true`: Sets `rank_eligible` to true.
+- `update "field" "value"`: Updates a specific field with a value.
+```
+
+### 3.8.1 Workflow Rules
+Transitions can have `requires` (preconditions) and `effects` (side effects).
+
+**Preconditions:**
+- `document "doc_name"`: Requires a document field to be present.
+- `min_years_of_service <years>`: Requires minimum years of service (defaults to calculating from `tmt_cpns` or `join_date`). You can specify `from="field_name"`.
+- `min_age <age>`: Requires minimum age (defaults to calculating from `tanggal_lahir` or `birth_date`). You can specify `from="field_name"`.
+- `valid_effective_date "field_name"`: Requires the specified field to contain a valid date string (YYYY-MM-DD).
+
+**Effects:**
+- `suspend_payroll true`: Sets `is_payroll_active` to false.
+- `notify "target"`: Sends a notification to the target (e.g., unit or role).
+- `update_rank_eligibility true`: Sets `rank_eligible` to true.
+- `update "field" "value"`: Updates a specific field with a value.
+
+Example:
+```kdl
+    transition "retire" from="Active" to="Retired" {
+        requires {
+            min_age 58 from="birth_date"
+            document "retirement_letter"
+        }
+        effects {
+            suspend_payroll true
+            notify "hr_department"
+        }
+    }
 ```
 
 ### 3.9 Actions
@@ -593,4 +637,3 @@ page "CourseReport" {
 ```
 
 When using `query`, the `for` attribute on `datatable` is optional, as the root entity is derived from the query definition.
-
