@@ -243,7 +243,7 @@ pub async fn init_datastore(schema: Arc<Schema>, base_path: Option<&Path>) -> Re
             return Err("Database URL is empty or env var not set.".to_string());
         }
 
-        let pool = if db_config.db_type == DatabaseType::Sqlite {
+        if db_config.db_type == DatabaseType::Sqlite {
             let mut db_path = url
                 .trim_start_matches("sqlite://")
                 .trim_start_matches("sqlite:")
@@ -294,118 +294,29 @@ pub async fn init_datastore(schema: Arc<Schema>, base_path: Option<&Path>) -> Re
                 .connect(&url)
                 .await
                 .map_err(|e| format!("Failed to connect to SQLite DB at {}: {}", url, e))?;
-            DbPool::Sqlite(p)
+
+            let pool = DbPool::Sqlite(p.clone());
+            let manager = SchemaManager::new(pool, schema.clone(), format!("{:?}", db_config.db_type));
+            manager.migrate().await?;
+
+            Ok(Arc::new(SqliteDataStore::new(p)))
         } else if db_config.db_type == DatabaseType::Postgres {
             let p = PgPoolOptions::new()
                 .max_connections(5)
                 .connect(&url)
                 .await
                 .map_err(|e| format!("Failed to connect to Postgres DB: {}", e))?;
-            DbPool::Postgres(p)
+
+            let pool = DbPool::Postgres(p.clone());
+            let manager = SchemaManager::new(pool, schema.clone(), format!("{:?}", db_config.db_type));
+            manager.migrate().await?;
+
+            Ok(Arc::new(PostgresDataStore::new(p)))
         } else {
             return Err(format!("Unsupported database type: {:?}", db_config.db_type));
-        };
-
-        let manager = SchemaManager::new(pool.clone(), schema.clone(), format!("{:?}", db_config.db_type));
-        manager.migrate().await?;
-
-        Ok(Arc::new(DatabaseDataStore::new(pool)))
+        }
     } else {
         println!("⚠️ No database configured. Using in-memory datastore.");
         Ok(Arc::new(MemoryDataStore::new()))
-    }
-}
-
-pub struct DatabaseDataStore {
-    pool: DbPool,
-    sqlite: SqliteDataStore,
-    postgres: PostgresDataStore,
-}
-
-impl DatabaseDataStore {
-    pub fn new(pool: DbPool) -> Self {
-        match &pool {
-            DbPool::Sqlite(p) => Self {
-                pool: pool.clone(),
-                sqlite: SqliteDataStore::new(p.clone()),
-                postgres: PostgresDataStore::new(sqlx::PgPool::connect_lazy("postgres://").unwrap()), // Dummy
-            },
-            DbPool::Postgres(p) => Self {
-                pool: pool.clone(),
-                sqlite: SqliteDataStore::new(sqlx::SqlitePool::connect_lazy("sqlite::memory:").unwrap()), // Dummy
-                postgres: PostgresDataStore::new(p.clone()),
-            },
-        }
-    }
-}
-
-#[async_trait]
-impl DataStore for DatabaseDataStore {
-    async fn insert(&self, entity: &str, record: Value) -> Result<String, String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.insert(entity, record).await,
-            DbPool::Postgres(_) => self.postgres.insert(entity, record).await,
-        }
-    }
-
-    async fn get(&self, entity: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.get(entity, id).await,
-            DbPool::Postgres(_) => self.postgres.get(entity, id).await,
-        }
-    }
-
-    async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.update(entity, id, record).await,
-            DbPool::Postgres(_) => self.postgres.update(entity, id, record).await,
-        }
-    }
-
-    async fn delete(&self, entity: &str, id: &str) -> Result<(), String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.delete(entity, id).await,
-            DbPool::Postgres(_) => self.postgres.delete(entity, id).await,
-        }
-    }
-
-    async fn list(&self, entity: &str, limit: Option<usize>, offset: Option<usize>) -> Result<Vec<Arc<Value>>, String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.list(entity, limit, offset).await,
-            DbPool::Postgres(_) => self.postgres.list(entity, limit, offset).await,
-        }
-    }
-
-    async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.find(entity, filters).await,
-            DbPool::Postgres(_) => self.postgres.find(entity, filters).await,
-        }
-    }
-
-    async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.count(entity, filters).await,
-            DbPool::Postgres(_) => self.postgres.count(entity, filters).await,
-        }
-    }
-
-    async fn aggregate(
-        &self,
-        entity: &str,
-        group_by: &str,
-        filters: HashMap<String, String>,
-    ) -> Result<Vec<(String, i64)>, String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.aggregate(entity, group_by, filters).await,
-            DbPool::Postgres(_) => self.postgres.aggregate(entity, group_by, filters).await,
-        }
-    }
-
-    async fn query(&self, sql: &str) -> Result<Vec<Arc<Value>>, String> {
-        match &self.pool {
-            DbPool::Sqlite(_) => self.sqlite.query(sql).await,
-            DbPool::Postgres(_) => self.postgres.query(sql).await,
-        }
     }
 }

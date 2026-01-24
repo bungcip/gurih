@@ -555,10 +555,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             QuerySchema {
                 name: query_def.name.as_str().into(),
                 root_entity: query_def.root_entity.as_str().into(),
-                query_type: match query_def.query_type {
-                    ast::QueryType::Nested => gurih_ir::QueryType::Nested,
-                    ast::QueryType::Flat => gurih_ir::QueryType::Flat,
-                },
+                query_type: query_def.query_type.clone(),
                 selections: query_def
                     .selections
                     .iter()
