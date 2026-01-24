@@ -1,8 +1,7 @@
 
-use chrono::{Datelike, NaiveDate, Utc};
+use chrono::NaiveDate;
 use crate::constants::{FIELD_BIRTH_DATE, FIELD_IS_PAYROLL_ACTIVE, FIELD_JOIN_DATE, FIELD_RANK_ELIGIBLE};
 use crate::errors::RuntimeError;
-use chrono::NaiveDate;
 use gurih_common::time::check_min_years;
 use gurih_ir::{Schema, Symbol, TransitionEffect, TransitionPrecondition};
 use serde_json::Value;
