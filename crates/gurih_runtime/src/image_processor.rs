@@ -38,7 +38,7 @@ pub fn resize_image(data: &[u8], size_str: &str) -> Result<Vec<u8>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::{ImageBuffer, Rgba, ImageFormat};
+    use image::{ImageBuffer, ImageFormat, Rgba};
 
     #[test]
     fn test_resize_image_coverage() {
@@ -50,7 +50,8 @@ mod tests {
             *pixel = Rgba([255, 0, 0, 255]);
         }
         let mut valid_png = Vec::new();
-        img.write_to(&mut std::io::Cursor::new(&mut valid_png), ImageFormat::Png).expect("Failed to create test image");
+        img.write_to(&mut std::io::Cursor::new(&mut valid_png), ImageFormat::Png)
+            .expect("Failed to create test image");
 
         // 2. Test successful resize (Happy Path)
         // Resize to 5x5
