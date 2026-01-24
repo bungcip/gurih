@@ -1,3 +1,14 @@
+<script>
+// Optimization: Hoisted static variants map to avoid reallocation on every render
+const variants = {
+  success: 'bg-green-100 text-green-800 border-green-200 ring-green-100',
+  warning: 'bg-yellow-100 text-yellow-800 border-yellow-200 ring-yellow-100',
+  danger: 'bg-red-100 text-red-800 border-red-200 ring-red-100',
+  info: 'bg-blue-100 text-blue-800 border-blue-200 ring-blue-100',
+  gray: 'bg-gray-100 text-gray-600 border-gray-200 ring-gray-100'
+}
+</script>
+
 <script setup>
 import { computed } from 'vue'
 import Icon from './Icon.vue'
@@ -18,14 +29,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['click-item'])
-
-const variants = {
-  success: 'bg-green-100 text-green-800 border-green-200 ring-green-100',
-  warning: 'bg-yellow-100 text-yellow-800 border-yellow-200 ring-yellow-100',
-  danger: 'bg-red-100 text-red-800 border-red-200 ring-red-100',
-  info: 'bg-blue-100 text-blue-800 border-blue-200 ring-blue-100',
-  gray: 'bg-gray-100 text-gray-600 border-gray-200 ring-gray-100'
-}
 
 const getVariantClass = (variant) => variants[variant] || variants['gray']
 
