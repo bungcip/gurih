@@ -439,6 +439,27 @@ fn read_and_compile_with_diagnostics(path: &PathBuf) -> Result<gurih_ir::Schema,
     }
 }
 
+// Helper: Authentication Check
+async fn check_auth(
+    headers: HeaderMap,
+    state: &AppState,
+) -> Result<RuntimeContext, (StatusCode, Json<serde_json::Value>)> {
+    if let Some(auth_header) = headers.get("Authorization") {
+        if let Ok(auth_str) = auth_header.to_str() {
+            if auth_str.starts_with("Bearer ") {
+                let token = &auth_str[7..];
+                if let Some(ctx) = state.auth_engine.verify_token(token) {
+                    return Ok(ctx);
+                }
+            }
+        }
+    }
+    Err((
+        StatusCode::UNAUTHORIZED,
+        Json(serde_json::json!({ "error": "Unauthorized" })),
+    ))
+}
+
 // Handlers
 
 #[derive(serde::Deserialize)]
@@ -456,10 +477,14 @@ async fn login_handler(State(state): State<AppState>, Json(payload): Json<LoginP
 
 async fn create_entity(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path(entity): Path<String>,
     Json(payload): Json<Value>,
 ) -> impl IntoResponse {
-    let ctx = RuntimeContext::system(); // Using system context for now (TODO: Extract from Auth header)
+    let ctx = match check_auth(headers, &state).await {
+        Ok(c) => c,
+        Err(e) => return e.into_response(),
+    };
     match state.data_engine.create(&entity, payload, &ctx).await {
         Ok(id) => (StatusCode::CREATED, Json(serde_json::json!({ "id": id }))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
@@ -474,16 +499,27 @@ struct ListParams {
 
 async fn list_entities(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path(entity): Path<String>,
     Query(params): Query<ListParams>,
 ) -> impl IntoResponse {
+    if let Err(e) = check_auth(headers, &state).await {
+        return e.into_response();
+    }
     match state.data_engine.list(&entity, params.limit, params.offset).await {
         Ok(list) => (StatusCode::OK, Json(list)).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
 }
 
-async fn get_entity(State(state): State<AppState>, Path((entity, id)): Path<(String, String)>) -> impl IntoResponse {
+async fn get_entity(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((entity, id)): Path<(String, String)>
+) -> impl IntoResponse {
+    if let Err(e) = check_auth(headers, &state).await {
+        return e.into_response();
+    }
     match state.data_engine.read(&entity, &id).await {
         Ok(Some(item)) => (StatusCode::OK, Json(item)).into_response(),
         Ok(None) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Not found" }))).into_response(),
@@ -493,17 +529,28 @@ async fn get_entity(State(state): State<AppState>, Path((entity, id)): Path<(Str
 
 async fn update_entity(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path((entity, id)): Path<(String, String)>,
     Json(payload): Json<Value>,
 ) -> impl IntoResponse {
-    let ctx = RuntimeContext::system();
+    let ctx = match check_auth(headers, &state).await {
+        Ok(c) => c,
+        Err(e) => return e.into_response(),
+    };
     match state.data_engine.update(&entity, &id, payload, &ctx).await {
         Ok(_) => (StatusCode::OK, Json(serde_json::json!({ "status": "updated" }))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
 }
 
-async fn delete_entity(State(state): State<AppState>, Path((entity, id)): Path<(String, String)>) -> impl IntoResponse {
+async fn delete_entity(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((entity, id)): Path<(String, String)>
+) -> impl IntoResponse {
+    if let Err(e) = check_auth(headers, &state).await {
+        return e.into_response();
+    }
     match state.data_engine.delete(&entity, &id).await {
         Ok(_) => (StatusCode::OK, Json(serde_json::json!({ "status": "deleted" }))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
@@ -512,9 +559,14 @@ async fn delete_entity(State(state): State<AppState>, Path((entity, id)): Path<(
 
 async fn upload_handler(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path((entity_name, field_name)): Path<(String, String)>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
+    if let Err(e) = check_auth(headers, &state).await {
+        return e.into_response();
+    }
+
     let schema = state.data_engine.get_schema();
     let entity = match schema.entities.get(&entity_name.as_str().into()) {
         Some(e) => e,
