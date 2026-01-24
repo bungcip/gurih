@@ -55,7 +55,11 @@ fn test_workflow_extensions() {
     let res_fail = engine.validate_transition(&schema, "Pegawai", "CPNS", "PNS", &data_fail_years);
     assert!(res_fail.is_err());
     let err_msg = res_fail.unwrap_err();
-    assert!(err_msg.contains("Minimum 1 years"), "Unexpected error: {}", err_msg);
+    assert!(
+        err_msg.to_string().contains("Minimum 1 years"),
+        "Unexpected error: {}",
+        err_msg
+    );
 
     // Test Case 2: Fail Invalid Date
     let data_fail_date = json!({
@@ -66,7 +70,7 @@ fn test_workflow_extensions() {
     assert!(res_fail_date.is_err());
     let err_msg_date = res_fail_date.unwrap_err();
     assert!(
-        err_msg_date.contains("valid date"),
+        err_msg_date.to_string().contains("valid date"),
         "Unexpected error: {}",
         err_msg_date
     );
