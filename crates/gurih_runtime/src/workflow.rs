@@ -1,5 +1,8 @@
-use crate::constants::FIELD_IS_PAYROLL_ACTIVE;
+
 use chrono::{Datelike, NaiveDate, Utc};
+use crate::constants::{FIELD_BIRTH_DATE, FIELD_IS_PAYROLL_ACTIVE, FIELD_JOIN_DATE, FIELD_RANK_ELIGIBLE};
+use crate::errors::RuntimeError;
+use chrono::NaiveDate;
 use gurih_common::time::check_min_years;
 use gurih_ir::{Schema, Symbol, TransitionEffect, TransitionPrecondition};
 use serde_json::Value;
@@ -24,7 +27,7 @@ impl WorkflowEngine {
         current_state: &str,
         new_state: &str,
         entity_data: &Value,
-    ) -> Result<(), String> {
+    ) -> Result<(), RuntimeError> {
         // Find workflow for entity
         let workflow = schema
             .workflows
@@ -53,83 +56,51 @@ impl WorkflowEngine {
                                 .map(|v| !v.is_null() && !v.as_str().unwrap_or("").is_empty())
                                 .unwrap_or(false);
                             if !has_doc {
-                                return Err(format!("Missing required document: {}", doc_name));
+                                return Err(RuntimeError::ValidationError(format!(
+                                    "Missing required document: {}",
+                                    doc_name
+                                )));
                             }
                         }
                         TransitionPrecondition::MinYearsOfService { years, from_field } => {
-                            let field_name = from_field.as_ref().map(|s| s.as_str()).unwrap_or("tmt_cpns");
+                            let field_name = from_field.as_ref().map(|s| s.as_str()).unwrap_or(FIELD_JOIN_DATE);
 
-                            let join_date_str = entity_data
-                                .get(field_name)
-                                .or_else(|| {
-                                    if from_field.is_none() {
-                                        entity_data.get("join_date")
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .and_then(|v| v.as_str());
+                            let join_date_str = entity_data.get(field_name).and_then(|v| v.as_str());
 
                             if let Some(date_str) = join_date_str {
                                 if !check_min_years(date_str, *years) {
-                                    let current_years =
-                                        if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
-                                            let now = Utc::now().date_naive();
-                                            let mut diff = now.year() - date.year();
-                                            if now.month() < date.month()
-                                                || (now.month() == date.month() && now.day() < date.day())
-                                            {
-                                                diff -= 1;
-                                            }
-                                            diff
-                                        } else {
-                                            0
-                                        };
-                                    return Err(format!(
-                                        "Minimum {} years of service required (Current: {})",
-                                        years, current_years
-                                    ));
+                                    return Err(RuntimeError::ValidationError(format!(
+                                        "Minimum {} years of service required",
+                                        years
+                                    )));
                                 }
                             } else {
-                                return Err(format!("Cannot determine years of service (missing '{}')", field_name));
+                                return Err(RuntimeError::ValidationError(format!(
+                                    "Cannot determine years of service (missing '{}')",
+                                    field_name
+                                )));
                             }
                         }
                         TransitionPrecondition::MinAge { age, birth_date_field } => {
-                            let field_name = birth_date_field.as_ref().map(|s| s.as_str()).unwrap_or("tanggal_lahir");
+                            let field_name = birth_date_field
+                                .as_ref()
+                                .map(|s| s.as_str())
+                                .unwrap_or(FIELD_BIRTH_DATE);
 
-                            let birth_date_str = entity_data
-                                .get(field_name)
-                                .or_else(|| {
-                                    if birth_date_field.is_none() {
-                                        entity_data.get("birth_date")
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .and_then(|v| v.as_str());
+                            let birth_date_str = entity_data.get(field_name).and_then(|v| v.as_str());
 
                             if let Some(date_str) = birth_date_str {
                                 if !check_min_years(date_str, *age) {
-                                    let current_age =
-                                        if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
-                                            let now = Utc::now().date_naive();
-                                            let mut diff = now.year() - date.year();
-                                            if now.month() < date.month()
-                                                || (now.month() == date.month() && now.day() < date.day())
-                                            {
-                                                diff -= 1;
-                                            }
-                                            diff
-                                        } else {
-                                            0
-                                        };
-                                    return Err(format!(
-                                        "Minimum age of {} required (Current: {})",
-                                        age, current_age
-                                    ));
+                                    return Err(RuntimeError::ValidationError(format!(
+                                        "Minimum age of {} required",
+                                        age
+                                    )));
                                 }
                             } else {
-                                return Err(format!("Cannot determine age (missing '{}')", field_name));
+                                return Err(RuntimeError::ValidationError(format!(
+                                    "Cannot determine age (missing '{}')",
+                                    field_name
+                                )));
                             }
                         }
                         TransitionPrecondition::ValidEffectiveDate(field) => {
@@ -137,10 +108,18 @@ impl WorkflowEngine {
                             match date_val {
                                 Some(Value::String(s)) => {
                                     if NaiveDate::parse_from_str(s, "%Y-%m-%d").is_err() {
-                                        return Err(format!("Field '{}' must be a valid date (YYYY-MM-DD)", field));
+                                        return Err(RuntimeError::ValidationError(format!(
+                                            "Field '{}' must be a valid date (YYYY-MM-DD)",
+                                            field
+                                        )));
                                     }
                                 }
-                                _ => return Err(format!("Missing or invalid effective date in field '{}'", field)),
+                                _ => {
+                                    return Err(RuntimeError::ValidationError(format!(
+                                        "Missing or invalid effective date in field '{}'",
+                                        field
+                                    )));
+                                }
                             }
                         }
                     }
@@ -148,10 +127,10 @@ impl WorkflowEngine {
                 return Ok(());
             }
 
-            return Err(format!(
+            return Err(RuntimeError::WorkflowError(format!(
                 "Invalid transition from '{}' to '{}' for entity '{}'",
                 current_state, new_state, entity_name
-            ));
+            )));
         }
 
         Ok(())
@@ -188,7 +167,7 @@ impl WorkflowEngine {
                         notifications.push(target.to_string());
                     }
                     TransitionEffect::UpdateRankEligibility(active) => {
-                        updates.insert("rank_eligible".to_string(), Value::Bool(*active));
+                        updates.insert(FIELD_RANK_ELIGIBLE.to_string(), Value::Bool(*active));
                     }
                     TransitionEffect::UpdateField { field, value } => {
                         updates.insert(field.to_string(), Value::String(value.clone()));
