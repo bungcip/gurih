@@ -1,4 +1,5 @@
 use crate::ast::{self, Ast};
+use crate::diagnostics::SourceSpan;
 use crate::errors::CompileError;
 use gurih_ir::FieldType;
 use std::collections::{HashMap, HashSet};
@@ -18,31 +19,46 @@ impl<'a> Validator<'a> {
         Ok(())
     }
 
+    fn check_duplicate(
+        &self,
+        names: &mut HashMap<String, SourceSpan>,
+        name: &str,
+        span: SourceSpan,
+        message: String,
+    ) -> Result<(), CompileError> {
+        if names.contains_key(name) {
+            return Err(CompileError::ValidationError {
+                src: self.src.to_string(),
+                span,
+                message,
+            });
+        }
+        names.insert(name.to_string(), span);
+        Ok(())
+    }
+
     fn validate_entities(&self, ast: &Ast) -> Result<(), CompileError> {
         let mut entity_names = HashMap::new();
 
-        // Helper to check duplicates
-        let mut check_duplicate = |name: &str, span| -> Result<(), CompileError> {
-            if entity_names.contains_key(name) {
-                return Err(CompileError::ValidationError {
-                    src: self.src.to_string(),
-                    span,
-                    message: format!("Duplicate entity name: {}", name),
-                });
-            }
-            entity_names.insert(name.to_string(), span);
-            Ok(())
-        };
-
         for module in &ast.modules {
             for entity in &module.entities {
-                check_duplicate(&entity.name, entity.span)?;
+                self.check_duplicate(
+                    &mut entity_names,
+                    &entity.name,
+                    entity.span,
+                    format!("Duplicate entity name: {}", entity.name),
+                )?;
                 self.validate_entity(entity)?;
             }
         }
 
         for entity in &ast.entities {
-            check_duplicate(&entity.name, entity.span)?;
+            self.check_duplicate(
+                &mut entity_names,
+                &entity.name,
+                entity.span,
+                format!("Duplicate entity name: {}", entity.name),
+            )?;
             self.validate_entity(entity)?;
         }
 
@@ -58,14 +74,12 @@ impl<'a> Validator<'a> {
         let mut avatar_count = 0;
 
         for field in &entity.fields {
-            if field_names.contains_key(&field.name) {
-                return Err(CompileError::ValidationError {
-                    src: self.src.to_string(),
-                    span: field.span,
-                    message: format!("Duplicate field name '{}' in entity '{}'", field.name, entity.name),
-                });
-            }
-            field_names.insert(field.name.clone(), field.span);
+            self.check_duplicate(
+                &mut field_names,
+                &field.name,
+                field.span,
+                format!("Duplicate field name '{}' in entity '{}'", field.name, entity.name),
+            )?;
 
             // Note: We are checking raw AST types here.
             // Custom types or Enum are not fully resolved but we can check the variant.

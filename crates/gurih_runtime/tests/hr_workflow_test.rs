@@ -18,7 +18,7 @@ async fn test_hr_workflow_rules() {
         transition "pns_to_cuti" from="pns" to="cuti" {
             requires {
                 document "surat_cuti"
-                min_years_of_service 1
+                min_years_of_service 1 from="tmt_cpns"
             }
             effects {
                 suspend_payroll "true"

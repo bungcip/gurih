@@ -109,7 +109,8 @@ impl DataEngine {
 
             // Validate transition logic
             self.workflow
-                .validate_transition(&self.schema, entity_name, current_state, new_state, &merged_record)?;
+                .validate_transition(&self.schema, entity_name, current_state, new_state, &merged_record)
+                .map_err(|e| e.to_string())?;
 
             // Validate permissions for transition
             if let Some(perm) =
