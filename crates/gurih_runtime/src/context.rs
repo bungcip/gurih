@@ -5,6 +5,7 @@ pub struct RuntimeContext {
     pub user_id: String,
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
+    pub token: Option<String>,
 }
 
 impl RuntimeContext {
@@ -13,6 +14,7 @@ impl RuntimeContext {
             user_id: "system".to_string(),
             roles: vec!["admin".to_string()],
             permissions: vec!["*".to_string()],
+            token: None,
         }
     }
 
@@ -36,6 +38,7 @@ mod tests {
             user_id: "user".to_string(),
             roles: vec!["user".to_string()],
             permissions: vec!["read".to_string(), "write".to_string()],
+            token: None,
         };
 
         assert!(user.has_permission("read"));

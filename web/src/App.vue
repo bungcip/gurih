@@ -33,16 +33,21 @@ function removeToast(id) {
 
 provide('showToast', showToast)
 provide('removeToast', removeToast)
+provide('currentUser', currentUser)
 
 const API_BASE = 'http://localhost:3000/api'
 
 async function fetchMenu() {
     try {
-        const res = await fetch(`${API_BASE}/ui/portal`)
+        const headers = currentUser.value && currentUser.value.token ? {
+            'Authorization': `Bearer ${currentUser.value.token}`
+        } : {}
+
+        const res = await fetch(`${API_BASE}/ui/portal`, { headers })
         menu.value = await res.json()
         
         // Also fetch dashboard schema
-        const dashRes = await fetch(`${API_BASE}/ui/dashboard/HRDashboard`)
+        const dashRes = await fetch(`${API_BASE}/ui/dashboard/HRDashboard`, { headers })
         dashboardSchema.value = await dashRes.json()
     } catch (e) {
         console.error("Failed to fetch menu or dashboard", e)

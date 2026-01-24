@@ -2,11 +2,12 @@ use crate::context::RuntimeContext;
 use crate::datastore::DataStore;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 pub struct AuthEngine {
     datastore: Arc<dyn DataStore>,
+    sessions: Arc<Mutex<HashMap<String, RuntimeContext>>>,
 }
 
 pub fn hash_password(password: &str) -> String {
@@ -36,7 +37,10 @@ pub fn verify_password(password: &str, stored_value: &str) -> bool {
 
 impl AuthEngine {
     pub fn new(datastore: Arc<dyn DataStore>) -> Self {
-        Self { datastore }
+        Self {
+            datastore,
+            sessions: Arc::new(Mutex::new(HashMap::new())),
+        }
     }
 
     pub async fn login(&self, username: &str, password: &str) -> Result<RuntimeContext, String> {
@@ -66,10 +70,21 @@ impl AuthEngine {
             vec![]
         };
 
-        Ok(RuntimeContext {
+        let token = Uuid::new_v4().to_string();
+        let ctx = RuntimeContext {
             user_id,
             roles: vec![role],
             permissions,
-        })
+            token: Some(token.clone()),
+        };
+
+        // Store session
+        self.sessions.lock().unwrap().insert(token, ctx.clone());
+
+        Ok(ctx)
+    }
+
+    pub fn verify_token(&self, token: &str) -> Option<RuntimeContext> {
+        self.sessions.lock().unwrap().get(token).cloned()
     }
 }

@@ -8,6 +8,7 @@ import Dashboard from './Dashboard.vue'
 const props = defineProps(['entity'])
 const emit = defineEmits(['edit', 'create'])
 const showToast = inject('showToast')
+const currentUser = inject('currentUser')
 
 const config = ref(null)
 const data = ref([])
@@ -31,9 +32,17 @@ const rowActions = computed(() => {
 
 const API_BASE = 'http://localhost:3000/api'
 
+function getAuthHeaders() {
+    return currentUser.value && currentUser.value.token ? {
+        'Authorization': `Bearer ${currentUser.value.token}`
+    } : {}
+}
+
 async function fetchConfig() {
     try {
-        const res = await fetch(`${API_BASE}/ui/page/${props.entity}`)
+        const res = await fetch(`${API_BASE}/ui/page/${props.entity}`, {
+            headers: getAuthHeaders()
+        })
         const json = await res.json()
         if (json.error) {
             console.error("Config error:", json.error)
@@ -50,7 +59,9 @@ async function fetchData() {
     if (!config.value || !config.value.entity) return
     loading.value = true
     try {
-        const res = await fetch(`${API_BASE}/${config.value.entity}`)
+        const res = await fetch(`${API_BASE}/${config.value.entity}`, {
+            headers: getAuthHeaders()
+        })
         data.value = await res.json()
     } catch (e) {
         console.error("Failed to fetch data", e)
@@ -136,9 +147,13 @@ function closeModal() {
 
 async function executeAction(action, url, row) {
      try {
+        const headers = {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        }
         const res = await fetch(url.startsWith('http') ? url : `${API_BASE.replace('/api', '')}${url}`, { 
             method: action.method.toUpperCase(),
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(row || {}) 
         });
         

@@ -11,6 +11,7 @@ import CurrencyInput from './CurrencyInput.vue'
 const props = defineProps(['entity', 'id'])
 const emit = defineEmits(['saved', 'cancel'])
 const showToast = inject('showToast')
+const currentUser = inject('currentUser')
 
 const schema = ref(null)
 const formData = ref({})
@@ -24,9 +25,17 @@ const relationOptions = ref({})
 
 const activeTab = ref(0)
 
+function getAuthHeaders() {
+    return currentUser.value && currentUser.value.token ? {
+        'Authorization': `Bearer ${currentUser.value.token}`
+    } : {}
+}
+
 async function fetchSchema() {
     try {
-        const res = await fetch(`${API_BASE}/ui/form/${props.entity}`)
+        const res = await fetch(`${API_BASE}/ui/form/${props.entity}`, {
+            headers: getAuthHeaders()
+        })
         schema.value = await res.json()
         activeTab.value = 0
         
@@ -59,7 +68,9 @@ async function fetchSchema() {
 
 async function fetchRelations(targetEntity, fieldNames) {
     try {
-        const res = await fetch(`${API_BASE}/${targetEntity}`)
+        const res = await fetch(`${API_BASE}/${targetEntity}`, {
+            headers: getAuthHeaders()
+        })
         if(res.ok) {
             const list = await res.json()
             const options = list.map(item => ({
@@ -83,7 +94,9 @@ async function fetchData() {
     }
     loading.value = true
     try {
-        const res = await fetch(`${API_BASE}/${props.entity}/${props.id}`)
+        const res = await fetch(`${API_BASE}/${props.entity}/${props.id}`, {
+            headers: getAuthHeaders()
+        })
         formData.value = await res.json()
     } catch (e) {
         console.error("Failed to fetch data", e)
@@ -99,9 +112,13 @@ async function save() {
 
     saving.value = true
     try {
+        const headers = {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        }
         const res = await fetch(url, {
             method,
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(formData.value)
         })
         if (res.ok) {
