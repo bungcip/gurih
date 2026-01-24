@@ -515,7 +515,7 @@ async fn list_entities(
 async fn get_entity(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Path((entity, id)): Path<(String, String)>
+    Path((entity, id)): Path<(String, String)>,
 ) -> impl IntoResponse {
     if let Err(e) = check_auth(headers, &state).await {
         return e.into_response();
@@ -546,7 +546,7 @@ async fn update_entity(
 async fn delete_entity(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Path((entity, id)): Path<(String, String)>
+    Path((entity, id)): Path<(String, String)>,
 ) -> impl IntoResponse {
     if let Err(e) = check_auth(headers, &state).await {
         return e.into_response();
