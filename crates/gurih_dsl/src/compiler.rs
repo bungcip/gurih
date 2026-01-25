@@ -131,6 +131,95 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         );
     }
 
+    // 4.1 Process Employee Statuses (synthesize workflow)
+    if !ast_root.employee_statuses.is_empty() {
+        let workflow_name = "EmployeeStatusWorkflow";
+        let entity_name = "Employee";
+        let field_name = "status";
+
+        let mut states: Vec<Symbol> = vec![];
+        let mut transitions: Vec<Transition> = vec![];
+
+        // Track seen states to avoid duplicates
+        let mut seen_states: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        for status_def in &ast_root.employee_statuses {
+            if seen_states.insert(status_def.name.clone()) {
+                states.push(Symbol::from(status_def.name.as_str()));
+            }
+
+            for trans_def in &status_def.transitions {
+                if seen_states.insert(trans_def.to.clone()) {
+                    states.push(Symbol::from(trans_def.to.as_str()));
+                }
+
+                transitions.push(Transition {
+                    name: format!("{}_to_{}", status_def.name, trans_def.to).into(),
+                    from: Symbol::from(status_def.name.as_str()),
+                    to: Symbol::from(trans_def.to.as_str()),
+                    required_permission: trans_def.permission.as_ref().map(|p| Symbol::from(p.as_str())),
+                    preconditions: trans_def
+                        .preconditions
+                        .iter()
+                        .map(|p| match p {
+                            ast::TransitionPreconditionDef::Document { name, .. } => {
+                                TransitionPrecondition::Document(Symbol::from(name.as_str()))
+                            }
+                            ast::TransitionPreconditionDef::MinYearsOfService { years, from_field, .. } => {
+                                TransitionPrecondition::MinYearsOfService {
+                                    years: *years,
+                                    from_field: from_field.as_ref().map(|s| Symbol::from(s.as_str())),
+                                }
+                            }
+                            ast::TransitionPreconditionDef::MinAge {
+                                age, birth_date_field, ..
+                            } => TransitionPrecondition::MinAge {
+                                age: *age,
+                                birth_date_field: birth_date_field.as_ref().map(|s| Symbol::from(s.as_str())),
+                            },
+                            ast::TransitionPreconditionDef::ValidEffectiveDate { field, .. } => {
+                                TransitionPrecondition::ValidEffectiveDate(Symbol::from(field.as_str()))
+                            }
+                        })
+                        .collect(),
+                    effects: trans_def
+                        .effects
+                        .iter()
+                        .map(|e| match e {
+                            ast::TransitionEffectDef::SuspendPayroll { active, .. } => {
+                                TransitionEffect::SuspendPayroll(*active)
+                            }
+                            ast::TransitionEffectDef::Notify { target, .. } => {
+                                TransitionEffect::Notify(Symbol::from(target.as_str()))
+                            }
+                            ast::TransitionEffectDef::UpdateRankEligibility { active, .. } => {
+                                TransitionEffect::UpdateRankEligibility(*active)
+                            }
+                            ast::TransitionEffectDef::UpdateField { field, value, .. } => {
+                                TransitionEffect::UpdateField {
+                                    field: Symbol::from(field.as_str()),
+                                    value: value.clone(),
+                                }
+                            }
+                        })
+                        .collect(),
+                });
+            }
+        }
+
+        ir_workflows.insert(
+            Symbol::from(workflow_name),
+            WorkflowSchema {
+                name: Symbol::from(workflow_name),
+                entity: Symbol::from(entity_name),
+                field: Symbol::from(field_name),
+                initial_state: states.first().cloned().unwrap_or_else(|| Symbol::from("")),
+                states,
+                transitions,
+            },
+        );
+    }
+
     // 2. Process Top-Level Entities
     for entity_def in &ast_root.entities {
         let entity_schema = process_entity(entity_def, None)?;
