@@ -97,7 +97,7 @@ async fn test_action_execution_delete() {
     let mut params = HashMap::new();
     params.insert("id".to_string(), id.clone());
 
-    let result = action_engine.execute("DeleteItem", params, &data_engine).await;
+    let result = action_engine.execute("DeleteItem", params, &data_engine, &ctx).await;
     assert!(result.is_ok());
 
     // 6. Verify Deletion
