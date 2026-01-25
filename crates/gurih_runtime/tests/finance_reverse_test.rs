@@ -14,22 +14,139 @@ async fn test_finance_reverse_journal() {
 
     // JournalEntry
     let je_fields = vec![
-        FieldSchema { name: Symbol::from("id"), field_type: FieldType::String, required: true, unique: true, default: None, references: None, serial_generator: None, storage: None, resize: None, filetype: None },
-        FieldSchema { name: Symbol::from("entry_number"), field_type: FieldType::Serial, required: false, unique: true, default: None, references: None, serial_generator: None, storage: None, resize: None, filetype: None },
-        FieldSchema { name: Symbol::from("description"), field_type: FieldType::Text, required: false, unique: false, default: None, references: None, serial_generator: None, storage: None, resize: None, filetype: None },
-        FieldSchema { name: Symbol::from("status"), field_type: FieldType::String, required: false, unique: false, default: Some("Draft".to_string()), references: None, serial_generator: None, storage: None, resize: None, filetype: None },
-        FieldSchema { name: Symbol::from("related_journal"), field_type: FieldType::String, required: false, unique: false, default: None, references: Some(Symbol::from("JournalEntry")), serial_generator: None, storage: None, resize: None, filetype: None },
+        FieldSchema {
+            name: Symbol::from("id"),
+            field_type: FieldType::String,
+            required: true,
+            unique: true,
+            default: None,
+            references: None,
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        },
+        FieldSchema {
+            name: Symbol::from("entry_number"),
+            field_type: FieldType::Serial,
+            required: false,
+            unique: true,
+            default: None,
+            references: None,
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        },
+        FieldSchema {
+            name: Symbol::from("description"),
+            field_type: FieldType::Text,
+            required: false,
+            unique: false,
+            default: None,
+            references: None,
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        },
+        FieldSchema {
+            name: Symbol::from("status"),
+            field_type: FieldType::String,
+            required: false,
+            unique: false,
+            default: Some("Draft".to_string()),
+            references: None,
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        },
+        FieldSchema {
+            name: Symbol::from("related_journal"),
+            field_type: FieldType::String,
+            required: false,
+            unique: false,
+            default: None,
+            references: Some(Symbol::from("JournalEntry")),
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        },
     ];
-    entities.insert(Symbol::from("JournalEntry"), EntitySchema { name: Symbol::from("JournalEntry"), fields: je_fields, relationships: vec![], options: HashMap::new(), seeds: None });
+    entities.insert(
+        Symbol::from("JournalEntry"),
+        EntitySchema {
+            name: Symbol::from("JournalEntry"),
+            fields: je_fields,
+            relationships: vec![],
+            options: HashMap::new(),
+            seeds: None,
+        },
+    );
 
     // JournalLine
     let jl_fields = vec![
-        FieldSchema { name: Symbol::from("id"), field_type: FieldType::String, required: true, unique: true, default: None, references: None, serial_generator: None, storage: None, resize: None, filetype: None },
-        FieldSchema { name: Symbol::from("journal_entry"), field_type: FieldType::String, required: true, unique: false, default: None, references: Some(Symbol::from("JournalEntry")), serial_generator: None, storage: None, resize: None, filetype: None },
-        FieldSchema { name: Symbol::from("debit"), field_type: FieldType::Money, required: false, unique: false, default: None, references: None, serial_generator: None, storage: None, resize: None, filetype: None },
-        FieldSchema { name: Symbol::from("credit"), field_type: FieldType::Money, required: false, unique: false, default: None, references: None, serial_generator: None, storage: None, resize: None, filetype: None },
+        FieldSchema {
+            name: Symbol::from("id"),
+            field_type: FieldType::String,
+            required: true,
+            unique: true,
+            default: None,
+            references: None,
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        },
+        FieldSchema {
+            name: Symbol::from("journal_entry"),
+            field_type: FieldType::String,
+            required: true,
+            unique: false,
+            default: None,
+            references: Some(Symbol::from("JournalEntry")),
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        },
+        FieldSchema {
+            name: Symbol::from("debit"),
+            field_type: FieldType::Money,
+            required: false,
+            unique: false,
+            default: None,
+            references: None,
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        },
+        FieldSchema {
+            name: Symbol::from("credit"),
+            field_type: FieldType::Money,
+            required: false,
+            unique: false,
+            default: None,
+            references: None,
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        },
     ];
-    entities.insert(Symbol::from("JournalLine"), EntitySchema { name: Symbol::from("JournalLine"), fields: jl_fields, relationships: vec![], options: HashMap::new(), seeds: None });
+    entities.insert(
+        Symbol::from("JournalLine"),
+        EntitySchema {
+            name: Symbol::from("JournalLine"),
+            fields: jl_fields,
+            relationships: vec![],
+            options: HashMap::new(),
+            seeds: None,
+        },
+    );
 
     // 2. Setup Action
     let mut actions = HashMap::new();
@@ -49,7 +166,11 @@ async fn test_finance_reverse_journal() {
         },
     );
 
-    let schema = Schema { entities, actions: actions.clone(), ..Default::default() };
+    let schema = Schema {
+        entities,
+        actions: actions.clone(),
+        ..Default::default()
+    };
     let schema_arc = Arc::new(schema);
 
     // 3. Engines
@@ -60,40 +181,67 @@ async fn test_finance_reverse_journal() {
 
     // 4. Create Data
     // Journal
-    let je_id = data_engine.create("JournalEntry", json!({
-        "id": "je-1",
-        "entry_number": "JE/001",
-        "description": "Original Entry",
-        "status": "Posted"
-    }), &ctx).await.expect("Create JE failed");
+    let je_id = data_engine
+        .create(
+            "JournalEntry",
+            json!({
+                "id": "je-1",
+                "entry_number": "JE/001",
+                "description": "Original Entry",
+                "status": "Posted"
+            }),
+            &ctx,
+        )
+        .await
+        .expect("Create JE failed");
 
     // Lines
-    data_engine.create("JournalLine", json!({
-        "id": "jl-1",
-        "journal_entry": je_id,
-        "debit": "100.0",
-        "credit": "0.0"
-    }), &ctx).await.expect("Create JL1 failed");
+    data_engine
+        .create(
+            "JournalLine",
+            json!({
+                "id": "jl-1",
+                "journal_entry": je_id,
+                "debit": "100.0",
+                "credit": "0.0"
+            }),
+            &ctx,
+        )
+        .await
+        .expect("Create JL1 failed");
 
-    data_engine.create("JournalLine", json!({
-        "id": "jl-2",
-        "journal_entry": je_id,
-        "debit": "0.0",
-        "credit": "100.0"
-    }), &ctx).await.expect("Create JL2 failed");
+    data_engine
+        .create(
+            "JournalLine",
+            json!({
+                "id": "jl-2",
+                "journal_entry": je_id,
+                "debit": "0.0",
+                "credit": "100.0"
+            }),
+            &ctx,
+        )
+        .await
+        .expect("Create JL2 failed");
 
     // 5. Execute Action
     let mut params = HashMap::new();
     params.insert("id".to_string(), je_id.clone());
 
-    action_engine.execute("ReverseJournal", params, &data_engine, &ctx).await.expect("Action execution failed");
+    action_engine
+        .execute("ReverseJournal", params, &data_engine, &ctx)
+        .await
+        .expect("Action execution failed");
 
     // 6. Verify
     // Find all JournalEntries
     let journals = data_engine.list("JournalEntry", None, None).await.expect("List failed");
     assert_eq!(journals.len(), 2);
 
-    let reversal = journals.iter().find(|j| j["id"].as_str() != Some("je-1")).expect("Reversal not found");
+    let reversal = journals
+        .iter()
+        .find(|j| j["id"].as_str() != Some("je-1"))
+        .expect("Reversal not found");
     assert_eq!(reversal["description"], "Reversal of JE/001");
     assert_eq!(reversal["status"], "Draft");
     assert_eq!(reversal["related_journal"], je_id);
@@ -106,13 +254,21 @@ async fn test_finance_reverse_journal() {
     assert_eq!(lines.len(), 2);
 
     // Helper to parse money string
-    let parse_money = |v: &serde_json::Value| -> f64 {
-        v.as_str().unwrap().parse().unwrap()
-    };
+    let parse_money = |v: &serde_json::Value| -> f64 { v.as_str().unwrap().parse().unwrap() };
 
-    let l1 = lines.iter().find(|l| parse_money(&l["debit"]) == 0.0 && parse_money(&l["credit"]) == 100.0);
-    assert!(l1.is_some(), "Should find a line with Debit 0, Credit 100 (Reversal of JL1)");
+    let l1 = lines
+        .iter()
+        .find(|l| parse_money(&l["debit"]) == 0.0 && parse_money(&l["credit"]) == 100.0);
+    assert!(
+        l1.is_some(),
+        "Should find a line with Debit 0, Credit 100 (Reversal of JL1)"
+    );
 
-    let l2 = lines.iter().find(|l| parse_money(&l["debit"]) == 100.0 && parse_money(&l["credit"]) == 0.0);
-    assert!(l2.is_some(), "Should find a line with Debit 100, Credit 0 (Reversal of JL2)");
+    let l2 = lines
+        .iter()
+        .find(|l| parse_money(&l["debit"]) == 100.0 && parse_money(&l["credit"]) == 0.0);
+    assert!(
+        l2.is_some(),
+        "Should find a line with Debit 100, Credit 0 (Reversal of JL2)"
+    );
 }

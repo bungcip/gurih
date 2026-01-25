@@ -74,11 +74,16 @@ impl ActionEngine {
                     .map_err(|e| e.to_string())?;
             }
             ActionStepType::Custom(name) if name == "finance:reverse_journal" => {
-                let id_raw = step.args.get("id").ok_or("Missing 'id' argument for finance:reverse_journal")?;
+                let id_raw = step
+                    .args
+                    .get("id")
+                    .ok_or("Missing 'id' argument for finance:reverse_journal")?;
                 let id = resolve_arg(id_raw);
 
                 // 1. Read Original
-                let original_arc = data_engine.read("JournalEntry", &id).await?
+                let original_arc = data_engine
+                    .read("JournalEntry", &id)
+                    .await?
                     .ok_or("JournalEntry not found")?;
                 let original = original_arc.as_ref();
 
@@ -106,7 +111,10 @@ impl ActionEngine {
 
                     // Update fields
                     obj.insert("status".to_string(), json!("Draft"));
-                    obj.insert("description".to_string(), json!(format!("Reversal of {}", old_entry_number)));
+                    obj.insert(
+                        "description".to_string(),
+                        json!(format!("Reversal of {}", old_entry_number)),
+                    );
                     obj.insert("related_journal".to_string(), json!(id));
                 }
 
@@ -138,7 +146,7 @@ impl ActionEngine {
                         obj.insert("debit".to_string(), json!(credit.to_string()));
                         obj.insert("credit".to_string(), json!(debit.to_string()));
                     }
-                     data_engine.create("JournalLine", line, ctx).await?;
+                    data_engine.create("JournalLine", line, ctx).await?;
                 }
             }
             // Add update, create later if needed by IR

@@ -127,6 +127,7 @@ impl DataEngine {
                 .unwrap_or("");
 
             // Check Immutability
+            #[allow(clippy::collapsible_if)]
             if let Some(state_schema) = wf.states.iter().find(|s| s.name == Symbol::from(current_state)) {
                 if state_schema.immutable {
                     if let Some(obj) = data.as_object() {
@@ -196,11 +197,12 @@ impl DataEngine {
         }
 
         // Pre-fetch current record for Audit Trail if needed
-        if let Some(val) = entity_schema.options.get("track_changes")
-            && val == "true"
-        {
-            if current_record_opt.is_none() {
-                current_record_opt = self.datastore.get(entity_name, id).await?;
+        #[allow(clippy::collapsible_if)]
+        if let Some(val) = entity_schema.options.get("track_changes") {
+            if val == "true" {
+                if current_record_opt.is_none() {
+                    current_record_opt = self.datastore.get(entity_name, id).await?;
+                }
             }
         }
 
@@ -212,44 +214,45 @@ impl DataEngine {
         self.datastore.update(entity_name, id, data.clone()).await?;
 
         // Audit Trail (Post-update)
-        if let Some(val) = entity_schema.options.get("track_changes")
-            && val == "true"
-        {
-            if let Some(current) = &current_record_opt {
-                let mut changes = serde_json::Map::new();
-                if let Some(new_obj) = data.as_object() {
-                    if let Some(old_obj) = current.as_object() {
-                        for (k, new_v) in new_obj {
-                            if k == "id" {
-                                continue;
-                            }
-                            let old_v = old_obj.get(k).unwrap_or(&Value::Null);
-                            if new_v != old_v {
-                                changes.insert(
-                                    k.clone(),
-                                    serde_json::json!({
-                                        "old": old_v,
-                                        "new": new_v
-                                    }),
-                                );
+        #[allow(clippy::collapsible_if)]
+        if let Some(val) = entity_schema.options.get("track_changes") {
+            if val == "true" {
+                if let Some(current) = &current_record_opt {
+                    let mut changes = serde_json::Map::new();
+                    if let Some(new_obj) = data.as_object() {
+                        if let Some(old_obj) = current.as_object() {
+                            for (k, new_v) in new_obj {
+                                if k == "id" {
+                                    continue;
+                                }
+                                let old_v = old_obj.get(k).unwrap_or(&Value::Null);
+                                if new_v != old_v {
+                                    changes.insert(
+                                        k.clone(),
+                                        serde_json::json!({
+                                            "old": old_v,
+                                            "new": new_v
+                                        }),
+                                    );
+                                }
                             }
                         }
                     }
-                }
 
-                if !changes.is_empty() {
-                    let audit_id = Uuid::new_v4().to_string();
-                    let diff = serde_json::to_string(&changes).unwrap_or_default();
+                    if !changes.is_empty() {
+                        let audit_id = Uuid::new_v4().to_string();
+                        let diff = serde_json::to_string(&changes).unwrap_or_default();
 
-                    let mut audit_record = serde_json::Map::new();
-                    audit_record.insert("id".to_string(), Value::String(audit_id));
-                    audit_record.insert("entity".to_string(), Value::String(entity_name.to_string()));
-                    audit_record.insert("record_id".to_string(), Value::String(id.to_string()));
-                    audit_record.insert("action".to_string(), Value::String("UPDATE".to_string()));
-                    audit_record.insert("user_id".to_string(), Value::String(ctx.user_id.clone()));
-                    audit_record.insert("diff".to_string(), Value::String(diff));
+                        let mut audit_record = serde_json::Map::new();
+                        audit_record.insert("id".to_string(), Value::String(audit_id));
+                        audit_record.insert("entity".to_string(), Value::String(entity_name.to_string()));
+                        audit_record.insert("record_id".to_string(), Value::String(id.to_string()));
+                        audit_record.insert("action".to_string(), Value::String("UPDATE".to_string()));
+                        audit_record.insert("user_id".to_string(), Value::String(ctx.user_id.clone()));
+                        audit_record.insert("diff".to_string(), Value::String(diff));
 
-                    self.datastore.insert("_audit_log", Value::Object(audit_record)).await?;
+                        self.datastore.insert("_audit_log", Value::Object(audit_record)).await?;
+                    }
                 }
             }
         }

@@ -50,7 +50,12 @@ impl DataStore for MemoryDataStore {
         let mut data = self.data.lock().unwrap();
         let table = data.entry(entity.to_string()).or_default();
 
-        let id = Uuid::new_v4().to_string();
+        let id = if let Some(existing_id) = record.get("id").and_then(|v| v.as_str()) {
+            existing_id.to_string()
+        } else {
+            Uuid::new_v4().to_string()
+        };
+
         if let Some(obj) = record.as_object_mut() {
             obj.insert("id".to_string(), Value::String(id.clone()));
         }
@@ -313,7 +318,7 @@ pub async fn init_datastore(schema: Arc<Schema>, base_path: Option<&Path>) -> Re
 
             Ok(Arc::new(PostgresDataStore::new(p)))
         } else {
-            return Err(format!("Unsupported database type: {:?}", db_config.db_type));
+            Err(format!("Unsupported database type: {:?}", db_config.db_type))
         }
     } else {
         println!("⚠️ No database configured. Using in-memory datastore.");

@@ -227,10 +227,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 name: Symbol::from(workflow_name),
                 entity: Symbol::from(entity_name),
                 field: Symbol::from(field_name),
-                initial_state: states
-                    .first()
-                    .map(|s| s.name.clone())
-                    .unwrap_or_else(|| Symbol::from("")),
+                initial_state: states.first().map(|s| s.name).unwrap_or_else(|| Symbol::from("")),
                 states,
                 transitions,
             },
@@ -258,7 +255,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             // Warn or Error? For now error to enforce definition.
             return Err(CompileError::ParseError {
                 src: src.to_string(),
-                span: ast_root.accounts[0].span.into(),
+                span: ast_root.accounts[0].span,
                 message: "Found 'account' definitions but no 'Account' entity defined.".to_string(),
             });
         }
@@ -555,7 +552,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     }
 
     // 11. Process Routes
-    fn process_route_node(node: &ast::RouteNode, src: &str) -> Result<RouteSchema, CompileError> {
+    fn process_route_node(node: &ast::RouteNode, _src: &str) -> Result<RouteSchema, CompileError> {
         match node {
             ast::RouteNode::Route(r) => Ok(RouteSchema {
                 verb: r.verb.clone(),
@@ -568,7 +565,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             ast::RouteNode::Group(g) => {
                 let mut children = vec![];
                 for child in &g.children {
-                    children.push(process_route_node(child, src)?);
+                    children.push(process_route_node(child, _src)?);
                 }
                 Ok(RouteSchema {
                     verb: gurih_ir::RouteVerb::All,

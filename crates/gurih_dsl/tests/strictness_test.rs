@@ -80,10 +80,6 @@ action "my_action" {
 }
 "#;
     let result = parse(input, None);
-    assert!(result.is_err());
-    if let Err(CompileError::ParseError { message, .. }) = result {
-        assert!(message.contains("Unknown action step type"));
-    } else {
-        panic!("Expected ParseError, got {:?}", result);
-    }
+    // Custom action steps are allowed now
+    assert!(result.is_ok());
 }
