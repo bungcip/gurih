@@ -1,23 +1,7 @@
-workflow "StatusPegawaiWorkflow" for="Pegawai" field="status_pegawai" {
-    state "CPNS" initial=true
-    state "PNS"
-    state "Cuti"
-    state "TugasBelajar"
-    state "Nonaktif"
-    state "Pensiun"
-    state "PindahInstansi"
+// Employee Status Transitions defined using new DSL
 
-    transition "PensiunOtomatis" from="PNS" to="Pensiun" {
-        requires {
-             min_age 58 from="tanggal_lahir"
-        }
-        effects {
-             suspend_payroll true
-             notify "taspen"
-        }
-    }
-
-    transition "AngkatPNS" from="CPNS" to="PNS" {
+employee_status "CPNS" for="Pegawai" field="status_pegawai" {
+    can_transition_to "PNS" {
         requires {
              min_years_of_service 1 from="tmt_cpns"
              valid_effective_date "tmt_pns"
@@ -28,8 +12,20 @@ workflow "StatusPegawaiWorkflow" for="Pegawai" field="status_pegawai" {
              notify "unit_kepegawaian"
         }
     }
+}
 
-    transition "AjukanCuti" from="PNS" to="Cuti" {
+employee_status "PNS" for="Pegawai" field="status_pegawai" {
+    can_transition_to "Pensiun" {
+        requires {
+             min_age 58 from="tanggal_lahir"
+        }
+        effects {
+             suspend_payroll true
+             notify "taspen"
+        }
+    }
+
+    can_transition_to "Cuti" {
         requires {
             document "surat_cuti"
         }
@@ -38,13 +34,7 @@ workflow "StatusPegawaiWorkflow" for="Pegawai" field="status_pegawai" {
         }
     }
 
-    transition "SelesaiCuti" from="Cuti" to="PNS" {
-        effects {
-            suspend_payroll false
-        }
-    }
-
-    transition "MulaiTugasBelajar" from="PNS" to="TugasBelajar" {
+    can_transition_to "TugasBelajar" {
         requires {
             document "sk_tugas_belajar"
         }
@@ -52,8 +42,18 @@ workflow "StatusPegawaiWorkflow" for="Pegawai" field="status_pegawai" {
             notify "unit_pengembangan"
         }
     }
+}
 
-    transition "SelesaiTugasBelajar" from="TugasBelajar" to="PNS" {
+employee_status "Cuti" for="Pegawai" field="status_pegawai" {
+    can_transition_to "PNS" {
+        effects {
+            suspend_payroll false
+        }
+    }
+}
+
+employee_status "TugasBelajar" for="Pegawai" field="status_pegawai" {
+    can_transition_to "PNS" {
         effects {
             notify "unit_kepegawaian"
         }
