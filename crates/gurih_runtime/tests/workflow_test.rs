@@ -76,3 +76,44 @@ fn test_workflow_transitions() {
     let perm_same = engine.get_transition_permission(&schema, "Order", "Draft", "Draft");
     assert_eq!(perm_same, None);
 }
+
+#[test]
+fn test_missing_precondition_field() {
+    use gurih_ir::TransitionPrecondition;
+
+    let mut schema = Schema::default();
+    let entity_name = Symbol::from("Employee");
+    let initial_state = Symbol::from("Junior");
+    let state_senior = Symbol::from("Senior");
+
+    let workflow = WorkflowSchema {
+        name: Symbol::from("PromotionWorkflow"),
+        entity: entity_name,
+        field: Symbol::from("status"),
+        initial_state: initial_state,
+        states: vec![initial_state, state_senior],
+        transitions: vec![Transition {
+            name: Symbol::from("Promote"),
+            from: initial_state,
+            to: state_senior,
+            required_permission: None,
+            preconditions: vec![TransitionPrecondition::MinYearsOfService {
+                years: 5,
+                from_field: Some(Symbol::from("custom_join_date")),
+            }],
+            effects: vec![],
+        }],
+    };
+
+    schema.workflows.insert(workflow.name, workflow);
+
+    let engine = WorkflowEngine::new();
+    let empty_data = Value::Null;
+
+    let result = engine.validate_transition(&schema, "Employee", "Junior", "Senior", &empty_data);
+
+    assert!(result.is_err());
+    let err = result.err().unwrap();
+    assert!(err.to_string().contains("Cannot determine years of service"));
+    assert!(err.to_string().contains("custom_join_date"));
+}
