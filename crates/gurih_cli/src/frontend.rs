@@ -1,12 +1,17 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+fn get_npm_cmd() -> &'static str {
+    #[cfg(windows)]
+    let cmd = "npm.cmd";
+    #[cfg(not(windows))]
+    let cmd = "npm";
+    cmd
+}
+
 pub fn rebuild_frontend() {
     println!("📦 Rebuilding frontend...");
-    #[cfg(windows)]
-    let npm_cmd = "npm.cmd";
-    #[cfg(not(windows))]
-    let npm_cmd = "npm";
+    let npm_cmd = get_npm_cmd();
 
     let web_dir = Path::new("web");
     if !web_dir.exists() {
@@ -32,10 +37,7 @@ pub fn ensure_frontend_built() -> Option<PathBuf> {
     if web_dir.exists() {
         if !dist_dir.exists() {
             println!("📦 Frontend build not found in web/dist. Attempting to build...");
-            #[cfg(windows)]
-            let npm_cmd = "npm.cmd";
-            #[cfg(not(windows))]
-            let npm_cmd = "npm";
+            let npm_cmd = get_npm_cmd();
 
             let install_status = Command::new(npm_cmd).arg("install").current_dir(web_dir).status();
 
