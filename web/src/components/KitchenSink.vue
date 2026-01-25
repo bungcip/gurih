@@ -14,6 +14,7 @@ import Modal from './Modal.vue'
 import Timeline from './Timeline.vue'
 import MetricCard from './MetricCard.vue'
 import DescriptionList from './DescriptionList.vue'
+import ActionCard from './ActionCard.vue'
 import { inject } from 'vue'
 
 const selectValue = ref(null)
@@ -93,6 +94,53 @@ const systemInfo = [
   { label: 'Last Deployed', value: '2023-10-20', type: 'date' },
   { label: 'Uptime', value: '99.99%' }
 ]
+
+const actionCards = [
+  {
+    title: 'Invoice #INV-2023-001',
+    description: 'Software License Renewal for Q4 2023',
+    status: { label: 'Pending Approval', variant: 'warning' },
+    meta: [
+      { label: 'Amount', value: '$5,000.00', icon: 'dollar-sign' },
+      { label: 'Vendor', value: 'Adobe Inc.', icon: 'briefcase' },
+      { label: 'Date', value: 'Oct 24, 2023', icon: 'calendar' }
+    ],
+    actions: [
+      { label: 'Reject', variant: 'ghost-danger', value: 'reject' },
+      { label: 'Approve', variant: 'primary', value: 'approve' }
+    ]
+  },
+  {
+    title: 'Leave Request',
+    description: 'Annual Leave for 2 weeks in December.',
+    status: { label: 'Approved', variant: 'success' },
+    meta: [
+       { label: 'Employee', value: 'Sarah Jenkins', icon: 'user' },
+       { label: 'Duration', value: '10 Days', icon: 'clock' }
+    ],
+    actions: [
+       { label: 'View Details', variant: 'secondary', value: 'view' }
+    ]
+  },
+   {
+    title: 'Server Alert',
+    description: 'High CPU usage detected on prod-db-01.',
+    status: { label: 'Critical', variant: 'danger' },
+    meta: [
+       { label: 'Metric', value: '98% CPU', icon: 'activity' },
+       { label: 'Region', value: 'us-east-1', icon: 'map-pin' }
+    ],
+    actions: [
+       { label: 'Acknowledge', variant: 'outline', value: 'ack' },
+       { label: 'Restart', variant: 'danger', value: 'restart' }
+    ]
+  }
+]
+
+function onCardAction(action) {
+    console.log('Card Action:', action)
+    triggerToast('info')
+}
 
 function toggleLoading() {
     loading.value = !loading.value
@@ -354,6 +402,40 @@ function toggleLoading() {
                     <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Empty State</h3>
                     <Timeline :items="[]" emptyText="No activity logs found." />
                 </div>
+            </div>
+        </section>
+
+        <!-- Action Cards -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Workflow & Action Cards</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Standard Cards -->
+                <ActionCard
+                    v-for="card in actionCards"
+                    :key="card.title"
+                    v-bind="card"
+                    @action="onCardAction"
+                />
+
+                <!-- Loading State -->
+                <ActionCard
+                    title="Loading Example"
+                    loading
+                />
+
+                <!-- Error State -->
+                <ActionCard
+                    title="Error Example"
+                    error="Failed to load task details."
+                />
+
+                <!-- Variant: Bordered -->
+                <ActionCard
+                    title="Bordered Variant"
+                    description="This card uses the 'bordered' variant for a cleaner look."
+                    variant="bordered"
+                    :actions="[{ label: 'Dismiss', variant: 'ghost' }]"
+                />
             </div>
         </section>
 
