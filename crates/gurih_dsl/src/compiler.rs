@@ -107,6 +107,78 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             })
         };
 
+    let convert_transition = |t: &ast::TransitionDef| -> Transition {
+        Transition {
+            name: t.name.as_str().into(),
+            from: t.from.as_str().into(),
+            to: t.to.as_str().into(),
+            required_permission: t.permission.as_ref().map(|p| Symbol::from(p.as_str())),
+            preconditions: t
+                .preconditions
+                .iter()
+                .map(|p| match p {
+                    ast::TransitionPreconditionDef::Document { name, .. } => {
+                        TransitionPrecondition::Document(Symbol::from(name.as_str()))
+                    }
+                    ast::TransitionPreconditionDef::MinYearsOfService { years, from_field, .. } => {
+                        TransitionPrecondition::MinYearsOfService {
+                            years: *years,
+                            from_field: Some(Symbol::from(from_field.as_deref().unwrap_or("join_date"))),
+                        }
+                    }
+                    ast::TransitionPreconditionDef::MinAge {
+                        age,
+                        birth_date_field,
+                        ..
+                    } => TransitionPrecondition::MinAge {
+                        age: *age,
+                        birth_date_field: Some(Symbol::from(
+                            birth_date_field.as_deref().unwrap_or("birth_date"),
+                        )),
+                    },
+                    ast::TransitionPreconditionDef::ValidEffectiveDate { field, .. } => {
+                        TransitionPrecondition::ValidEffectiveDate(Symbol::from(field.as_str()))
+                    }
+                    ast::TransitionPreconditionDef::BalancedTransaction { .. } => {
+                        TransitionPrecondition::BalancedTransaction
+                    }
+                    ast::TransitionPreconditionDef::PeriodOpen { entity, .. } => {
+                        TransitionPrecondition::PeriodOpen {
+                            entity: entity.as_ref().map(|s| Symbol::from(s.as_str())),
+                        }
+                    }
+                })
+                .collect(),
+            effects: t
+                .effects
+                .iter()
+                .map(|e| match e {
+                    ast::TransitionEffectDef::SuspendPayroll { active, .. } => {
+                        TransitionEffect::UpdateField {
+                            field: Symbol::from("is_payroll_active"),
+                            value: active.to_string(),
+                        }
+                    }
+                    ast::TransitionEffectDef::Notify { target, .. } => {
+                        TransitionEffect::Notify(Symbol::from(target.as_str()))
+                    }
+                    ast::TransitionEffectDef::UpdateRankEligibility { active, .. } => {
+                        TransitionEffect::UpdateField {
+                            field: Symbol::from("rank_eligible"),
+                            value: active.to_string(),
+                        }
+                    }
+                    ast::TransitionEffectDef::UpdateField { field, value, .. } => {
+                        TransitionEffect::UpdateField {
+                            field: Symbol::from(field.as_str()),
+                            value: value.clone(),
+                        }
+                    }
+                })
+                .collect(),
+        }
+    };
+
     // 0. Process Database
     let database = ast_root.database.map(|d| DatabaseSchema {
         db_type: d.db_type,
@@ -159,65 +231,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     });
                 }
 
-                transitions.push(Transition {
-                    name: format!("{}_to_{}", status_def.name, trans_def.to).into(),
-                    from: Symbol::from(status_def.name.as_str()),
-                    to: Symbol::from(trans_def.to.as_str()),
-                    required_permission: trans_def.permission.as_ref().map(|p| Symbol::from(p.as_str())),
-                    preconditions: trans_def
-                        .preconditions
-                        .iter()
-                        .map(|p| match p {
-                            ast::TransitionPreconditionDef::Document { name, .. } => {
-                                TransitionPrecondition::Document(Symbol::from(name.as_str()))
-                            }
-                            ast::TransitionPreconditionDef::MinYearsOfService { years, from_field, .. } => {
-                                TransitionPrecondition::MinYearsOfService {
-                                    years: *years,
-                                    from_field: from_field.as_ref().map(|s| Symbol::from(s.as_str())),
-                                }
-                            }
-                            ast::TransitionPreconditionDef::MinAge {
-                                age, birth_date_field, ..
-                            } => TransitionPrecondition::MinAge {
-                                age: *age,
-                                birth_date_field: birth_date_field.as_ref().map(|s| Symbol::from(s.as_str())),
-                            },
-                            ast::TransitionPreconditionDef::ValidEffectiveDate { field, .. } => {
-                                TransitionPrecondition::ValidEffectiveDate(Symbol::from(field.as_str()))
-                            }
-                            ast::TransitionPreconditionDef::BalancedTransaction { .. } => {
-                                TransitionPrecondition::BalancedTransaction
-                            }
-                            ast::TransitionPreconditionDef::PeriodOpen { entity, .. } => {
-                                TransitionPrecondition::PeriodOpen {
-                                    entity: entity.as_ref().map(|s| Symbol::from(s.as_str())),
-                                }
-                            }
-                        })
-                        .collect(),
-                    effects: trans_def
-                        .effects
-                        .iter()
-                        .map(|e| match e {
-                            ast::TransitionEffectDef::SuspendPayroll { active, .. } => {
-                                TransitionEffect::SuspendPayroll(*active)
-                            }
-                            ast::TransitionEffectDef::Notify { target, .. } => {
-                                TransitionEffect::Notify(Symbol::from(target.as_str()))
-                            }
-                            ast::TransitionEffectDef::UpdateRankEligibility { active, .. } => {
-                                TransitionEffect::UpdateRankEligibility(*active)
-                            }
-                            ast::TransitionEffectDef::UpdateField { field, value, .. } => {
-                                TransitionEffect::UpdateField {
-                                    field: Symbol::from(field.as_str()),
-                                    value: value.clone(),
-                                }
-                            }
-                        })
-                        .collect(),
-                });
+                transitions.push(convert_transition(trans_def));
             }
         }
 
@@ -309,65 +323,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 transitions: wf_def
                     .transitions
                     .iter()
-                    .map(|t| Transition {
-                        name: t.name.as_str().into(),
-                        from: t.from.as_str().into(),
-                        to: t.to.as_str().into(),
-                        required_permission: t.permission.as_ref().map(|p| Symbol::from(p.as_str())),
-                        preconditions: t
-                            .preconditions
-                            .iter()
-                            .map(|p| match p {
-                                ast::TransitionPreconditionDef::Document { name, .. } => {
-                                    TransitionPrecondition::Document(Symbol::from(name.as_str()))
-                                }
-                                ast::TransitionPreconditionDef::MinYearsOfService { years, from_field, .. } => {
-                                    TransitionPrecondition::MinYearsOfService {
-                                        years: *years,
-                                        from_field: from_field.as_ref().map(|s| Symbol::from(s.as_str())),
-                                    }
-                                }
-                                ast::TransitionPreconditionDef::MinAge {
-                                    age, birth_date_field, ..
-                                } => TransitionPrecondition::MinAge {
-                                    age: *age,
-                                    birth_date_field: birth_date_field.as_ref().map(|s| Symbol::from(s.as_str())),
-                                },
-                                ast::TransitionPreconditionDef::ValidEffectiveDate { field, .. } => {
-                                    TransitionPrecondition::ValidEffectiveDate(Symbol::from(field.as_str()))
-                                }
-                                ast::TransitionPreconditionDef::BalancedTransaction { .. } => {
-                                    TransitionPrecondition::BalancedTransaction
-                                }
-                                ast::TransitionPreconditionDef::PeriodOpen { entity, .. } => {
-                                    TransitionPrecondition::PeriodOpen {
-                                        entity: entity.as_ref().map(|s| Symbol::from(s.as_str())),
-                                    }
-                                }
-                            })
-                            .collect(),
-                        effects: t
-                            .effects
-                            .iter()
-                            .map(|e| match e {
-                                ast::TransitionEffectDef::SuspendPayroll { active, .. } => {
-                                    TransitionEffect::SuspendPayroll(*active)
-                                }
-                                ast::TransitionEffectDef::Notify { target, .. } => {
-                                    TransitionEffect::Notify(Symbol::from(target.as_str()))
-                                }
-                                ast::TransitionEffectDef::UpdateRankEligibility { active, .. } => {
-                                    TransitionEffect::UpdateRankEligibility(*active)
-                                }
-                                ast::TransitionEffectDef::UpdateField { field, value, .. } => {
-                                    TransitionEffect::UpdateField {
-                                        field: Symbol::from(field.as_str()),
-                                        value: value.clone(),
-                                    }
-                                }
-                            })
-                            .collect(),
-                    })
+                    .map(convert_transition)
                     .collect(),
             },
         );

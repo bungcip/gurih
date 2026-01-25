@@ -1,11 +1,8 @@
-use crate::constants::{
-    DEFAULT_BIRTH_DATE_FIELD, DEFAULT_JOIN_DATE_FIELD, FIELD_IS_PAYROLL_ACTIVE, FIELD_RANK_ELIGIBLE,
-};
 use crate::datastore::DataStore;
 use crate::errors::RuntimeError;
 use chrono::NaiveDate;
 use gurih_common::time::check_min_years;
-use gurih_ir::{Schema, Symbol, TransitionEffect, TransitionPrecondition};
+use gurih_ir::{FieldType, Schema, Symbol, TransitionEffect, TransitionPrecondition};
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -86,10 +83,11 @@ impl WorkflowEngine {
                 }
             }
             TransitionPrecondition::MinYearsOfService { years, from_field } => {
-                let field_name = from_field
-                    .as_ref()
-                    .map(|s| s.as_str())
-                    .unwrap_or(DEFAULT_JOIN_DATE_FIELD);
+                let field_name = from_field.as_ref().map(|s| s.as_str()).ok_or_else(|| {
+                    RuntimeError::WorkflowError(
+                        "MinYearsOfService precondition missing 'from_field' configuration".to_string(),
+                    )
+                })?;
 
                 let join_date_str = entity_data.get(field_name).and_then(|v| v.as_str());
 
@@ -107,11 +105,15 @@ impl WorkflowEngine {
                     )));
                 }
             }
-            TransitionPrecondition::MinAge { age, birth_date_field } => {
-                let field_name = birth_date_field
-                    .as_ref()
-                    .map(|s| s.as_str())
-                    .unwrap_or(DEFAULT_BIRTH_DATE_FIELD);
+            TransitionPrecondition::MinAge {
+                age,
+                birth_date_field,
+            } => {
+                let field_name = birth_date_field.as_ref().map(|s| s.as_str()).ok_or_else(|| {
+                    RuntimeError::WorkflowError(
+                        "MinAge precondition missing 'birth_date_field' configuration".to_string(),
+                    )
+                })?;
 
                 let birth_date_str = entity_data.get(field_name).and_then(|v| v.as_str());
 
@@ -295,17 +297,24 @@ impl WorkflowEngine {
         {
             for effect in &t.effects {
                 match effect {
-                    TransitionEffect::SuspendPayroll(active) => {
-                        updates.insert(FIELD_IS_PAYROLL_ACTIVE.to_string(), Value::Bool(*active));
-                    }
                     TransitionEffect::Notify(target) => {
                         notifications.push(target.to_string());
                     }
-                    TransitionEffect::UpdateRankEligibility(active) => {
-                        updates.insert(FIELD_RANK_ELIGIBLE.to_string(), Value::Bool(*active));
-                    }
                     TransitionEffect::UpdateField { field, value } => {
-                        updates.insert(field.to_string(), Value::String(value.clone()));
+                        let mut json_val = Value::String(value.clone());
+
+                        // Attempt to cast to correct type if entity definition is available
+                        if let Some(ent) = schema.entities.get(&Symbol::from(entity_name)) {
+                            if let Some(f_def) = ent.fields.iter().find(|f| f.name == *field) {
+                                if f_def.field_type == FieldType::Boolean {
+                                    if let Ok(b) = value.parse::<bool>() {
+                                        json_val = Value::Bool(b);
+                                    }
+                                }
+                            }
+                        }
+
+                        updates.insert(field.to_string(), json_val);
                     }
                 }
             }

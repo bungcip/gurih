@@ -260,9 +260,7 @@ pub enum TransitionPrecondition {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransitionEffect {
-    SuspendPayroll(bool),
     Notify(Symbol),
-    UpdateRankEligibility(bool),
     UpdateField { field: Symbol, value: String },
 }
 
