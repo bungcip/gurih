@@ -86,9 +86,7 @@ impl DataEngine {
             audit_record.insert("user_id".to_string(), Value::String(ctx.user_id.clone()));
             audit_record.insert("diff".to_string(), Value::String(diff));
 
-            self.datastore
-                .insert("_audit_log", Value::Object(audit_record))
-                .await?;
+            self.datastore.insert("_audit_log", Value::Object(audit_record)).await?;
         }
 
         Ok(id)
@@ -251,9 +249,7 @@ impl DataEngine {
                     audit_record.insert("user_id".to_string(), Value::String(ctx.user_id.clone()));
                     audit_record.insert("diff".to_string(), Value::String(diff));
 
-                    self.datastore
-                        .insert("_audit_log", Value::Object(audit_record))
-                        .await?;
+                    self.datastore.insert("_audit_log", Value::Object(audit_record)).await?;
                 }
             }
         }
@@ -283,9 +279,7 @@ impl DataEngine {
             audit_record.insert("user_id".to_string(), Value::String(ctx.user_id.clone()));
             audit_record.insert("diff".to_string(), Value::Null);
 
-            self.datastore
-                .insert("_audit_log", Value::Object(audit_record))
-                .await?;
+            self.datastore.insert("_audit_log", Value::Object(audit_record)).await?;
         }
 
         Ok(())
