@@ -356,6 +356,7 @@ pub enum ActionStepType {
     EntityDelete,
     EntityUpdate,
     EntityCreate,
+    Custom(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

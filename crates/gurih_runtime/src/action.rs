@@ -1,5 +1,7 @@
 use gurih_ir::{ActionLogic, ActionStep, ActionStepType, Symbol};
+use serde_json::json;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 pub struct ActionEngine {
     actions: HashMap<Symbol, ActionLogic>,
@@ -14,7 +16,8 @@ impl ActionEngine {
         &self,
         action_name: &str,
         params: HashMap<String, String>,
-        _data_engine: &crate::data::DataEngine, // Will use later
+        data_engine: &crate::data::DataEngine,
+        ctx: &crate::context::RuntimeContext,
     ) -> Result<SimpleResponse, String> {
         // Use simple result for now
         let action = self
@@ -27,7 +30,7 @@ impl ActionEngine {
 
         // 2. Execute steps
         for step in &action.steps {
-            self.execute_step(step, &params, _data_engine).await?;
+            self.execute_step(step, &params, data_engine, ctx).await?;
         }
 
         Ok(SimpleResponse {
@@ -40,6 +43,7 @@ impl ActionEngine {
         step: &ActionStep,
         params: &HashMap<String, String>,
         data_engine: &crate::data::DataEngine,
+        ctx: &crate::context::RuntimeContext,
     ) -> Result<(), String> {
         let target_entity = &step.target;
 
@@ -54,7 +58,7 @@ impl ActionEngine {
             }
         };
 
-        match step.step_type {
+        match &step.step_type {
             ActionStepType::EntityDelete => {
                 // Expects "id" arg
                 let id_raw = step.args.get("id").ok_or("Missing 'id' argument for entity:delete")?;
@@ -67,6 +71,74 @@ impl ActionEngine {
                     .delete(target_entity.as_str(), &id)
                     .await
                     .map_err(|e| e.to_string())?;
+            }
+            ActionStepType::Custom(name) if name == "finance:reverse_journal" => {
+                let id_raw = step.args.get("id").ok_or("Missing 'id' argument for finance:reverse_journal")?;
+                let id = resolve_arg(id_raw);
+
+                // 1. Read Original
+                let original_arc = data_engine.read("JournalEntry", &id).await?
+                    .ok_or("JournalEntry not found")?;
+                let original = original_arc.as_ref();
+
+                // 2. Read Lines
+                // Using "journal_entry" as the foreign key field name based on standard snake_case mapping
+                let mut filters = HashMap::new();
+                filters.insert("journal_entry".to_string(), id.clone());
+
+                let lines = data_engine.datastore().find("JournalLine", filters).await?;
+
+                // 3. Create Reverse Header
+                let mut new_entry = original.clone();
+                let mut old_entry_number = "?".to_string();
+
+                if let Some(obj) = new_entry.as_object_mut() {
+                    // Capture old number for description
+                    if let Some(num) = obj.get("entry_number").and_then(|v| v.as_str()) {
+                        old_entry_number = num.to_string();
+                    }
+
+                    // Clean up system fields
+                    obj.remove("id");
+                    obj.insert("id".to_string(), json!(Uuid::new_v4().to_string()));
+                    obj.remove("entry_number"); // Let serial generator handle it
+
+                    // Update fields
+                    obj.insert("status".to_string(), json!("Draft"));
+                    obj.insert("description".to_string(), json!(format!("Reversal of {}", old_entry_number)));
+                    obj.insert("related_journal".to_string(), json!(id));
+                }
+
+                let new_id = data_engine.create("JournalEntry", new_entry, ctx).await?;
+
+                // 4. Create Reverse Lines
+                for line_arc in lines {
+                    let mut line = line_arc.as_ref().clone();
+                    if let Some(obj) = line.as_object_mut() {
+                        obj.remove("id");
+                        obj.insert("id".to_string(), json!(Uuid::new_v4().to_string()));
+                        obj.insert("journal_entry".to_string(), json!(new_id));
+
+                        // Swap debit/credit
+                        let get_val = |v: &serde_json::Value| -> f64 {
+                            if let Some(f) = v.as_f64() {
+                                f
+                            } else if let Some(s) = v.as_str() {
+                                s.parse().unwrap_or(0.0)
+                            } else {
+                                0.0
+                            }
+                        };
+
+                        let debit = obj.get("debit").map(get_val).unwrap_or(0.0);
+                        let credit = obj.get("credit").map(get_val).unwrap_or(0.0);
+
+                        // Store as string for Money type compatibility
+                        obj.insert("debit".to_string(), json!(credit.to_string()));
+                        obj.insert("credit".to_string(), json!(debit.to_string()));
+                    }
+                     data_engine.create("JournalLine", line, ctx).await?;
+                }
             }
             // Add update, create later if needed by IR
             _ => {

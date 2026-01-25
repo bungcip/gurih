@@ -17,6 +17,9 @@ entity "JournalEntry" {
     field:text "description"
     field:enum "status" "JournalStatus" default="Draft"
 
+    // Relationships
+    belongs_to "related_journal" entity="JournalEntry"
+
     // Composition
     has_many "lines" "JournalLine" type="composition"
 
@@ -55,6 +58,17 @@ workflow "JournalWorkflow" for="JournalEntry" field="status" {
     transition "cancel" {
         from "Draft"
         to "Cancelled"
+    }
+}
+
+action "ReverseJournal" {
+    params "id"
+    step "finance:reverse_journal" target="JournalEntry" id="param(\"id\")"
+}
+
+routes {
+    group "/finance/journals" {
+        route:post "/:id/reverse" action="ReverseJournal"
     }
 }
 

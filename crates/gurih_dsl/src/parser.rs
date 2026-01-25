@@ -190,16 +190,12 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
     })
 }
 
-fn parse_step_type(s: &str, span: SourceSpan, src: &str) -> Result<ActionStepType, CompileError> {
+fn parse_step_type(s: &str, _span: SourceSpan, _src: &str) -> Result<ActionStepType, CompileError> {
     match s {
         "entity:delete" => Ok(ActionStepType::EntityDelete),
         "entity:update" => Ok(ActionStepType::EntityUpdate),
         "entity:create" => Ok(ActionStepType::EntityCreate),
-        _ => Err(CompileError::ParseError {
-            src: src.to_string(),
-            span: span.into(),
-            message: format!("Unknown action step type: {}", s),
-        }),
+        custom => Ok(ActionStepType::Custom(custom.to_string())),
     }
 }
 
