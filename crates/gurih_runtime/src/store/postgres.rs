@@ -1,4 +1,4 @@
-use super::DataStore;
+use super::{DataStore, validate_identifier};
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use serde_json::Value;
@@ -61,12 +61,14 @@ impl PostgresDataStore {
 #[async_trait]
 impl DataStore for PostgresDataStore {
     async fn insert(&self, entity: &str, record: Value) -> Result<String, String> {
+        validate_identifier(entity)?;
         let obj = record.as_object().ok_or("Record must be object")?;
         let mut query = format!("INSERT INTO \"{}\" (", entity);
         let mut params = vec![];
         let mut values_clause = String::from(") VALUES (");
 
         for (i, (k, v)) in obj.iter().enumerate() {
+            validate_identifier(k)?;
             if i > 0 {
                 query.push_str(", ");
                 values_clause.push_str(", ");
@@ -107,6 +109,7 @@ impl DataStore for PostgresDataStore {
     }
 
     async fn get(&self, entity: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
+        validate_identifier(entity)?;
         let query = format!("SELECT * FROM \"{}\" WHERE id = $1", entity);
         let row = sqlx::query(&query)
             .bind(id)
@@ -122,6 +125,7 @@ impl DataStore for PostgresDataStore {
     }
 
     async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String> {
+        validate_identifier(entity)?;
         let obj = record.as_object().ok_or("Record must be object")?;
         let mut query = format!("UPDATE \"{}\" SET ", entity);
         let mut params = vec![];
@@ -131,6 +135,7 @@ impl DataStore for PostgresDataStore {
             if k == "id" {
                 continue;
             }
+            validate_identifier(k)?;
             if i > 0 {
                 query.push_str(", ");
             }
@@ -167,6 +172,7 @@ impl DataStore for PostgresDataStore {
     }
 
     async fn delete(&self, entity: &str, id: &str) -> Result<(), String> {
+        validate_identifier(entity)?;
         let query = format!("DELETE FROM \"{}\" WHERE id = $1", entity);
         sqlx::query(&query)
             .bind(id)
@@ -177,6 +183,7 @@ impl DataStore for PostgresDataStore {
     }
 
     async fn list(&self, entity: &str, limit: Option<usize>, offset: Option<usize>) -> Result<Vec<Arc<Value>>, String> {
+        validate_identifier(entity)?;
         let mut query = format!("SELECT * FROM \"{}\"", entity);
 
         if let Some(l) = limit {
@@ -194,12 +201,14 @@ impl DataStore for PostgresDataStore {
     }
 
     async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
+        validate_identifier(entity)?;
         let mut query = format!("SELECT * FROM \"{}\"", entity);
         let mut params = vec![];
 
         if !filters.is_empty() {
             query.push_str(" WHERE ");
             for (i, (k, v)) in filters.iter().enumerate() {
+                validate_identifier(k)?;
                 if i > 0 {
                     query.push_str(" AND ");
                 }
@@ -218,12 +227,14 @@ impl DataStore for PostgresDataStore {
     }
 
     async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String> {
+        validate_identifier(entity)?;
         let mut query = format!("SELECT COUNT(*) FROM \"{}\"", entity);
         let mut params = vec![];
 
         if !filters.is_empty() {
             query.push_str(" WHERE ");
             for (i, (k, v)) in filters.iter().enumerate() {
+                validate_identifier(k)?;
                 if i > 0 {
                     query.push_str(" AND ");
                 }
@@ -247,12 +258,15 @@ impl DataStore for PostgresDataStore {
         group_by: &str,
         filters: HashMap<String, String>,
     ) -> Result<Vec<(String, i64)>, String> {
+        validate_identifier(entity)?;
+        validate_identifier(group_by)?;
         let mut query = format!("SELECT \"{}\", COUNT(*) FROM \"{}\"", group_by, entity);
         let mut params = vec![];
 
         if !filters.is_empty() {
             query.push_str(" WHERE ");
             for (i, (k, v)) in filters.iter().enumerate() {
+                validate_identifier(k)?;
                 if i > 0 {
                     query.push_str(" AND ");
                 }
