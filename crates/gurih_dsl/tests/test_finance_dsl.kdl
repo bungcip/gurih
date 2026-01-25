@@ -1,0 +1,32 @@
+entity "Account" {
+    field:pk id
+    field:string "name"
+    field:string "code"
+    field:string "type"
+    field:string "normal_balance"
+}
+
+account "Cash" {
+    code "101"
+    type "Asset"
+    normal_balance "Debit"
+}
+
+entity "JournalEntry" {
+    field:pk id
+    field:string "status"
+}
+
+workflow "JournalWorkflow" for="JournalEntry" field="status" {
+    state "Draft" initial=#true
+    state "Posted"
+
+    transition "post" {
+        from "Draft"
+        to "Posted"
+        requires {
+            balanced_transaction #true
+            period_open #true
+        }
+    }
+}

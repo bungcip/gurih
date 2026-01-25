@@ -29,6 +29,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
         storages: vec![],
         queries: vec![],
         employee_statuses: vec![],
+        accounts: vec![],
     };
 
     for node in doc.nodes() {
@@ -75,6 +76,8 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
                     ast.menus.extend(included_ast.menus);
                     ast.prints.extend(included_ast.prints);
                     ast.permissions.extend(included_ast.permissions);
+                    ast.accounts.extend(included_ast.accounts);
+                    ast.employee_statuses.extend(included_ast.employee_statuses);
                 } else {
                     return Err(CompileError::ParseError {
                         src: src.to_string(),
@@ -101,6 +104,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
             "role" | "permission" => ast.permissions.push(parse_permission(node, src)?),
             "query" | "query:nested" | "query:flat" => ast.queries.push(parse_query(node, src)?),
             "employee_status" => ast.employee_statuses.push(parse_employee_status(node, src)?),
+            "account" => ast.accounts.push(parse_account(node, src)?),
             _ => {
                 // Ignore unknown nodes or warn? Strict for now.
                 return Err(CompileError::ParseError {
@@ -666,18 +670,20 @@ fn parse_workflow(node: &KdlNode, src: &str) -> Result<WorkflowDef, CompileError
 fn parse_state(node: &KdlNode, src: &str) -> Result<StateDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
     let initial = get_prop_bool(node, "initial").unwrap_or(false);
+    let immutable = get_prop_bool(node, "immutable").unwrap_or(false);
 
     Ok(StateDef {
         name,
         initial,
+        immutable,
         span: node.span().into(),
     })
 }
 
 fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
-    let from = get_prop_string(node, "from", src)?;
-    let to = get_prop_string(node, "to", src)?;
+    let mut from = get_prop_string(node, "from", src).ok();
+    let mut to = get_prop_string(node, "to", src).ok();
     let permission = get_prop_string(node, "permission", src).ok();
 
     let mut preconditions = vec![];
@@ -686,6 +692,8 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
+                "from" => from = Some(get_arg_string(child, 0, src)?),
+                "to" => to = Some(get_arg_string(child, 0, src)?),
                 "requires" => {
                     if let Some(req_children) = child.children() {
                         for req in req_children.nodes() {
@@ -721,6 +729,24 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
                                         field,
                                         span: req.span().into(),
                                     });
+                                }
+                                "balanced_transaction" => {
+                                    let enabled = get_arg_bool(req, 0)?;
+                                    if enabled {
+                                        preconditions.push(TransitionPreconditionDef::BalancedTransaction {
+                                            span: req.span().into(),
+                                        });
+                                    }
+                                }
+                                "period_open" => {
+                                    let enabled = get_arg_bool(req, 0).unwrap_or(true);
+                                    let entity = get_prop_string(req, "entity", src).ok();
+                                    if enabled {
+                                        preconditions.push(TransitionPreconditionDef::PeriodOpen {
+                                            entity,
+                                            span: req.span().into(),
+                                        });
+                                    }
                                 }
                                 _ => {}
                             }
@@ -771,6 +797,18 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
         }
     }
 
+    let from = from.ok_or_else(|| CompileError::ParseError {
+        src: src.to_string(),
+        span: node.span().into(),
+        message: "Missing property 'from'".to_string(),
+    })?;
+
+    let to = to.ok_or_else(|| CompileError::ParseError {
+        src: src.to_string(),
+        span: node.span().into(),
+        message: "Missing property 'to'".to_string(),
+    })?;
+
     Ok(TransitionDef {
         name,
         from,
@@ -778,6 +816,26 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
         permission,
         preconditions,
         effects,
+        span: node.span().into(),
+    })
+}
+
+fn parse_account(node: &KdlNode, src: &str) -> Result<AccountDef, CompileError> {
+    let name = get_arg_string(node, 0, src)?;
+    let mut fields = HashMap::new();
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            let key = child.name().value();
+            if let Ok(val) = get_arg_string(child, 0, src) {
+                fields.insert(key.to_string(), val);
+            }
+        }
+    }
+
+    Ok(AccountDef {
+        name,
+        fields,
         span: node.span().into(),
     })
 }
@@ -1352,6 +1410,7 @@ fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
     let mut formulas = vec![];
     let mut joins = vec![];
     let mut filters = vec![];
+    let mut group_by = vec![];
 
     let query_type = match node.name().value() {
         "query:flat" => QueryType::Flat,
@@ -1365,6 +1424,7 @@ fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
                 "formula" => formulas.push(parse_query_formula(child, src)?),
                 "join" => joins.push(parse_query_join(child, src)?),
                 "filter" => filters.push(get_arg_string(child, 0, src)?),
+                "group_by" => group_by.push(get_arg_string(child, 0, src)?),
                 _ => {}
             }
         }
@@ -1378,6 +1438,7 @@ fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
         formulas,
         filters,
         joins,
+        group_by,
         span: node.span().into(),
     })
 }

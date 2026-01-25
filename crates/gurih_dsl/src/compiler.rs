@@ -7,8 +7,8 @@ use gurih_ir::{
     ActionSchema, ColumnSchema, DashboardSchema, DatabaseSchema, DatatableColumnSchema, DatatableSchema, EntitySchema,
     FieldSchema, FieldType, FormSchema, FormSection, LayoutSchema, MenuItemSchema, MenuSchema, PageContentSchema,
     PageSchema, PermissionSchema, PrintSchema, QueryFormula, QueryJoin, QuerySchema, QuerySelection,
-    RelationshipSchema, RouteSchema, Schema, SerialGeneratorSchema, StorageSchema, TableSchema, Transition,
-    TransitionEffect, TransitionPrecondition, WidgetSchema, WorkflowSchema,
+    RelationshipSchema, RouteSchema, Schema, SerialGeneratorSchema, StateSchema, StorageSchema, TableSchema,
+    Transition, TransitionEffect, TransitionPrecondition, WidgetSchema, WorkflowSchema,
 };
 use std::collections::HashMap;
 
@@ -137,7 +137,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         let entity_name = "Employee";
         let field_name = "status";
 
-        let mut states: Vec<Symbol> = vec![];
+        let mut states: Vec<StateSchema> = vec![];
         let mut transitions: Vec<Transition> = vec![];
 
         // Track seen states to avoid duplicates
@@ -145,12 +145,18 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
         for status_def in &ast_root.employee_statuses {
             if seen_states.insert(status_def.name.clone()) {
-                states.push(Symbol::from(status_def.name.as_str()));
+                states.push(StateSchema {
+                    name: Symbol::from(status_def.name.as_str()),
+                    immutable: false,
+                });
             }
 
             for trans_def in &status_def.transitions {
                 if seen_states.insert(trans_def.to.clone()) {
-                    states.push(Symbol::from(trans_def.to.as_str()));
+                    states.push(StateSchema {
+                        name: Symbol::from(trans_def.to.as_str()),
+                        immutable: false,
+                    });
                 }
 
                 transitions.push(Transition {
@@ -179,6 +185,14 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                             },
                             ast::TransitionPreconditionDef::ValidEffectiveDate { field, .. } => {
                                 TransitionPrecondition::ValidEffectiveDate(Symbol::from(field.as_str()))
+                            }
+                            ast::TransitionPreconditionDef::BalancedTransaction { .. } => {
+                                TransitionPrecondition::BalancedTransaction
+                            }
+                            ast::TransitionPreconditionDef::PeriodOpen { entity, .. } => {
+                                TransitionPrecondition::PeriodOpen {
+                                    entity: entity.as_ref().map(|s| Symbol::from(s.as_str())),
+                                }
                             }
                         })
                         .collect(),
@@ -213,7 +227,10 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 name: Symbol::from(workflow_name),
                 entity: Symbol::from(entity_name),
                 field: Symbol::from(field_name),
-                initial_state: states.first().cloned().unwrap_or_else(|| Symbol::from("")),
+                initial_state: states
+                    .first()
+                    .map(|s| s.name.clone())
+                    .unwrap_or_else(|| Symbol::from("")),
                 states,
                 transitions,
             },
@@ -224,6 +241,27 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     for entity_def in &ast_root.entities {
         let entity_schema = process_entity(entity_def, None)?;
         ir_entities.insert(entity_def.name.as_str().into(), entity_schema);
+    }
+
+    // 2.1 Process Accounts (inject into Account entity seeds)
+    if !ast_root.accounts.is_empty() {
+        let account_symbol = Symbol::from("Account");
+        if let Some(entity) = ir_entities.get_mut(&account_symbol) {
+            let mut seeds = entity.seeds.take().unwrap_or_default();
+            for acc in &ast_root.accounts {
+                let mut row = acc.fields.clone();
+                row.insert("name".to_string(), acc.name.clone());
+                seeds.push(row);
+            }
+            entity.seeds = Some(seeds);
+        } else {
+            // Warn or Error? For now error to enforce definition.
+            return Err(CompileError::ParseError {
+                src: src.to_string(),
+                span: ast_root.accounts[0].span.into(),
+                message: "Found 'account' definitions but no 'Account' entity defined.".to_string(),
+            });
+        }
     }
 
     // 3. Process Tables
@@ -263,7 +301,14 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     .find(|s| s.initial)
                     .map(|s| s.name.as_str().into())
                     .unwrap_or_else(|| Symbol::from("")),
-                states: wf_def.states.iter().map(|s| Symbol::from(s.name.as_str())).collect(),
+                states: wf_def
+                    .states
+                    .iter()
+                    .map(|s| StateSchema {
+                        name: Symbol::from(s.name.as_str()),
+                        immutable: s.immutable,
+                    })
+                    .collect(),
                 transitions: wf_def
                     .transitions
                     .iter()
@@ -293,6 +338,14 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                                 },
                                 ast::TransitionPreconditionDef::ValidEffectiveDate { field, .. } => {
                                     TransitionPrecondition::ValidEffectiveDate(Symbol::from(field.as_str()))
+                                }
+                                ast::TransitionPreconditionDef::BalancedTransaction { .. } => {
+                                    TransitionPrecondition::BalancedTransaction
+                                }
+                                ast::TransitionPreconditionDef::PeriodOpen { entity, .. } => {
+                                    TransitionPrecondition::PeriodOpen {
+                                        entity: entity.as_ref().map(|s| Symbol::from(s.as_str())),
+                                    }
                                 }
                             })
                             .collect(),
@@ -656,6 +709,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 formulas: formulas?,
                 filters: filters?,
                 joins: joins?,
+                group_by: query_def.group_by.iter().map(|s| Symbol::from(s.as_str())).collect(),
             },
         );
     }

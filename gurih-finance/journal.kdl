@@ -1,0 +1,86 @@
+enum "JournalStatus" {
+    Draft
+    Posted
+    Cancelled
+}
+
+serial_generator "JournalCode" {
+    prefix "JE/"
+    date "YYYY/MM"
+    sequence digits=4
+}
+
+entity "JournalEntry" {
+    field:pk id
+    field:serial "entry_number" serial_generator="JournalCode"
+    field:date "date"
+    field:text "description"
+    field:enum "status" "JournalStatus" default="Draft"
+
+    // Composition
+    has_many "lines" "JournalLine" type="composition"
+
+    options {
+        is_submittable #true
+        track_changes #true
+    }
+}
+
+entity "JournalLine" {
+    field:pk id
+    belongs_to "JournalEntry"
+    belongs_to "Account"
+    field:money "debit" default=0
+    field:money "credit" default=0
+    field:text "memo"
+}
+
+workflow "JournalWorkflow" for="JournalEntry" field="status" {
+    state "Draft" initial=#true
+    state "Posted" immutable=#true
+    state "Cancelled" immutable=#true
+
+    transition "post" {
+        from "Draft"
+        to "Posted"
+        requires {
+            balanced_transaction #true
+            period_open entity="AccountingPeriod"
+        }
+        effects {
+            // Immutable once posted
+        }
+    }
+
+    transition "cancel" {
+        from "Draft"
+        to "Cancelled"
+    }
+}
+
+page "JournalList" {
+    title "Journal Entries"
+    datatable for="JournalEntry" {
+        column "entry_number"
+        column "date"
+        column "description"
+        column "status"
+
+        action "View" icon="book" to="/finance/journals/:id"
+    }
+}
+
+page "JournalForm" {
+    title "Journal Entry"
+    form for="JournalEntry" {
+        section "Header" {
+            group {
+                field "entry_number"
+                field "date"
+            }
+            field "description"
+        }
+        // Child table support assumed in form
+        // In real impl, need "grid" or similar.
+    }
+}

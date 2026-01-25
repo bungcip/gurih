@@ -1,0 +1,46 @@
+// Reporting queries
+
+query:flat "TrialBalanceQuery" for="Account" {
+    select "code"
+    select "name"
+    // Formula for balance. Assuming SQL dialect supports this.
+    // Ideally: SUM(CASE WHEN type='Asset' THEN debit - credit ELSE credit - debit END)
+    // But for simplicity: SUM(debit) - SUM(credit)
+    formula "total_debit" "SUM([debit])"
+    formula "total_credit" "SUM([credit])"
+
+    join "JournalLine" {
+        select "debit"
+        select "credit"
+    }
+
+    group_by "id"
+    group_by "code"
+    group_by "name"
+}
+
+page "TrialBalanceReport" {
+    title "Trial Balance"
+    datatable query="TrialBalanceQuery" {
+        column "code"
+        column "name"
+        column "total_debit"
+        column "total_credit"
+    }
+}
+
+page "BalanceSheetReport" {
+    title "Balance Sheet"
+    datatable query="TrialBalanceQuery" { // reusing for simplicity
+        column "code"
+        column "name"
+    }
+}
+
+page "IncomeStatementReport" {
+    title "Income Statement"
+    datatable query="TrialBalanceQuery" {
+        column "code"
+        column "name"
+    }
+}

@@ -1,0 +1,35 @@
+enum "PeriodStatus" {
+    Open
+    Closed
+    Locked
+}
+
+entity "AccountingPeriod" {
+    field:pk id
+    field:string "name" // e.g. "Jan 2024"
+    field:date "start_date"
+    field:date "end_date"
+    field:enum "status" "PeriodStatus" default="Open"
+}
+
+page "PeriodList" {
+    title "Accounting Periods"
+    datatable for="AccountingPeriod" {
+        column "name"
+        column "start_date"
+        column "end_date"
+        column "status"
+    }
+}
+
+page "PeriodForm" {
+    title "Period"
+    form for="AccountingPeriod" {
+        field "name"
+        group {
+            field "start_date"
+            field "end_date"
+        }
+        field "status"
+    }
+}

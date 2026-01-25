@@ -62,9 +62,20 @@ impl QueryEngine {
             where_clause = format!("WHERE {}", filter_parts.join(" AND "));
         }
 
+        let mut group_by_clause = String::new();
+        if !query.group_by.is_empty() {
+            // Naive field formatting, assumes fields are columns of root or joined tables.
+            // But symbols don't have table qualification.
+            // We might need to assume root table or use qualified names in DSL.
+            // For now, let's wrap in brackets.
+            // Actually, expression_to_sql handles Field as [name].
+            let group_parts: Vec<String> = query.group_by.iter().map(|s| format!("[{}]", s)).collect();
+            group_by_clause = format!("GROUP BY {}", group_parts.join(", "));
+        }
+
         let sql = format!(
-            "SELECT {} FROM {} {} {}",
-            select_clause, root_table, join_clause, where_clause
+            "SELECT {} FROM {} {} {} {}",
+            select_clause, root_table, join_clause, where_clause, group_by_clause
         )
         .trim()
         .to_string();
@@ -187,6 +198,7 @@ mod tests {
             root_entity: "CourseEntity".into(),
             query_type: QueryType::Nested,
             filters: vec![],
+            group_by: vec![],
             selections: vec![QuerySelection {
                 field: "title".into(),
                 alias: None,
@@ -261,6 +273,7 @@ mod tests {
             name: "BookQuery".into(),
             root_entity: "BookEntity".into(),
             query_type: QueryType::Flat,
+            group_by: vec![],
             filters: vec![Expression::BinaryOp {
                 left: Box::new(Expression::Field("published_at".into())),
                 op: BinaryOperator::Sub, // Using sub as placeholder for comparison (no comparison op yet)

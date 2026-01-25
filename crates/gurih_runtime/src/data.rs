@@ -82,60 +82,85 @@ impl DataEngine {
 
         let mut data = data;
 
-        // Workflow Transition Check
-        if let Some(wf) = self
+        // Workflow Check (Immutability & Transition)
+        let workflow = self
             .schema
             .workflows
             .values()
-            .find(|w| w.entity == Symbol::from(entity_name))
-            && let Some(new_state) = data.get(wf.field.as_str()).and_then(|v| v.as_str())
-        {
-            let current_record = self.datastore.get(entity_name, id).await?.ok_or("Record not found")?;
+            .find(|w| w.entity == Symbol::from(entity_name));
 
+        if let Some(wf) = workflow {
+            let current_record = self.datastore.get(entity_name, id).await?.ok_or("Record not found")?;
             let current_state = current_record
                 .get(wf.field.as_str())
                 .and_then(|v| v.as_str())
-                .unwrap_or(""); // Assume empty state if missing
+                .unwrap_or("");
 
-            // Merge data for validation
-            let mut merged_record = (*current_record).clone();
-            if let Some(target) = merged_record.as_object_mut()
-                && let Some(source) = data.as_object()
-            {
-                for (k, v) in source {
-                    target.insert(k.clone(), v.clone());
+            // Check Immutability
+            if let Some(state_schema) = wf.states.iter().find(|s| s.name == Symbol::from(current_state)) {
+                if state_schema.immutable {
+                    if let Some(obj) = data.as_object() {
+                        for key in obj.keys() {
+                            if key != wf.field.as_str() && key != "id" {
+                                return Err(format!(
+                                    "Cannot update field '{}' because record is immutable in state '{}'",
+                                    key, current_state
+                                ));
+                            }
+                        }
+                    }
                 }
             }
 
-            // Validate transition logic
-            self.workflow
-                .validate_transition(&self.schema, entity_name, current_state, new_state, &merged_record)
-                .map_err(|e| e.to_string())?;
+            if let Some(new_state) = data.get(wf.field.as_str()).and_then(|v| v.as_str()) {
+                // Merge data for validation
+                let mut merged_record = (*current_record).clone();
+                if let Some(target) = merged_record.as_object_mut()
+                    && let Some(source) = data.as_object()
+                {
+                    for (k, v) in source {
+                        target.insert(k.clone(), v.clone());
+                    }
+                }
 
-            // Validate permissions for transition
-            if let Some(perm) =
+                // Validate transition logic
                 self.workflow
-                    .get_transition_permission(&self.schema, entity_name, current_state, new_state)
-                && !ctx.has_permission(&perm)
-            {
-                return Err(format!("Missing permission '{}' for transition", perm));
-            }
+                    .validate_transition(
+                        &self.schema,
+                        Some(&self.datastore),
+                        entity_name,
+                        current_state,
+                        new_state,
+                        &merged_record,
+                    )
+                    .await
+                    .map_err(|e| e.to_string())?;
 
-            // Apply Side Effects
-            let (updates, notifications) =
-                self.workflow
-                    .apply_effects(&self.schema, entity_name, current_state, new_state, &merged_record);
+                // Validate permissions for transition
+                if let Some(perm) =
+                    self.workflow
+                        .get_transition_permission(&self.schema, entity_name, current_state, new_state)
+                    && !ctx.has_permission(&perm)
+                {
+                    return Err(format!("Missing permission '{}' for transition", perm));
+                }
 
-            for notification in notifications {
-                println!("NOTIFICATION: {}", notification);
-            }
+                // Apply Side Effects
+                let (updates, notifications) =
+                    self.workflow
+                        .apply_effects(&self.schema, entity_name, current_state, new_state, &merged_record);
 
-            // Merge updates into data
-            if let Some(obj) = data.as_object_mut()
-                && let Value::Object(update_map) = updates
-            {
-                for (k, v) in update_map {
-                    obj.insert(k, v);
+                for notification in notifications {
+                    println!("NOTIFICATION: {}", notification);
+                }
+
+                // Merge updates into data
+                if let Some(obj) = data.as_object_mut()
+                    && let Value::Object(update_map) = updates
+                {
+                    for (k, v) in update_map {
+                        obj.insert(k, v);
+                    }
                 }
             }
         }
