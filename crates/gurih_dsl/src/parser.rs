@@ -28,6 +28,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
         actions: vec![],
         storages: vec![],
         queries: vec![],
+        employee_statuses: vec![],
     };
 
     for node in doc.nodes() {
@@ -99,6 +100,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
             "print" => ast.prints.push(parse_print(node, src)?),
             "role" | "permission" => ast.permissions.push(parse_permission(node, src)?),
             "query" | "query:nested" | "query:flat" => ast.queries.push(parse_query(node, src)?),
+            "employee_status" => ast.employee_statuses.push(parse_employee_status(node, src)?),
             _ => {
                 // Ignore unknown nodes or warn? Strict for now.
                 return Err(CompileError::ParseError {
@@ -772,6 +774,131 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
     Ok(TransitionDef {
         name,
         from,
+        to,
+        permission,
+        preconditions,
+        effects,
+        span: node.span().into(),
+    })
+}
+
+fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef, CompileError> {
+    let name = get_arg_string(node, 0, src)?;
+    let mut transitions = vec![];
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            if child.name().value() == "can_transition_to" {
+                transitions.push(parse_employee_status_transition(child, src)?);
+            }
+        }
+    }
+
+    Ok(EmployeeStatusDef {
+        name,
+        transitions,
+        span: node.span().into(),
+    })
+}
+
+fn parse_employee_status_transition(
+    node: &KdlNode,
+    src: &str,
+) -> Result<EmployeeStatusTransitionDef, CompileError> {
+    let to = get_arg_string(node, 0, src)?;
+    let permission = get_prop_string(node, "permission", src).ok();
+    let mut preconditions = vec![];
+    let mut effects = vec![];
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            match child.name().value() {
+                "requires" => {
+                    if let Some(req_children) = child.children() {
+                        for req in req_children.nodes() {
+                            match req.name().value() {
+                                "document" => {
+                                    let doc_name = get_arg_string(req, 0, src)?;
+                                    preconditions.push(TransitionPreconditionDef::Document {
+                                        name: doc_name,
+                                        span: req.span().into(),
+                                    });
+                                }
+                                "min_years_of_service" => {
+                                    let years = get_arg_int(req, 0, src)? as u32;
+                                    let from_field = get_prop_string(req, "from", src).ok();
+                                    preconditions.push(TransitionPreconditionDef::MinYearsOfService {
+                                        years,
+                                        from_field,
+                                        span: req.span().into(),
+                                    });
+                                }
+                                "min_age" => {
+                                    let age = get_arg_int(req, 0, src)? as u32;
+                                    let birth_date_field = get_prop_string(req, "from", src).ok();
+                                    preconditions.push(TransitionPreconditionDef::MinAge {
+                                        age,
+                                        birth_date_field,
+                                        span: req.span().into(),
+                                    });
+                                }
+                                "valid_effective_date" => {
+                                    let field = get_arg_string(req, 0, src)?;
+                                    preconditions.push(TransitionPreconditionDef::ValidEffectiveDate {
+                                        field,
+                                        span: req.span().into(),
+                                    });
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                "effects" => {
+                    if let Some(eff_children) = child.children() {
+                        for eff in eff_children.nodes() {
+                            match eff.name().value() {
+                                "suspend_payroll" => {
+                                    let suspend = get_arg_bool(eff, 0)?;
+                                    effects.push(TransitionEffectDef::SuspendPayroll {
+                                        active: !suspend,
+                                        span: eff.span().into(),
+                                    });
+                                }
+                                "notify" => {
+                                    let target = get_arg_string(eff, 0, src)?;
+                                    effects.push(TransitionEffectDef::Notify {
+                                        target,
+                                        span: eff.span().into(),
+                                    });
+                                }
+                                "update_rank_eligibility" => {
+                                    let active = get_arg_bool(eff, 0)?;
+                                    effects.push(TransitionEffectDef::UpdateRankEligibility {
+                                        active,
+                                        span: eff.span().into(),
+                                    });
+                                }
+                                "update" => {
+                                    let field = get_arg_string(eff, 0, src)?;
+                                    let value = get_arg_string(eff, 1, src)?;
+                                    effects.push(TransitionEffectDef::UpdateField {
+                                        field,
+                                        value,
+                                        span: eff.span().into(),
+                                    });
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Ok(EmployeeStatusTransitionDef {
         to,
         permission,
         preconditions,

@@ -23,6 +23,7 @@ pub struct Ast {
     pub prints: Vec<PrintDef>,
     pub queries: Vec<QueryDef>,
     pub permissions: Vec<PermissionDef>,
+    pub employee_statuses: Vec<EmployeeStatusDef>,
 }
 
 #[derive(Debug, Clone)]
@@ -430,4 +431,20 @@ pub struct PermissionDef {
 pub struct AllowDef {
     pub resource: String,
     pub actions: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct EmployeeStatusDef {
+    pub name: String,
+    pub transitions: Vec<EmployeeStatusTransitionDef>,
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone)]
+pub struct EmployeeStatusTransitionDef {
+    pub to: String,
+    pub permission: Option<String>,
+    pub preconditions: Vec<TransitionPreconditionDef>,
+    pub effects: Vec<TransitionEffectDef>,
+    pub span: SourceSpan,
 }
