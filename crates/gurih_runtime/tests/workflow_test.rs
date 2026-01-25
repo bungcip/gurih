@@ -1,4 +1,4 @@
-use gurih_ir::{Schema, Symbol, Transition, WorkflowSchema, StateSchema};
+use gurih_ir::{Schema, StateSchema, Symbol, Transition, WorkflowSchema};
 use gurih_runtime::workflow::WorkflowEngine;
 use serde_json::Value;
 
@@ -16,9 +16,18 @@ async fn test_workflow_transitions() {
         field: Symbol::from("state"),
         initial_state: initial_state,
         states: vec![
-            StateSchema { name: initial_state, immutable: false },
-            StateSchema { name: state_submitted, immutable: false },
-            StateSchema { name: state_approved, immutable: false },
+            StateSchema {
+                name: initial_state,
+                immutable: false,
+            },
+            StateSchema {
+                name: state_submitted,
+                immutable: false,
+            },
+            StateSchema {
+                name: state_approved,
+                immutable: false,
+            },
         ],
         transitions: vec![
             Transition {
@@ -99,8 +108,14 @@ async fn test_missing_precondition_field() {
         field: Symbol::from("status"),
         initial_state: initial_state,
         states: vec![
-            StateSchema { name: initial_state, immutable: false },
-            StateSchema { name: state_senior, immutable: false },
+            StateSchema {
+                name: initial_state,
+                immutable: false,
+            },
+            StateSchema {
+                name: state_senior,
+                immutable: false,
+            },
         ],
         transitions: vec![Transition {
             name: Symbol::from("Promote"),
@@ -120,7 +135,9 @@ async fn test_missing_precondition_field() {
     let engine = WorkflowEngine::new();
     let empty_data = Value::Null;
 
-    let result = engine.validate_transition(&schema, None, "Employee", "Junior", "Senior", &empty_data).await;
+    let result = engine
+        .validate_transition(&schema, None, "Employee", "Junior", "Senior", &empty_data)
+        .await;
 
     assert!(result.is_err());
     let err = result.err().unwrap();

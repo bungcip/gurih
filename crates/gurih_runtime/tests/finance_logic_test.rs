@@ -1,5 +1,5 @@
+use gurih_ir::{Schema, StateSchema, Symbol, Transition, TransitionPrecondition, WorkflowSchema};
 use gurih_runtime::workflow::WorkflowEngine;
-use gurih_ir::{Schema, Symbol, WorkflowSchema, Transition, TransitionPrecondition, StateSchema};
 use serde_json::json;
 use std::collections::HashMap;
 
@@ -24,8 +24,14 @@ async fn test_balanced_transaction() {
         field: Symbol::from("status"),
         initial_state: Symbol::from("Draft"),
         states: vec![
-            StateSchema { name: Symbol::from("Draft"), immutable: false },
-            StateSchema { name: Symbol::from("Posted"), immutable: false }
+            StateSchema {
+                name: Symbol::from("Draft"),
+                immutable: false,
+            },
+            StateSchema {
+                name: Symbol::from("Posted"),
+                immutable: false,
+            },
         ],
         transitions,
     };
@@ -47,7 +53,9 @@ async fn test_balanced_transaction() {
         ]
     });
 
-    let res = engine.validate_transition(&schema, None, "Journal", "Draft", "Posted", &data_balanced).await;
+    let res = engine
+        .validate_transition(&schema, None, "Journal", "Draft", "Posted", &data_balanced)
+        .await;
     assert!(res.is_ok(), "Balanced transaction should pass: {:?}", res.err());
 
     // Test Unbalanced
@@ -59,6 +67,8 @@ async fn test_balanced_transaction() {
         ]
     });
 
-    let res = engine.validate_transition(&schema, None, "Journal", "Draft", "Posted", &data_unbalanced).await;
+    let res = engine
+        .validate_transition(&schema, None, "Journal", "Draft", "Posted", &data_unbalanced)
+        .await;
     assert!(res.is_err(), "Unbalanced transaction should fail");
 }

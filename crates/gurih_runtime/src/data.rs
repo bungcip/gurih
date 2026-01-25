@@ -83,7 +83,11 @@ impl DataEngine {
         let mut data = data;
 
         // Workflow Check (Immutability & Transition)
-        let workflow = self.schema.workflows.values().find(|w| w.entity == Symbol::from(entity_name));
+        let workflow = self
+            .schema
+            .workflows
+            .values()
+            .find(|w| w.entity == Symbol::from(entity_name));
 
         if let Some(wf) = workflow {
             let current_record = self.datastore.get(entity_name, id).await?.ok_or("Record not found")?;
@@ -98,7 +102,10 @@ impl DataEngine {
                     if let Some(obj) = data.as_object() {
                         for key in obj.keys() {
                             if key != wf.field.as_str() && key != "id" {
-                                return Err(format!("Cannot update field '{}' because record is immutable in state '{}'", key, current_state));
+                                return Err(format!(
+                                    "Cannot update field '{}' because record is immutable in state '{}'",
+                                    key, current_state
+                                ));
                             }
                         }
                     }
@@ -118,7 +125,14 @@ impl DataEngine {
 
                 // Validate transition logic
                 self.workflow
-                    .validate_transition(&self.schema, Some(&self.datastore), entity_name, current_state, new_state, &merged_record)
+                    .validate_transition(
+                        &self.schema,
+                        Some(&self.datastore),
+                        entity_name,
+                        current_state,
+                        new_state,
+                        &merged_record,
+                    )
                     .await
                     .map_err(|e| e.to_string())?;
 

@@ -7,8 +7,8 @@ use gurih_ir::{
     ActionSchema, ColumnSchema, DashboardSchema, DatabaseSchema, DatatableColumnSchema, DatatableSchema, EntitySchema,
     FieldSchema, FieldType, FormSchema, FormSection, LayoutSchema, MenuItemSchema, MenuSchema, PageContentSchema,
     PageSchema, PermissionSchema, PrintSchema, QueryFormula, QueryJoin, QuerySchema, QuerySelection,
-    RelationshipSchema, RouteSchema, Schema, SerialGeneratorSchema, StorageSchema, TableSchema, Transition,
-    TransitionEffect, TransitionPrecondition, WidgetSchema, WorkflowSchema, StateSchema,
+    RelationshipSchema, RouteSchema, Schema, SerialGeneratorSchema, StateSchema, StorageSchema, TableSchema,
+    Transition, TransitionEffect, TransitionPrecondition, WidgetSchema, WorkflowSchema,
 };
 use std::collections::HashMap;
 
@@ -227,7 +227,10 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 name: Symbol::from(workflow_name),
                 entity: Symbol::from(entity_name),
                 field: Symbol::from(field_name),
-                initial_state: states.first().map(|s| s.name.clone()).unwrap_or_else(|| Symbol::from("")),
+                initial_state: states
+                    .first()
+                    .map(|s| s.name.clone())
+                    .unwrap_or_else(|| Symbol::from("")),
                 states,
                 transitions,
             },
@@ -339,10 +342,10 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                                 ast::TransitionPreconditionDef::BalancedTransaction { .. } => {
                                     TransitionPrecondition::BalancedTransaction
                                 }
-                            ast::TransitionPreconditionDef::PeriodOpen { entity, .. } => {
-                                TransitionPrecondition::PeriodOpen {
-                                    entity: entity.as_ref().map(|s| Symbol::from(s.as_str())),
-                                }
+                                ast::TransitionPreconditionDef::PeriodOpen { entity, .. } => {
+                                    TransitionPrecondition::PeriodOpen {
+                                        entity: entity.as_ref().map(|s| Symbol::from(s.as_str())),
+                                    }
                                 }
                             })
                             .collect(),

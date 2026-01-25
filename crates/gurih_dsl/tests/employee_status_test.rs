@@ -39,9 +39,18 @@ fn test_employee_status_compilation() {
 
     // Check states
     use gurih_ir::StateSchema;
-    assert!(workflow.states.contains(&StateSchema { name: Symbol::from("pns"), immutable: false }));
-    assert!(workflow.states.contains(&StateSchema { name: Symbol::from("cuti"), immutable: false }));
-    assert!(workflow.states.contains(&StateSchema { name: Symbol::from("aktif"), immutable: false }));
+    assert!(workflow.states.contains(&StateSchema {
+        name: Symbol::from("pns"),
+        immutable: false
+    }));
+    assert!(workflow.states.contains(&StateSchema {
+        name: Symbol::from("cuti"),
+        immutable: false
+    }));
+    assert!(workflow.states.contains(&StateSchema {
+        name: Symbol::from("aktif"),
+        immutable: false
+    }));
 
     // Check pns -> cuti transition
     let pns_to_cuti = workflow

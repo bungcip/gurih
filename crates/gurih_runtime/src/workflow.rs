@@ -165,9 +165,19 @@ impl WorkflowEngine {
                                 if let Some(line_obj) = line.as_object() {
                                     if line_obj.contains_key("debit") || line_obj.contains_key("credit") {
                                         is_journal_line = true;
-                                        let debit = line_obj.get("debit").and_then(|v| v.as_str()).unwrap_or("0").parse::<f64>().unwrap_or(0.0)
+                                        let debit = line_obj
+                                            .get("debit")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("0")
+                                            .parse::<f64>()
+                                            .unwrap_or(0.0)
                                             + line_obj.get("debit").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                                        let credit = line_obj.get("credit").and_then(|v| v.as_str()).unwrap_or("0").parse::<f64>().unwrap_or(0.0)
+                                        let credit = line_obj
+                                            .get("credit")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("0")
+                                            .parse::<f64>()
+                                            .unwrap_or(0.0)
                                             + line_obj.get("credit").and_then(|v| v.as_f64()).unwrap_or(0.0);
 
                                         total_debit += debit;
@@ -179,7 +189,8 @@ impl WorkflowEngine {
                             if is_journal_line {
                                 found_lines = true;
                                 let diff = (total_debit - total_credit).abs();
-                                if diff > 0.01 { // epsilon
+                                if diff > 0.01 {
+                                    // epsilon
                                     return Err(RuntimeError::ValidationError(format!(
                                         "Transaction not balanced: Debit {}, Credit {} (Diff {})",
                                         total_debit, total_credit, diff
@@ -189,10 +200,10 @@ impl WorkflowEngine {
                         }
                     }
                     if !found_lines {
-                         // Should we fail if no lines? A journal without lines is technically balanced (0=0), but maybe useless.
-                         // Let's allow it for now, or fail?
-                         // "Balanced Transaction" implies there is a transaction.
-                         // But if 0=0, it's balanced.
+                        // Should we fail if no lines? A journal without lines is technically balanced (0=0), but maybe useless.
+                        // Let's allow it for now, or fail?
+                        // "Balanced Transaction" implies there is a transaction.
+                        // But if 0=0, it's balanced.
                     }
                 }
             }
@@ -200,20 +211,28 @@ impl WorkflowEngine {
                 // Needs datastore access
                 if let Some(ds) = datastore {
                     // 1. Get transaction date
-                    let date_str = entity_data.get("date").or_else(|| entity_data.get("transaction_date"))
+                    let date_str = entity_data
+                        .get("date")
+                        .or_else(|| entity_data.get("transaction_date"))
                         .and_then(|v| v.as_str());
 
                     if let Some(date_s) = date_str {
                         // Strict validation
                         if NaiveDate::parse_from_str(date_s, "%Y-%m-%d").is_err() {
-                             return Err(RuntimeError::ValidationError(format!("Invalid date format: {}", date_s)));
+                            return Err(RuntimeError::ValidationError(format!(
+                                "Invalid date format: {}",
+                                date_s
+                            )));
                         }
 
                         let target_entity = entity.as_ref().map(|s| s.as_str()).unwrap_or("AccountingPeriod");
 
                         // Validate identifier
                         if !target_entity.chars().all(|c| c.is_alphanumeric() || c == '_') {
-                             return Err(RuntimeError::WorkflowError(format!("Invalid entity name for period check: {}", target_entity)));
+                            return Err(RuntimeError::WorkflowError(format!(
+                                "Invalid entity name for period check: {}",
+                                target_entity
+                            )));
                         }
 
                         // Determine table name
@@ -233,14 +252,19 @@ impl WorkflowEngine {
                         let periods = ds.query(&sql).await.map_err(|e| RuntimeError::WorkflowError(e))?;
                         if periods.is_empty() {
                             return Err(RuntimeError::ValidationError(format!(
-                                "No open {} found for date {}", target_entity, date_s
+                                "No open {} found for date {}",
+                                target_entity, date_s
                             )));
                         }
                     } else {
-                         return Err(RuntimeError::ValidationError("Missing date field for period check".to_string()));
+                        return Err(RuntimeError::ValidationError(
+                            "Missing date field for period check".to_string(),
+                        ));
                     }
                 } else {
-                    return Err(RuntimeError::WorkflowError("Cannot check PeriodOpen: Datastore not available".to_string()));
+                    return Err(RuntimeError::WorkflowError(
+                        "Cannot check PeriodOpen: Datastore not available".to_string(),
+                    ));
                 }
             }
         }

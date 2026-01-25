@@ -1,20 +1,29 @@
-use gurih_ir::{Schema, Symbol, WorkflowSchema, StateSchema, Transition, TransitionPrecondition, QuerySchema, QueryType, QuerySelection};
-use gurih_runtime::workflow::WorkflowEngine;
-use gurih_runtime::query_engine::{QueryEngine, QueryPlan};
+use async_trait::async_trait;
+use gurih_ir::{
+    QuerySchema, QuerySelection, QueryType, Schema, StateSchema, Symbol, Transition, TransitionPrecondition,
+    WorkflowSchema,
+};
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::DataStore;
-use serde_json::{json, Value};
-use std::sync::Arc;
+use gurih_runtime::query_engine::{QueryEngine, QueryPlan};
+use gurih_runtime::workflow::WorkflowEngine;
+use serde_json::{Value, json};
 use std::collections::HashMap;
-use async_trait::async_trait;
+use std::sync::Arc;
 
 // Mock DataStore
 struct MockDataStore;
 #[async_trait]
 impl DataStore for MockDataStore {
-    async fn insert(&self, _entity: &str, _data: Value) -> Result<String, String> { Ok("1".to_string()) }
-    async fn update(&self, _entity: &str, _id: &str, _data: Value) -> Result<(), String> { Ok(()) }
-    async fn delete(&self, _entity: &str, _id: &str) -> Result<(), String> { Ok(()) }
+    async fn insert(&self, _entity: &str, _data: Value) -> Result<String, String> {
+        Ok("1".to_string())
+    }
+    async fn update(&self, _entity: &str, _id: &str, _data: Value) -> Result<(), String> {
+        Ok(())
+    }
+    async fn delete(&self, _entity: &str, _id: &str) -> Result<(), String> {
+        Ok(())
+    }
     async fn get(&self, _entity: &str, _id: &str) -> Result<Option<Arc<Value>>, String> {
         // Return dummy record for "JournalEntry" "1" -> Status "Posted"
         Ok(Some(Arc::new(json!({
@@ -23,15 +32,28 @@ impl DataStore for MockDataStore {
             "date": "2024-01-01"
         }))))
     }
-    async fn list(&self, _entity: &str, _limit: Option<usize>, _offset: Option<usize>) -> Result<Vec<Arc<Value>>, String> { Ok(vec![]) }
-    async fn find(&self, _entity: &str, _filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> { Ok(vec![]) }
-    async fn count(&self, _entity: &str, _filters: HashMap<String, String>) -> Result<i64, String> { Ok(0) }
+    async fn list(
+        &self,
+        _entity: &str,
+        _limit: Option<usize>,
+        _offset: Option<usize>,
+    ) -> Result<Vec<Arc<Value>>, String> {
+        Ok(vec![])
+    }
+    async fn find(&self, _entity: &str, _filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
+        Ok(vec![])
+    }
+    async fn count(&self, _entity: &str, _filters: HashMap<String, String>) -> Result<i64, String> {
+        Ok(0)
+    }
     async fn aggregate(
         &self,
         _entity: &str,
         _group_by: &str,
         _filters: HashMap<String, String>,
-    ) -> Result<Vec<(String, i64)>, String> { Ok(vec![]) }
+    ) -> Result<Vec<(String, i64)>, String> {
+        Ok(vec![])
+    }
     async fn query(&self, _sql: &str) -> Result<Vec<Arc<Value>>, String> {
         // Return Open Period
         Ok(vec![Arc::new(json!({"id": 1}))])
@@ -44,15 +66,27 @@ async fn test_immutability() {
     let entity_name = Symbol::from("JournalEntry");
 
     // Add Entity Schema (Minimal)
-    schema.entities.insert(entity_name.clone(), gurih_ir::EntitySchema {
-        name: entity_name.clone(),
-        fields: vec![
-            gurih_ir::FieldSchema { name: Symbol::from("status"), field_type: gurih_ir::FieldType::String, required: false, unique: false, default: None, references: None, serial_generator: None, storage: None, resize: None, filetype: None }
-        ],
-        relationships: vec![],
-        options: std::collections::HashMap::new(),
-        seeds: None,
-    });
+    schema.entities.insert(
+        entity_name.clone(),
+        gurih_ir::EntitySchema {
+            name: entity_name.clone(),
+            fields: vec![gurih_ir::FieldSchema {
+                name: Symbol::from("status"),
+                field_type: gurih_ir::FieldType::String,
+                required: false,
+                unique: false,
+                default: None,
+                references: None,
+                serial_generator: None,
+                storage: None,
+                resize: None,
+                filetype: None,
+            }],
+            relationships: vec![],
+            options: std::collections::HashMap::new(),
+            seeds: None,
+        },
+    );
 
     let workflow = WorkflowSchema {
         name: Symbol::from("JournalWF"),
@@ -60,8 +94,14 @@ async fn test_immutability() {
         field: Symbol::from("status"),
         initial_state: Symbol::from("Draft"),
         states: vec![
-            StateSchema { name: Symbol::from("Draft"), immutable: false },
-            StateSchema { name: Symbol::from("Posted"), immutable: true },
+            StateSchema {
+                name: Symbol::from("Draft"),
+                immutable: false,
+            },
+            StateSchema {
+                name: Symbol::from("Posted"),
+                immutable: true,
+            },
         ],
         transitions: vec![],
     };
@@ -88,7 +128,9 @@ async fn test_period_open_configured() {
     let engine = WorkflowEngine::new();
     let datastore: Arc<dyn DataStore> = Arc::new(MockDataStore);
 
-    let pre = TransitionPrecondition::PeriodOpen { entity: Some(Symbol::from("MyPeriod")) };
+    let pre = TransitionPrecondition::PeriodOpen {
+        entity: Some(Symbol::from("MyPeriod")),
+    };
     let data = json!({ "date": "2024-01-01" });
 
     // validate_transition calls check_precondition
@@ -98,7 +140,16 @@ async fn test_period_open_configured() {
         entity: Symbol::from("E"),
         field: Symbol::from("s"),
         initial_state: Symbol::from("A"),
-        states: vec![StateSchema{name:Symbol::from("A"), immutable:false}, StateSchema{name:Symbol::from("B"), immutable:false}],
+        states: vec![
+            StateSchema {
+                name: Symbol::from("A"),
+                immutable: false,
+            },
+            StateSchema {
+                name: Symbol::from("B"),
+                immutable: false,
+            },
+        ],
         transitions: vec![Transition {
             name: Symbol::from("T"),
             from: Symbol::from("A"),
@@ -110,23 +161,31 @@ async fn test_period_open_configured() {
     };
     schema.workflows.insert(wf.name.clone(), wf);
 
-    let res = engine.validate_transition(&schema, Some(&datastore), "E", "A", "B", &data).await;
+    let res = engine
+        .validate_transition(&schema, Some(&datastore), "E", "A", "B", &data)
+        .await;
     assert!(res.is_ok());
 }
 
 #[test]
 fn test_query_group_by() {
     let mut schema = Schema::default();
-    schema.queries.insert(Symbol::from("Q"), QuerySchema {
-        name: Symbol::from("Q"),
-        root_entity: Symbol::from("E"),
-        query_type: QueryType::Flat,
-        selections: vec![QuerySelection { field: Symbol::from("f"), alias: None }],
-        formulas: vec![],
-        filters: vec![],
-        joins: vec![],
-        group_by: vec![Symbol::from("f")],
-    });
+    schema.queries.insert(
+        Symbol::from("Q"),
+        QuerySchema {
+            name: Symbol::from("Q"),
+            root_entity: Symbol::from("E"),
+            query_type: QueryType::Flat,
+            selections: vec![QuerySelection {
+                field: Symbol::from("f"),
+                alias: None,
+            }],
+            formulas: vec![],
+            filters: vec![],
+            joins: vec![],
+            group_by: vec![Symbol::from("f")],
+        },
+    );
 
     let plan = QueryEngine::plan(&schema, "Q").unwrap();
     if let QueryPlan::ExecuteSql { sql } = &plan.plans[0] {
