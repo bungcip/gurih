@@ -1,3 +1,4 @@
+use crate::context::RuntimeContext;
 use gurih_ir::{ActionLogic, ActionStep, ActionStepType, Symbol};
 use serde_json::json;
 use std::collections::HashMap;
@@ -17,7 +18,7 @@ impl ActionEngine {
         action_name: &str,
         params: HashMap<String, String>,
         data_engine: &crate::data::DataEngine,
-        ctx: &crate::context::RuntimeContext,
+        ctx: &RuntimeContext,
     ) -> Result<SimpleResponse, String> {
         // Use simple result for now
         let action = self
@@ -43,7 +44,7 @@ impl ActionEngine {
         step: &ActionStep,
         params: &HashMap<String, String>,
         data_engine: &crate::data::DataEngine,
-        ctx: &crate::context::RuntimeContext,
+        ctx: &RuntimeContext,
     ) -> Result<(), String> {
         let target_entity = &step.target;
 
@@ -68,7 +69,7 @@ impl ActionEngine {
                 // Assuming data_engine has a delete method
                 println!("Executing Delete on {} with ID {}", target_entity, id);
                 data_engine
-                    .delete(target_entity.as_str(), &id)
+                    .delete(target_entity.as_str(), &id, ctx)
                     .await
                     .map_err(|e| e.to_string())?;
             }

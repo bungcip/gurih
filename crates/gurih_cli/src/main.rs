@@ -548,10 +548,11 @@ async fn delete_entity(
     headers: HeaderMap,
     Path((entity, id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    if let Err(e) = check_auth(headers, &state).await {
-        return e.into_response();
-    }
-    match state.data_engine.delete(&entity, &id).await {
+    let ctx = match check_auth(headers, &state).await {
+        Ok(c) => c,
+        Err(e) => return e.into_response(),
+    };
+    match state.data_engine.delete(&entity, &id, &ctx).await {
         Ok(_) => (StatusCode::OK, Json(serde_json::json!({ "status": "deleted" }))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }

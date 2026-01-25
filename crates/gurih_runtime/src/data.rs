@@ -6,6 +6,7 @@ use crate::workflow::WorkflowEngine;
 use gurih_ir::{FieldType, Schema, Symbol};
 use serde_json::Value;
 use std::sync::Arc;
+use uuid::Uuid;
 
 pub struct DataEngine {
     schema: Arc<Schema>,
@@ -30,7 +31,7 @@ impl DataEngine {
         &self.datastore
     }
 
-    pub async fn create(&self, entity_name: &str, mut data: Value, _ctx: &RuntimeContext) -> Result<String, String> {
+    pub async fn create(&self, entity_name: &str, mut data: Value, ctx: &RuntimeContext) -> Result<String, String> {
         // TODO: Validate create permission for entity
 
         let entity_schema = self
@@ -53,6 +54,11 @@ impl DataEngine {
 
         // Validation & Transformation (Hashing)
         if let Some(obj) = data.as_object_mut() {
+            // Ensure ID exists (for stores that don't auto-generate, like SQLite with TEXT PK)
+            if !obj.contains_key("id") {
+                obj.insert("id".to_string(), Value::String(Uuid::new_v4().to_string()));
+            }
+
             for field in &entity_schema.fields {
                 if field.required && !obj.contains_key(&field.name.to_string()) {
                     return Err(format!("Missing required field: {}", field.name));
@@ -63,7 +69,27 @@ impl DataEngine {
             return Err("Data must be an object".to_string());
         }
 
-        self.datastore.insert(entity_name, data).await
+        let id = self.datastore.insert(entity_name, data.clone()).await?;
+
+        // Audit Trail
+        if let Some(val) = entity_schema.options.get("track_changes")
+            && val == "true"
+        {
+            let audit_id = Uuid::new_v4().to_string();
+            let diff = serde_json::to_string(&data).unwrap_or_default();
+
+            let mut audit_record = serde_json::Map::new();
+            audit_record.insert("id".to_string(), Value::String(audit_id));
+            audit_record.insert("entity".to_string(), Value::String(entity_name.to_string()));
+            audit_record.insert("record_id".to_string(), Value::String(id.clone()));
+            audit_record.insert("action".to_string(), Value::String("CREATE".to_string()));
+            audit_record.insert("user_id".to_string(), Value::String(ctx.user_id.clone()));
+            audit_record.insert("diff".to_string(), Value::String(diff));
+
+            self.datastore.insert("_audit_log", Value::Object(audit_record)).await?;
+        }
+
+        Ok(id)
     }
 
     pub async fn read(&self, entity_name: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
@@ -89,8 +115,12 @@ impl DataEngine {
             .values()
             .find(|w| w.entity == Symbol::from(entity_name));
 
+        let mut current_record_opt: Option<Arc<Value>> = None;
+
         if let Some(wf) = workflow {
             let current_record = self.datastore.get(entity_name, id).await?.ok_or("Record not found")?;
+            current_record_opt = Some(current_record.clone());
+
             let current_state = current_record
                 .get(wf.field.as_str())
                 .and_then(|v| v.as_str())
@@ -165,19 +195,94 @@ impl DataEngine {
             }
         }
 
+        // Pre-fetch current record for Audit Trail if needed
+        if let Some(val) = entity_schema.options.get("track_changes")
+            && val == "true"
+        {
+            if current_record_opt.is_none() {
+                current_record_opt = self.datastore.get(entity_name, id).await?;
+            }
+        }
+
         // Validation & Transformation (Hashing)
         if let Some(obj) = data.as_object_mut() {
             self.process_data_fields(entity_schema, obj)?;
         }
 
-        self.datastore.update(entity_name, id, data).await
+        self.datastore.update(entity_name, id, data.clone()).await?;
+
+        // Audit Trail (Post-update)
+        if let Some(val) = entity_schema.options.get("track_changes")
+            && val == "true"
+        {
+            if let Some(current) = &current_record_opt {
+                let mut changes = serde_json::Map::new();
+                if let Some(new_obj) = data.as_object() {
+                    if let Some(old_obj) = current.as_object() {
+                        for (k, new_v) in new_obj {
+                            if k == "id" {
+                                continue;
+                            }
+                            let old_v = old_obj.get(k).unwrap_or(&Value::Null);
+                            if new_v != old_v {
+                                changes.insert(
+                                    k.clone(),
+                                    serde_json::json!({
+                                        "old": old_v,
+                                        "new": new_v
+                                    }),
+                                );
+                            }
+                        }
+                    }
+                }
+
+                if !changes.is_empty() {
+                    let audit_id = Uuid::new_v4().to_string();
+                    let diff = serde_json::to_string(&changes).unwrap_or_default();
+
+                    let mut audit_record = serde_json::Map::new();
+                    audit_record.insert("id".to_string(), Value::String(audit_id));
+                    audit_record.insert("entity".to_string(), Value::String(entity_name.to_string()));
+                    audit_record.insert("record_id".to_string(), Value::String(id.to_string()));
+                    audit_record.insert("action".to_string(), Value::String("UPDATE".to_string()));
+                    audit_record.insert("user_id".to_string(), Value::String(ctx.user_id.clone()));
+                    audit_record.insert("diff".to_string(), Value::String(diff));
+
+                    self.datastore.insert("_audit_log", Value::Object(audit_record)).await?;
+                }
+            }
+        }
+
+        Ok(())
     }
 
-    pub async fn delete(&self, entity_name: &str, id: &str) -> Result<(), String> {
-        if !self.schema.entities.contains_key(&Symbol::from(entity_name)) {
-            return Err(format!("Entity '{}' not defined", entity_name));
+    pub async fn delete(&self, entity_name: &str, id: &str, ctx: &RuntimeContext) -> Result<(), String> {
+        let entity_schema = self
+            .schema
+            .entities
+            .get(&Symbol::from(entity_name))
+            .ok_or_else(|| format!("Entity '{}' not defined", entity_name))?;
+
+        self.datastore.delete(entity_name, id).await?;
+
+        // Audit Trail
+        if let Some(val) = entity_schema.options.get("track_changes")
+            && val == "true"
+        {
+            let audit_id = Uuid::new_v4().to_string();
+            let mut audit_record = serde_json::Map::new();
+            audit_record.insert("id".to_string(), Value::String(audit_id));
+            audit_record.insert("entity".to_string(), Value::String(entity_name.to_string()));
+            audit_record.insert("record_id".to_string(), Value::String(id.to_string()));
+            audit_record.insert("action".to_string(), Value::String("DELETE".to_string()));
+            audit_record.insert("user_id".to_string(), Value::String(ctx.user_id.clone()));
+            audit_record.insert("diff".to_string(), Value::Null);
+
+            self.datastore.insert("_audit_log", Value::Object(audit_record)).await?;
         }
-        self.datastore.delete(entity_name, id).await
+
+        Ok(())
     }
 
     fn process_data_fields(
