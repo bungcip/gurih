@@ -44,6 +44,9 @@ impl SchemaManager {
             self.create_tables().await?;
         }
 
+        // Always ensure audit table exists
+        self.create_audit_table().await?;
+
         self.apply_seeds().await?;
 
         println!("✅ Schema migration complete.");
@@ -387,6 +390,46 @@ impl SchemaManager {
             }
         }
 
+        Ok(())
+    }
+
+    async fn create_audit_table(&self) -> Result<(), String> {
+        let sql = if self.db_kind == "PostgreSQL" {
+            r#"CREATE TABLE IF NOT EXISTS "_audit_log" (
+                "id" TEXT PRIMARY KEY,
+                "entity" TEXT NOT NULL,
+                "record_id" TEXT NOT NULL,
+                "action" TEXT NOT NULL,
+                "user_id" TEXT,
+                "diff" TEXT,
+                "timestamp" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )"#
+        } else {
+            r#"CREATE TABLE IF NOT EXISTS "_audit_log" (
+                "id" TEXT PRIMARY KEY,
+                "entity" TEXT NOT NULL,
+                "record_id" TEXT NOT NULL,
+                "action" TEXT NOT NULL,
+                "user_id" TEXT,
+                "diff" TEXT,
+                "timestamp" TEXT DEFAULT CURRENT_TIMESTAMP
+            )"#
+        };
+
+        match &self.pool {
+            DbPool::Sqlite(p) => {
+                sqlx::query::<sqlx::Sqlite>(sql)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+            }
+            DbPool::Postgres(p) => {
+                sqlx::query::<sqlx::Postgres>(sql)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+            }
+        }
         Ok(())
     }
 

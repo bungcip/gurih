@@ -548,10 +548,11 @@ async fn delete_entity(
     headers: HeaderMap,
     Path((entity, id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    if let Err(e) = check_auth(headers, &state).await {
-        return e.into_response();
-    }
-    match state.data_engine.delete(&entity, &id).await {
+    let ctx = match check_auth(headers, &state).await {
+        Ok(c) => c,
+        Err(e) => return e.into_response(),
+    };
+    match state.data_engine.delete(&entity, &id, &ctx).await {
         Ok(_) => (StatusCode::OK, Json(serde_json::json!({ "status": "deleted" }))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
@@ -710,10 +711,16 @@ async fn get_dashboard_data(
 
 async fn handle_dynamic_action(
     state: AppState,
+    headers: HeaderMap,
     params: HashMap<String, String>,
     query: HashMap<String, String>,
     action_name: String,
 ) -> impl IntoResponse {
+    let ctx = match check_auth(headers, &state).await {
+        Ok(c) => c,
+        Err(e) => return e.into_response(),
+    };
+
     // Merge params and query. Params override query.
     let mut args = query;
     for (k, v) in params {
@@ -722,7 +729,7 @@ async fn handle_dynamic_action(
 
     match state
         .action_engine
-        .execute(&action_name, args, &state.data_engine)
+        .execute(&action_name, args, &state.data_engine, &ctx)
         .await
     {
         Ok(resp) => (StatusCode::OK, Json(serde_json::json!({ "message": resp.message }))).into_response(),
@@ -765,9 +772,10 @@ fn register_routes<'a>(
         if route_def.action != Symbol::from("") && schema.actions.contains_key(&route_def.action) {
             let action_name = route_def.action;
             let handler = move |State(state): State<AppState>,
+                                headers: HeaderMap,
                                 Path(params): Path<HashMap<String, String>>,
                                 Query(query): Query<HashMap<String, String>>| {
-                handle_dynamic_action(state, params, query, action_name.to_string())
+                handle_dynamic_action(state, headers, params, query, action_name.to_string())
             };
 
             match route_def.verb {
