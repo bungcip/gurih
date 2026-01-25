@@ -801,10 +801,7 @@ fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef,
     })
 }
 
-fn parse_employee_status_transition(
-    node: &KdlNode,
-    src: &str,
-) -> Result<EmployeeStatusTransitionDef, CompileError> {
+fn parse_employee_status_transition(node: &KdlNode, src: &str) -> Result<EmployeeStatusTransitionDef, CompileError> {
     let to = get_arg_string(node, 0, src)?;
     let permission = get_prop_string(node, "permission", src).ok();
     let mut preconditions = vec![];
