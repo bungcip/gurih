@@ -26,6 +26,14 @@ pub struct Ast {
     pub queries: Vec<QueryDef>,
     pub permissions: Vec<PermissionDef>,
     pub employee_statuses: Vec<EmployeeStatusDef>,
+    pub accounts: Vec<AccountDef>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AccountDef {
+    pub name: String,
+    pub fields: std::collections::HashMap<String, String>,
+    pub span: SourceSpan,
 }
 
 #[derive(Debug, Clone)]
@@ -164,6 +172,7 @@ pub struct WorkflowDef {
 pub struct StateDef {
     pub name: String,
     pub initial: bool,
+    pub immutable: bool,
     pub span: SourceSpan,
 }
 
@@ -196,6 +205,13 @@ pub enum TransitionPreconditionDef {
     },
     ValidEffectiveDate {
         field: String,
+        span: SourceSpan,
+    },
+    BalancedTransaction {
+        span: SourceSpan,
+    },
+    PeriodOpen {
+        entity: Option<String>,
         span: SourceSpan,
     },
 }
@@ -267,6 +283,7 @@ pub struct QueryDef {
     pub formulas: Vec<QueryFormulaDef>,
     pub filters: Vec<String>,
     pub joins: Vec<QueryJoinDef>,
+    pub group_by: Vec<String>,
     pub span: SourceSpan,
 }
 

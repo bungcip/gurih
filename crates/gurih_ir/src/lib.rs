@@ -47,6 +47,7 @@ pub struct QuerySchema {
     pub formulas: Vec<QueryFormula>,
     pub filters: Vec<Expression>,
     pub joins: Vec<QueryJoin>,
+    pub group_by: Vec<Symbol>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -225,8 +226,14 @@ pub struct WorkflowSchema {
     pub entity: Symbol,
     pub field: Symbol,
     pub initial_state: Symbol,
-    pub states: Vec<Symbol>,
+    pub states: Vec<StateSchema>,
     pub transitions: Vec<Transition>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct StateSchema {
+    pub name: Symbol,
+    pub immutable: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -247,6 +254,8 @@ pub enum TransitionPrecondition {
     MinYearsOfService { years: u32, from_field: Option<Symbol> },
     MinAge { age: u32, birth_date_field: Option<Symbol> },
     ValidEffectiveDate(Symbol),
+    BalancedTransaction,
+    PeriodOpen { entity: Option<Symbol> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

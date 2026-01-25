@@ -1,0 +1,85 @@
+name "GurihFinance"
+version "0.1.0"
+
+database {
+    type "sqlite"
+    url "file:finance.db"
+}
+
+icons {
+    "finance" "lucide:banknote"
+    "book" "lucide:book"
+    "chart" "lucide:bar-chart"
+    "settings" "lucide:settings"
+    "check" "lucide:check-circle"
+    "x" "lucide:x-circle"
+    "plus" "lucide:plus"
+    "pencil" "lucide:pencil"
+    "trash" "lucide:trash-2"
+}
+
+layout "FinanceLayout" {
+    header {
+        search_bar "true"
+        user_menu "true"
+    }
+    sidebar {
+        menu_ref "FinanceMenu"
+        collapsible "true"
+    }
+    footer "GurihFinance © 2026"
+}
+
+include "coa.kdl"
+include "period.kdl"
+include "journal.kdl"
+include "reports.kdl"
+
+routes {
+    route "/" to="FinanceDashboard" layout="FinanceLayout"
+
+    group "/finance" layout="FinanceLayout" {
+        route "/coa" to="CoAList"
+        route "/coa/new" to="AccountForm"
+        route "/coa/:id" to="AccountForm"
+
+        route "/journals" to="JournalList"
+        route "/journals/new" to="JournalForm"
+        route "/journals/:id" to="JournalForm"
+
+        route "/periods" to="PeriodList"
+        route "/periods/new" to="PeriodForm"
+
+        route "/reports/trial-balance" to="TrialBalanceReport"
+        route "/reports/balance-sheet" to="BalanceSheetReport"
+        route "/reports/income-statement" to="IncomeStatementReport"
+    }
+}
+
+menu "FinanceMenu" {
+    item "Dashboard" to="/" icon="finance"
+
+    group "Accounting" icon="book" {
+        item "Chart of Accounts" to="/finance/coa"
+        item "Journal Entries" to="/finance/journals"
+        item "Accounting Periods" to="/finance/periods"
+    }
+
+    group "Reports" icon="chart" {
+        item "Trial Balance" to="/finance/reports/trial-balance"
+        item "Balance Sheet" to="/finance/reports/balance-sheet"
+        item "Income Statement" to="/finance/reports/income-statement"
+    }
+}
+
+dashboard "FinanceDashboard" {
+    title "Finance Overview"
+
+    grid columns=3 {
+        widget "TotalAssets" type="stat" {
+            label "Total Assets"
+            value "sum:Account[type=Asset].balance" // Conceptual
+            icon "finance"
+        }
+    }
+}

@@ -1,9 +1,9 @@
-use gurih_ir::{Schema, Symbol, Transition, TransitionEffect, TransitionPrecondition, WorkflowSchema};
+use gurih_ir::{Schema, Symbol, Transition, TransitionEffect, TransitionPrecondition, WorkflowSchema, StateSchema};
 use gurih_runtime::workflow::WorkflowEngine;
 use serde_json::json;
 
-#[test]
-fn test_workflow_extensions() {
+#[tokio::test]
+async fn test_workflow_extensions() {
     let mut schema = Schema::default();
     let entity_name = Symbol::from("Pegawai");
     let state_cpns = Symbol::from("CPNS");
@@ -14,7 +14,10 @@ fn test_workflow_extensions() {
         entity: entity_name,
         field: Symbol::from("status_pegawai"),
         initial_state: state_cpns,
-        states: vec![state_cpns, state_pns],
+        states: vec![
+            StateSchema { name: state_cpns, immutable: false },
+            StateSchema { name: state_pns, immutable: false },
+        ],
         transitions: vec![Transition {
             name: Symbol::from("AngkatPNS"),
             from: state_cpns,
@@ -52,7 +55,7 @@ fn test_workflow_extensions() {
         "tmt_pns": today_str
     });
 
-    let res_fail = engine.validate_transition(&schema, "Pegawai", "CPNS", "PNS", &data_fail_years);
+    let res_fail = engine.validate_transition(&schema, None, "Pegawai", "CPNS", "PNS", &data_fail_years).await;
     assert!(res_fail.is_err());
     let err_msg = res_fail.unwrap_err();
     assert!(
@@ -66,7 +69,7 @@ fn test_workflow_extensions() {
         "tmt_cpns": one_year_ago_str,
         "tmt_pns": "invalid-date"
     });
-    let res_fail_date = engine.validate_transition(&schema, "Pegawai", "CPNS", "PNS", &data_fail_date);
+    let res_fail_date = engine.validate_transition(&schema, None, "Pegawai", "CPNS", "PNS", &data_fail_date).await;
     assert!(res_fail_date.is_err());
     let err_msg_date = res_fail_date.unwrap_err();
     assert!(
@@ -80,7 +83,7 @@ fn test_workflow_extensions() {
         "tmt_cpns": one_year_ago_str,
         "tmt_pns": today_str
     });
-    let res_success = engine.validate_transition(&schema, "Pegawai", "CPNS", "PNS", &data_success);
+    let res_success = engine.validate_transition(&schema, None, "Pegawai", "CPNS", "PNS", &data_success).await;
     assert!(res_success.is_ok(), "Transition failed: {:?}", res_success.err());
 
     // Test Case 4: Effects

@@ -1,0 +1,92 @@
+enum "AccountType" {
+    Asset
+    Liability
+    Equity
+    Revenue
+    Expense
+}
+
+enum "NormalBalance" {
+    Debit
+    Credit
+}
+
+entity "Account" {
+    field:pk id
+    field:string "code" unique=#true
+    field:string "name"
+    field:enum "type" "AccountType"
+    field:enum "normal_balance" "NormalBalance"
+    field:boolean "is_active" default="true"
+
+    // Using self-referencing relationship for hierarchy
+    belongs_to "parent" entity="Account"
+
+    options {
+        track_changes #true
+    }
+}
+
+// Pre-defined Chart of Accounts
+account "Cash" {
+    code "101"
+    type "Asset"
+    normal_balance "Debit"
+}
+
+account "Accounts Receivable" {
+    code "102"
+    type "Asset"
+    normal_balance "Debit"
+}
+
+account "Inventory" {
+    code "103"
+    type "Asset"
+    normal_balance "Debit"
+}
+
+account "Accounts Payable" {
+    code "201"
+    type "Liability"
+    normal_balance "Credit"
+}
+
+account "Sales Revenue" {
+    code "401"
+    type "Revenue"
+    normal_balance "Credit"
+}
+
+account "Cost of Goods Sold" {
+    code "501"
+    type "Expense"
+    normal_balance "Debit"
+}
+
+page "CoAList" {
+    title "Chart of Accounts"
+    datatable for="Account" {
+        column "code"
+        column "name"
+        column "type"
+        column "normal_balance"
+
+        action "Edit" icon="pencil" to="/finance/coa/:id"
+    }
+}
+
+page "AccountForm" {
+    title "Account Details"
+    form for="Account" {
+        section "Account Info" {
+            field "code"
+            field "name"
+            group {
+                field "type"
+                field "normal_balance"
+            }
+            field "parent"
+        }
+    }
+}
