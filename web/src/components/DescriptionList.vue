@@ -31,22 +31,37 @@ const props = defineProps({
 })
 
 // Formatters
+const numberFormatters = new Map()
+const dateFormatters = new Map()
+
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return '-'
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0
-  }).format(value)
+  const key = 'id-ID-IDR'
+
+  if (!numberFormatters.has(key)) {
+    numberFormatters.set(key, new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0
+    }))
+  }
+
+  return numberFormatters.get(key).format(value)
 }
 
 const formatDate = (value) => {
   if (!value) return '-'
-  return new Date(value).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  })
+  const key = 'en-GB'
+
+  if (!dateFormatters.has(key)) {
+    dateFormatters.set(key, new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    }))
+  }
+
+  return dateFormatters.get(key).format(new Date(value))
 }
 
 // Grid Classes
