@@ -155,7 +155,6 @@ impl DataStore for SqliteDataStore {
         }
 
         query.push_str(" WHERE id = ?");
-        // params.push(&Value::String(id.to_string())); // Removed to fix temporary value error
 
         let mut q = sqlx::query(&query);
         for p in params {
