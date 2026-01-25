@@ -8,15 +8,14 @@ async fn test_balanced_transaction() {
     let engine = WorkflowEngine::new();
 
     // Construct minimal schema with workflow
-    let mut transitions = vec![];
-    transitions.push(Transition {
+    let transitions = vec![Transition {
         name: Symbol::from("post"),
         from: Symbol::from("Draft"),
         to: Symbol::from("Posted"),
         required_permission: None,
         preconditions: vec![TransitionPrecondition::BalancedTransaction],
         effects: vec![],
-    });
+    }];
 
     let wf = WorkflowSchema {
         name: Symbol::from("JournalWF"),

@@ -67,9 +67,9 @@ async fn test_immutability() {
 
     // Add Entity Schema (Minimal)
     schema.entities.insert(
-        entity_name.clone(),
+        entity_name,
         gurih_ir::EntitySchema {
-            name: entity_name.clone(),
+            name: entity_name,
             fields: vec![gurih_ir::FieldSchema {
                 name: Symbol::from("status"),
                 field_type: gurih_ir::FieldType::String,
@@ -90,7 +90,7 @@ async fn test_immutability() {
 
     let workflow = WorkflowSchema {
         name: Symbol::from("JournalWF"),
-        entity: entity_name.clone(),
+        entity: entity_name,
         field: Symbol::from("status"),
         initial_state: Symbol::from("Draft"),
         states: vec![
@@ -105,7 +105,7 @@ async fn test_immutability() {
         ],
         transitions: vec![],
     };
-    schema.workflows.insert(workflow.name.clone(), workflow);
+    schema.workflows.insert(workflow.name, workflow);
 
     let datastore = Arc::new(MockDataStore);
     let engine = DataEngine::new(Arc::new(schema), datastore);
@@ -159,7 +159,7 @@ async fn test_period_open_configured() {
             effects: vec![],
         }],
     };
-    schema.workflows.insert(wf.name.clone(), wf);
+    schema.workflows.insert(wf.name, wf);
 
     let res = engine
         .validate_transition(&schema, Some(&datastore), "E", "A", "B", &data)
@@ -188,9 +188,6 @@ fn test_query_group_by() {
     );
 
     let plan = QueryEngine::plan(&schema, "Q").unwrap();
-    if let QueryPlan::ExecuteSql { sql } = &plan.plans[0] {
-        assert!(sql.contains("GROUP BY [f]"));
-    } else {
-        panic!("Wrong plan type");
-    }
+    let QueryPlan::ExecuteSql { sql } = &plan.plans[0];
+    assert!(sql.contains("GROUP BY [f]"));
 }

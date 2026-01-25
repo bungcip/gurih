@@ -162,27 +162,27 @@ impl WorkflowEngine {
                             let mut is_journal_line = false;
 
                             for line in lines {
-                                if let Some(line_obj) = line.as_object() {
-                                    if line_obj.contains_key("debit") || line_obj.contains_key("credit") {
-                                        is_journal_line = true;
-                                        let debit = line_obj
-                                            .get("debit")
-                                            .and_then(|v| v.as_str())
-                                            .unwrap_or("0")
-                                            .parse::<f64>()
-                                            .unwrap_or(0.0)
-                                            + line_obj.get("debit").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                                        let credit = line_obj
-                                            .get("credit")
-                                            .and_then(|v| v.as_str())
-                                            .unwrap_or("0")
-                                            .parse::<f64>()
-                                            .unwrap_or(0.0)
-                                            + line_obj.get("credit").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                                if let Some(line_obj) = line.as_object()
+                                    && (line_obj.contains_key("debit") || line_obj.contains_key("credit"))
+                                {
+                                    is_journal_line = true;
+                                    let debit = line_obj
+                                        .get("debit")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("0")
+                                        .parse::<f64>()
+                                        .unwrap_or(0.0)
+                                        + line_obj.get("debit").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                                    let credit = line_obj
+                                        .get("credit")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("0")
+                                        .parse::<f64>()
+                                        .unwrap_or(0.0)
+                                        + line_obj.get("credit").and_then(|v| v.as_f64()).unwrap_or(0.0);
 
-                                        total_debit += debit;
-                                        total_credit += credit;
-                                    }
+                                    total_debit += debit;
+                                    total_credit += credit;
                                 }
                             }
 
@@ -249,7 +249,7 @@ impl WorkflowEngine {
                             table_name, date_s, date_s
                         );
 
-                        let periods = ds.query(&sql).await.map_err(|e| RuntimeError::WorkflowError(e))?;
+                        let periods = ds.query(&sql).await.map_err(RuntimeError::WorkflowError)?;
                         if periods.is_empty() {
                             return Err(RuntimeError::ValidationError(format!(
                                 "No open {} found for date {}",

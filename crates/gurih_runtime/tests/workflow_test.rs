@@ -14,7 +14,7 @@ async fn test_workflow_transitions() {
         name: Symbol::from("OrderWorkflow"),
         entity: entity_name,
         field: Symbol::from("state"),
-        initial_state: initial_state,
+        initial_state,
         states: vec![
             StateSchema {
                 name: initial_state,
@@ -106,7 +106,7 @@ async fn test_missing_precondition_field() {
         name: Symbol::from("PromotionWorkflow"),
         entity: entity_name,
         field: Symbol::from("status"),
-        initial_state: initial_state,
+        initial_state,
         states: vec![
             StateSchema {
                 name: initial_state,
