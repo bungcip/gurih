@@ -92,21 +92,17 @@ fn test_missing_precondition_field() {
         field: Symbol::from("status"),
         initial_state: initial_state,
         states: vec![initial_state, state_senior],
-        transitions: vec![
-            Transition {
-                name: Symbol::from("Promote"),
-                from: initial_state,
-                to: state_senior,
-                required_permission: None,
-                preconditions: vec![
-                    TransitionPrecondition::MinYearsOfService {
-                        years: 5,
-                        from_field: Some(Symbol::from("custom_join_date"))
-                    }
-                ],
-                effects: vec![],
-            },
-        ],
+        transitions: vec![Transition {
+            name: Symbol::from("Promote"),
+            from: initial_state,
+            to: state_senior,
+            required_permission: None,
+            preconditions: vec![TransitionPrecondition::MinYearsOfService {
+                years: 5,
+                from_field: Some(Symbol::from("custom_join_date")),
+            }],
+            effects: vec![],
+        }],
     };
 
     schema.workflows.insert(workflow.name, workflow);
