@@ -1,5 +1,7 @@
 use crate::diagnostics::SourceSpan;
-pub use gurih_ir::{ActionStepType, DatabaseType, FieldType, RelationshipType, RouteVerb, StorageDriver, WidgetType};
+pub use gurih_ir::{
+    ActionStepType, DatabaseType, FieldType, QueryType, RelationshipType, RouteVerb, StorageDriver, WidgetType,
+};
 
 #[derive(Debug, Clone)]
 pub struct Ast {
@@ -266,12 +268,6 @@ pub struct QueryDef {
     pub filters: Vec<String>,
     pub joins: Vec<QueryJoinDef>,
     pub span: SourceSpan,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum QueryType {
-    Nested,
-    Flat,
 }
 
 #[derive(Debug, Clone)]

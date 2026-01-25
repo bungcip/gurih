@@ -1,5 +1,5 @@
-use gurih_runtime::datastore::{DataStore, DatabaseDataStore};
-use gurih_runtime::store::DbPool;
+use gurih_runtime::datastore::DataStore;
+use gurih_runtime::store::sqlite::SqliteDataStore;
 use serde_json::json;
 use sqlx::sqlite::SqlitePoolOptions;
 use std::sync::Arc;
@@ -19,8 +19,7 @@ async fn bench_list_large_dataset() {
         .await
         .unwrap();
 
-    let db_pool = DbPool::Sqlite(pool);
-    let datastore = DatabaseDataStore::new(db_pool);
+    let datastore = SqliteDataStore::new(pool);
     let datastore_arc = Arc::new(datastore);
 
     // Insert 10,000 records
