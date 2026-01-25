@@ -12,6 +12,7 @@ import CurrencyInput from './CurrencyInput.vue'
 import StatusBadge from './StatusBadge.vue'
 import Modal from './Modal.vue'
 import Timeline from './Timeline.vue'
+import Steps from './Steps.vue'
 import MetricCard from './MetricCard.vue'
 import DescriptionList from './DescriptionList.vue'
 import ActionCard from './ActionCard.vue'
@@ -75,6 +76,15 @@ const timelineItems = [
     icon: 'plus'
   }
 ]
+
+const stepsItems = [
+  { label: 'Draft', description: 'Initial draft' },
+  { label: 'Review', description: 'Manager review' },
+  { label: 'Approval', description: 'Final approval' },
+  { label: 'Payment', description: 'Processing payment' },
+  { label: 'Completed', description: 'Done' }
+]
+const clickableStep = ref(2)
 
 const employeeDetails = [
   { label: 'Full Name', value: 'Budi Santoso' },
@@ -401,6 +411,39 @@ function toggleLoading() {
                  <div>
                     <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Empty State</h3>
                     <Timeline :items="[]" emptyText="No activity logs found." />
+                </div>
+            </div>
+        </section>
+
+        <!-- Workflow Steps -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Workflow Steps</h2>
+            <div class="space-y-8">
+                <!-- Standard Horizontal -->
+                <div>
+                     <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Horizontal Process (Current: Review)</h3>
+                     <Steps :items="stepsItems" :current="1" />
+                </div>
+
+                 <!-- Clickable -->
+                <div>
+                     <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Interactive (Click to change)</h3>
+                     <Steps :items="stepsItems" :current="clickableStep" clickable @change="clickableStep = $event" />
+                </div>
+
+                <!-- Vertical & Loading -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                         <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Vertical</h3>
+                         <Steps :items="stepsItems.slice(0, 3)" :current="1" vertical />
+                    </div>
+                     <div>
+                         <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Loading / Empty</h3>
+                         <div class="space-y-8">
+                            <Steps loading />
+                            <Steps :items="[]" />
+                         </div>
+                    </div>
                 </div>
             </div>
         </section>
