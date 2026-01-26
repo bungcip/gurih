@@ -7,6 +7,7 @@ pub enum RuntimeError {
     DataStoreError(String),
     PermissionError(String),
     InternalError(String),
+    EvaluationError(String),
 }
 
 impl fmt::Display for RuntimeError {
@@ -17,6 +18,7 @@ impl fmt::Display for RuntimeError {
             RuntimeError::DataStoreError(msg) => write!(f, "DataStore Error: {}", msg),
             RuntimeError::PermissionError(msg) => write!(f, "Permission Error: {}", msg),
             RuntimeError::InternalError(msg) => write!(f, "Internal Error: {}", msg),
+            RuntimeError::EvaluationError(msg) => write!(f, "Evaluation Error: {}", msg),
         }
     }
 }

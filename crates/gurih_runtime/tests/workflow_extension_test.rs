@@ -1,4 +1,7 @@
-use gurih_ir::{Schema, StateSchema, Symbol, Transition, TransitionEffect, TransitionPrecondition, WorkflowSchema};
+use gurih_ir::{
+    BinaryOperator, Expression, Schema, StateSchema, Symbol, Transition, TransitionEffect,
+    TransitionPrecondition, WorkflowSchema,
+};
 use gurih_runtime::workflow::WorkflowEngine;
 use serde_json::json;
 
@@ -30,11 +33,18 @@ async fn test_workflow_extensions() {
             to: state_pns,
             required_permission: None,
             preconditions: vec![
-                TransitionPrecondition::MinYearsOfService {
-                    years: 1,
-                    from_field: Some(Symbol::from("tmt_cpns")),
-                },
-                TransitionPrecondition::ValidEffectiveDate(Symbol::from("tmt_pns")),
+                TransitionPrecondition::Assertion(Expression::BinaryOp {
+                    left: Box::new(Expression::FunctionCall {
+                        name: Symbol::from("years_of_service"),
+                        args: vec![Expression::Field(Symbol::from("tmt_cpns"))],
+                    }),
+                    op: BinaryOperator::Gte,
+                    right: Box::new(Expression::Literal(1.0)),
+                }),
+                TransitionPrecondition::Assertion(Expression::FunctionCall {
+                    name: Symbol::from("valid_date"),
+                    args: vec![Expression::Field(Symbol::from("tmt_pns"))],
+                }),
             ],
             effects: vec![
                 TransitionEffect::UpdateField {
@@ -49,11 +59,10 @@ async fn test_workflow_extensions() {
         }],
     };
 
-    schema.workflows.insert(workflow.name, workflow);
+    schema.workflows.insert(workflow.name.clone(), workflow);
     let engine = WorkflowEngine::new();
 
     // Test Case 1: Fail Min Years
-    // Use today for TMT CPNS, so service is < 1 year
     let today = chrono::Utc::now().date_naive();
     let one_year_ago = today - chrono::Duration::days(366);
     let today_str = today.format("%Y-%m-%d").to_string();
@@ -65,12 +74,19 @@ async fn test_workflow_extensions() {
     });
 
     let res_fail = engine
-        .validate_transition(&schema, None, "Pegawai", "CPNS", "PNS", &data_fail_years)
+        .validate_transition(
+            &schema,
+            None,
+            "Pegawai",
+            "CPNS",
+            "PNS",
+            &data_fail_years,
+        )
         .await;
     assert!(res_fail.is_err());
     let err_msg = res_fail.unwrap_err();
     assert!(
-        err_msg.to_string().contains("Minimum 1 years"),
+        err_msg.to_string().contains("Transition condition not met"),
         "Unexpected error: {}",
         err_msg
     );
@@ -81,12 +97,21 @@ async fn test_workflow_extensions() {
         "tmt_pns": "invalid-date"
     });
     let res_fail_date = engine
-        .validate_transition(&schema, None, "Pegawai", "CPNS", "PNS", &data_fail_date)
+        .validate_transition(
+            &schema,
+            None,
+            "Pegawai",
+            "CPNS",
+            "PNS",
+            &data_fail_date,
+        )
         .await;
     assert!(res_fail_date.is_err());
     let err_msg_date = res_fail_date.unwrap_err();
     assert!(
-        err_msg_date.to_string().contains("valid date"),
+        err_msg_date
+            .to_string()
+            .contains("Transition condition not met"),
         "Unexpected error: {}",
         err_msg_date
     );
@@ -97,12 +122,29 @@ async fn test_workflow_extensions() {
         "tmt_pns": today_str
     });
     let res_success = engine
-        .validate_transition(&schema, None, "Pegawai", "CPNS", "PNS", &data_success)
+        .validate_transition(
+            &schema,
+            None,
+            "Pegawai",
+            "CPNS",
+            "PNS",
+            &data_success,
+        )
         .await;
-    assert!(res_success.is_ok(), "Transition failed: {:?}", res_success.err());
+    assert!(
+        res_success.is_ok(),
+        "Transition failed: {:?}",
+        res_success.err()
+    );
 
     // Test Case 4: Effects
-    let (updates, _notifications) = engine.apply_effects(&schema, "Pegawai", "CPNS", "PNS", &data_success);
+    let (updates, _notifications) = engine.apply_effects(
+        &schema,
+        "Pegawai",
+        "CPNS",
+        "PNS",
+        &data_success,
+    );
 
     assert_eq!(updates.get("rank_eligible"), Some(&json!("true")));
     assert_eq!(updates.get("custom_field"), Some(&json!("updated")));

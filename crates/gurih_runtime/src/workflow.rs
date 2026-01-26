@@ -1,7 +1,6 @@
 use crate::datastore::DataStore;
 use crate::errors::RuntimeError;
 use chrono::NaiveDate;
-use gurih_common::time::check_min_years;
 use gurih_ir::{FieldType, Schema, Symbol, TransitionEffect, TransitionPrecondition};
 use serde_json::Value;
 use std::sync::Arc;
@@ -70,80 +69,19 @@ impl WorkflowEngine {
         datastore: Option<&Arc<dyn DataStore>>,
     ) -> Result<(), RuntimeError> {
         match pre {
-            TransitionPrecondition::Document(doc_name) => {
-                let has_doc = entity_data
-                    .get(doc_name.as_str())
-                    .map(|v| !v.is_null() && !v.as_str().unwrap_or("").is_empty())
-                    .unwrap_or(false);
-                if !has_doc {
-                    return Err(RuntimeError::ValidationError(format!(
-                        "Missing required document: {}",
-                        doc_name
-                    )));
-                }
-            }
-            TransitionPrecondition::MinYearsOfService { years, from_field } => {
-                let field_name = from_field.as_ref().map(|s| s.as_str()).ok_or_else(|| {
-                    RuntimeError::WorkflowError(
-                        "MinYearsOfService precondition missing 'from_field' configuration".to_string(),
-                    )
-                })?;
-
-                let join_date_str = entity_data.get(field_name).and_then(|v| v.as_str());
-
-                if let Some(date_str) = join_date_str {
-                    if !check_min_years(date_str, *years) {
-                        return Err(RuntimeError::ValidationError(format!(
-                            "Minimum {} years of service required",
-                            years
-                        )));
-                    }
-                } else {
-                    return Err(RuntimeError::ValidationError(format!(
-                        "Cannot determine years of service (missing '{}')",
-                        field_name
-                    )));
-                }
-            }
-            TransitionPrecondition::MinAge { age, birth_date_field } => {
-                let field_name = birth_date_field.as_ref().map(|s| s.as_str()).ok_or_else(|| {
-                    RuntimeError::WorkflowError(
-                        "MinAge precondition missing 'birth_date_field' configuration".to_string(),
-                    )
-                })?;
-
-                let birth_date_str = entity_data.get(field_name).and_then(|v| v.as_str());
-
-                if let Some(date_str) = birth_date_str {
-                    if !check_min_years(date_str, *age) {
-                        return Err(RuntimeError::ValidationError(format!(
-                            "Minimum age of {} required",
-                            age
-                        )));
-                    }
-                } else {
-                    return Err(RuntimeError::ValidationError(format!(
-                        "Cannot determine age (missing '{}')",
-                        field_name
-                    )));
-                }
-            }
-            TransitionPrecondition::ValidEffectiveDate(field) => {
-                let date_val = entity_data.get(field.as_str());
-                match date_val {
-                    Some(Value::String(s)) => {
-                        if NaiveDate::parse_from_str(s, "%Y-%m-%d").is_err() {
-                            return Err(RuntimeError::ValidationError(format!(
-                                "Field '{}' must be a valid date (YYYY-MM-DD)",
-                                field
-                            )));
-                        }
+            TransitionPrecondition::Assertion(expr) => {
+                let result = crate::evaluator::evaluate(expr, entity_data)?;
+                match result {
+                    Value::Bool(true) => {}
+                    Value::Bool(false) => {
+                        return Err(RuntimeError::ValidationError(
+                            "Transition condition not met".to_string(),
+                        ));
                     }
                     _ => {
-                        return Err(RuntimeError::ValidationError(format!(
-                            "Missing or invalid effective date in field '{}'",
-                            field
-                        )));
+                        return Err(RuntimeError::WorkflowError(
+                            "Assertion expression must evaluate to boolean".to_string(),
+                        ));
                     }
                 }
             }

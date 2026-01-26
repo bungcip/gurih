@@ -6,6 +6,7 @@ pub mod dashboard;
 pub mod data;
 pub mod datastore;
 pub mod errors;
+pub mod evaluator;
 pub mod faker;
 pub mod form;
 pub mod image_processor;
