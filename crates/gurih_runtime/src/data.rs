@@ -317,14 +317,14 @@ impl DataEngine {
     ) -> Result<Vec<Arc<Value>>, String> {
         if self.schema.queries.contains_key(&Symbol::from(entity)) {
             let strategy = QueryEngine::plan(&self.schema, entity)?;
-            if let Some(QueryPlan::ExecuteSql { mut sql }) = strategy.plans.first().cloned() {
+            if let Some(QueryPlan::ExecuteSql { mut sql, params }) = strategy.plans.first().cloned() {
                 if let Some(l) = limit {
                     sql.push_str(&format!(" LIMIT {}", l));
                 }
                 if let Some(o) = offset {
                     sql.push_str(&format!(" OFFSET {}", o));
                 }
-                return self.datastore.query(&sql).await;
+                return self.datastore.query_with_params(&sql, params).await;
             }
             return Err("Query engine failed to produce SQL plan".to_string());
         }

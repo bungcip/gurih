@@ -58,6 +58,10 @@ impl DataStore for MockDataStore {
         // Return Open Period
         Ok(vec![Arc::new(json!({"id": 1}))])
     }
+    async fn query_with_params(&self, _sql: &str, _params: Vec<Value>) -> Result<Vec<Arc<Value>>, String> {
+        // Return Open Period
+        Ok(vec![Arc::new(json!({"id": 1}))])
+    }
 }
 
 #[tokio::test]
@@ -188,6 +192,6 @@ fn test_query_group_by() {
     );
 
     let plan = QueryEngine::plan(&schema, "Q").unwrap();
-    let QueryPlan::ExecuteSql { sql } = &plan.plans[0];
+    let QueryPlan::ExecuteSql { sql, .. } = &plan.plans[0];
     assert!(sql.contains("GROUP BY [f]"));
 }

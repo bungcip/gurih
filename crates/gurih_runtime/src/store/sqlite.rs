@@ -317,4 +317,27 @@ impl DataStore for SqliteDataStore {
             .map_err(|e| e.to_string())?;
         Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
     }
+
+    async fn query_with_params(&self, sql: &str, params: Vec<Value>) -> Result<Vec<Arc<Value>>, String> {
+        let mut q = sqlx::query(sql);
+        for p in params {
+            match p {
+                Value::String(s) => q = q.bind(s),
+                Value::Number(n) => {
+                    if n.is_i64() {
+                        q = q.bind(n.as_i64())
+                    } else if n.is_f64() {
+                        q = q.bind(n.as_f64())
+                    } else {
+                        q = q.bind(n.to_string())
+                    }
+                }
+                Value::Bool(b) => q = q.bind(b),
+                Value::Null => q = q.bind(Option::<String>::None),
+                _ => q = q.bind(p.to_string()),
+            }
+        }
+        let rows = q.fetch_all(&self.pool).await.map_err(|e| e.to_string())?;
+        Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
+    }
 }
