@@ -1,8 +1,17 @@
 use crate::ast::{self, Ast};
 use crate::diagnostics::SourceSpan;
 use crate::errors::CompileError;
+use crate::expr::{BinaryOpType, Expr, UnaryOpType, parse_expression};
 use gurih_ir::FieldType;
 use std::collections::{HashMap, HashSet};
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+enum DataType {
+    Number,
+    String,
+    Boolean,
+    Any,
+}
 
 pub struct Validator<'a> {
     src: &'a str,
@@ -16,7 +25,115 @@ impl<'a> Validator<'a> {
     pub fn validate(&self, ast: &Ast) -> Result<(), CompileError> {
         self.validate_entities(ast)?;
         self.validate_routes(ast)?;
+        self.validate_rules(ast)?;
         Ok(())
+    }
+
+    fn validate_rules(&self, ast: &Ast) -> Result<(), CompileError> {
+        for rule in &ast.rules {
+            let expr = parse_expression(&rule.assertion, rule.span.offset())?;
+            let ty = self.infer_type(&expr)?;
+            if ty != DataType::Boolean && ty != DataType::Any {
+                return Err(CompileError::ValidationError {
+                    src: self.src.to_string(),
+                    span: rule.span,
+                    message: format!("Rule assertion must evaluate to Boolean, found {:?}", ty),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    fn infer_type(&self, expr: &Expr) -> Result<DataType, CompileError> {
+        match expr {
+            Expr::Literal(_, _) => Ok(DataType::Number),
+            Expr::StringLiteral(_, _) => Ok(DataType::String),
+            Expr::BoolLiteral(_, _) => Ok(DataType::Boolean),
+            Expr::Field(_, _) => Ok(DataType::Any), // Cannot resolve types without full schema context yet
+            Expr::FunctionCall { .. } => Ok(DataType::Any),
+            Expr::UnaryOp { op, expr, span } => {
+                let inner = self.infer_type(expr)?;
+                match op {
+                    UnaryOpType::Not => {
+                        if inner != DataType::Boolean && inner != DataType::Any {
+                            return Err(CompileError::ValidationError {
+                                src: self.src.to_string(),
+                                span: *span,
+                                message: "NOT requires boolean".into(),
+                            });
+                        }
+                        Ok(DataType::Boolean)
+                    }
+                    UnaryOpType::Neg => {
+                        if inner != DataType::Number && inner != DataType::Any {
+                            return Err(CompileError::ValidationError {
+                                src: self.src.to_string(),
+                                span: *span,
+                                message: "Negation requires number".into(),
+                            });
+                        }
+                        Ok(DataType::Number)
+                    }
+                }
+            }
+            Expr::BinaryOp { left, op, right, span } => {
+                let l = self.infer_type(left)?;
+                let r = self.infer_type(right)?;
+
+                if l == DataType::Any || r == DataType::Any {
+                    return match op {
+                        BinaryOpType::Add | BinaryOpType::Sub | BinaryOpType::Mul | BinaryOpType::Div => {
+                            Ok(DataType::Number)
+                        }
+                        _ => Ok(DataType::Boolean),
+                    };
+                }
+
+                match op {
+                    BinaryOpType::Add | BinaryOpType::Sub | BinaryOpType::Mul | BinaryOpType::Div => {
+                        if l != DataType::Number || r != DataType::Number {
+                            return Err(CompileError::ValidationError {
+                                src: self.src.to_string(),
+                                span: *span,
+                                message: "Arithmetic requires numbers".into(),
+                            });
+                        }
+                        Ok(DataType::Number)
+                    }
+                    BinaryOpType::And | BinaryOpType::Or => {
+                        if l != DataType::Boolean || r != DataType::Boolean {
+                            return Err(CompileError::ValidationError {
+                                src: self.src.to_string(),
+                                span: *span,
+                                message: "Logic requires booleans".into(),
+                            });
+                        }
+                        Ok(DataType::Boolean)
+                    }
+                    BinaryOpType::Gt | BinaryOpType::Lt | BinaryOpType::Gte | BinaryOpType::Lte => {
+                        if l != r || l != DataType::Number {
+                            return Err(CompileError::ValidationError {
+                                src: self.src.to_string(),
+                                span: *span,
+                                message: "Comparison requires numbers".into(),
+                            });
+                        }
+                        Ok(DataType::Boolean)
+                    }
+                    BinaryOpType::Eq | BinaryOpType::Neq => {
+                        if l != r {
+                            return Err(CompileError::ValidationError {
+                                src: self.src.to_string(),
+                                span: *span,
+                                message: "Equality requires same types".into(),
+                            });
+                        }
+                        Ok(DataType::Boolean)
+                    }
+                }
+            }
+            Expr::Grouping(e, _) => self.infer_type(e),
+        }
     }
 
     fn check_duplicate(

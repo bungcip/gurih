@@ -26,6 +26,15 @@ pub struct Schema {
     pub serial_generators: HashMap<Symbol, SerialGeneratorSchema>,
     pub prints: HashMap<Symbol, PrintSchema>,
     pub queries: HashMap<Symbol, QuerySchema>,
+    pub rules: HashMap<Symbol, RuleSchema>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuleSchema {
+    pub name: Symbol,
+    pub on_event: Symbol,
+    pub assertion: Expression,
+    pub message: String,
 }
 
 // ... existing code ...
@@ -74,6 +83,7 @@ pub enum Expression {
     Field(Symbol),
     Literal(f64),
     StringLiteral(String),
+    BoolLiteral(bool),
     FunctionCall {
         name: Symbol,
         args: Vec<Expression>,
@@ -82,6 +92,10 @@ pub enum Expression {
         left: Box<Expression>,
         op: BinaryOperator,
         right: Box<Expression>,
+    },
+    UnaryOp {
+        op: UnaryOperator,
+        expr: Box<Expression>,
     },
     Grouping(Box<Expression>),
 }
@@ -92,6 +106,20 @@ pub enum BinaryOperator {
     Sub,
     Mul,
     Div,
+    Eq,
+    Neq,
+    Gt,
+    Lt,
+    Gte,
+    Lte,
+    And,
+    Or,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum UnaryOperator {
+    Not,
+    Neg,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -440,6 +468,7 @@ impl Default for Schema {
             serial_generators: HashMap::default(),
             prints: HashMap::default(),
             queries: HashMap::default(),
+            rules: HashMap::default(),
         }
     }
 }
