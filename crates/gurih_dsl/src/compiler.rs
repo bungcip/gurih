@@ -127,14 +127,10 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                         }
                     }
                     ast::TransitionPreconditionDef::MinAge {
-                        age,
-                        birth_date_field,
-                        ..
+                        age, birth_date_field, ..
                     } => TransitionPrecondition::MinAge {
                         age: *age,
-                        birth_date_field: Some(Symbol::from(
-                            birth_date_field.as_deref().unwrap_or("birth_date"),
-                        )),
+                        birth_date_field: Some(Symbol::from(birth_date_field.as_deref().unwrap_or("birth_date"))),
                     },
                     ast::TransitionPreconditionDef::ValidEffectiveDate { field, .. } => {
                         TransitionPrecondition::ValidEffectiveDate(Symbol::from(field.as_str()))
@@ -142,38 +138,30 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     ast::TransitionPreconditionDef::BalancedTransaction { .. } => {
                         TransitionPrecondition::BalancedTransaction
                     }
-                    ast::TransitionPreconditionDef::PeriodOpen { entity, .. } => {
-                        TransitionPrecondition::PeriodOpen {
-                            entity: entity.as_ref().map(|s| Symbol::from(s.as_str())),
-                        }
-                    }
+                    ast::TransitionPreconditionDef::PeriodOpen { entity, .. } => TransitionPrecondition::PeriodOpen {
+                        entity: entity.as_ref().map(|s| Symbol::from(s.as_str())),
+                    },
                 })
                 .collect(),
             effects: t
                 .effects
                 .iter()
                 .map(|e| match e {
-                    ast::TransitionEffectDef::SuspendPayroll { active, .. } => {
-                        TransitionEffect::UpdateField {
-                            field: Symbol::from("is_payroll_active"),
-                            value: active.to_string(),
-                        }
-                    }
+                    ast::TransitionEffectDef::SuspendPayroll { active, .. } => TransitionEffect::UpdateField {
+                        field: Symbol::from("is_payroll_active"),
+                        value: active.to_string(),
+                    },
                     ast::TransitionEffectDef::Notify { target, .. } => {
                         TransitionEffect::Notify(Symbol::from(target.as_str()))
                     }
-                    ast::TransitionEffectDef::UpdateRankEligibility { active, .. } => {
-                        TransitionEffect::UpdateField {
-                            field: Symbol::from("rank_eligible"),
-                            value: active.to_string(),
-                        }
-                    }
-                    ast::TransitionEffectDef::UpdateField { field, value, .. } => {
-                        TransitionEffect::UpdateField {
-                            field: Symbol::from(field.as_str()),
-                            value: value.clone(),
-                        }
-                    }
+                    ast::TransitionEffectDef::UpdateRankEligibility { active, .. } => TransitionEffect::UpdateField {
+                        field: Symbol::from("rank_eligible"),
+                        value: active.to_string(),
+                    },
+                    ast::TransitionEffectDef::UpdateField { field, value, .. } => TransitionEffect::UpdateField {
+                        field: Symbol::from(field.as_str()),
+                        value: value.clone(),
+                    },
                 })
                 .collect(),
         }
@@ -223,6 +211,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             let mut seen_states: std::collections::HashSet<String> = std::collections::HashSet::new();
 
             for status_def in statuses {
+                // Add the defined status as a state
                 if seen_states.insert(status_def.name.clone()) {
                     states.push(StateSchema {
                         name: Symbol::from(status_def.name.as_str()),
@@ -230,7 +219,16 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     });
                 }
 
-                transitions.push(convert_transition(trans_def));
+                for trans_def in &status_def.transitions {
+                    // Add the target status as a state if not already seen
+                    if seen_states.insert(trans_def.to.clone()) {
+                        states.push(StateSchema {
+                            name: Symbol::from(trans_def.to.as_str()),
+                            immutable: false,
+                        });
+                    }
+                    transitions.push(convert_transition(trans_def));
+                }
             }
 
             ir_workflows.insert(
@@ -319,11 +317,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                         immutable: s.immutable,
                     })
                     .collect(),
-                transitions: wf_def
-                    .transitions
-                    .iter()
-                    .map(convert_transition)
-                    .collect(),
+                transitions: wf_def.transitions.iter().map(convert_transition).collect(),
             },
         );
     }
