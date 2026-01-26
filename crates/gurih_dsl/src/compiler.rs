@@ -7,8 +7,8 @@ use gurih_ir::{
     ActionSchema, ColumnSchema, DashboardSchema, DatabaseSchema, DatatableColumnSchema, DatatableSchema, EntitySchema,
     FieldSchema, FieldType, FormSchema, FormSection, LayoutSchema, MenuItemSchema, MenuSchema, PageContentSchema,
     PageSchema, PermissionSchema, PrintSchema, QueryFormula, QueryJoin, QuerySchema, QuerySelection,
-    RelationshipSchema, RouteSchema, Schema, SerialGeneratorSchema, StateSchema, StorageSchema, TableSchema,
-    Transition, TransitionEffect, TransitionPrecondition, WidgetSchema, WorkflowSchema,
+    RelationshipSchema, RouteSchema, RuleSchema, Schema, SerialGeneratorSchema, StateSchema, StorageSchema,
+    TableSchema, Transition, TransitionEffect, TransitionPrecondition, WidgetSchema, WorkflowSchema,
 };
 use std::collections::HashMap;
 
@@ -566,6 +566,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             crate::expr::Expr::Field(n, _) => gurih_ir::Expression::Field(n.as_str().into()),
             crate::expr::Expr::Literal(n, _) => gurih_ir::Expression::Literal(*n),
             crate::expr::Expr::StringLiteral(s, _) => gurih_ir::Expression::StringLiteral(s.clone()),
+            crate::expr::Expr::BoolLiteral(b, _) => gurih_ir::Expression::BoolLiteral(*b),
             crate::expr::Expr::FunctionCall { name, args, .. } => gurih_ir::Expression::FunctionCall {
                 name: name.as_str().into(),
                 args: args.iter().map(convert_expr).collect(),
@@ -577,8 +578,23 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     crate::expr::BinaryOpType::Sub => gurih_ir::BinaryOperator::Sub,
                     crate::expr::BinaryOpType::Mul => gurih_ir::BinaryOperator::Mul,
                     crate::expr::BinaryOpType::Div => gurih_ir::BinaryOperator::Div,
+                    crate::expr::BinaryOpType::Eq => gurih_ir::BinaryOperator::Eq,
+                    crate::expr::BinaryOpType::Neq => gurih_ir::BinaryOperator::Neq,
+                    crate::expr::BinaryOpType::Gt => gurih_ir::BinaryOperator::Gt,
+                    crate::expr::BinaryOpType::Lt => gurih_ir::BinaryOperator::Lt,
+                    crate::expr::BinaryOpType::Gte => gurih_ir::BinaryOperator::Gte,
+                    crate::expr::BinaryOpType::Lte => gurih_ir::BinaryOperator::Lte,
+                    crate::expr::BinaryOpType::And => gurih_ir::BinaryOperator::And,
+                    crate::expr::BinaryOpType::Or => gurih_ir::BinaryOperator::Or,
                 },
                 right: Box::new(convert_expr(right)),
+            },
+            crate::expr::Expr::UnaryOp { op, expr, .. } => gurih_ir::Expression::UnaryOp {
+                op: match op {
+                    crate::expr::UnaryOpType::Not => gurih_ir::UnaryOperator::Not,
+                    crate::expr::UnaryOpType::Neg => gurih_ir::UnaryOperator::Neg,
+                },
+                expr: Box::new(convert_expr(expr)),
             },
             crate::expr::Expr::Grouping(e, _) => gurih_ir::Expression::Grouping(Box::new(convert_expr(e))),
         }
@@ -660,6 +676,21 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         );
     }
 
+    // 15. Process Rules
+    let mut ir_rules: HashMap<Symbol, RuleSchema> = HashMap::new();
+    for rule_def in &ast_root.rules {
+        let expr = crate::expr::parse_expression(&rule_def.assertion, rule_def.span.offset())?;
+        ir_rules.insert(
+            rule_def.name.as_str().into(),
+            RuleSchema {
+                name: rule_def.name.as_str().into(),
+                on_event: rule_def.on_event.as_str().into(),
+                assertion: convert_expr(&expr),
+                message: rule_def.message.clone(),
+            },
+        );
+    }
+
     Ok(Schema {
         name: ast_root.name.unwrap_or("GurihApp".to_string()).as_str().into(),
         version: ast_root.version.unwrap_or("1.0.0".to_string()),
@@ -680,6 +711,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         serial_generators: ir_serial_generators,
         prints: ir_prints,
         queries: ir_queries,
+        rules: ir_rules,
     })
 }
 

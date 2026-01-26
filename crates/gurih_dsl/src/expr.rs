@@ -6,6 +6,7 @@ pub enum Expr {
     Field(String, SourceSpan),
     Literal(f64, SourceSpan),
     StringLiteral(String, SourceSpan),
+    BoolLiteral(bool, SourceSpan),
     FunctionCall {
         name: String,
         args: Vec<Expr>,
@@ -17,6 +18,11 @@ pub enum Expr {
         right: Box<Expr>,
         span: SourceSpan,
     },
+    UnaryOp {
+        op: UnaryOpType,
+        expr: Box<Expr>,
+        span: SourceSpan,
+    },
     Grouping(Box<Expr>, SourceSpan),
 }
 
@@ -26,6 +32,20 @@ pub enum BinaryOpType {
     Sub,
     Mul,
     Div,
+    Eq,
+    Neq,
+    Gt,
+    Lt,
+    Gte,
+    Lte,
+    And,
+    Or,
+}
+
+#[derive(Debug, Clone)]
+pub enum UnaryOpType {
+    Not,
+    Neg,
 }
 
 impl Expr {
@@ -34,8 +54,10 @@ impl Expr {
             Expr::Field(_, s) => *s,
             Expr::Literal(_, s) => *s,
             Expr::StringLiteral(_, s) => *s,
+            Expr::BoolLiteral(_, s) => *s,
             Expr::FunctionCall { span, .. } => *span,
             Expr::BinaryOp { span, .. } => *span,
+            Expr::UnaryOp { span, .. } => *span,
             Expr::Grouping(_, s) => *s,
         }
     }
@@ -59,6 +81,8 @@ enum TokenKind {
     Field(String),
     Number(f64),
     String(String),
+    True,
+    False,
     Plus,
     Minus,
     Star,
@@ -66,6 +90,16 @@ enum TokenKind {
     LParen,
     RParen,
     Comma,
+    Dot,
+    EqEq,
+    BangEq,
+    Gt,
+    Lt,
+    GtEq,
+    LtEq,
+    And,
+    Or,
+    Bang,
     Eof,
 }
 
@@ -136,6 +170,116 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
                     span: (abs_start, 1).into(),
                 });
                 current_pos += 1;
+            }
+            '.' => {
+                chars.next();
+                tokens.push(Token {
+                    kind: TokenKind::Dot,
+                    span: (abs_start, 1).into(),
+                });
+                current_pos += 1;
+            }
+            '!' => {
+                chars.next();
+                if let Some(&'=') = chars.peek() {
+                    chars.next();
+                    tokens.push(Token {
+                        kind: TokenKind::BangEq,
+                        span: (abs_start, 2).into(),
+                    });
+                    current_pos += 2;
+                } else {
+                    tokens.push(Token {
+                        kind: TokenKind::Bang,
+                        span: (abs_start, 1).into(),
+                    });
+                    current_pos += 1;
+                }
+            }
+            '=' => {
+                chars.next();
+                if let Some(&'=') = chars.peek() {
+                    chars.next();
+                    tokens.push(Token {
+                        kind: TokenKind::EqEq,
+                        span: (abs_start, 2).into(),
+                    });
+                    current_pos += 2;
+                } else {
+                    return Err(CompileError::ParseError {
+                        src: src.to_string(),
+                        span: (abs_start, 1).into(),
+                        message: "Unexpected '=', did you mean '=='?".to_string(),
+                    });
+                }
+            }
+            '>' => {
+                chars.next();
+                if let Some(&'=') = chars.peek() {
+                    chars.next();
+                    tokens.push(Token {
+                        kind: TokenKind::GtEq,
+                        span: (abs_start, 2).into(),
+                    });
+                    current_pos += 2;
+                } else {
+                    tokens.push(Token {
+                        kind: TokenKind::Gt,
+                        span: (abs_start, 1).into(),
+                    });
+                    current_pos += 1;
+                }
+            }
+            '<' => {
+                chars.next();
+                if let Some(&'=') = chars.peek() {
+                    chars.next();
+                    tokens.push(Token {
+                        kind: TokenKind::LtEq,
+                        span: (abs_start, 2).into(),
+                    });
+                    current_pos += 2;
+                } else {
+                    tokens.push(Token {
+                        kind: TokenKind::Lt,
+                        span: (abs_start, 1).into(),
+                    });
+                    current_pos += 1;
+                }
+            }
+            '&' => {
+                chars.next();
+                if let Some(&'&') = chars.peek() {
+                    chars.next();
+                    tokens.push(Token {
+                        kind: TokenKind::And,
+                        span: (abs_start, 2).into(),
+                    });
+                    current_pos += 2;
+                } else {
+                    return Err(CompileError::ParseError {
+                        src: src.to_string(),
+                        span: (abs_start, 1).into(),
+                        message: "Unexpected character '&', did you mean '&&'?".to_string(),
+                    });
+                }
+            }
+            '|' => {
+                chars.next();
+                if let Some(&'|') = chars.peek() {
+                    chars.next();
+                    tokens.push(Token {
+                        kind: TokenKind::Or,
+                        span: (abs_start, 2).into(),
+                    });
+                    current_pos += 2;
+                } else {
+                    return Err(CompileError::ParseError {
+                        src: src.to_string(),
+                        span: (abs_start, 1).into(),
+                        message: "Unexpected character '|', did you mean '||'?".to_string(),
+                    });
+                }
             }
             '[' => {
                 chars.next(); // eat [
@@ -214,7 +358,7 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
                 });
                 current_pos += len;
             }
-            _ if c.is_alphabetic() => {
+            _ if c.is_alphabetic() || c == '_' => {
                 let mut content = String::new();
                 let mut len = 0;
                 while let Some(&ch) = chars.peek() {
@@ -226,8 +370,13 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
                         break;
                     }
                 }
+                let kind = match content.as_str() {
+                    "true" => TokenKind::True,
+                    "false" => TokenKind::False,
+                    _ => TokenKind::Identifier(content),
+                };
                 tokens.push(Token {
-                    kind: TokenKind::Identifier(content),
+                    kind,
                     span: (abs_start, len).into(),
                 });
                 current_pos += len;
@@ -269,10 +418,111 @@ impl<'a> Parser<'a> {
         self.expression()
     }
 
+    // expression -> logic_or
     fn expression(&mut self) -> Result<Expr, CompileError> {
-        self.term()
+        self.logic_or()
     }
 
+    // logic_or -> logic_and ( "||" logic_and )*
+    fn logic_or(&mut self) -> Result<Expr, CompileError> {
+        let mut expr = self.logic_and()?;
+
+        while self.match_token(&[TokenKind::Or]) {
+            let right = self.logic_and()?;
+            let start = expr.span().offset();
+            let end = right.span().offset() + right.span().len();
+            let span = (start, end - start).into();
+
+            expr = Expr::BinaryOp {
+                left: Box::new(expr),
+                op: BinaryOpType::Or,
+                right: Box::new(right),
+                span,
+            };
+        }
+        Ok(expr)
+    }
+
+    // logic_and -> equality ( "&&" equality )*
+    fn logic_and(&mut self) -> Result<Expr, CompileError> {
+        let mut expr = self.equality()?;
+
+        while self.match_token(&[TokenKind::And]) {
+            let right = self.equality()?;
+            let start = expr.span().offset();
+            let end = right.span().offset() + right.span().len();
+            let span = (start, end - start).into();
+
+            expr = Expr::BinaryOp {
+                left: Box::new(expr),
+                op: BinaryOpType::And,
+                right: Box::new(right),
+                span,
+            };
+        }
+        Ok(expr)
+    }
+
+    // equality -> comparison ( ( "!=" | "==" ) comparison )*
+    fn equality(&mut self) -> Result<Expr, CompileError> {
+        let mut expr = self.comparison()?;
+
+        while self.match_token(&[TokenKind::BangEq, TokenKind::EqEq]) {
+            let op_token = self.previous().clone();
+            let op = match op_token.kind {
+                TokenKind::BangEq => BinaryOpType::Neq,
+                TokenKind::EqEq => BinaryOpType::Eq,
+                _ => unreachable!(),
+            };
+            let right = self.comparison()?;
+            let start = expr.span().offset();
+            let end = right.span().offset() + right.span().len();
+            let span = (start, end - start).into();
+
+            expr = Expr::BinaryOp {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+                span,
+            };
+        }
+        Ok(expr)
+    }
+
+    // comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )*
+    fn comparison(&mut self) -> Result<Expr, CompileError> {
+        let mut expr = self.term()?;
+
+        while self.match_token(&[
+            TokenKind::Gt,
+            TokenKind::GtEq,
+            TokenKind::Lt,
+            TokenKind::LtEq,
+        ]) {
+            let op_token = self.previous().clone();
+            let op = match op_token.kind {
+                TokenKind::Gt => BinaryOpType::Gt,
+                TokenKind::GtEq => BinaryOpType::Gte,
+                TokenKind::Lt => BinaryOpType::Lt,
+                TokenKind::LtEq => BinaryOpType::Lte,
+                _ => unreachable!(),
+            };
+            let right = self.term()?;
+            let start = expr.span().offset();
+            let end = right.span().offset() + right.span().len();
+            let span = (start, end - start).into();
+
+            expr = Expr::BinaryOp {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+                span,
+            };
+        }
+        Ok(expr)
+    }
+
+    // term -> factor ( ( "-" | "+" ) factor )*
     fn term(&mut self) -> Result<Expr, CompileError> {
         let mut expr = self.factor()?;
 
@@ -300,6 +550,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
+    // factor -> unary ( ( "/" | "*" ) unary )*
     fn factor(&mut self) -> Result<Expr, CompileError> {
         let mut expr = self.unary()?;
 
@@ -327,12 +578,104 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
+    // unary -> ( "!" | "-" ) unary | call
     fn unary(&mut self) -> Result<Expr, CompileError> {
-        self.primary()
+        if self.match_token(&[TokenKind::Bang, TokenKind::Minus]) {
+            let op_token = self.previous().clone();
+            let op = match op_token.kind {
+                TokenKind::Bang => UnaryOpType::Not,
+                TokenKind::Minus => UnaryOpType::Neg,
+                _ => unreachable!(),
+            };
+            let right = self.unary()?;
+            let start = op_token.span.offset();
+            let end = right.span().offset() + right.span().len();
+            let span = (start, end - start).into();
+
+            return Ok(Expr::UnaryOp {
+                op,
+                expr: Box::new(right),
+                span,
+            });
+        }
+        self.call()
     }
 
+    // call -> primary ( "(" arguments? ")" | "." identifier )*
+    // Handled in primary currently for simplicity but better here if we want chain
+    // For now, let's keep it simple: primary handles function call, but we need to handle dot access for fields like `period.is_closed`
+    fn call(&mut self) -> Result<Expr, CompileError> {
+        // We parse a primary, then check for dots
+        let mut expr = self.primary()?;
+
+        loop {
+             if self.match_token(&[TokenKind::Dot]) {
+                // expecting identifier
+                if self.check_kind(&TokenKind::Identifier("".to_string())) {
+                    // Actually, check_kind takes a reference, and Identifier carries data.
+                    // We need to verify if next is Identifier.
+                    let next = self.peek().clone(); // Clone to avoid borrow issue
+                    if let TokenKind::Identifier(name) = next.kind {
+                        let name = name.clone();
+                        let span_end = next.span.offset() + next.span.len();
+                        self.advance();
+
+                        // If previous expr was a Field or Identifier, we merge them.
+                        // `period` -> `period.is_closed`
+                        // If it was function call `SUM(x).y`? That's valid too.
+                        // But for now we only support field path strings in `Field`.
+                        // Wait, `gurih_ir::Expression::Field` is just a string.
+                        // So we should construct the string "a.b".
+
+                        match expr {
+                            Expr::Field(prev_name, prev_span) => {
+                                let new_name = format!("{}.{}", prev_name, name);
+                                let start = prev_span.offset();
+                                let span = (start, span_end - start).into();
+                                expr = Expr::Field(new_name, span);
+                            },
+                             Expr::FunctionCall { .. } => {
+                                 // Not supported by IR currently (FunctionCall return object?)
+                                 // But let's allow it in AST?
+                                 // No, the IR expects Field to be a symbol.
+                                 return Err(CompileError::ParseError {
+                                    src: self.src.to_string(),
+                                    span: next.span,
+                                    message: "Chained field access on function call result not supported in this version.".to_string(),
+                                });
+                             }
+                            _ => {
+                                return Err(CompileError::ParseError {
+                                    src: self.src.to_string(),
+                                    span: next.span,
+                                    message: "Dot access only allowed on fields/identifiers.".to_string(),
+                                });
+                            }
+                        }
+                    } else {
+                        return Err(CompileError::ParseError {
+                            src: self.src.to_string(),
+                            span: next.span,
+                            message: "Expect identifier after '.'".to_string(),
+                        });
+                    }
+                } else {
+                     return Err(CompileError::ParseError {
+                        src: self.src.to_string(),
+                        span: self.peek().span,
+                        message: "Expect identifier after '.'".to_string(),
+                    });
+                }
+             } else {
+                 break;
+             }
+        }
+
+        Ok(expr)
+    }
+
+
     fn primary(&mut self) -> Result<Expr, CompileError> {
-        // Safe peeking
         if self.is_at_end() {
             return Err(CompileError::ParseError {
                 src: self.src.to_string(),
@@ -343,6 +686,14 @@ impl<'a> Parser<'a> {
 
         let token = self.peek().clone();
         match token.kind {
+            TokenKind::True => {
+                self.advance();
+                Ok(Expr::BoolLiteral(true, token.span))
+            }
+            TokenKind::False => {
+                self.advance();
+                Ok(Expr::BoolLiteral(false, token.span))
+            }
             TokenKind::Number(n) => {
                 self.advance();
                 Ok(Expr::Literal(n, token.span))
@@ -384,11 +735,8 @@ impl<'a> Parser<'a> {
                         .into(); // Basic span union
                     Ok(Expr::FunctionCall { name, args, span })
                 } else {
-                    Err(CompileError::ParseError {
-                        src: self.src.to_string(),
-                        span: token.span,
-                        message: format!("Unexpected identifier '{}'. Fields use []. Functions use NAME().", name),
-                    })
+                    // Just an identifier, treat as field
+                    Ok(Expr::Field(name, token.span))
                 }
             }
             TokenKind::LParen => {
@@ -431,16 +779,11 @@ impl<'a> Parser<'a> {
         if self.is_at_end() {
             return false;
         }
-        matches!(
-            (&self.peek().kind, kind),
-            (TokenKind::Plus, TokenKind::Plus)
-                | (TokenKind::Minus, TokenKind::Minus)
-                | (TokenKind::Star, TokenKind::Star)
-                | (TokenKind::Slash, TokenKind::Slash)
-                | (TokenKind::LParen, TokenKind::LParen)
-                | (TokenKind::RParen, TokenKind::RParen)
-                | (TokenKind::Comma, TokenKind::Comma)
-        )
+        let next = &self.peek().kind;
+        match (next, kind) {
+            (TokenKind::Identifier(_), TokenKind::Identifier(_)) => true, // Treat all identifiers as same kind for check
+            (k1, k2) => std::mem::discriminant(k1) == std::mem::discriminant(k2),
+        }
     }
 
     fn check(&self, kind: TokenKind) -> bool {

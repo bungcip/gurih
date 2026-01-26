@@ -30,6 +30,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
         queries: vec![],
         employee_statuses: vec![],
         accounts: vec![],
+        rules: vec![],
     };
 
     for node in doc.nodes() {
@@ -105,6 +106,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
             "query" | "query:nested" | "query:flat" => ast.queries.push(parse_query(node, src)?),
             "employee_status" => ast.employee_statuses.push(parse_employee_status(node, src)?),
             "account" => ast.accounts.push(parse_account(node, src)?),
+            "rule" => ast.rules.push(parse_rule(node, src)?),
             _ => {
                 // Ignore unknown nodes or warn? Strict for now.
                 return Err(CompileError::ParseError {
@@ -832,6 +834,32 @@ fn parse_account(node: &KdlNode, src: &str) -> Result<AccountDef, CompileError> 
     Ok(AccountDef {
         name,
         fields,
+        span: node.span().into(),
+    })
+}
+
+fn parse_rule(node: &KdlNode, src: &str) -> Result<RuleDef, CompileError> {
+    let name = get_arg_string(node, 0, src)?;
+    let mut on_event = String::new();
+    let mut assertion = String::new();
+    let mut message = String::new();
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            match child.name().value() {
+                "on" => on_event = get_arg_string(child, 0, src)?,
+                "assert" => assertion = get_arg_string(child, 0, src)?,
+                "message" => message = get_arg_string(child, 0, src)?,
+                _ => {}
+            }
+        }
+    }
+
+    Ok(RuleDef {
+        name,
+        on_event,
+        assertion,
+        message,
         span: node.span().into(),
     })
 }

@@ -27,6 +27,16 @@ pub struct Ast {
     pub permissions: Vec<PermissionDef>,
     pub employee_statuses: Vec<EmployeeStatusDef>,
     pub accounts: Vec<AccountDef>,
+    pub rules: Vec<RuleDef>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RuleDef {
+    pub name: String,
+    pub on_event: String,
+    pub assertion: String,
+    pub message: String,
+    pub span: SourceSpan,
 }
 
 #[derive(Debug, Clone)]
