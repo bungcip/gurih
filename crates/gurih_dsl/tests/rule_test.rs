@@ -1,5 +1,5 @@
 use gurih_dsl::compiler::compile;
-use gurih_ir::{Expression, BinaryOperator, Symbol};
+use gurih_ir::{BinaryOperator, Expression, Symbol};
 
 #[test]
 fn test_compile_rule() {
@@ -26,7 +26,7 @@ fn test_compile_rule() {
             } else {
                 panic!("Left should be field");
             }
-             if let Expression::Field(s) = &**right {
+            if let Expression::Field(s) = &**right {
                 assert_eq!(s.as_str(), "lines.credit");
             } else {
                 panic!("Right should be field");

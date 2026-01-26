@@ -1,7 +1,7 @@
 use crate::ast::{self, Ast};
 use crate::diagnostics::SourceSpan;
 use crate::errors::CompileError;
-use crate::expr::{parse_expression, BinaryOpType, Expr, UnaryOpType};
+use crate::expr::{BinaryOpType, Expr, UnaryOpType, parse_expression};
 use gurih_ir::FieldType;
 use std::collections::{HashMap, HashSet};
 
@@ -76,21 +76,15 @@ impl<'a> Validator<'a> {
                     }
                 }
             }
-            Expr::BinaryOp {
-                left,
-                op,
-                right,
-                span,
-            } => {
+            Expr::BinaryOp { left, op, right, span } => {
                 let l = self.infer_type(left)?;
                 let r = self.infer_type(right)?;
 
                 if l == DataType::Any || r == DataType::Any {
                     return match op {
-                        BinaryOpType::Add
-                        | BinaryOpType::Sub
-                        | BinaryOpType::Mul
-                        | BinaryOpType::Div => Ok(DataType::Number),
+                        BinaryOpType::Add | BinaryOpType::Sub | BinaryOpType::Mul | BinaryOpType::Div => {
+                            Ok(DataType::Number)
+                        }
                         _ => Ok(DataType::Boolean),
                     };
                 }

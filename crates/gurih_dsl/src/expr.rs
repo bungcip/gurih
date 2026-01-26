@@ -493,12 +493,7 @@ impl<'a> Parser<'a> {
     fn comparison(&mut self) -> Result<Expr, CompileError> {
         let mut expr = self.term()?;
 
-        while self.match_token(&[
-            TokenKind::Gt,
-            TokenKind::GtEq,
-            TokenKind::Lt,
-            TokenKind::LtEq,
-        ]) {
+        while self.match_token(&[TokenKind::Gt, TokenKind::GtEq, TokenKind::Lt, TokenKind::LtEq]) {
             let op_token = self.previous().clone();
             let op = match op_token.kind {
                 TokenKind::Gt => BinaryOpType::Gt,
@@ -609,7 +604,7 @@ impl<'a> Parser<'a> {
         let mut expr = self.primary()?;
 
         loop {
-             if self.match_token(&[TokenKind::Dot]) {
+            if self.match_token(&[TokenKind::Dot]) {
                 // expecting identifier
                 if self.check_kind(&TokenKind::Identifier("".to_string())) {
                     // Actually, check_kind takes a reference, and Identifier carries data.
@@ -633,17 +628,19 @@ impl<'a> Parser<'a> {
                                 let start = prev_span.offset();
                                 let span = (start, span_end - start).into();
                                 expr = Expr::Field(new_name, span);
-                            },
-                             Expr::FunctionCall { .. } => {
-                                 // Not supported by IR currently (FunctionCall return object?)
-                                 // But let's allow it in AST?
-                                 // No, the IR expects Field to be a symbol.
-                                 return Err(CompileError::ParseError {
+                            }
+                            Expr::FunctionCall { .. } => {
+                                // Not supported by IR currently (FunctionCall return object?)
+                                // But let's allow it in AST?
+                                // No, the IR expects Field to be a symbol.
+                                return Err(CompileError::ParseError {
                                     src: self.src.to_string(),
                                     span: next.span,
-                                    message: "Chained field access on function call result not supported in this version.".to_string(),
+                                    message:
+                                        "Chained field access on function call result not supported in this version."
+                                            .to_string(),
                                 });
-                             }
+                            }
                             _ => {
                                 return Err(CompileError::ParseError {
                                     src: self.src.to_string(),
@@ -660,20 +657,19 @@ impl<'a> Parser<'a> {
                         });
                     }
                 } else {
-                     return Err(CompileError::ParseError {
+                    return Err(CompileError::ParseError {
                         src: self.src.to_string(),
                         span: self.peek().span,
                         message: "Expect identifier after '.'".to_string(),
                     });
                 }
-             } else {
-                 break;
-             }
+            } else {
+                break;
+            }
         }
 
         Ok(expr)
     }
-
 
     fn primary(&mut self) -> Result<Expr, CompileError> {
         if self.is_at_end() {
