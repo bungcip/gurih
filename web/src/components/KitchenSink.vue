@@ -16,6 +16,7 @@ import Steps from './Steps.vue'
 import MetricCard from './MetricCard.vue'
 import DescriptionList from './DescriptionList.vue'
 import ActionCard from './ActionCard.vue'
+import Alert from './Alert.vue'
 import { inject } from 'vue'
 
 const selectValue = ref(null)
@@ -26,6 +27,7 @@ const multipleFiles = ref([])
 const amountValue = ref(1500000)
 const isModalOpen = ref(false)
 const loading = ref(false)
+const showAlert = ref(true)
 
 const showToast = inject('showToast')
 
@@ -237,6 +239,35 @@ function toggleLoading() {
                 <StatusBadge label="Overdue" variant="danger" />
                 <StatusBadge label="Draft" variant="gray" />
                 <StatusBadge label="In Progress" variant="info" />
+            </div>
+        </section>
+
+        <!-- Alerts -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Alerts</h2>
+            <div class="space-y-4">
+                <Alert title="Information" description="This is a standard info alert." />
+                <Alert variant="success" title="Success" description="Your changes have been saved successfully." />
+                <Alert variant="warning" title="Warning" description="Your account subscription expires in 3 days." />
+                <Alert variant="danger" title="Error" description="Failed to connect to the database." />
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <Alert variant="info" title="Loading State" loading />
+                     <Alert v-if="showAlert" variant="success" title="Closable Alert" description="Click the X to dismiss me." closable @close="showAlert = false" />
+                     <div v-else class="h-full min-h-[60px] flex items-center justify-center bg-gray-50 border border-dashed rounded text-sm text-gray-500">
+                        <Button size="sm" variant="ghost-primary" @click="showAlert = true">Reset Alert</Button>
+                     </div>
+                </div>
+
+                <Alert title="With Action Slot">
+                    <p>You have unsaved changes. Do you want to save them now?</p>
+                    <template #action>
+                        <div class="flex gap-2">
+                             <Button size="sm" variant="ghost-danger">Discard</Button>
+                             <Button size="sm" variant="outline">Save Draft</Button>
+                        </div>
+                    </template>
+                </Alert>
             </div>
         </section>
 
