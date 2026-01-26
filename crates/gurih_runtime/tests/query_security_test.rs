@@ -3,11 +3,13 @@ use gurih_runtime::query_engine::{QueryEngine, QueryPlan};
 
 #[test]
 fn test_sql_injection_reproduction() {
-    let mut schema = Schema::default();
-    schema.database = Some(DatabaseSchema {
-        db_type: DatabaseType::Sqlite,
-        url: "sqlite::memory:".to_string(),
-    });
+    let mut schema = Schema {
+        database: Some(DatabaseSchema {
+            db_type: DatabaseType::Sqlite,
+            url: "sqlite::memory:".to_string(),
+        }),
+        ..Default::default()
+    };
 
     // Malicious payload that changes logic: WHERE name + '' OR '1'='1'
     let malicious_input = "' OR '1'='1";

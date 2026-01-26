@@ -301,15 +301,12 @@ impl WorkflowEngine {
                         let mut json_val = Value::String(value.clone());
 
                         // Attempt to cast to correct type if entity definition is available
-                        if let Some(ent) = schema.entities.get(&Symbol::from(entity_name)) {
-                            if let Some(f_def) = ent.fields.iter().find(|f| f.name == *field) {
-                                if f_def.field_type == FieldType::Boolean {
-                                    if let Ok(b) = value.parse::<bool>() {
+                        if let Some(ent) = schema.entities.get(&Symbol::from(entity_name))
+                            && let Some(f_def) = ent.fields.iter().find(|f| f.name == *field)
+                                && f_def.field_type == FieldType::Boolean
+                                    && let Ok(b) = value.parse::<bool>() {
                                         json_val = Value::Bool(b);
                                     }
-                                }
-                            }
-                        }
 
                         updates.insert(field.to_string(), json_val);
                     }

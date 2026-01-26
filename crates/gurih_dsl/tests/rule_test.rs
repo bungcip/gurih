@@ -50,7 +50,7 @@ fn test_compile_rule_boolean() {
     match &rule.assertion {
         Expression::BinaryOp { right, .. } => {
             if let Expression::BoolLiteral(b) = &**right {
-                assert_eq!(*b, false);
+                assert!(!(*b));
             } else {
                 panic!("Right should be bool literal");
             }

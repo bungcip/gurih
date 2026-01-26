@@ -12,6 +12,14 @@ pub struct QueryExecutionStrategy {
     pub plans: Vec<QueryPlan>,
 }
 
+struct QueryBuilderState<'a> {
+    schema: &'a Schema,
+    select_parts: &'a mut Vec<String>,
+    join_parts: &'a mut Vec<String>,
+    params: &'a mut Vec<Value>,
+    db_type: &'a DatabaseType,
+}
+
 pub struct QueryEngine;
 
 impl QueryEngine {
@@ -47,16 +55,15 @@ impl QueryEngine {
         }
 
         // Process Joins (Recursive)
-        Self::process_joins(
-            &query.joins,
-            &root_table,
-            &query.root_entity.to_string(),
+        let mut state = QueryBuilderState {
             schema,
-            &mut select_parts,
-            &mut join_parts,
-            &mut params,
-            &db_type,
-        )?;
+            select_parts: &mut select_parts,
+            join_parts: &mut join_parts,
+            params: &mut params,
+            db_type: &db_type,
+        };
+
+        Self::process_joins(&query.joins, &root_table, &query.root_entity.to_string(), &mut state)?;
 
         let select_clause = if select_parts.is_empty() {
             "*".to_string()
@@ -103,11 +110,7 @@ impl QueryEngine {
         joins: &[QueryJoin],
         parent_table: &str,
         parent_entity: &str,
-        schema: &Schema,
-        select_parts: &mut Vec<String>,
-        join_parts: &mut Vec<String>,
-        params: &mut Vec<Value>,
-        db_type: &DatabaseType,
+        state: &mut QueryBuilderState,
     ) -> Result<(), String> {
         for join in joins {
             let target_entity_name = &join.target_entity;
@@ -118,7 +121,7 @@ impl QueryEngine {
             let mut join_condition = String::new();
 
             // Attempts to determine join condition from schema
-            if let Some(parent_ent) = schema.entities.get(&parent_entity.into())
+            if let Some(parent_ent) = state.schema.entities.get(&parent_entity.into())
                 && let Some(rel) = parent_ent
                     .relationships
                     .iter()
@@ -139,31 +142,24 @@ impl QueryEngine {
                 join_condition = format!("{}.{}_id = {}.id", target_table, parent_table, parent_table);
             }
 
-            join_parts.push(format!("LEFT JOIN {} ON {}", target_table, join_condition));
+            state
+                .join_parts
+                .push(format!("LEFT JOIN {} ON {}", target_table, join_condition));
 
             for sel in &join.selections {
                 let col_sql = format!("{}.{}", target_table, sel.field);
                 if let Some(alias) = &sel.alias {
-                    select_parts.push(format!("{} AS {}", col_sql, alias));
+                    state.select_parts.push(format!("{} AS {}", col_sql, alias));
                 } else {
-                    select_parts.push(col_sql);
+                    state.select_parts.push(col_sql);
                 }
             }
             for form in &join.formulas {
-                let expr_sql = Self::expression_to_sql(&form.expression, params, db_type);
-                select_parts.push(format!("{} AS {}", expr_sql, form.name));
+                let expr_sql = Self::expression_to_sql(&form.expression, state.params, state.db_type);
+                state.select_parts.push(format!("{} AS {}", expr_sql, form.name));
             }
 
-            Self::process_joins(
-                &join.joins,
-                &target_table,
-                &target_entity_name.to_string(),
-                schema,
-                select_parts,
-                join_parts,
-                params,
-                db_type,
-            )?;
+            Self::process_joins(&join.joins, &target_table, &target_entity_name.to_string(), state)?;
         }
         Ok(())
     }
