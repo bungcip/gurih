@@ -276,10 +276,7 @@ impl DataEngine {
 
         if let Some(wf) = workflow {
             if let Some(record) = self.read(entity_name, id).await? {
-                let current_state = record
-                    .get(wf.field.as_str())
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
+                let current_state = record.get(wf.field.as_str()).and_then(|v| v.as_str()).unwrap_or("");
 
                 if let Some(state_schema) = wf.states.iter().find(|s| s.name == Symbol::from(current_state)) {
                     if state_schema.immutable {
