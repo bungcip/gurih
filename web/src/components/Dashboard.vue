@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import Icon from './Icon.vue'
 import StatusBadge from './StatusBadge.vue'
 
@@ -55,6 +55,11 @@ function getStatColor(color) {
     default: return 'text-primary bg-blue-50'
   }
 }
+
+const statWidgets = computed(() => {
+  if (!dashboardData.value || !dashboardData.value.widgets) return []
+  return dashboardData.value.widgets.filter(w => w.type === 'stat')
+})
 </script>
 
 <template>
@@ -75,7 +80,7 @@ function getStatColor(color) {
     <!-- Stats Grid -->
     <div v-if="dashboardData" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div 
-            v-for="widget in dashboardData.widgets.filter(w => w.type === 'stat')" 
+            v-for="widget in statWidgets"
             :key="widget.label"
             class="card p-6 flex items-start justify-between hover:shadow-lg transition-all border-none shadow-sm bg-white"
         >
