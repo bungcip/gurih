@@ -205,47 +205,46 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
     // 4.1 Process Employee Statuses (synthesize workflow)
     if !ast_root.employee_statuses.is_empty() {
-        let workflow_name = "EmployeeStatusWorkflow";
-        let entity_name = "Employee";
-        let field_name = "status";
-
-        let mut states: Vec<StateSchema> = vec![];
-        let mut transitions: Vec<Transition> = vec![];
-
-        // Track seen states to avoid duplicates
-        let mut seen_states: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut grouped_statuses: HashMap<(String, String), Vec<&ast::EmployeeStatusDef>> = HashMap::new();
 
         for status_def in &ast_root.employee_statuses {
-            if seen_states.insert(status_def.name.clone()) {
-                states.push(StateSchema {
-                    name: Symbol::from(status_def.name.as_str()),
-                    immutable: false,
-                });
-            }
+            let entity = status_def.entity.clone().unwrap_or_else(|| "Employee".to_string());
+            let field = status_def.field.clone().unwrap_or_else(|| "status".to_string());
+            grouped_statuses.entry((entity, field)).or_default().push(status_def);
+        }
 
-            for trans_def in &status_def.transitions {
-                if seen_states.insert(trans_def.to.clone()) {
+        for ((entity_name, field_name), statuses) in grouped_statuses {
+            let workflow_name = format!("{}StatusWorkflow", entity_name);
+
+            let mut states: Vec<StateSchema> = vec![];
+            let mut transitions: Vec<Transition> = vec![];
+
+            // Track seen states to avoid duplicates
+            let mut seen_states: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+            for status_def in statuses {
+                if seen_states.insert(status_def.name.clone()) {
                     states.push(StateSchema {
-                        name: Symbol::from(trans_def.to.as_str()),
+                        name: Symbol::from(status_def.name.as_str()),
                         immutable: false,
                     });
                 }
 
                 transitions.push(convert_transition(trans_def));
             }
-        }
 
-        ir_workflows.insert(
-            Symbol::from(workflow_name),
-            WorkflowSchema {
-                name: Symbol::from(workflow_name),
-                entity: Symbol::from(entity_name),
-                field: Symbol::from(field_name),
-                initial_state: states.first().map(|s| s.name).unwrap_or_else(|| Symbol::from("")),
-                states,
-                transitions,
-            },
-        );
+            ir_workflows.insert(
+                Symbol::from(workflow_name.as_str()),
+                WorkflowSchema {
+                    name: Symbol::from(workflow_name.as_str()),
+                    entity: Symbol::from(entity_name.as_str()),
+                    field: Symbol::from(field_name.as_str()),
+                    initial_state: states.first().map(|s| s.name).unwrap_or_else(|| Symbol::from("")),
+                    states,
+                    transitions,
+                },
+            );
+        }
     }
 
     // 2. Process Top-Level Entities

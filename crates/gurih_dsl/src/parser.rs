@@ -838,6 +838,11 @@ fn parse_account(node: &KdlNode, src: &str) -> Result<AccountDef, CompileError> 
 
 fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
+    let entity = get_prop_string(node, "for", src)
+        .ok()
+        .or_else(|| get_prop_string(node, "entity", src).ok());
+    let field = get_prop_string(node, "field", src).ok();
+
     let mut transitions = vec![];
 
     if let Some(children) = node.children() {
@@ -854,6 +859,8 @@ fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef,
 
     Ok(EmployeeStatusDef {
         name,
+        entity,
+        field,
         transitions,
         span: node.span().into(),
     })
