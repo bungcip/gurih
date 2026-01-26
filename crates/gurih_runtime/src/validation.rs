@@ -30,3 +30,35 @@ pub fn validate_type(val: &Value, field_type: &FieldType) -> bool {
         FieldType::Boolean => val.is_boolean() || val.is_null(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_validate_type_coverage() {
+        // Integer
+        assert!(validate_type(&json!(123), &FieldType::Integer));
+        assert!(validate_type(&json!(null), &FieldType::Integer));
+        assert!(!validate_type(&json!("123"), &FieldType::Integer));
+
+        // Float
+        assert!(validate_type(&json!(12.3), &FieldType::Float));
+        assert!(validate_type(&json!(null), &FieldType::Float));
+        assert!(!validate_type(&json!("12.3"), &FieldType::Float));
+
+        // Boolean
+        assert!(validate_type(&json!(true), &FieldType::Boolean));
+        assert!(validate_type(&json!(null), &FieldType::Boolean));
+        assert!(!validate_type(&json!("true"), &FieldType::Boolean));
+
+        // String group
+        assert!(validate_type(&json!("hello"), &FieldType::String));
+        assert!(validate_type(&json!(null), &FieldType::String));
+        assert!(!validate_type(&json!(123), &FieldType::String));
+
+        // Ensure other types in the string group are covered by implication
+        assert!(validate_type(&json!("code"), &FieldType::Code));
+    }
+}
