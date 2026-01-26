@@ -304,7 +304,7 @@ pub async fn init_datastore(schema: Arc<Schema>, base_path: Option<&Path>) -> Re
                 .map_err(|e| format!("Failed to connect to SQLite DB at {}: {}", url, e))?;
 
             let pool = DbPool::Sqlite(p.clone());
-            let manager = SchemaManager::new(pool, schema.clone(), format!("{:?}", db_config.db_type));
+            let manager = SchemaManager::new(pool, schema.clone(), db_config.db_type.clone());
             manager.migrate().await?;
 
             Ok(Arc::new(SqliteDataStore::new(p)))
@@ -316,7 +316,7 @@ pub async fn init_datastore(schema: Arc<Schema>, base_path: Option<&Path>) -> Re
                 .map_err(|e| format!("Failed to connect to Postgres DB: {}", e))?;
 
             let pool = DbPool::Postgres(p.clone());
-            let manager = SchemaManager::new(pool, schema.clone(), format!("{:?}", db_config.db_type));
+            let manager = SchemaManager::new(pool, schema.clone(), db_config.db_type.clone());
             manager.migrate().await?;
 
             Ok(Arc::new(PostgresDataStore::new(p)))

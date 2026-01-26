@@ -275,14 +275,16 @@ impl DataEngine {
             .find(|w| w.entity == Symbol::from(entity_name));
 
         if let Some(wf) = workflow
-            && let Some(record) = self.read(entity_name, id).await? {
-                let current_state = record.get(wf.field.as_str()).and_then(|v| v.as_str()).unwrap_or("");
+            && let Some(record) = self.read(entity_name, id).await?
+        {
+            let current_state = record.get(wf.field.as_str()).and_then(|v| v.as_str()).unwrap_or("");
 
-                if let Some(state_schema) = wf.states.iter().find(|s| s.name == Symbol::from(current_state))
-                    && state_schema.immutable {
-                        return Err(format!("Cannot delete record in immutable state '{}'", current_state));
-                    }
+            if let Some(state_schema) = wf.states.iter().find(|s| s.name == Symbol::from(current_state))
+                && state_schema.immutable
+            {
+                return Err(format!("Cannot delete record in immutable state '{}'", current_state));
             }
+        }
 
         self.datastore.delete(entity_name, id).await?;
 

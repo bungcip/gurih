@@ -1,5 +1,5 @@
 use crate::store::DbPool;
-use gurih_ir::{EntitySchema, FieldType, Schema, Symbol, TableSchema};
+use gurih_ir::{DatabaseType, EntitySchema, FieldType, Schema, Symbol, TableSchema};
 use sha2::{Digest, Sha256};
 use sqlx::Row;
 use std::collections::HashMap;
@@ -8,11 +8,11 @@ use std::sync::Arc;
 pub struct SchemaManager {
     pool: DbPool,
     schema: Arc<Schema>,
-    db_kind: String,
+    db_kind: DatabaseType,
 }
 
 impl SchemaManager {
-    pub fn new(pool: DbPool, schema: Arc<Schema>, db_kind: String) -> Self {
+    pub fn new(pool: DbPool, schema: Arc<Schema>, db_kind: DatabaseType) -> Self {
         Self { pool, schema, db_kind }
     }
 
@@ -77,7 +77,7 @@ impl SchemaManager {
         }
 
         for i in 1..=cols.len() {
-            if self.db_kind == "PostgreSQL" {
+            if self.db_kind == DatabaseType::Postgres {
                 placeholders.push(format!("${}", i));
             } else {
                 placeholders.push("?".to_string());
@@ -217,7 +217,7 @@ impl SchemaManager {
 
     async fn update_schema_hash(&self, hash: &str) -> Result<(), String> {
         let db_kind = &self.db_kind;
-        let sql = if db_kind == "PostgreSQL" {
+        let sql = if *db_kind == DatabaseType::Postgres {
             "INSERT INTO _gurih_metadata (key, value) VALUES ('schema_hash', $1) ON CONFLICT (key) DO UPDATE SET value = $1"
         } else {
             "INSERT OR REPLACE INTO _gurih_metadata (key, value) VALUES ('schema_hash', ?)"
@@ -246,7 +246,7 @@ impl SchemaManager {
         let db_kind = &self.db_kind;
 
         // Check if table exists
-        let table_exists: bool = if db_kind == "PostgreSQL" {
+        let table_exists: bool = if *db_kind == DatabaseType::Postgres {
             match &self.pool {
                 DbPool::Postgres(p) => sqlx::query_scalar(
                     "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '_gurih_metadata')",
@@ -352,7 +352,7 @@ impl SchemaManager {
         }
 
         for table in tables_to_drop {
-            let sql = if db_kind == "PostgreSQL" {
+            let sql = if *db_kind == DatabaseType::Postgres {
                 format!("DROP TABLE IF EXISTS \"{}\" CASCADE", table)
             } else {
                 format!("DROP TABLE IF EXISTS \"{}\"", table)
@@ -394,7 +394,7 @@ impl SchemaManager {
     }
 
     async fn create_audit_table(&self) -> Result<(), String> {
-        let sql = if self.db_kind == "PostgreSQL" {
+        let sql = if self.db_kind == DatabaseType::Postgres {
             r#"CREATE TABLE IF NOT EXISTS "_audit_log" (
                 "id" TEXT PRIMARY KEY,
                 "entity" TEXT NOT NULL,
@@ -505,21 +505,21 @@ impl SchemaManager {
                 | FieldType::Custom(_)
                 | FieldType::Enum(_) => "TEXT",
                 FieldType::Integer => {
-                    if db_kind == "PostgreSQL" {
+                    if *db_kind == DatabaseType::Postgres {
                         "INT"
                     } else {
                         "INTEGER"
                     }
                 }
                 FieldType::Float => {
-                    if db_kind == "PostgreSQL" {
+                    if *db_kind == DatabaseType::Postgres {
                         "DOUBLE PRECISION"
                     } else {
                         "REAL"
                     }
                 }
                 FieldType::Boolean => {
-                    if db_kind == "PostgreSQL" {
+                    if *db_kind == DatabaseType::Postgres {
                         "BOOLEAN"
                     } else {
                         "INTEGER"
@@ -527,7 +527,7 @@ impl SchemaManager {
                 }
                 FieldType::Date => "DATE",
                 FieldType::Timestamp => {
-                    if db_kind == "PostgreSQL" {
+                    if *db_kind == DatabaseType::Postgres {
                         "TIMESTAMP"
                     } else {
                         "TEXT"
