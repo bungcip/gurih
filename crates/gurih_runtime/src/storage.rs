@@ -1,8 +1,9 @@
 use async_trait::async_trait;
-use aws_config::meta::region::RegionProviderChain;
-use aws_sdk_s3::{Client, config::Region};
 use bytes::Bytes;
 use gurih_ir::{StorageDriver, StorageSchema, Symbol};
+use s3::Bucket;
+use s3::Region;
+use s3::creds::Credentials;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -59,55 +60,47 @@ impl FileDriver for LocalFileDriver {
 }
 
 pub struct S3FileDriver {
-    client: Client,
-    bucket: String,
+    bucket: Box<Bucket>,
     public_url: Option<String>,
 }
 
 impl S3FileDriver {
     pub async fn new(props: &HashMap<String, String>) -> Self {
-        let region = props.get("region").cloned().unwrap_or_else(|| "us-east-1".to_string());
-        let bucket = props.get("bucket").cloned().expect("Bucket is required for S3");
+        let region_str = props.get("region").cloned().unwrap_or_else(|| "us-east-1".to_string());
+        let bucket_name = props.get("bucket").cloned().expect("Bucket is required for S3");
         let endpoint = props.get("endpoint").cloned();
         let access_key = props.get("access_key").cloned();
         let secret_key = props.get("secret_key").cloned();
         let public_url = props.get("public_url").cloned();
 
-        let region_provider = RegionProviderChain::first_try(Region::new(region.clone()));
+        let region = if let Some(endpoint) = endpoint {
+            Region::Custom {
+                region: region_str,
+                endpoint,
+            }
+        } else {
+            region_str.parse().unwrap_or(Region::UsEast1)
+        };
 
-        let mut config_loader = aws_config::defaults(aws_config::BehaviorVersion::latest()).region(region_provider);
+        let credentials = Credentials::new(access_key.as_deref(), secret_key.as_deref(), None, None, None)
+            .expect("Failed to create S3 credentials");
 
-        if let Some(endpoint) = endpoint {
-            config_loader = config_loader.endpoint_url(endpoint);
+        let mut bucket = Bucket::new(&bucket_name, region, credentials).expect("Failed to create S3 bucket");
+
+        // If it's a custom endpoint, often we need path style (e.g. Minio)
+        if props.contains_key("endpoint") {
+            bucket.set_path_style();
         }
 
-        if let (Some(ak), Some(sk)) = (access_key, secret_key) {
-            let creds = aws_sdk_s3::config::Credentials::new(ak, sk, None, None, "kdl");
-            config_loader = config_loader.credentials_provider(creds);
-        }
-
-        let config = config_loader.load().await;
-        let client = Client::new(&config);
-
-        Self {
-            client,
-            bucket,
-            public_url,
-        }
+        Self { bucket, public_url }
     }
 }
 
 #[async_trait]
 impl FileDriver for S3FileDriver {
     async fn put(&self, filename: &str, data: Bytes) -> Result<String, String> {
-        // Optimization: Use Bytes directly to avoid unnecessary clone/allocation
-        let body = aws_sdk_s3::primitives::ByteStream::from(data);
-        self.client
-            .put_object()
-            .bucket(&self.bucket)
-            .key(filename)
-            .body(body)
-            .send()
+        self.bucket
+            .put_object(filename, &data)
             .await
             .map_err(|e| e.to_string())?;
 
@@ -118,7 +111,7 @@ impl FileDriver for S3FileDriver {
         if let Some(base) = &self.public_url {
             format!("{}/{}", base.trim_end_matches('/'), filename)
         } else {
-            format!("https://{}.s3.amazonaws.com/{}", self.bucket, filename)
+            format!("https://{}.s3.amazonaws.com/{}", self.bucket.name, filename)
         }
     }
 }

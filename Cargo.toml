@@ -20,7 +20,7 @@ annotate-snippets = "0.12"
 async-trait = "0.1.89"
 axum = "0.8.8"
 clap = { version = "4.5.54", features = ["derive", "env"] }
-insta = "1.40"
+insta = "1.46"
 kdl = "6.5.0"
 miette = { version = "7.6.0", default-features = false }
 serde = { version = "1.0.228", features = ["derive"] }
@@ -29,7 +29,9 @@ sqlx = { version = "0.8.6", features = ["postgres", "sqlite", "runtime-tokio", "
 thiserror = "2.0.18"
 tokio = { version = "1.49.0", features = ["full"] }
 tower-http = { version = "0.6.8", features = ["cors", "trace"] }
-uuid = { version = "1.19.0", features = ["v4", "fast-rng"] }
+uuid = { version = "1.20.0", features = ["v4", "fast-rng"] }
 symbol_table = {version = "0.5.0", features = ["serde", "global"] }
-fake = { version = "2.10", features = ["derive", "chrono", "http", "uuid"] }
-rand = "0.8"
+fake = { version = "4.4.0", features = ["derive", "chrono", "http", "uuid"] }
+rand = "0.9.2"
+bytes = "1.11.0"
+chrono = {version = "0.4", features = ["serde"]}

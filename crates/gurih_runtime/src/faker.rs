@@ -8,7 +8,7 @@ use fake::faker::phone_number::en::PhoneNumber;
 use fake::{Fake, Faker};
 use gurih_ir::{FieldType, Schema, Symbol};
 use rand::Rng;
-use rand::seq::SliceRandom;
+use rand::prelude::IndexedRandom;
 use serde_json::{Map, Value};
 use std::collections::{HashMap, VecDeque};
 
@@ -90,7 +90,7 @@ impl FakerEngine {
 
                         let value = if let Some(fks) = foreign_keys.get(&field.name.to_string()) {
                             if !fks.is_empty() {
-                                let mut rng = rand::thread_rng();
+                                let mut rng = rand::rng();
                                 let id = fks.choose(&mut rng).unwrap();
                                 Value::String(id.clone())
                             } else {
@@ -113,7 +113,7 @@ impl FakerEngine {
                                 && let Some(fks) = foreign_keys.get(&field_name)
                                 && !fks.is_empty()
                             {
-                                let mut rng = rand::thread_rng();
+                                let mut rng = rand::rng();
                                 let id = fks.choose(&mut rng).unwrap();
                                 record.insert(field_name, Value::String(id.clone()));
                             }
@@ -225,7 +225,7 @@ impl FakerEngine {
             FieldType::Pk | FieldType::Serial => Value::Null,
             FieldType::Sku => Value::String(
                 (0..8)
-                    .map(|_| rand::thread_rng().sample(rand::distributions::Alphanumeric) as char)
+                    .map(|_| rand::rng().sample(rand::distr::Alphanumeric) as char)
                     .collect::<String>()
                     .to_uppercase(),
             ),
@@ -238,7 +238,7 @@ impl FakerEngine {
             FieldType::Money => {
                 // Store as integer cents usually? Or float?
                 // Prompt says "Money -> Random money amounts (as integers in cents)"
-                Value::Number(serde_json::Number::from(rand::thread_rng().gen_range(1000..100000)))
+                Value::Number(serde_json::Number::from(rand::rng().random_range(1000..100000)))
             }
             FieldType::Email => Value::String(FreeEmail().fake()),
             FieldType::Phone => Value::String(PhoneNumber().fake()),
@@ -252,14 +252,14 @@ impl FakerEngine {
                 if options.is_empty() {
                     Value::Null
                 } else {
-                    let mut rng = rand::thread_rng();
+                    let mut rng = rand::rng();
                     let opt = options.choose(&mut rng).unwrap();
                     Value::String(opt.to_string())
                 }
             }
-            FieldType::Integer => Value::Number(serde_json::Number::from(rand::thread_rng().gen_range(0..100))),
+            FieldType::Integer => Value::Number(serde_json::Number::from(rand::rng().random_range(0..100))),
             FieldType::Float => {
-                let v: f64 = rand::thread_rng().gen_range(0.0..100.0);
+                let v: f64 = rand::rng().random_range(0.0..100.0);
                 // Simple float to json number
                 serde_json::Number::from_f64(v)
                     .map(Value::Number)
@@ -284,10 +284,10 @@ impl FakerEngine {
             }
             FieldType::File => Value::String("https://placehold.co/file.pdf".to_string()),
             FieldType::Relation => Value::Null, // Should be handled by FK logic, but if not found...
-            FieldType::Boolean => Value::Bool(rand::thread_rng().gen_bool(0.5)),
+            FieldType::Boolean => Value::Bool(rand::rng().random_bool(0.5)),
             FieldType::Code => Value::String(
                 (0..8)
-                    .map(|_| rand::thread_rng().sample(rand::distributions::Alphanumeric) as char)
+                    .map(|_| rand::rng().sample(rand::distr::Alphanumeric) as char)
                     .collect::<String>(),
             ),
             FieldType::Custom(_) => Value::Null,
