@@ -1,4 +1,4 @@
-use gurih_ir::{BinaryOperator, DatabaseType, Expression, QueryJoin, Schema};
+use gurih_ir::{BinaryOperator, DatabaseType, Expression, QueryJoin, Schema, UnaryOperator};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -177,6 +177,13 @@ impl QueryEngine {
         match expr {
             Expression::Field(f) => format!("[{}]", f), // Naive, should probably be qualified if possible, but context is hard
             Expression::Literal(n) => n.to_string(),
+            Expression::BoolLiteral(b) => {
+                if *b {
+                    "TRUE".to_string()
+                } else {
+                    "FALSE".to_string()
+                }
+            }
             Expression::StringLiteral(s) => {
                 params.push(Value::String(s.clone()));
                 if *db_type == DatabaseType::Postgres {
@@ -192,12 +199,27 @@ impl QueryEngine {
                     .collect();
                 format!("{}({})", name, args_sql.join(", "))
             }
+            Expression::UnaryOp { op, expr } => {
+                let expr_sql = Self::expression_to_sql(expr, params, db_type);
+                match op {
+                    UnaryOperator::Not => format!("NOT ({})", expr_sql),
+                    UnaryOperator::Neg => format!("-({})", expr_sql),
+                }
+            }
             Expression::BinaryOp { left, op, right } => {
                 let op_str = match op {
                     BinaryOperator::Add => "+",
                     BinaryOperator::Sub => "-",
                     BinaryOperator::Mul => "*",
                     BinaryOperator::Div => "/",
+                    BinaryOperator::Eq => "=",
+                    BinaryOperator::Neq => "<>",
+                    BinaryOperator::Gt => ">",
+                    BinaryOperator::Lt => "<",
+                    BinaryOperator::Gte => ">=",
+                    BinaryOperator::Lte => "<=",
+                    BinaryOperator::And => "AND",
+                    BinaryOperator::Or => "OR",
                 };
                 format!(
                     "{} {} {}",
