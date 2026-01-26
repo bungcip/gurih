@@ -278,10 +278,7 @@ pub struct Transition {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransitionPrecondition {
-    Document(Symbol),
-    MinYearsOfService { years: u32, from_field: Option<Symbol> },
-    MinAge { age: u32, birth_date_field: Option<Symbol> },
-    ValidEffectiveDate(Symbol),
+    Assertion(Expression),
     BalancedTransaction,
     PeriodOpen { entity: Option<Symbol> },
 }

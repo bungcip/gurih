@@ -118,22 +118,40 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 .iter()
                 .map(|p| match p {
                     ast::TransitionPreconditionDef::Document { name, .. } => {
-                        TransitionPrecondition::Document(Symbol::from(name.as_str()))
+                        TransitionPrecondition::Assertion(gurih_ir::Expression::FunctionCall {
+                            name: Symbol::from("is_set"),
+                            args: vec![gurih_ir::Expression::Field(Symbol::from(name.as_str()))],
+                        })
                     }
                     ast::TransitionPreconditionDef::MinYearsOfService { years, from_field, .. } => {
-                        TransitionPrecondition::MinYearsOfService {
-                            years: *years,
-                            from_field: Some(Symbol::from(from_field.as_deref().unwrap_or("join_date"))),
-                        }
+                        TransitionPrecondition::Assertion(gurih_ir::Expression::BinaryOp {
+                            left: Box::new(gurih_ir::Expression::FunctionCall {
+                                name: Symbol::from("years_of_service"),
+                                args: vec![gurih_ir::Expression::Field(Symbol::from(
+                                    from_field.as_deref().unwrap_or("join_date"),
+                                ))],
+                            }),
+                            op: gurih_ir::BinaryOperator::Gte,
+                            right: Box::new(gurih_ir::Expression::Literal(*years as f64)),
+                        })
                     }
                     ast::TransitionPreconditionDef::MinAge {
                         age, birth_date_field, ..
-                    } => TransitionPrecondition::MinAge {
-                        age: *age,
-                        birth_date_field: Some(Symbol::from(birth_date_field.as_deref().unwrap_or("birth_date"))),
-                    },
+                    } => TransitionPrecondition::Assertion(gurih_ir::Expression::BinaryOp {
+                        left: Box::new(gurih_ir::Expression::FunctionCall {
+                            name: Symbol::from("age"),
+                            args: vec![gurih_ir::Expression::Field(Symbol::from(
+                                birth_date_field.as_deref().unwrap_or("birth_date"),
+                            ))],
+                        }),
+                        op: gurih_ir::BinaryOperator::Gte,
+                        right: Box::new(gurih_ir::Expression::Literal(*age as f64)),
+                    }),
                     ast::TransitionPreconditionDef::ValidEffectiveDate { field, .. } => {
-                        TransitionPrecondition::ValidEffectiveDate(Symbol::from(field.as_str()))
+                        TransitionPrecondition::Assertion(gurih_ir::Expression::FunctionCall {
+                            name: Symbol::from("valid_date"),
+                            args: vec![gurih_ir::Expression::Field(Symbol::from(field.as_str()))],
+                        })
                     }
                     ast::TransitionPreconditionDef::BalancedTransaction { .. } => {
                         TransitionPrecondition::BalancedTransaction
