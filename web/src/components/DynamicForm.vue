@@ -157,7 +157,7 @@ onMounted(() => {
         <form v-else @submit.prevent="save" class="flex-1 flex flex-col gap-6 overflow-hidden">
             <!-- Header Card with Integrated Tabs -->
             <div class="card p-0 flex-1 flex flex-col overflow-hidden">
-                <div class="p-6 pb-0 border-b border-gray-100">
+                <div class="p-6 pb-0 border-b border-gray-100 dark:border-gray-700">
                     <div class="flex items-center gap-4 mb-6">
                          <h2 class="text-xl font-bold text-text-main">{{ schema.name }} Form</h2>
                     </div>
@@ -170,7 +170,7 @@ onMounted(() => {
                 </div>
             
                 <!-- Content Area -->
-                <div class="flex-1 overflow-y-auto min-h-0 bg-white p-6 relative z-0">
+                <div class="flex-1 overflow-y-auto min-h-0 bg-[--color-surface] p-6 relative z-0">
                     <div v-for="(section, index) in schema.layout" :key="section.title">
                         <div v-if="activeTab === index" class="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         
@@ -179,7 +179,7 @@ onMounted(() => {
                         
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
                             <div v-for="field in section.fields" :key="field.name">
-                                <label :for="field.name" class="block text-[13px] font-medium text-gray-500 mb-2">
+                                <label :for="field.name" class="block text-[13px] font-medium text-text-muted mb-2">
                                     {{ field.label }} 
                                     <span v-if="field.required" class="text-red-500">*</span>
                                 </label>
@@ -280,7 +280,7 @@ onMounted(() => {
 
 
             <!-- Sticky Footer -->
-            <div class="p-4 px-6 border-t border-border bg-white flex justify-end gap-3 shrink-0">
+            <div class="p-4 px-6 border-t border-border bg-[--color-surface] flex justify-end gap-3 shrink-0">
                 <Button type="button" variant="outline" @click="$emit('cancel')">
                     Cancel
                 </Button>

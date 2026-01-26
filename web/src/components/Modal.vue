@@ -49,7 +49,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape))
                 leave-from-class="opacity-100"
                 leave-to-class="opacity-0"
             >
-                <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="$emit('close')"></div>
+                <div class="absolute inset-0 bg-black/40 dark:bg-black/70 backdrop-blur-sm" @click="$emit('close')"></div>
             </transition>
             
             <!-- Modal Container -->
@@ -62,17 +62,17 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape))
                 leave-to-class="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
             >
                 <div 
-                    class="relative bg-white rounded-2xl shadow-2xl w-full flex flex-col max-h-[90vh] overflow-hidden"
+                    class="relative bg-[--color-surface] rounded-2xl shadow-2xl w-full flex flex-col max-h-[90vh] overflow-hidden"
                     :class="sizes[size]"
                 >
                     <!-- Header -->
-                    <div v-if="title || $slots.header" class="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
+                    <div v-if="title || $slots.header" class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between shrink-0">
                         <slot name="header">
-                            <h3 class="text-lg font-bold text-gray-900">{{ title }}</h3>
+                            <h3 class="text-lg font-bold text-text-main">{{ title }}</h3>
                         </slot>
                         <button 
                             @click="$emit('close')"
-                            class="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                            class="text-text-muted hover:text-text-main p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -86,7 +86,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape))
                     </div>
 
                     <!-- Footer -->
-                    <div v-if="$slots.footer" class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3 shrink-0">
+                    <div v-if="$slots.footer" class="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-3 shrink-0">
                         <slot name="footer"></slot>
                     </div>
                 </div>

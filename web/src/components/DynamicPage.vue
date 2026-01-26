@@ -202,9 +202,9 @@ onMounted(() => {
 
             <!-- Table/List Layout (Standard Card Look) -->
             <template v-else>
-                <div class="card overflow-hidden bg-white flex-1 flex flex-col min-h-0">
+                <div class="card overflow-hidden bg-[--color-surface] flex-1 flex flex-col min-h-0">
                     <!-- Page Header -->
-                    <div class="p-6 px-8 border-b border-border bg-white flex justify-between items-center shrink-0">
+                    <div class="p-6 px-8 border-b border-border bg-[--color-surface] flex justify-between items-center shrink-0">
                         <div>
                             <div class="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1">{{ props.entity }}</div>
                             <h2 class="text-xl font-bold text-text-main">{{ config.title || config.name }}</h2>
@@ -223,7 +223,7 @@ onMounted(() => {
                         </div>
                     </div>
 
-                    <div class="flex-1 overflow-auto bg-white">
+                    <div class="flex-1 overflow-auto bg-[--color-surface]">
                         <!-- Table View -->
                         <template v-if="config.layout === 'TableView'">
                             <DataTable

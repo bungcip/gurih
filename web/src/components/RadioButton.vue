@@ -36,10 +36,10 @@ defineEmits(['update:modelValue'])
             :value="option.value"
             :checked="modelValue === option.value"
             @change="$emit('update:modelValue', option.value)"
-            class="peer appearance-none w-5 h-5 border-2 border-gray-300 rounded-full checked:border-primary checked:border-[5px] transition-all bg-white"
+            class="peer appearance-none w-5 h-5 border-2 border-gray-300 dark:border-gray-600 rounded-full checked:border-primary checked:border-[5px] transition-all bg-white dark:bg-gray-800"
         >
       </div>
-      <span class="text-sm text-gray-700 group-hover:text-gray-900">{{ option.label }}</span>
+      <span class="text-sm text-text-main group-hover:text-black dark:group-hover:text-white">{{ option.label }}</span>
     </label>
   </div>
 </template>

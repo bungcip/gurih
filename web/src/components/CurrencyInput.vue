@@ -80,12 +80,12 @@ onMounted(() => {
 <template>
   <div class="w-full">
     <!-- Label is handled by parent usually if this is part of dynamic form, but it has internal label prop too -->
-    <label v-if="label" :for="id" class="block text-sm font-medium text-gray-700 mb-1">
+    <label v-if="label" :for="id" class="block text-sm font-medium text-text-muted mb-1">
       {{ label }}
     </label>
     <div class="relative flex items-center">
       <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-        <span class="text-gray-500 sm:text-sm font-medium">{{ prefix }}</span>
+        <span class="text-text-muted sm:text-sm font-medium">{{ prefix }}</span>
       </div>
       <input
         :id="id"
@@ -96,7 +96,7 @@ onMounted(() => {
         :placeholder="placeholder"
         :disabled="disabled"
         class="input-field block w-full pl-12 sm:text-sm"
-        :class="{ 'bg-gray-100 cursor-not-allowed text-gray-400': disabled }"
+        :class="{ 'bg-[--color-background] cursor-not-allowed text-text-muted': disabled }"
         style="padding-left: 3rem !important;"
       />
     </div>

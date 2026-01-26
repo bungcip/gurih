@@ -36,7 +36,7 @@ function togglePassword() {
 
 <template>
     <div class="w-full">
-        <label v-if="label" :for="id" class="block text-sm font-medium text-gray-700 mb-1">
+        <label v-if="label" :for="id" class="block text-sm font-medium text-text-muted mb-1">
             {{ label }}
         </label>
         <div class="relative">
@@ -48,12 +48,12 @@ function togglePassword() {
                 :placeholder="placeholder"
                 :disabled="disabled"
                 class="input-field pr-10"
-                :class="{ 'bg-gray-100 cursor-not-allowed text-gray-400': disabled }"
+                :class="{ 'bg-[--color-background] cursor-not-allowed text-text-muted': disabled }"
             />
             <button
                 type="button"
                 @click="togglePassword"
-                class="absolute inset-y-0 right-0 max-h-full flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded-md"
+                class="absolute inset-y-0 right-0 max-h-full flex items-center pr-3 text-text-muted hover:text-text-main focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded-md"
                 :disabled="disabled"
                 :class="{ 'cursor-not-allowed opacity-50': disabled }"
                 :aria-label="showPassword ? 'Hide password' : 'Show password'"

@@ -71,7 +71,7 @@ const statWidgets = computed(() => {
             <p class="text-text-muted mt-1">Welcome back! Here's what's happening today.</p>
         </div>
         <div class="flex gap-2">
-            <button @click="fetchDashboardData" class="p-2 text-text-muted hover:text-primary transition-colors rounded-lg hover:bg-white" title="Refresh">
+            <button @click="fetchDashboardData" class="p-2 text-text-muted hover:text-primary transition-colors rounded-lg hover:bg-white dark:hover:bg-gray-800" title="Refresh">
                 <Icon name="lucide:clock" :size="20" :class="{ 'animate-spin': loading }" />
             </button>
         </div>
@@ -82,13 +82,13 @@ const statWidgets = computed(() => {
         <div 
             v-for="widget in statWidgets"
             :key="widget.label"
-            class="card p-6 flex items-start justify-between hover:shadow-lg transition-all border-none shadow-sm bg-white"
+            class="card p-6 flex items-start justify-between hover:shadow-lg transition-all border-none shadow-sm bg-[--color-surface]"
         >
             <div class="space-y-1">
                 <p class="text-sm font-medium text-text-muted uppercase tracking-wider">{{ widget.label }}</p>
                 <div class="flex items-baseline gap-2">
                     <h3 class="text-3xl font-bold text-text-main tabular-nums">{{ widget.resolvedValue }}</h3>
-                    <span class="text-xs font-medium text-green-600 flex items-center bg-green-50 px-1.5 py-0.5 rounded">+12%</span>
+                    <span class="text-xs font-medium text-green-600 dark:text-green-400 flex items-center bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded">+12%</span>
                 </div>
             </div>
             <div :class="['p-3 rounded-2xl', getStatColor(widget.color)]">
@@ -100,15 +100,15 @@ const statWidgets = computed(() => {
     <!-- Main Content Area -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Recent Activity -->
-        <div class="lg:col-span-2 card p-6 bg-white border-none shadow-sm flex flex-col">
+        <div class="lg:col-span-2 card p-6 bg-[--color-surface] border-none shadow-sm flex flex-col">
             <h3 class="text-lg font-bold text-text-main mb-6">Recent Activity</h3>
             <div class="space-y-6">
                 <div v-for="item in dashboardData?.recentActivity" :key="item.id" class="flex gap-4 group cursor-default">
                     <div class="relative">
-                        <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-sm shrink-0 uppercase">
+                        <div class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 dark:text-gray-400 font-bold text-sm shrink-0 uppercase">
                             {{ item.user.charAt(0) }}
                         </div>
-                        <div v-if="item.id !== dashboardData.recentActivity.length" class="absolute top-10 left-1/2 -translate-x-1/2 w-0.5 h-6 bg-gray-100"></div>
+                        <div v-if="item.id !== dashboardData.recentActivity.length" class="absolute top-10 left-1/2 -translate-x-1/2 w-0.5 h-6 bg-gray-100 dark:bg-gray-800"></div>
                     </div>
                     <div class="flex-1 pb-2">
                         <div class="flex items-center justify-between mb-0.5">
@@ -126,7 +126,7 @@ const statWidgets = computed(() => {
         </div>
 
         <!-- Distribution Chart Placeholder -->
-        <div class="card p-6 bg-white border-none shadow-sm">
+        <div class="card p-6 bg-[--color-surface] border-none shadow-sm">
              <h3 class="text-lg font-bold text-text-main mb-6">Employee Distribution</h3>
              <div class="aspect-square flex flex-col items-center justify-center relative">
                  <!-- Simple Circle CSS Chart -->
