@@ -105,10 +105,7 @@ impl WorkflowEngine {
                     )));
                 }
             }
-            TransitionPrecondition::MinAge {
-                age,
-                birth_date_field,
-            } => {
+            TransitionPrecondition::MinAge { age, birth_date_field } => {
                 let field_name = birth_date_field.as_ref().map(|s| s.as_str()).ok_or_else(|| {
                     RuntimeError::WorkflowError(
                         "MinAge precondition missing 'birth_date_field' configuration".to_string(),

@@ -79,10 +79,7 @@ impl ActionEngine {
             }
             // Add update, create later if needed by IR
             _ => {
-                println!(
-                    "Step type {:?} not yet implemented in ActionEngine",
-                    step.step_type
-                );
+                println!("Step type {:?} not yet implemented in ActionEngine", step.step_type);
             }
         }
 
