@@ -73,8 +73,8 @@ onUnmounted(() => {
       @click="toggle"
       @keydown.enter.prevent="toggle"
       @keydown.space.prevent="toggle"
-      class="input-field flex items-center justify-between cursor-pointer bg-white"
-      :class="{'text-gray-500': !isSelected, 'border-primary ring-1 ring-primary/20': isOpen}"
+      class="input-field flex items-center justify-between cursor-pointer bg-[--color-surface]"
+      :class="{'text-text-muted': !isSelected, 'border-primary ring-1 ring-primary/20': isOpen}"
       tabindex="0"
       role="combobox"
       :aria-expanded="isOpen"
@@ -82,7 +82,7 @@ onUnmounted(() => {
     >
       <span class="truncate block">{{ selectedLabel }}</span>
       <svg 
-        class="w-4 h-4 text-gray-400 transition-transform duration-200"
+        class="w-4 h-4 text-text-muted transition-transform duration-200"
         :class="{'rotate-180': isOpen}"
         fill="none" 
         stroke="currentColor" 
@@ -102,12 +102,12 @@ onUnmounted(() => {
     >
       <div 
         v-if="isOpen" 
-        class="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto py-1 focus:outline-none"
+        class="absolute z-50 mt-1 w-full bg-[--color-surface] border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto py-1 focus:outline-none"
         role="listbox"
       >
         <div 
             v-if="options.length === 0" 
-            class="px-4 py-2 text-sm text-gray-500"
+            class="px-4 py-2 text-sm text-text-muted"
             role="option"
             aria-disabled="true"
         >
@@ -119,8 +119,8 @@ onUnmounted(() => {
           @click="select(option)"
           @keydown.enter.prevent="select(option)"
           @keydown.space.prevent="select(option)"
-          class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary cursor-pointer flex items-center justify-between group"
-          :class="{'bg-blue-50 text-blue-600 font-medium': option.value === modelValue}"
+          class="px-4 py-2 text-sm text-text-main hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary cursor-pointer flex items-center justify-between group"
+          :class="{'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 font-medium': option.value === modelValue}"
           role="option"
           :aria-selected="option.value === modelValue"
           tabindex="0"

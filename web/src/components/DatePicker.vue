@@ -66,8 +66,8 @@ function showPicker() {
         >
         <!-- Icon Wrapper: Opaque background to cover native icon, clickable to trigger picker -->
         <div 
-            class="absolute inset-y-0 right-0 flex items-center pr-3 z-10 cursor-pointer text-gray-400 hover:text-gray-600"
-            :class="{'bg-[#f1f5f9] cursor-not-allowed': $attrs.disabled, 'bg-white': !$attrs.disabled}"
+            class="absolute inset-y-0 right-0 flex items-center pr-3 z-10 cursor-pointer text-text-muted hover:text-text-main"
+            :class="{'bg-[--color-background] cursor-not-allowed': $attrs.disabled, 'bg-[--color-surface]': !$attrs.disabled}"
             style="margin: 1px; border-top-right-radius: 7px; border-bottom-right-radius: 7px; padding-left: 0.5rem;"
             @click="showPicker"
         >
@@ -80,14 +80,14 @@ function showPicker() {
       <button 
         type="button" 
         @click="setToday"
-        class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition"
+        class="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded transition"
       >
         Today
       </button>
       <button 
         type="button" 
         @click="setLastWeek"
-        class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition"
+        class="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded transition"
       >
         Last Week
       </button>

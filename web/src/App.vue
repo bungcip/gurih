@@ -152,14 +152,14 @@ onMounted(() => {
 
   <div v-else class="flex h-screen w-full bg-background overflow-hidden">
     <!-- Sidebar -->
-    <aside class="w-64 bg-white border-r border-border flex flex-col hidden md:flex">
+    <aside class="w-64 bg-surface border-r border-border flex flex-col hidden md:flex">
         <div class="p-6 text-xl font-bold text-text-main flex items-center gap-2">
             <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm">G</div>
             GurihERP
         </div>
         <nav class="flex-1 overflow-y-auto px-4 py-2 space-y-6">
             <div>
-                <a href="#/kitchen-sink" class="block w-full text-left px-3 py-2 text-gray-400 hover:text-primary text-xs uppercase font-bold">Kitchen Sink</a>
+                <a href="#/kitchen-sink" class="block w-full text-left px-3 py-2 text-text-muted hover:text-primary text-xs uppercase font-bold">Kitchen Sink</a>
             </div>
             <div v-for="module in menu" :key="module.label">
                 <div class="px-3 text-[10px] font-bold uppercase tracking-wider text-text-muted mb-2">{{ module.label }}</div>
@@ -180,7 +180,7 @@ onMounted(() => {
 
     <!-- Main Content -->
     <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header class="h-16 bg-white border-b border-border flex items-center justify-between px-8 shrink-0">
+        <header class="h-16 bg-surface border-b border-border flex items-center justify-between px-8 shrink-0">
              <div class="flex items-center gap-4">
                  <h1 v-if="currentEntity" class="text-lg font-semibold text-text-main">{{ currentEntity }}</h1>
                  <h1 v-else class="text-lg font-semibold text-text-main">Dashboard</h1>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import Button from './Button.vue'
 import SelectInput from './SelectInput.vue'
 import DatePicker from './DatePicker.vue'
@@ -18,6 +18,22 @@ import DescriptionList from './DescriptionList.vue'
 import ActionCard from './ActionCard.vue'
 import Alert from './Alert.vue'
 import { inject } from 'vue'
+
+const isDarkMode = ref(false)
+
+watch(isDarkMode, (val) => {
+  if (val) {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
+})
+
+onMounted(() => {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        isDarkMode.value = true
+    }
+})
 
 const selectValue = ref(null)
 const dateValue = ref('')
@@ -165,8 +181,13 @@ function toggleLoading() {
 
 <template>
     <div class="p-8 max-w-4xl mx-auto space-y-8">
-        <h1 class="text-3xl font-bold text-gray-800">Kitchen Sink</h1>
-        <p class="text-gray-500">Component demonstration and test ground.</p>
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-text-main">Kitchen Sink</h1>
+                <p class="text-text-muted">Component demonstration and test ground.</p>
+            </div>
+            <Switch v-model="isDarkMode" label="Dark Mode" />
+        </div>
 
         <!-- Buttons -->
         <section class="card p-6 space-y-4">
@@ -181,7 +202,7 @@ function toggleLoading() {
                 <Button variant="primary" disabled>Disabled</Button>
             </div>
             
-            <div class="flex flex-wrap gap-4 pt-4 border-t border-gray-100">
+            <div class="flex flex-wrap gap-4 pt-4 border-t border-gray-100 dark:border-gray-700">
                 <Button variant="primary" icon="lucide:plus">Add Item</Button>
                 <Button variant="outline" icon="lucide:settings">Settings</Button>
                 <Button variant="danger" icon="lucide:trash-2" iconPosition="right">Delete</Button>
@@ -195,37 +216,37 @@ function toggleLoading() {
             <h2 class="text-xl font-semibold">Inputs</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Standard Input</label>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Standard Input</label>
                     <input type="text" class="input-field" placeholder="Type something...">
                 </div>
                 <div>
-                     <label class="block text-sm font-medium text-gray-700 mb-1">Select Input (New)</label>
+                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Input (New)</label>
                      <SelectInput 
                         v-model="selectValue" 
                         :options="options" 
                         placeholder="Choose an option"
                      />
-                     <div class="mt-1 text-xs text-gray-500">Selected Value: {{ selectValue }}</div>
+                     <div class="mt-1 text-xs text-text-muted">Selected Value: {{ selectValue }}</div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Date Picker (New)</label>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date Picker (New)</label>
                     <DatePicker v-model="dateValue" />
-                    <div class="mt-1 text-xs text-gray-500">Selected Date: {{ dateValue }}</div>
+                    <div class="mt-1 text-xs text-text-muted">Selected Date: {{ dateValue }}</div>
                 </div>
                 <div>
-                     <label class="block text-sm font-medium text-gray-700 mb-1">Password Input (New)</label>
+                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password Input (New)</label>
                      <Password v-model="passwordValue" placeholder="Enter password" />
                      <div class="mt-2">
                         <Password v-model="passwordValue" placeholder="Disabled password" disabled />
                      </div>
                 </div>
                 <div>
-                     <label class="block text-sm font-medium text-gray-700 mb-1">Disabled Input</label>
+                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Disabled Input</label>
                      <input type="text" class="input-field" placeholder="Disabled input..." disabled>
                 </div>
                 <div>
                      <CurrencyInput v-model="amountValue" label="Currency Input (New)" />
-                     <div class="mt-1 text-xs text-gray-500">Raw Numeric Value: {{ amountValue }}</div>
+                     <div class="mt-1 text-xs text-text-muted">Raw Numeric Value: {{ amountValue }}</div>
                 </div>
             </div>
         </section>
@@ -254,7 +275,7 @@ function toggleLoading() {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <Alert variant="info" title="Loading State" loading />
                      <Alert v-if="showAlert" variant="success" title="Closable Alert" description="Click the X to dismiss me." closable @close="showAlert = false" />
-                     <div v-else class="h-full min-h-[60px] flex items-center justify-center bg-gray-50 border border-dashed rounded text-sm text-gray-500">
+                     <div v-else class="h-full min-h-[60px] flex items-center justify-center bg-gray-50 dark:bg-gray-800 border border-dashed rounded text-sm text-text-muted">
                         <Button size="sm" variant="ghost-primary" @click="showAlert = true">Reset Alert</Button>
                      </div>
                 </div>
@@ -287,8 +308,8 @@ function toggleLoading() {
                 @close="isModalOpen = false"
             >
                 <div class="space-y-4">
-                    <p class="text-gray-600">This is a generic modal component that can hold any content. It's built with Teleport and smooth transitions.</p>
-                    <div class="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                    <p class="text-text-muted">This is a generic modal component that can hold any content. It's built with Teleport and smooth transitions.</p>
+                    <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700">
                         <p class="text-sm">You can put forms, tables, or any other components inside here.</p>
                     </div>
                 </div>
@@ -333,15 +354,15 @@ function toggleLoading() {
             <h2 class="text-xl font-semibold">Selection Controls</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="space-y-3">
-                    <label class="block text-sm font-medium text-gray-700">Radio Buttons</label>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Radio Buttons</label>
                     <RadioButton 
                         v-model="radioValue" 
                         :options="options" 
                     />
-                    <div class="mt-1 text-xs text-gray-500">Selected Radio: {{ radioValue }}</div>
+                    <div class="mt-1 text-xs text-text-muted">Selected Radio: {{ radioValue }}</div>
                     
                     <div class="pt-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Vertical Radio</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Vertical Radio</label>
                         <RadioButton 
                             v-model="radioValue" 
                             :options="options" 
@@ -351,13 +372,13 @@ function toggleLoading() {
                 </div>
                 
                 <div class="space-y-3">
-                    <label class="block text-sm font-medium text-gray-700">Switches</label>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Switches</label>
                     <div class="flex flex-col gap-4">
                         <Switch v-model="switchValue" label="Toggle me" />
                         <Switch :modelValue="true" label="Always On" />
                         <Switch :modelValue="false" label="Always Off" />
                     </div>
-                    <div class="mt-1 text-xs text-gray-500">Switch State: {{ switchValue }}</div>
+                    <div class="mt-1 text-xs text-text-muted">Switch State: {{ switchValue }}</div>
                 </div>
             </div>
         </section>
@@ -366,7 +387,7 @@ function toggleLoading() {
         <section class="card p-6 space-y-4">
             <h2 class="text-xl font-semibold">Tabs</h2>
             <Tabs v-model="activeTab" :items="tabItems" />
-            <div class="p-4 bg-gray-50 rounded border border-gray-200 mt-0">
+            <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 mt-0">
                 <div v-if="activeTab === 0">Account Settings Content</div>
                 <div v-if="activeTab === 1">Password Change Content</div>
                 <div v-if="activeTab === 2">Notification Preferences Content</div>
@@ -378,7 +399,7 @@ function toggleLoading() {
              <h2 class="text-xl font-semibold">Card & Typography</h2>
              <p class="text-text-main">This is main text color.</p>
              <p class="text-text-muted">This is muted text color.</p>
-             <div class="p-4 bg-gray-50 rounded border border-gray-200">
+             <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
                  Panel content
              </div>
         </section>
@@ -444,15 +465,15 @@ function toggleLoading() {
             <h2 class="text-xl font-semibold">Timeline & History</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div>
-                    <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Standard History</h3>
+                    <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Standard History</h3>
                     <Timeline :items="timelineItems" />
                 </div>
                 <div>
-                    <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Loading State</h3>
+                    <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Loading State</h3>
                     <Timeline loading />
                 </div>
                  <div>
-                    <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Empty State</h3>
+                    <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Empty State</h3>
                     <Timeline :items="[]" emptyText="No activity logs found." />
                 </div>
             </div>
@@ -464,24 +485,24 @@ function toggleLoading() {
             <div class="space-y-8">
                 <!-- Standard Horizontal -->
                 <div>
-                     <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Horizontal Process (Current: Review)</h3>
+                     <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Horizontal Process (Current: Review)</h3>
                      <Steps :items="stepsItems" :current="1" />
                 </div>
 
                  <!-- Clickable -->
                 <div>
-                     <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Interactive (Click to change)</h3>
+                     <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Interactive (Click to change)</h3>
                      <Steps :items="stepsItems" :current="clickableStep" clickable @change="clickableStep = $event" />
                 </div>
 
                 <!-- Vertical & Loading -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
-                         <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Vertical</h3>
+                         <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Vertical</h3>
                          <Steps :items="stepsItems.slice(0, 3)" :current="1" vertical />
                     </div>
                      <div>
-                         <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Loading / Empty</h3>
+                         <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Loading / Empty</h3>
                          <div class="space-y-8">
                             <Steps loading />
                             <Steps :items="[]" />
@@ -531,7 +552,7 @@ function toggleLoading() {
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <!-- Example 1: Employee Profile (2 Cols) -->
                 <div>
-                    <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Entity Details (2 Cols)</h3>
+                    <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Entity Details (2 Cols)</h3>
                     <DescriptionList
                         title="Employee Profile"
                         :items="employeeDetails"
@@ -546,7 +567,7 @@ function toggleLoading() {
                 <div class="space-y-8">
                     <!-- Example 2: System Info (1 Col) -->
                     <div>
-                        <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">Simple List (1 Col)</h3>
+                        <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Simple List (1 Col)</h3>
                         <DescriptionList
                             title="System Info"
                             :items="systemInfo"
@@ -555,7 +576,7 @@ function toggleLoading() {
 
                     <!-- Example 3: States -->
                     <div>
-                         <h3 class="text-sm font-medium text-gray-500 mb-4 uppercase tracking-wider">States (Loading / Empty / Error)</h3>
+                         <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">States (Loading / Empty / Error)</h3>
                          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                              <DescriptionList
                                 :loading="true"

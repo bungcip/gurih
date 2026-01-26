@@ -33,17 +33,17 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const variantStyles = {
-  info: 'bg-blue-50 text-blue-800 border-blue-200',
-  success: 'bg-green-50 text-green-800 border-green-200',
-  warning: 'bg-yellow-50 text-yellow-800 border-yellow-200',
-  danger: 'bg-red-50 text-red-800 border-red-200'
+  info: 'bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-200 dark:border-blue-800',
+  success: 'bg-green-50 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-200 dark:border-green-800',
+  warning: 'bg-yellow-50 text-yellow-800 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800',
+  danger: 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800'
 }
 
 const iconColors = {
-  info: 'text-blue-500',
-  success: 'text-green-500',
-  warning: 'text-yellow-500',
-  danger: 'text-red-500'
+  info: 'text-blue-500 dark:text-blue-400',
+  success: 'text-green-500 dark:text-green-400',
+  warning: 'text-yellow-500 dark:text-yellow-400',
+  danger: 'text-red-500 dark:text-red-400'
 }
 
 const defaultIcons = {
@@ -100,7 +100,7 @@ const resolvedIcon = computed(() => {
       <div v-if="closable" class="flex-shrink-0 -mr-1 -mt-1 ml-auto pl-3">
         <button
           type="button"
-          class="inline-flex rounded-md p-1.5 hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-current focus:ring-current transition-colors"
+          class="inline-flex rounded-md p-1.5 hover:bg-black/5 dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-current focus:ring-current transition-colors"
           @click="$emit('close')"
           aria-label="Dismiss"
         >

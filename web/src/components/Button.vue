@@ -48,13 +48,13 @@ const classes = computed(() => {
   }
 
   const variants = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 shadow-sm',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm border-red-700',
-    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200 focus:ring-gray-500',
-    outline: 'border border-gray-200 text-gray-700 hover:bg-gray-50 focus:ring-gray-500',
-    ghost: 'bg-transparent hover:bg-gray-100 text-gray-700',
-    'ghost-primary': 'text-blue-600 hover:bg-blue-50 focus:ring-blue-500 bg-transparent',
-    'ghost-danger': 'text-red-500 hover:bg-red-50 focus:ring-red-500 bg-transparent'
+    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 shadow-sm dark:bg-blue-700 dark:hover:bg-blue-600',
+    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm border-red-700 dark:bg-red-700 dark:hover:bg-red-600',
+    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200 focus:ring-gray-500 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600',
+    outline: 'border border-gray-200 text-gray-700 hover:bg-gray-50 focus:ring-gray-500 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800',
+    ghost: 'bg-transparent hover:bg-gray-100 text-gray-700 dark:text-gray-300 dark:hover:bg-gray-800',
+    'ghost-primary': 'text-blue-600 hover:bg-blue-50 focus:ring-blue-500 bg-transparent dark:text-blue-400 dark:hover:bg-blue-900/20',
+    'ghost-danger': 'text-red-500 hover:bg-red-50 focus:ring-red-500 bg-transparent dark:text-red-400 dark:hover:bg-red-900/20'
   }
 
   return [base, sizes[props.size], variants[props.variant]]
