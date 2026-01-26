@@ -1,5 +1,5 @@
 use gurih_dsl::compile;
-use gurih_ir::{Symbol, TransitionEffect, TransitionPrecondition};
+use gurih_ir::{Symbol, TransitionEffect, TransitionPrecondition, Expression};
 
 #[test]
 fn test_employee_status_dsl() {
@@ -41,9 +41,17 @@ fn test_employee_status_dsl() {
         .find(|t| t.from == Symbol::from("Draft") && t.to == Symbol::from("Published"))
         .expect("Transition missing");
 
-    assert!(
-        matches!(trans.preconditions[0], TransitionPrecondition::Document(ref s) if s.as_str() == "approval_letter")
-    );
+    match &trans.preconditions[0] {
+        TransitionPrecondition::Assertion(Expression::FunctionCall { name, args }) => {
+             assert_eq!(name.as_str(), "is_set");
+             match &args[0] {
+                 Expression::Field(s) => assert_eq!(s.as_str(), "approval_letter"),
+                 _ => panic!("Expected field arg"),
+             }
+        }
+        _ => panic!("Expected Assertion(is_set)"),
+    }
+
     assert!(
         matches!(trans.effects[0], TransitionEffect::UpdateField { ref field, ref value } if field.as_str() == "is_visible" && value == "true")
     );

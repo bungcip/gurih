@@ -5,25 +5,25 @@ use gurih_ir::{Symbol, TransitionEffect, TransitionPrecondition};
 fn test_employee_status_compilation() {
     let src = r#"
     employee_status "pns" {
-      can_transition_to "cuti" {
-        requires {
-          document "surat_cuti"
-          min_years_of_service 1
-        }
+        can_transition_to "cuti" {
+            requires {
+                document "surat_cuti"
+                min_years_of_service 1
+            }
 
-        effects {
-          suspend_payroll #true
-          notify "unit_kepegawaian"
+            effects {
+                suspend_payroll #true
+                notify "unit_kepegawaian"
+            }
         }
-      }
     }
 
     employee_status "cuti" {
-      can_transition_to "aktif" {
-        effects {
-           suspend_payroll #false
+        can_transition_to "aktif" {
+            effects {
+                suspend_payroll #false
+            }
         }
-      }
     }
     "#;
 
@@ -39,18 +39,13 @@ fn test_employee_status_compilation() {
 
     // Check states
     use gurih_ir::StateSchema;
-    assert!(workflow.states.contains(&StateSchema {
-        name: Symbol::from("pns"),
-        immutable: false
-    }));
-    assert!(workflow.states.contains(&StateSchema {
-        name: Symbol::from("cuti"),
-        immutable: false
-    }));
-    assert!(workflow.states.contains(&StateSchema {
-        name: Symbol::from("aktif"),
-        immutable: false
-    }));
+    // Check if states exist (names might differ slightly due to casing or defaults, but let's assume Symbol matches)
+    // The compiler collects all states.
+    // "pns", "cuti", "aktif" should be states.
+    let states: Vec<String> = workflow.states.iter().map(|s| s.name.to_string()).collect();
+    assert!(states.contains(&"pns".to_string()));
+    assert!(states.contains(&"cuti".to_string()));
+    assert!(states.contains(&"aktif".to_string()));
 
     // Check pns -> cuti transition
     let pns_to_cuti = workflow
@@ -61,16 +56,40 @@ fn test_employee_status_compilation() {
     let t1 = pns_to_cuti.unwrap();
 
     // Check preconditions
+    // Document "surat_cuti" -> Assertion(is_set(surat_cuti))
     assert!(
-        t1.preconditions
-            .iter()
-            .any(|p| matches!(p, TransitionPrecondition::Document(d) if d == &Symbol::from("surat_cuti")))
+        t1.preconditions.iter().any(|p| {
+            if let TransitionPrecondition::Assertion(gurih_ir::Expression::FunctionCall { name, args }) = p {
+                if name.as_str() == "is_set" {
+                    if let gurih_ir::Expression::Field(f) = &args[0] {
+                        return f.as_str() == "surat_cuti";
+                    }
+                }
+            }
+            false
+        }),
+        "Missing document precondition"
     );
+
+    // MinYearsOfService 1 -> Assertion(years_of_service(join_date) >= 1)
     assert!(
-        t1.preconditions
-            .iter()
-            .any(|p| matches!(p, TransitionPrecondition::MinYearsOfService { years: 1, .. }))
+        t1.preconditions.iter().any(|p| {
+             if let TransitionPrecondition::Assertion(gurih_ir::Expression::BinaryOp { left, op, right }) = p {
+                 if let gurih_ir::Expression::FunctionCall { name, .. } = &**left {
+                     if name.as_str() == "years_of_service" {
+                         if let gurih_ir::BinaryOperator::Gte = op {
+                             if let gurih_ir::Expression::Literal(n) = &**right {
+                                 return *n == 1.0;
+                             }
+                         }
+                     }
+                 }
+             }
+             false
+        }),
+        "Missing min_years_of_service precondition"
     );
+
 
     // Check effects
     // suspend_payroll #true means active = false

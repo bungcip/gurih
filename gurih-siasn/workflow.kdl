@@ -8,7 +8,7 @@ employee_status "CPNS" for="Pegawai" field="status_pegawai" {
              document "sk_pns"
         }
         effects {
-             update_rank_eligibility true
+             update_rank_eligibility #true
              notify "unit_kepegawaian"
         }
     }
@@ -20,7 +20,7 @@ employee_status "PNS" for="Pegawai" field="status_pegawai" {
              min_age 58 from="tanggal_lahir"
         }
         effects {
-             suspend_payroll true
+             suspend_payroll #true
              notify "taspen"
         }
     }
@@ -30,7 +30,7 @@ employee_status "PNS" for="Pegawai" field="status_pegawai" {
             document "surat_cuti"
         }
         effects {
-            suspend_payroll true
+            suspend_payroll #true
         }
     }
 
@@ -47,7 +47,7 @@ employee_status "PNS" for="Pegawai" field="status_pegawai" {
 employee_status "Cuti" for="Pegawai" field="status_pegawai" {
     can_transition_to "PNS" {
         effects {
-            suspend_payroll false
+            suspend_payroll #false
         }
     }
 }
