@@ -136,18 +136,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         let mut grouped_statuses: HashMap<(String, String), Vec<&ast::EmployeeStatusDef>> = HashMap::new();
 
         for status_def in &ast_root.employee_statuses {
-            let entity = status_def
-                .entity
-                .clone()
-                .unwrap_or_else(|| "Employee".to_string());
-            let field = status_def
-                .field
-                .clone()
-                .unwrap_or_else(|| "status".to_string());
-            grouped_statuses
-                .entry((entity, field))
-                .or_default()
-                .push(status_def);
+            let entity = status_def.entity.clone().unwrap_or_else(|| "Employee".to_string());
+            let field = status_def.field.clone().unwrap_or_else(|| "status".to_string());
+            grouped_statuses.entry((entity, field)).or_default().push(status_def);
         }
 
         for ((entity_name, field_name), statuses) in grouped_statuses {
@@ -187,18 +178,14 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                                 ast::TransitionPreconditionDef::Document { name, .. } => {
                                     TransitionPrecondition::Document(Symbol::from(name.as_str()))
                                 }
-                                ast::TransitionPreconditionDef::MinYearsOfService {
-                                    years,
-                                    from_field,
-                                    ..
-                                } => TransitionPrecondition::MinYearsOfService {
-                                    years: *years,
-                                    from_field: from_field.as_ref().map(|s| Symbol::from(s.as_str())),
-                                },
+                                ast::TransitionPreconditionDef::MinYearsOfService { years, from_field, .. } => {
+                                    TransitionPrecondition::MinYearsOfService {
+                                        years: *years,
+                                        from_field: from_field.as_ref().map(|s| Symbol::from(s.as_str())),
+                                    }
+                                }
                                 ast::TransitionPreconditionDef::MinAge {
-                                    age,
-                                    birth_date_field,
-                                    ..
+                                    age, birth_date_field, ..
                                 } => TransitionPrecondition::MinAge {
                                     age: *age,
                                     birth_date_field: birth_date_field.as_ref().map(|s| Symbol::from(s.as_str())),

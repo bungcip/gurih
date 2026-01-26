@@ -1,5 +1,5 @@
 use gurih_dsl::compile;
-use gurih_ir::{Symbol, TransitionPrecondition, TransitionEffect};
+use gurih_ir::{Symbol, TransitionEffect, TransitionPrecondition};
 
 #[test]
 fn test_employee_status_dsl() {
@@ -24,7 +24,10 @@ fn test_employee_status_dsl() {
 
     // Check if workflow exists
     let wf_name = Symbol::from("DocumentStatusWorkflow");
-    assert!(schema.workflows.contains_key(&wf_name), "Workflow DocumentStatusWorkflow not found");
+    assert!(
+        schema.workflows.contains_key(&wf_name),
+        "Workflow DocumentStatusWorkflow not found"
+    );
 
     let wf = schema.workflows.get(&wf_name).unwrap();
     assert_eq!(wf.entity, Symbol::from("Document"));
@@ -32,8 +35,16 @@ fn test_employee_status_dsl() {
     assert_eq!(wf.initial_state, Symbol::from("Draft")); // First defined
 
     // Check transitions
-    let trans = wf.transitions.iter().find(|t| t.from == Symbol::from("Draft") && t.to == Symbol::from("Published")).expect("Transition missing");
+    let trans = wf
+        .transitions
+        .iter()
+        .find(|t| t.from == Symbol::from("Draft") && t.to == Symbol::from("Published"))
+        .expect("Transition missing");
 
-    assert!(matches!(trans.preconditions[0], TransitionPrecondition::Document(ref s) if s.as_str() == "approval_letter"));
-    assert!(matches!(trans.effects[0], TransitionEffect::UpdateField { ref field, ref value } if field.as_str() == "is_visible" && value == "true"));
+    assert!(
+        matches!(trans.preconditions[0], TransitionPrecondition::Document(ref s) if s.as_str() == "approval_letter")
+    );
+    assert!(
+        matches!(trans.effects[0], TransitionEffect::UpdateField { ref field, ref value } if field.as_str() == "is_visible" && value == "true")
+    );
 }
