@@ -127,6 +127,63 @@ async fn test_immutability() {
 }
 
 #[tokio::test]
+async fn test_delete_immutable() {
+    let mut schema = Schema::default();
+    let entity_name = Symbol::from("JournalEntry");
+
+    // Add Entity Schema (Minimal)
+    schema.entities.insert(
+        entity_name,
+        gurih_ir::EntitySchema {
+            name: entity_name,
+            fields: vec![gurih_ir::FieldSchema {
+                name: Symbol::from("status"),
+                field_type: gurih_ir::FieldType::String,
+                required: false,
+                unique: false,
+                default: None,
+                references: None,
+                serial_generator: None,
+                storage: None,
+                resize: None,
+                filetype: None,
+            }],
+            relationships: vec![],
+            options: std::collections::HashMap::new(),
+            seeds: None,
+        },
+    );
+
+    let workflow = WorkflowSchema {
+        name: Symbol::from("JournalWF"),
+        entity: entity_name,
+        field: Symbol::from("status"),
+        initial_state: Symbol::from("Draft"),
+        states: vec![
+            StateSchema {
+                name: Symbol::from("Draft"),
+                immutable: false,
+            },
+            StateSchema {
+                name: Symbol::from("Posted"),
+                immutable: true,
+            },
+        ],
+        transitions: vec![],
+    };
+    schema.workflows.insert(workflow.name, workflow);
+
+    let datastore = Arc::new(MockDataStore);
+    let engine = DataEngine::new(Arc::new(schema), datastore);
+    let ctx = gurih_runtime::context::RuntimeContext::system();
+
+    // Delete Posted Record (Immutable)
+    let res = engine.delete("JournalEntry", "1", &ctx).await;
+    assert!(res.is_err(), "Should not be able to delete immutable record");
+    assert!(res.err().unwrap().contains("immutable"));
+}
+
+#[tokio::test]
 async fn test_period_open_configured() {
     // Test WorkflowEngine directly for PeriodOpen
     let engine = WorkflowEngine::new();
