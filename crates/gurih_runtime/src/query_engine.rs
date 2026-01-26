@@ -186,8 +186,10 @@ impl QueryEngine {
                 }
             }
             Expression::FunctionCall { name, args } => {
-                let args_sql: Vec<String> =
-                    args.iter().map(|a| Self::expression_to_sql(a, params, db_type)).collect();
+                let args_sql: Vec<String> = args
+                    .iter()
+                    .map(|a| Self::expression_to_sql(a, params, db_type))
+                    .collect();
                 format!("{}({})", name, args_sql.join(", "))
             }
             Expression::BinaryOp { left, op, right } => {

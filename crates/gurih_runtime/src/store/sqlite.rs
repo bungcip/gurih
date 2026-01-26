@@ -318,11 +318,7 @@ impl DataStore for SqliteDataStore {
         Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
     }
 
-    async fn query_with_params(
-        &self,
-        sql: &str,
-        params: Vec<Value>,
-    ) -> Result<Vec<Arc<Value>>, String> {
+    async fn query_with_params(&self, sql: &str, params: Vec<Value>) -> Result<Vec<Arc<Value>>, String> {
         let mut q = sqlx::query(sql);
         for p in params {
             match p {

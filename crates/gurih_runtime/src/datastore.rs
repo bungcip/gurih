@@ -20,11 +20,7 @@ pub trait DataStore: Send + Sync {
         filters: HashMap<String, String>,
     ) -> Result<Vec<(String, i64)>, String>;
     async fn query(&self, sql: &str) -> Result<Vec<Arc<Value>>, String>;
-    async fn query_with_params(
-        &self,
-        sql: &str,
-        params: Vec<Value>,
-    ) -> Result<Vec<Arc<Value>>, String>;
+    async fn query_with_params(&self, sql: &str, params: Vec<Value>) -> Result<Vec<Arc<Value>>, String>;
 }
 
 type DataStoreData = HashMap<String, HashMap<String, Arc<Value>>>;
@@ -226,11 +222,7 @@ impl DataStore for MemoryDataStore {
         Err("Raw SQL query not supported in MemoryDataStore".to_string())
     }
 
-    async fn query_with_params(
-        &self,
-        _sql: &str,
-        _params: Vec<Value>,
-    ) -> Result<Vec<Arc<Value>>, String> {
+    async fn query_with_params(&self, _sql: &str, _params: Vec<Value>) -> Result<Vec<Arc<Value>>, String> {
         Err("Raw SQL query not supported in MemoryDataStore".to_string())
     }
 }

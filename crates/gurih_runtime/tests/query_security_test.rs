@@ -1,4 +1,4 @@
-use gurih_ir::{Expression, QuerySelection, QuerySchema, QueryType, Schema, DatabaseSchema, DatabaseType};
+use gurih_ir::{DatabaseSchema, DatabaseType, Expression, QuerySchema, QuerySelection, QueryType, Schema};
 use gurih_runtime::query_engine::{QueryEngine, QueryPlan};
 
 #[test]
@@ -47,7 +47,10 @@ fn test_sql_injection_reproduction() {
     // Safe (Escaped): ... + ''' OR ''1''=''1'''
 
     // We expect the vulnerability to be GONE and placeholders used
-    assert!(!sql.contains("' OR '1'='1'"), "SQL Injection vulnerability fix verification: payload should NOT be in SQL string");
+    assert!(
+        !sql.contains("' OR '1'='1'"),
+        "SQL Injection vulnerability fix verification: payload should NOT be in SQL string"
+    );
     assert!(sql.contains("?"), "SQL should use placeholders for string literals");
 
     let QueryPlan::ExecuteSql { sql: _, params } = &strategy.plans[0];
