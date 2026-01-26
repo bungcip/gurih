@@ -848,7 +848,11 @@ fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef,
     if let Some(children) = node.children() {
         for child in children.nodes() {
             if child.name().value() == "can_transition_to" {
-                transitions.push(parse_employee_status_transition(child, src)?);
+                let mut trans = parse_employee_status_transition(child, src)?;
+                // Inject implied "from" and generate name
+                trans.from = name.clone();
+                trans.name = format!("{}_to_{}", name, trans.to);
+                transitions.push(trans);
             }
         }
     }
@@ -862,7 +866,7 @@ fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef,
     })
 }
 
-fn parse_employee_status_transition(node: &KdlNode, src: &str) -> Result<EmployeeStatusTransitionDef, CompileError> {
+fn parse_employee_status_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileError> {
     let to = get_arg_string(node, 0, src)?;
     let permission = get_prop_string(node, "permission", src).ok();
     let mut preconditions = vec![];
@@ -956,7 +960,9 @@ fn parse_employee_status_transition(node: &KdlNode, src: &str) -> Result<Employe
         }
     }
 
-    Ok(EmployeeStatusTransitionDef {
+    Ok(TransitionDef {
+        name: String::new(),
+        from: String::new(),
         to,
         permission,
         preconditions,

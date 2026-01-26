@@ -37,7 +37,10 @@ async fn test_workflow_extensions() {
                 TransitionPrecondition::ValidEffectiveDate(Symbol::from("tmt_pns")),
             ],
             effects: vec![
-                TransitionEffect::UpdateRankEligibility(true),
+                TransitionEffect::UpdateField {
+                    field: Symbol::from("rank_eligible"),
+                    value: "true".to_string(),
+                },
                 TransitionEffect::UpdateField {
                     field: Symbol::from("custom_field"),
                     value: "updated".to_string(),
@@ -101,6 +104,6 @@ async fn test_workflow_extensions() {
     // Test Case 4: Effects
     let (updates, _notifications) = engine.apply_effects(&schema, "Pegawai", "CPNS", "PNS", &data_success);
 
-    assert_eq!(updates.get("rank_eligible"), Some(&json!(true)));
+    assert_eq!(updates.get("rank_eligible"), Some(&json!("true")));
     assert_eq!(updates.get("custom_field"), Some(&json!("updated")));
 }

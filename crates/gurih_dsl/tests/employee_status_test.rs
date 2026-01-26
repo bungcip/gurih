@@ -77,7 +77,7 @@ fn test_employee_status_compilation() {
     assert!(
         t1.effects
             .iter()
-            .any(|e| matches!(e, TransitionEffect::SuspendPayroll(false)))
+            .any(|e| matches!(e, TransitionEffect::UpdateField { field, value } if field == &Symbol::from("is_payroll_active") && value == "false"))
     );
     assert!(
         t1.effects
@@ -97,6 +97,6 @@ fn test_employee_status_compilation() {
     assert!(
         t2.effects
             .iter()
-            .any(|e| matches!(e, TransitionEffect::SuspendPayroll(true)))
+            .any(|e| matches!(e, TransitionEffect::UpdateField { field, value } if field == &Symbol::from("is_payroll_active") && value == "true"))
     );
 }
