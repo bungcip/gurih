@@ -23,7 +23,7 @@ impl fmt::Display for RuntimeError {
 
 impl std::error::Error for RuntimeError {}
 
-// Helper conversion from String (common in legacy code)
+// Helper conversion from String
 impl From<String> for RuntimeError {
     fn from(err: String) -> Self {
         RuntimeError::InternalError(err)

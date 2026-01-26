@@ -223,6 +223,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             let mut seen_states: std::collections::HashSet<String> = std::collections::HashSet::new();
 
             for status_def in statuses {
+                // Add the defined status as a state
                 if seen_states.insert(status_def.name.clone()) {
                     states.push(StateSchema {
                         name: Symbol::from(status_def.name.as_str()),
@@ -230,7 +231,16 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     });
                 }
 
-                transitions.push(convert_transition(trans_def));
+                for trans_def in &status_def.transitions {
+                    // Add the target status as a state if not already seen
+                    if seen_states.insert(trans_def.to.clone()) {
+                        states.push(StateSchema {
+                            name: Symbol::from(trans_def.to.as_str()),
+                            immutable: false,
+                        });
+                    }
+                    transitions.push(convert_transition(trans_def));
+                }
             }
 
             ir_workflows.insert(
