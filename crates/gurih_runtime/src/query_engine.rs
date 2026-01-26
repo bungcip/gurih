@@ -1,9 +1,10 @@
-use gurih_ir::{BinaryOperator, Expression, QueryJoin, Schema};
+use gurih_ir::{BinaryOperator, DatabaseType, Expression, QueryJoin, Schema};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum QueryPlan {
-    ExecuteSql { sql: String },
+    ExecuteSql { sql: String, params: Vec<Value> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -20,8 +21,15 @@ impl QueryEngine {
             .get(&query_name.into())
             .ok_or_else(|| format!("Query '{}' not found in schema", query_name))?;
 
+        let db_type = schema
+            .database
+            .as_ref()
+            .map(|d| d.db_type.clone())
+            .unwrap_or(DatabaseType::Sqlite);
+
         let mut select_parts = vec![];
         let mut join_parts = vec![];
+        let mut params = vec![];
         let root_table = Self::entity_to_table(&query.root_entity.to_string());
 
         // Process Root Selections & Formulas
@@ -34,7 +42,7 @@ impl QueryEngine {
             }
         }
         for form in &query.formulas {
-            let expr_sql = Self::expression_to_sql(&form.expression);
+            let expr_sql = Self::expression_to_sql(&form.expression, &mut params, &db_type);
             select_parts.push(format!("{} AS {}", expr_sql, form.name));
         }
 
@@ -46,6 +54,8 @@ impl QueryEngine {
             schema,
             &mut select_parts,
             &mut join_parts,
+            &mut params,
+            &db_type,
         )?;
 
         let select_clause = if select_parts.is_empty() {
@@ -58,7 +68,11 @@ impl QueryEngine {
 
         let mut where_clause = String::new();
         if !query.filters.is_empty() {
-            let filter_parts: Vec<String> = query.filters.iter().map(Self::expression_to_sql).collect();
+            let filter_parts: Vec<String> = query
+                .filters
+                .iter()
+                .map(|e| Self::expression_to_sql(e, &mut params, &db_type))
+                .collect();
             where_clause = format!("WHERE {}", filter_parts.join(" AND "));
         }
 
@@ -81,7 +95,7 @@ impl QueryEngine {
         .to_string();
 
         Ok(QueryExecutionStrategy {
-            plans: vec![QueryPlan::ExecuteSql { sql }],
+            plans: vec![QueryPlan::ExecuteSql { sql, params }],
         })
     }
 
@@ -92,6 +106,8 @@ impl QueryEngine {
         schema: &Schema,
         select_parts: &mut Vec<String>,
         join_parts: &mut Vec<String>,
+        params: &mut Vec<Value>,
+        db_type: &DatabaseType,
     ) -> Result<(), String> {
         for join in joins {
             let target_entity_name = &join.target_entity;
@@ -134,7 +150,7 @@ impl QueryEngine {
                 }
             }
             for form in &join.formulas {
-                let expr_sql = Self::expression_to_sql(&form.expression);
+                let expr_sql = Self::expression_to_sql(&form.expression, params, db_type);
                 select_parts.push(format!("{} AS {}", expr_sql, form.name));
             }
 
@@ -145,6 +161,8 @@ impl QueryEngine {
                 schema,
                 select_parts,
                 join_parts,
+                params,
+                db_type,
             )?;
         }
         Ok(())
@@ -155,13 +173,21 @@ impl QueryEngine {
         entity_name.to_lowercase()
     }
 
-    fn expression_to_sql(expr: &Expression) -> String {
+    fn expression_to_sql(expr: &Expression, params: &mut Vec<Value>, db_type: &DatabaseType) -> String {
         match expr {
             Expression::Field(f) => format!("[{}]", f), // Naive, should probably be qualified if possible, but context is hard
             Expression::Literal(n) => n.to_string(),
-            Expression::StringLiteral(s) => format!("'{}'", s),
+            Expression::StringLiteral(s) => {
+                params.push(Value::String(s.clone()));
+                if *db_type == DatabaseType::Postgres {
+                    format!("${}", params.len())
+                } else {
+                    "?".to_string()
+                }
+            }
             Expression::FunctionCall { name, args } => {
-                let args_sql: Vec<String> = args.iter().map(Self::expression_to_sql).collect();
+                let args_sql: Vec<String> =
+                    args.iter().map(|a| Self::expression_to_sql(a, params, db_type)).collect();
                 format!("{}({})", name, args_sql.join(", "))
             }
             Expression::BinaryOp { left, op, right } => {
@@ -173,12 +199,14 @@ impl QueryEngine {
                 };
                 format!(
                     "{} {} {}",
-                    Self::expression_to_sql(left),
+                    Self::expression_to_sql(left, params, db_type),
                     op_str,
-                    Self::expression_to_sql(right)
+                    Self::expression_to_sql(right, params, db_type)
                 )
             }
-            Expression::Grouping(inner) => format!("({})", Self::expression_to_sql(inner)),
+            Expression::Grouping(inner) => {
+                format!("({})", Self::expression_to_sql(inner, params, db_type))
+            }
         }
     }
 }
@@ -257,7 +285,7 @@ mod tests {
         let strategy = QueryEngine::plan(&schema, "ActiveCourseQuery").expect("Failed to plan");
 
         assert_eq!(strategy.plans.len(), 1);
-        let QueryPlan::ExecuteSql { sql } = &strategy.plans[0];
+        let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0];
         println!("Generated SQL: {}", sql);
         assert!(sql.contains("SELECT courseentity.title"));
         assert!(sql.contains("SUM([duration]) AS total_duration"));
@@ -314,7 +342,7 @@ mod tests {
         schema.queries.insert("BookQuery".into(), query);
 
         let strategy = QueryEngine::plan(&schema, "BookQuery").expect("Failed to plan");
-        let QueryPlan::ExecuteSql { sql } = &strategy.plans[0];
+        let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0];
         println!("Flat SQL: {}", sql);
 
         assert!(sql.contains("SELECT bookentity.title, bookentity.price"));
