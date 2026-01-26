@@ -136,9 +136,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                         })
                     }
                     ast::TransitionPreconditionDef::MinAge {
-                        age,
-                        birth_date_field,
-                        ..
+                        age, birth_date_field, ..
                     } => TransitionPrecondition::Assertion(gurih_ir::Expression::BinaryOp {
                         left: Box::new(gurih_ir::Expression::FunctionCall {
                             name: Symbol::from("age"),
@@ -158,11 +156,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     ast::TransitionPreconditionDef::BalancedTransaction { .. } => {
                         TransitionPrecondition::BalancedTransaction
                     }
-                    ast::TransitionPreconditionDef::PeriodOpen { entity, .. } => {
-                        TransitionPrecondition::PeriodOpen {
-                            entity: entity.as_ref().map(|s| Symbol::from(s.as_str())),
-                        }
-                    }
+                    ast::TransitionPreconditionDef::PeriodOpen { entity, .. } => TransitionPrecondition::PeriodOpen {
+                        entity: entity.as_ref().map(|s| Symbol::from(s.as_str())),
+                    },
                 })
                 .collect(),
             effects: t

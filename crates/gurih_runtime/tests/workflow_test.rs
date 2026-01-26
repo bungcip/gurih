@@ -54,28 +54,31 @@ async fn test_workflow_transitions() {
     let engine = WorkflowEngine::new();
 
     // 1. Initial State
-    assert_eq!(
-        engine.get_initial_state(&schema, "Order"),
-        Some("Draft".to_string())
-    );
+    assert_eq!(engine.get_initial_state(&schema, "Order"), Some("Draft".to_string()));
 
     // 2. Valid Transition
-    assert!(engine
-        .validate_transition(&schema, None, "Order", "Draft", "Submitted", &Value::Null)
-        .await
-        .is_ok());
+    assert!(
+        engine
+            .validate_transition(&schema, None, "Order", "Draft", "Submitted", &Value::Null)
+            .await
+            .is_ok()
+    );
 
     // 3. Same State Transition (Always allowed)
-    assert!(engine
-        .validate_transition(&schema, None, "Order", "Draft", "Draft", &Value::Null)
-        .await
-        .is_ok());
+    assert!(
+        engine
+            .validate_transition(&schema, None, "Order", "Draft", "Draft", &Value::Null)
+            .await
+            .is_ok()
+    );
 
     // 4. Invalid Transition
-    assert!(engine
-        .validate_transition(&schema, None, "Order", "Draft", "Approved", &Value::Null)
-        .await
-        .is_err());
+    assert!(
+        engine
+            .validate_transition(&schema, None, "Order", "Draft", "Approved", &Value::Null)
+            .await
+            .is_err()
+    );
 
     // 5. Transition with Permission
     let perm = engine.get_transition_permission(&schema, "Order", "Submitted", "Approved");
@@ -138,14 +141,7 @@ async fn test_missing_precondition_field() {
     let empty_data = serde_json::json!({});
 
     let result = engine
-        .validate_transition(
-            &schema,
-            None,
-            "Employee",
-            "Junior",
-            "Senior",
-            &empty_data,
-        )
+        .validate_transition(&schema, None, "Employee", "Junior", "Senior", &empty_data)
         .await;
 
     assert!(result.is_err());

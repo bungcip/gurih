@@ -1,6 +1,6 @@
 use gurih_ir::{
-    BinaryOperator, Expression, Schema, StateSchema, Symbol, Transition, TransitionEffect,
-    TransitionPrecondition, WorkflowSchema,
+    BinaryOperator, Expression, Schema, StateSchema, Symbol, Transition, TransitionEffect, TransitionPrecondition,
+    WorkflowSchema,
 };
 use gurih_runtime::workflow::WorkflowEngine;
 use serde_json::json;
@@ -74,14 +74,7 @@ async fn test_workflow_extensions() {
     });
 
     let res_fail = engine
-        .validate_transition(
-            &schema,
-            None,
-            "Pegawai",
-            "CPNS",
-            "PNS",
-            &data_fail_years,
-        )
+        .validate_transition(&schema, None, "Pegawai", "CPNS", "PNS", &data_fail_years)
         .await;
     assert!(res_fail.is_err());
     let err_msg = res_fail.unwrap_err();
@@ -97,21 +90,12 @@ async fn test_workflow_extensions() {
         "tmt_pns": "invalid-date"
     });
     let res_fail_date = engine
-        .validate_transition(
-            &schema,
-            None,
-            "Pegawai",
-            "CPNS",
-            "PNS",
-            &data_fail_date,
-        )
+        .validate_transition(&schema, None, "Pegawai", "CPNS", "PNS", &data_fail_date)
         .await;
     assert!(res_fail_date.is_err());
     let err_msg_date = res_fail_date.unwrap_err();
     assert!(
-        err_msg_date
-            .to_string()
-            .contains("Transition condition not met"),
+        err_msg_date.to_string().contains("Transition condition not met"),
         "Unexpected error: {}",
         err_msg_date
     );
@@ -122,29 +106,12 @@ async fn test_workflow_extensions() {
         "tmt_pns": today_str
     });
     let res_success = engine
-        .validate_transition(
-            &schema,
-            None,
-            "Pegawai",
-            "CPNS",
-            "PNS",
-            &data_success,
-        )
+        .validate_transition(&schema, None, "Pegawai", "CPNS", "PNS", &data_success)
         .await;
-    assert!(
-        res_success.is_ok(),
-        "Transition failed: {:?}",
-        res_success.err()
-    );
+    assert!(res_success.is_ok(), "Transition failed: {:?}", res_success.err());
 
     // Test Case 4: Effects
-    let (updates, _notifications) = engine.apply_effects(
-        &schema,
-        "Pegawai",
-        "CPNS",
-        "PNS",
-        &data_success,
-    );
+    let (updates, _notifications) = engine.apply_effects(&schema, "Pegawai", "CPNS", "PNS", &data_success);
 
     assert_eq!(updates.get("rank_eligible"), Some(&json!("true")));
     assert_eq!(updates.get("custom_field"), Some(&json!("updated")));

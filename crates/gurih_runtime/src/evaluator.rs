@@ -9,11 +9,11 @@ pub fn evaluate(expr: &Expression, context: &Value) -> Result<Value, RuntimeErro
             let key = name.as_str();
             Ok(context.get(key).cloned().unwrap_or(Value::Null))
         }
-        Expression::Literal(n) => Ok(Value::Number(
-            serde_json::Number::from_f64(*n).ok_or_else(|| {
+        Expression::Literal(n) => {
+            Ok(Value::Number(serde_json::Number::from_f64(*n).ok_or_else(|| {
                 RuntimeError::EvaluationError("Invalid float literal".to_string())
-            })?,
-        )),
+            })?))
+        }
         Expression::StringLiteral(s) => Ok(Value::String(s.clone())),
         Expression::BoolLiteral(b) => Ok(Value::Bool(*b)),
         Expression::Grouping(inner) => evaluate(inner, context),
@@ -50,9 +50,7 @@ fn eval_unary_op(op: &UnaryOperator, val: Value) -> Result<Value, RuntimeError> 
                 if let Some(f) = n.as_f64() {
                     Ok(Value::Number(serde_json::Number::from_f64(-f).unwrap()))
                 } else {
-                    Err(RuntimeError::EvaluationError(
-                        "Invalid number for negation".into(),
-                    ))
+                    Err(RuntimeError::EvaluationError("Invalid number for negation".into()))
                 }
             }
             _ => Err(RuntimeError::EvaluationError(format!(
@@ -63,16 +61,9 @@ fn eval_unary_op(op: &UnaryOperator, val: Value) -> Result<Value, RuntimeError> 
     }
 }
 
-fn eval_binary_op(
-    op: &BinaryOperator,
-    left: Value,
-    right: Value,
-) -> Result<Value, RuntimeError> {
+fn eval_binary_op(op: &BinaryOperator, left: Value, right: Value) -> Result<Value, RuntimeError> {
     match op {
-        BinaryOperator::Add
-        | BinaryOperator::Sub
-        | BinaryOperator::Mul
-        | BinaryOperator::Div => {
+        BinaryOperator::Add | BinaryOperator::Sub | BinaryOperator::Mul | BinaryOperator::Div => {
             let l = as_f64(&left)?;
             let r = as_f64(&right)?;
             let res = match op {
@@ -87,11 +78,9 @@ fn eval_binary_op(
                 }
                 _ => unreachable!(),
             };
-            Ok(Value::Number(
-                serde_json::Number::from_f64(res).ok_or_else(|| {
-                    RuntimeError::EvaluationError("Result is not a valid number".into())
-                })?,
-            ))
+            Ok(Value::Number(serde_json::Number::from_f64(res).ok_or_else(|| {
+                RuntimeError::EvaluationError("Result is not a valid number".into())
+            })?))
         }
         BinaryOperator::Eq => Ok(Value::Bool(left == right)),
         BinaryOperator::Neq => Ok(Value::Bool(left != right)),
@@ -132,14 +121,11 @@ fn eval_function(name: &str, args: &[Value]) -> Result<Value, RuntimeError> {
     match name {
         "age" => {
             if args.len() != 1 {
-                return Err(RuntimeError::EvaluationError(
-                    "age() takes 1 argument".into(),
-                ));
+                return Err(RuntimeError::EvaluationError("age() takes 1 argument".into()));
             }
             let date_str = as_str(&args[0])?;
-            let birth_date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").map_err(|_| {
-                RuntimeError::EvaluationError("Invalid date format YYYY-MM-DD".into())
-            })?;
+            let birth_date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+                .map_err(|_| RuntimeError::EvaluationError("Invalid date format YYYY-MM-DD".into()))?;
             let now = Utc::now().date_naive();
 
             // Age calculation
@@ -157,9 +143,8 @@ fn eval_function(name: &str, args: &[Value]) -> Result<Value, RuntimeError> {
                 ));
             }
             let date_str = as_str(&args[0])?;
-            let join_date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").map_err(|_| {
-                RuntimeError::EvaluationError("Invalid date format YYYY-MM-DD".into())
-            })?;
+            let join_date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+                .map_err(|_| RuntimeError::EvaluationError("Invalid date format YYYY-MM-DD".into()))?;
             let now = Utc::now().date_naive();
 
             // Years of service calculation
@@ -172,9 +157,7 @@ fn eval_function(name: &str, args: &[Value]) -> Result<Value, RuntimeError> {
         }
         "is_set" => {
             if args.len() != 1 {
-                return Err(RuntimeError::EvaluationError(
-                    "is_set() takes 1 argument".into(),
-                ));
+                return Err(RuntimeError::EvaluationError("is_set() takes 1 argument".into()));
             }
             match &args[0] {
                 Value::Null => Ok(Value::Bool(false)),
@@ -184,9 +167,7 @@ fn eval_function(name: &str, args: &[Value]) -> Result<Value, RuntimeError> {
         }
         "valid_date" => {
             if args.len() != 1 {
-                return Err(RuntimeError::EvaluationError(
-                    "valid_date() takes 1 argument".into(),
-                ));
+                return Err(RuntimeError::EvaluationError("valid_date() takes 1 argument".into()));
             }
             let date_str = match &args[0] {
                 Value::String(s) => s,
@@ -197,18 +178,15 @@ fn eval_function(name: &str, args: &[Value]) -> Result<Value, RuntimeError> {
             let valid = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").is_ok();
             Ok(Value::Bool(valid))
         }
-        _ => Err(RuntimeError::EvaluationError(format!(
-            "Unknown function: {}",
-            name
-        ))),
+        _ => Err(RuntimeError::EvaluationError(format!("Unknown function: {}", name))),
     }
 }
 
 fn as_f64(v: &Value) -> Result<f64, RuntimeError> {
     match v {
-        Value::Number(n) => n.as_f64().ok_or_else(|| {
-            RuntimeError::EvaluationError(format!("Type mismatch: expected f64, found {:?}", v))
-        }),
+        Value::Number(n) => n
+            .as_f64()
+            .ok_or_else(|| RuntimeError::EvaluationError(format!("Type mismatch: expected f64, found {:?}", v))),
         _ => Err(RuntimeError::EvaluationError(format!(
             "Type mismatch: expected number, found {:?}",
             v
