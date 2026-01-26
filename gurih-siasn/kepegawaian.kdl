@@ -29,6 +29,7 @@ module "Kepegawaian" {
         field:date "tmt_cpns" required=#false
         field:date "tmt_pns" required=#false
         field:boolean "rank_eligible" default="false"
+        field:boolean "is_payroll_active" default="true"
 
         field:image "foto" required=#false
 

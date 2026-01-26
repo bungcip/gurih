@@ -449,6 +449,8 @@ pub struct AllowDef {
 #[derive(Debug, Clone)]
 pub struct EmployeeStatusDef {
     pub name: String,
+    pub entity: Option<String>,
+    pub field: Option<String>,
     pub transitions: Vec<EmployeeStatusTransitionDef>,
     pub span: SourceSpan,
 }
