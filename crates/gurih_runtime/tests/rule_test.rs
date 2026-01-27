@@ -68,7 +68,7 @@ async fn test_rule_enforcement() {
 
     let res = engine.update("Person", &id, update_invalid, &ctx).await;
     assert!(res.is_err(), "Invalid update should fail");
-     let err = res.err().unwrap();
+    let err = res.err().unwrap();
     assert_eq!(err, "Person must be at least 18 years old updated");
 
     // 4. Test Valid Update

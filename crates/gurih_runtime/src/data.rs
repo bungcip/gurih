@@ -153,19 +153,23 @@ impl DataEngine {
         let update_event_sym = Symbol::from(&update_event);
         let has_update_rules = self.schema.rules.values().any(|r| r.on_event == update_event_sym);
 
-        let track_changes = entity_schema.options.get("track_changes").map(|v| v == "true").unwrap_or(false);
+        let track_changes = entity_schema
+            .options
+            .get("track_changes")
+            .map(|v| v == "true")
+            .unwrap_or(false);
 
         let mut current_record_opt: Option<Arc<Value>> = None;
 
         if workflow.is_some() || has_update_rules || track_changes {
-             current_record_opt = self.datastore.get(entity_name, id).await?;
+            current_record_opt = self.datastore.get(entity_name, id).await?;
         }
 
         // Rule Check (Update)
         if has_update_rules {
-             if let Some(current) = &current_record_opt {
-                 let mut merged = (**current).clone();
-                 if let Some(target) = merged.as_object_mut()
+            if let Some(current) = &current_record_opt {
+                let mut merged = (**current).clone();
+                if let Some(target) = merged.as_object_mut()
                     && let Some(source) = data.as_object()
                 {
                     for (k, v) in source {
@@ -173,9 +177,9 @@ impl DataEngine {
                     }
                 }
                 self.check_rules(entity_name, "update", &merged)?;
-             } else {
-                 return Err("Record not found for rule validation".to_string());
-             }
+            } else {
+                return Err("Record not found for rule validation".to_string());
+            }
         }
 
         if let Some(wf) = workflow {
