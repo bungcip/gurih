@@ -83,7 +83,7 @@ async function fetchRelations(targetEntity, fieldNames) {
              }
         }
     } catch(e) {
-        console.log("Could not fetch relation for", targetEntity)
+        // Silent failure for relation fetching
     }
 }
 
