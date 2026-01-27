@@ -42,22 +42,25 @@ impl FakerEngine {
                 // 1. Explicit fields with references
                 for field in &entity_schema.fields {
                     if let Some(target_entity) = &field.references {
-                        // Fetch IDs from the target entity
-                        // We use list with a large limit. In a real scenario, we might want to optimize this.
-                        let records = datastore.list(&target_entity.to_string(), Some(1000), None).await?;
-                        let ids: Vec<String> = records
-                            .iter()
-                            .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(|s| s.to_string()))
-                            .collect();
+                        // FIX: Only list if it's actually an entity
+                        if schema.entities.contains_key(target_entity) {
+                            // Fetch IDs from the target entity
+                            // We use list with a large limit. In a real scenario, we might want to optimize this.
+                            let records = datastore.list(&target_entity.to_string(), Some(1000), None).await?;
+                            let ids: Vec<String> = records
+                                .iter()
+                                .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(|s| s.to_string()))
+                                .collect();
 
-                        if ids.is_empty() {
-                            println!(
-                                "Warning: No records found for referenced entity '{}'. Field '{}' might fail or be null.",
-                                target_entity, field.name
-                            );
+                            if ids.is_empty() {
+                                println!(
+                                    "Warning: No records found for referenced entity '{}'. Field '{}' might fail or be null.",
+                                    target_entity, field.name
+                                );
+                            }
+
+                            foreign_keys.insert(field.name.to_string(), ids);
                         }
-
-                        foreign_keys.insert(field.name.to_string(), ids);
                     }
                 }
 
@@ -146,7 +149,10 @@ impl FakerEngine {
         // Build Graph
         for (entity_name, entity_schema) in &schema.entities {
             for rel in &entity_schema.relationships {
-                if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
+                if rel.rel_type == gurih_ir::RelationshipType::BelongsTo
+                    && rel.target_entity != *entity_name
+                    && schema.entities.contains_key(&rel.target_entity)
+                {
                     // target -> entity
                     adj.entry(rel.target_entity).or_default().push(*entity_name);
                     *in_degree.entry(*entity_name).or_insert(0) += 1;
@@ -156,21 +162,7 @@ impl FakerEngine {
             // Also check fields with references (explicit FKs)
             for field in &entity_schema.fields {
                 if let Some(target) = &field.references {
-                    // target -> entity
-                    // Avoid double counting if relationship is already defined
-                    // But strictly speaking, field reference implies dependency too.
-                    // We should add it if not already covered.
-                    // Since we use in-degree map, simple check is fine.
-                    // However, multiple dependencies from same entity is fine.
-
-                    // Check if this dependency is already captured by relationship?
-                    // Sometimes relationships are defined without explicit field reference in `relationships` block,
-                    // or vice versa. The schema compiler might normalize this.
-                    // Let's safe-guard against self-reference or existing edge.
-                    if target != entity_name {
-                        // Check if edge exists?
-                        // It's cheaper to just add and handle duplicates or let logic handle multiple edges.
-                        // Kahn's algo handles multi-edges fine (in-degree will be higher).
+                    if target != entity_name && schema.entities.contains_key(target) {
                         adj.entry(*target).or_default().push(*entity_name);
                         *in_degree.entry(*entity_name).or_insert(0) += 1;
                     }
@@ -203,18 +195,13 @@ impl FakerEngine {
         }
 
         if sorted.len() != schema.entities.len() {
-            // Check for cycles or missing nodes?
-            // Actually, `in_degree` map only contains entities from `schema.entities`.
-            // So if sorted.len() < entities.len(), there is a cycle.
-            // But wait, what if I added an edge for a `target` that is NOT in `schema.entities`?
-            // (e.g. invalid reference).
-            // `adj` was initialized with keys from entities.
-            // But `adj.entry(target)` might create a new entry if target is invalid.
-            // `in_degree` was initialized.
-            // If I push to `adj` for a target that doesn't exist in `in_degree`, it's a dead end.
-            // But `in_degree` won't be updated for that target.
-
-            return Err("Cycle detected in entity relationships or unresolved dependencies.".to_string());
+            // Add remaining entities to the list to allow faker to at least TRY to seed them.
+            // This handles cases where there might be cycles or unresolved dependencies.
+            for (entity, &degree) in &in_degree {
+                if degree > 0 {
+                    sorted.push(*entity);
+                }
+            }
         }
 
         Ok(sorted)
