@@ -14,13 +14,13 @@ impl FormEngine {
         Self
     }
 
-    pub fn generate_ui_schema(&self, schema: &Schema, name: &str) -> Result<Value, String> {
+    pub fn generate_ui_schema(&self, schema: &Schema, name: Symbol) -> Result<Value, String> {
         // 1. Try direct Form lookup
-        let mut target_form = schema.forms.get(&Symbol::from(name));
+        let mut target_form = schema.forms.get(&name);
 
         // 2. Fallback: Search for a form that targets this name as an entity
         if target_form.is_none() {
-            target_form = schema.forms.values().find(|f| f.entity == Symbol::from(name));
+            target_form = schema.forms.values().find(|f| f.entity == name);
         }
 
         if let Some(form) = target_form {
@@ -84,18 +84,15 @@ impl FormEngine {
             }))
         } else {
             // 3. Fallback: Try generating default form if it's an entity name
-            if schema.entities.contains_key(&Symbol::from(name)) {
+            if schema.entities.contains_key(&name) {
                 return self.generate_default_form(schema, name);
             }
             Err(format!("Form or Entity '{}' not found", name))
         }
     }
 
-    pub fn generate_default_form(&self, schema: &Schema, entity_name: &str) -> Result<Value, String> {
-        let entity = schema
-            .entities
-            .get(&Symbol::from(entity_name))
-            .ok_or("Entity not found")?;
+    pub fn generate_default_form(&self, schema: &Schema, entity_name: Symbol) -> Result<Value, String> {
+        let entity = schema.entities.get(&entity_name).ok_or("Entity not found")?;
 
         let mut ui_fields = vec![];
 

@@ -14,15 +14,15 @@ impl PageEngine {
         Self
     }
 
-    pub fn generate_page_config(&self, schema: &Schema, entity_name: &str) -> Result<Value, String> {
+    pub fn generate_page_config(&self, schema: &Schema, entity: Symbol) -> Result<Value, String> {
         // 1. Try explicit Page definition by name
-        let mut target_page = schema.pages.get(&Symbol::from(entity_name));
+        let mut target_page = schema.pages.get(&entity);
 
         // 2. Fallback: Search for a page that targets this entity (e.g. Employee -> EmployeeList)
         if target_page.is_none() {
             target_page = schema.pages.values().find(|p| match &p.content {
                 gurih_ir::PageContentSchema::Datatable(dt) => {
-                    dt.entity.as_ref().map(|s| s.as_str()) == Some(entity_name)
+                    dt.entity.as_ref().map(|s| s.as_str()) == Some(entity.as_str())
                 }
                 _ => false,
             });
@@ -69,11 +69,11 @@ impl PageEngine {
                 }
                 gurih_ir::PageContentSchema::Dashboard(name) => {
                     let engine = crate::dashboard::DashboardEngine::new();
-                    return engine.generate_ui_schema(schema, name.as_str());
+                    return engine.generate_ui_schema(schema, *name);
                 }
                 gurih_ir::PageContentSchema::Form(name) => {
                     let engine = crate::form::FormEngine::new();
-                    return engine.generate_ui_schema(schema, name.as_str());
+                    return engine.generate_ui_schema(schema, *name);
                 }
                 gurih_ir::PageContentSchema::None => {
                     return Ok(json!({
@@ -85,20 +85,20 @@ impl PageEngine {
         }
 
         // 2. Try direct Dashboard
-        if schema.dashboards.contains_key(&Symbol::from(entity_name)) {
+        if schema.dashboards.contains_key(&entity) {
             let engine = crate::dashboard::DashboardEngine::new();
-            return engine.generate_ui_schema(schema, entity_name);
+            return engine.generate_ui_schema(schema, entity);
         }
 
         // 3. Try direct Form
-        if schema.forms.contains_key(&Symbol::from(entity_name)) {
+        if schema.forms.contains_key(&entity) {
             let engine = crate::form::FormEngine::new();
-            return engine.generate_ui_schema(schema, entity_name);
+            return engine.generate_ui_schema(schema, entity);
         }
 
         let entity = schema
             .entities
-            .get(&Symbol::from(entity_name))
+            .get(&entity)
             .ok_or("Entity, Page, or Dashboard not found")?;
 
         let columns: Vec<Value> = entity
@@ -115,7 +115,7 @@ impl PageEngine {
 
         Ok(json!({
             "title": entity.name,
-            "entity": entity_name,
+            "entity": entity,
             "layout": "TableView",
             "columns": columns,
             "actions": [

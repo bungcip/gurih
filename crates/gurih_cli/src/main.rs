@@ -666,7 +666,7 @@ async fn get_portal(State(state): State<AppState>) -> impl IntoResponse {
 
 async fn get_page_config(State(state): State<AppState>, Path(entity): Path<String>) -> impl IntoResponse {
     let engine = PageEngine::new();
-    match engine.generate_page_config(state.data_engine.get_schema(), &entity) {
+    match engine.generate_page_config(state.data_engine.get_schema(), Symbol::new(entity)) {
         Ok(config) => (StatusCode::OK, Json(config)).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
@@ -674,9 +674,10 @@ async fn get_page_config(State(state): State<AppState>, Path(entity): Path<Strin
 
 async fn get_form_config(State(state): State<AppState>, Path(entity): Path<String>) -> impl IntoResponse {
     let engine = FormEngine::new();
-    match engine.generate_ui_schema(state.data_engine.get_schema(), &entity) {
+    let entity = Symbol::new(entity);
+    match engine.generate_ui_schema(state.data_engine.get_schema(), entity) {
         Ok(config) => (StatusCode::OK, Json(config)).into_response(),
-        Err(_) => match engine.generate_default_form(state.data_engine.get_schema(), &entity) {
+        Err(_) => match engine.generate_default_form(state.data_engine.get_schema(), entity) {
             Ok(config) => (StatusCode::OK, Json(config)).into_response(),
             Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
         },
@@ -698,7 +699,7 @@ async fn get_dashboard_data(
     match engine
         .evaluate(
             state.data_engine.get_schema(),
-            &name,
+            Symbol::new(name),
             state.data_engine.datastore(),
             &roles,
         )

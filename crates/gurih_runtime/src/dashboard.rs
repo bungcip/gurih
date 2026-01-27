@@ -17,11 +17,8 @@ impl DashboardEngine {
         Self
     }
 
-    pub fn generate_ui_schema(&self, schema: &Schema, dashboard_name: &str) -> Result<Value, String> {
-        let dashboard = schema
-            .dashboards
-            .get(&Symbol::from(dashboard_name))
-            .ok_or("Dashboard not found")?;
+    pub fn generate_ui_schema(&self, schema: &Schema, dashboard: Symbol) -> Result<Value, String> {
+        let dashboard = schema.dashboards.get(&dashboard).ok_or("Dashboard not found")?;
 
         let widgets: Vec<Value> = dashboard
             .widgets
@@ -48,14 +45,11 @@ impl DashboardEngine {
     pub async fn evaluate(
         &self,
         schema: &Schema,
-        dashboard_name: &str,
+        dashboard: Symbol,
         datastore: &Arc<dyn DataStore>,
         user_roles: &[String],
     ) -> Result<Value, String> {
-        let dashboard = schema
-            .dashboards
-            .get(&Symbol::from(dashboard_name))
-            .ok_or("Dashboard not found")?;
+        let dashboard = schema.dashboards.get(&dashboard).ok_or("Dashboard not found")?;
 
         let mut widgets = vec![];
         for w in &dashboard.widgets {
