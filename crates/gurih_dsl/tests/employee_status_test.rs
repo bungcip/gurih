@@ -1,5 +1,5 @@
 use gurih_dsl::compiler::compile;
-use gurih_ir::{Symbol, TransitionEffect, TransitionPrecondition};
+use gurih_ir::{BinaryOperator, Expression, Symbol, TransitionEffect, TransitionPrecondition};
 
 #[test]
 fn test_employee_status_compilation() {
@@ -61,16 +61,25 @@ fn test_employee_status_compilation() {
     let t1 = pns_to_cuti.unwrap();
 
     // Check preconditions
-    assert!(
-        t1.preconditions
-            .iter()
-            .any(|p| matches!(p, TransitionPrecondition::Document(d) if d == &Symbol::from("surat_cuti")))
-    );
-    assert!(
-        t1.preconditions
-            .iter()
-            .any(|p| matches!(p, TransitionPrecondition::MinYearsOfService { years: 1, .. }))
-    );
+    // document "surat_cuti" -> Assertion(is_set(surat_cuti))
+    assert!(t1.preconditions.iter().any(|p| {
+        if let TransitionPrecondition::Assertion(Expression::FunctionCall { name, args }) = p {
+            name.as_str() == "is_set"
+                && args.len() == 1
+                && matches!(&args[0], Expression::Field(s) if s.as_str() == "surat_cuti")
+        } else {
+            false
+        }
+    }));
+
+    // min_years_of_service 1 -> Assertion(years_of_service(tmt_cpns) >= 1)
+    assert!(t1.preconditions.iter().any(|p| {
+        if let TransitionPrecondition::Assertion(Expression::BinaryOp { op, .. }) = p {
+            matches!(op, BinaryOperator::Gte)
+        } else {
+            false
+        }
+    }));
 
     // Check effects
     // suspend_payroll #true means active = false
@@ -98,5 +107,57 @@ fn test_employee_status_compilation() {
         t2.effects
             .iter()
             .any(|e| matches!(e, TransitionEffect::UpdateField { field, value } if field == &Symbol::from("is_payroll_active") && value == "true"))
+    );
+}
+
+#[test]
+fn test_document_status_workflow() {
+    let src = r#"
+        employee_status "Draft" for="Document" field="state" {
+            can_transition_to "Published" {
+                requires {
+                    document "approval_letter"
+                }
+                effects {
+                    update "is_visible" "true"
+                }
+            }
+        }
+
+        employee_status "Published" for="Document" field="state" {
+             can_transition_to "Archived"
+        }
+    "#;
+
+    let schema = compile(src, None).expect("Failed to compile DSL");
+
+    // Check if workflow exists
+    let wf_name = Symbol::from("DocumentStatusWorkflow");
+    assert!(
+        schema.workflows.contains_key(&wf_name),
+        "Workflow DocumentStatusWorkflow not found"
+    );
+
+    let wf = schema.workflows.get(&wf_name).unwrap();
+    assert_eq!(wf.entity, Symbol::from("Document"));
+    assert_eq!(wf.field, Symbol::from("state"));
+    assert_eq!(wf.initial_state, Symbol::from("Draft")); // First defined
+
+    // Check transitions
+    let trans = wf
+        .transitions
+        .iter()
+        .find(|t| t.from == Symbol::from("Draft") && t.to == Symbol::from("Published"))
+        .expect("Transition missing");
+
+    assert!(matches!(
+        &trans.preconditions[0],
+        TransitionPrecondition::Assertion(Expression::FunctionCall { name, args })
+        if name.as_str() == "is_set"
+           && args.len() == 1
+           && matches!(&args[0], Expression::Field(s) if s.as_str() == "approval_letter")
+    ));
+    assert!(
+        matches!(trans.effects[0], TransitionEffect::UpdateField { ref field, ref value } if field.as_str() == "is_visible" && value == "true")
     );
 }

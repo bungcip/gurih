@@ -49,7 +49,7 @@ async fn test_workflow_transitions() {
         ],
     };
 
-    schema.workflows.insert(workflow.name.clone(), workflow);
+    schema.workflows.insert(workflow.name, workflow);
 
     let engine = WorkflowEngine::new();
 
@@ -134,7 +134,7 @@ async fn test_missing_precondition_field() {
         }],
     };
 
-    schema.workflows.insert(workflow.name.clone(), workflow);
+    schema.workflows.insert(workflow.name, workflow);
 
     let engine = WorkflowEngine::new();
     // Use an empty object instead of null to allow field lookup attempts

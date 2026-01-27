@@ -59,7 +59,7 @@ async fn test_workflow_extensions() {
         }],
     };
 
-    schema.workflows.insert(workflow.name.clone(), workflow);
+    schema.workflows.insert(workflow.name, workflow);
     let engine = WorkflowEngine::new();
 
     // Test Case 1: Fail Min Years
