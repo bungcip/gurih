@@ -394,7 +394,8 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                     let (name, target) = if let Ok(arg1) = get_arg_string(child, 1, src) {
                         (arg0, arg1)
                     } else {
-                        (arg0.to_lowercase(), arg0.clone())
+                        let name = arg0.to_lowercase();
+                        (name, arg0)
                     };
 
                     relationships.push(RelationshipDef {
