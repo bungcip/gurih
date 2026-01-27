@@ -1,6 +1,6 @@
 use crate::datastore::DataStore;
 use crate::errors::RuntimeError;
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate, Utc};
 use gurih_ir::{FieldType, Schema, Symbol, TransitionEffect, TransitionPrecondition};
 use serde_json::Value;
 use std::sync::Arc;
@@ -172,12 +172,6 @@ impl WorkflowEngine {
                             )));
                         }
 
-                        // Determine table name
-                        // Note: We don't have access to full schema.tables easily unless passed, but we have `schema`.
-                        // self.validate_transition receives &Schema.
-                        // But check_precondition doesn't receive &Schema in my previous edit?
-                        // Let's check check_precondition signature.
-
                         let table_name = target_entity.to_lowercase(); // Simple heuristic for now, safe with alphanumeric check
 
                         // Construct SQL
@@ -202,6 +196,95 @@ impl WorkflowEngine {
                     return Err(RuntimeError::WorkflowError(
                         "Cannot check PeriodOpen: Datastore not available".to_string(),
                     ));
+                }
+            }
+            TransitionPrecondition::Document(doc_name) => {
+                let field_name = doc_name.as_str();
+                match entity_data.get(field_name) {
+                    Some(Value::String(s)) if !s.is_empty() => {} // OK
+                    Some(Value::Null) | None => {
+                        return Err(RuntimeError::ValidationError(format!(
+                            "Missing required document: '{}'",
+                            doc_name
+                        )));
+                    }
+                    _ => {
+                        return Err(RuntimeError::ValidationError(format!(
+                            "Invalid format for document field '{}'",
+                            doc_name
+                        )));
+                    }
+                }
+            }
+            TransitionPrecondition::MinYearsOfService { years, from_field } => {
+                let field_name = from_field.as_ref().map(|s| s.as_str()).unwrap_or("join_date");
+                let date_str = entity_data
+                    .get(field_name)
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        RuntimeError::ValidationError(format!("Missing date field '{}' for service check", field_name))
+                    })?;
+
+                let join_date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+                    .map_err(|_| RuntimeError::ValidationError(format!("Invalid date format in '{}'", field_name)))?;
+                let now = Utc::now().date_naive();
+
+                let mut service_years = now.year() - join_date.year();
+                if (now.month(), now.day()) < (join_date.month(), join_date.day()) {
+                    service_years -= 1;
+                }
+
+                if service_years < *years as i32 {
+                    return Err(RuntimeError::ValidationError(format!(
+                        "Insufficient years of service: Has {}, requires {}",
+                        service_years, years
+                    )));
+                }
+            }
+            TransitionPrecondition::MinAge {
+                age,
+                birth_date_field,
+            } => {
+                let field_name = birth_date_field
+                    .as_ref()
+                    .map(|s| s.as_str())
+                    .unwrap_or("birth_date");
+                let date_str = entity_data
+                    .get(field_name)
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        RuntimeError::ValidationError(format!("Missing date field '{}' for age check", field_name))
+                    })?;
+
+                let birth_date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+                    .map_err(|_| RuntimeError::ValidationError(format!("Invalid date format in '{}'", field_name)))?;
+                let now = Utc::now().date_naive();
+
+                let mut current_age = now.year() - birth_date.year();
+                if (now.month(), now.day()) < (birth_date.month(), birth_date.day()) {
+                    current_age -= 1;
+                }
+
+                if current_age < *age as i32 {
+                    return Err(RuntimeError::ValidationError(format!(
+                        "Minimum age not met: Is {}, requires {}",
+                        current_age, age
+                    )));
+                }
+            }
+            TransitionPrecondition::ValidEffectiveDate(field_name) => {
+                let date_str = entity_data
+                    .get(field_name.as_str())
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        RuntimeError::ValidationError(format!("Missing effective date field '{}'", field_name))
+                    })?;
+
+                if NaiveDate::parse_from_str(date_str, "%Y-%m-%d").is_err() {
+                    return Err(RuntimeError::ValidationError(format!(
+                        "Invalid effective date format in '{}'",
+                        field_name
+                    )));
                 }
             }
         }
@@ -249,6 +332,12 @@ impl WorkflowEngine {
 
                         updates.insert(field.to_string(), json_val);
                     }
+                    TransitionEffect::SuspendPayroll(active) => {
+                        updates.insert("is_payroll_active".to_string(), Value::Bool(*active));
+                    }
+                    TransitionEffect::UpdateRankEligibility(active) => {
+                        updates.insert("rank_eligible".to_string(), Value::Bool(*active));
+                    }
                 }
             }
         }
@@ -284,5 +373,95 @@ impl WorkflowEngine {
             .iter()
             .find(|t| t.from == Symbol::from(current_state) && t.to == Symbol::from(new_state))
             .and_then(|t| t.required_permission.as_ref().map(|s: &Symbol| s.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gurih_ir::{StateSchema, Transition, TransitionPrecondition, TransitionEffect, WorkflowSchema};
+    use serde_json::json;
+    use std::collections::HashMap;
+    use chrono::Utc;
+
+    #[tokio::test]
+    async fn test_workflow_diagnostics() {
+        let engine = WorkflowEngine::new();
+
+        // Define a workflow manually
+        let workflow = WorkflowSchema {
+            name: Symbol::from("EmployeeStatusWorkflow"),
+            entity: Symbol::from("Employee"),
+            field: Symbol::from("status"),
+            initial_state: Symbol::from("CPNS"),
+            states: vec![
+                StateSchema { name: Symbol::from("CPNS"), immutable: false },
+                StateSchema { name: Symbol::from("PNS"), immutable: false },
+            ],
+            transitions: vec![
+                Transition {
+                    name: Symbol::from("promote"),
+                    from: Symbol::from("CPNS"),
+                    to: Symbol::from("PNS"),
+                    required_permission: None,
+                    preconditions: vec![
+                        TransitionPrecondition::Document(Symbol::from("sk_pns")),
+                        TransitionPrecondition::MinYearsOfService {
+                            years: 1,
+                            from_field: Some(Symbol::from("join_date")),
+                        }
+                    ],
+                    effects: vec![
+                        TransitionEffect::UpdateRankEligibility(true)
+                    ],
+                }
+            ]
+        };
+
+        let mut workflows = HashMap::new();
+        workflows.insert(Symbol::from("EmployeeStatusWorkflow"), workflow);
+
+        // Mock Schema
+        let mut schema = Schema::default();
+        schema.workflows = workflows;
+
+        // Test 1: Missing Document
+        let data_missing_doc = json!({
+            "status": "CPNS",
+            "join_date": "2020-01-01"
+        });
+
+        let res = engine.validate_transition(&schema, None, "Employee", "CPNS", "PNS", &data_missing_doc).await;
+        assert!(res.is_err());
+        let err_msg = res.unwrap_err().to_string();
+        assert!(err_msg.contains("Missing required document: 'sk_pns'"), "Got: {}", err_msg);
+
+        // Test 2: Document Present, Service Insufficient (Assume current year is e.g. 2024, join date 2024 -> 0 years)
+        // To make this test deterministic without mocking Utc::now(), we should set join_date to Today
+        let today = Utc::now().date_naive().format("%Y-%m-%d").to_string();
+        let data_insufficient_service = json!({
+            "status": "CPNS",
+            "sk_pns": "path/to/file.pdf",
+            "join_date": today
+        });
+
+        let res = engine.validate_transition(&schema, None, "Employee", "CPNS", "PNS", &data_insufficient_service).await;
+        assert!(res.is_err());
+        let err_msg = res.unwrap_err().to_string();
+        assert!(err_msg.contains("Insufficient years of service"), "Got: {}", err_msg);
+
+        // Test 3: Success (Join date 10 years ago)
+        let data_success = json!({
+            "status": "CPNS",
+            "sk_pns": "path/to/file.pdf",
+            "join_date": "2010-01-01"
+        });
+
+        let res = engine.validate_transition(&schema, None, "Employee", "CPNS", "PNS", &data_success).await;
+        assert!(res.is_ok());
+
+        // Test Effects
+        let (updates, _) = engine.apply_effects(&schema, "Employee", "CPNS", "PNS", &data_success);
+        assert_eq!(updates.get("rank_eligible"), Some(&Value::Bool(true)));
     }
 }

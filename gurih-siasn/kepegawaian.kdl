@@ -33,6 +33,11 @@ module "Kepegawaian" {
 
         field:image "foto" required=#false
 
+        // Documents needed for transitions
+        field:file "sk_pns" required=#false
+        field:file "surat_cuti" required=#false
+        field:file "sk_tugas_belajar" required=#false
+
         // Current Position/Unit (Denormalized or Main Reference)
         belongs_to "Jabatan"
         belongs_to "Unor"

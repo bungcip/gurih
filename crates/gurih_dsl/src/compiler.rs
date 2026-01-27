@@ -118,40 +118,22 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 .iter()
                 .map(|p| match p {
                     ast::TransitionPreconditionDef::Document { name, .. } => {
-                        TransitionPrecondition::Assertion(gurih_ir::Expression::FunctionCall {
-                            name: Symbol::from("is_set"),
-                            args: vec![gurih_ir::Expression::Field(Symbol::from(name.as_str()))],
-                        })
+                        TransitionPrecondition::Document(Symbol::from(name.as_str()))
                     }
                     ast::TransitionPreconditionDef::MinYearsOfService { years, from_field, .. } => {
-                        TransitionPrecondition::Assertion(gurih_ir::Expression::BinaryOp {
-                            left: Box::new(gurih_ir::Expression::FunctionCall {
-                                name: Symbol::from("years_of_service"),
-                                args: vec![gurih_ir::Expression::Field(Symbol::from(
-                                    from_field.as_deref().unwrap_or("join_date"),
-                                ))],
-                            }),
-                            op: gurih_ir::BinaryOperator::Gte,
-                            right: Box::new(gurih_ir::Expression::Literal(*years as f64)),
-                        })
+                        TransitionPrecondition::MinYearsOfService {
+                            years: *years,
+                            from_field: from_field.as_ref().map(|s| Symbol::from(s.as_str())),
+                        }
                     }
                     ast::TransitionPreconditionDef::MinAge {
                         age, birth_date_field, ..
-                    } => TransitionPrecondition::Assertion(gurih_ir::Expression::BinaryOp {
-                        left: Box::new(gurih_ir::Expression::FunctionCall {
-                            name: Symbol::from("age"),
-                            args: vec![gurih_ir::Expression::Field(Symbol::from(
-                                birth_date_field.as_deref().unwrap_or("birth_date"),
-                            ))],
-                        }),
-                        op: gurih_ir::BinaryOperator::Gte,
-                        right: Box::new(gurih_ir::Expression::Literal(*age as f64)),
-                    }),
+                    } => TransitionPrecondition::MinAge {
+                        age: *age,
+                        birth_date_field: birth_date_field.as_ref().map(|s| Symbol::from(s.as_str())),
+                    },
                     ast::TransitionPreconditionDef::ValidEffectiveDate { field, .. } => {
-                        TransitionPrecondition::Assertion(gurih_ir::Expression::FunctionCall {
-                            name: Symbol::from("valid_date"),
-                            args: vec![gurih_ir::Expression::Field(Symbol::from(field.as_str()))],
-                        })
+                        TransitionPrecondition::ValidEffectiveDate(Symbol::from(field.as_str()))
                     }
                     ast::TransitionPreconditionDef::BalancedTransaction { .. } => {
                         TransitionPrecondition::BalancedTransaction
@@ -165,17 +147,15 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 .effects
                 .iter()
                 .map(|e| match e {
-                    ast::TransitionEffectDef::SuspendPayroll { active, .. } => TransitionEffect::UpdateField {
-                        field: Symbol::from("is_payroll_active"),
-                        value: active.to_string(),
-                    },
+                    ast::TransitionEffectDef::SuspendPayroll { active, .. } => {
+                        TransitionEffect::SuspendPayroll(*active)
+                    }
                     ast::TransitionEffectDef::Notify { target, .. } => {
                         TransitionEffect::Notify(Symbol::from(target.as_str()))
                     }
-                    ast::TransitionEffectDef::UpdateRankEligibility { active, .. } => TransitionEffect::UpdateField {
-                        field: Symbol::from("rank_eligible"),
-                        value: active.to_string(),
-                    },
+                    ast::TransitionEffectDef::UpdateRankEligibility { active, .. } => {
+                        TransitionEffect::UpdateRankEligibility(*active)
+                    }
                     ast::TransitionEffectDef::UpdateField { field, value, .. } => TransitionEffect::UpdateField {
                         field: Symbol::from(field.as_str()),
                         value: value.clone(),

@@ -281,12 +281,20 @@ pub enum TransitionPrecondition {
     Assertion(Expression),
     BalancedTransaction,
     PeriodOpen { entity: Option<Symbol> },
+    // New specific preconditions for better diagnostics
+    Document(Symbol),
+    MinYearsOfService { years: u32, from_field: Option<Symbol> },
+    MinAge { age: u32, birth_date_field: Option<Symbol> },
+    ValidEffectiveDate(Symbol),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransitionEffect {
     Notify(Symbol),
     UpdateField { field: Symbol, value: String },
+    // New specific effects
+    SuspendPayroll(bool),
+    UpdateRankEligibility(bool),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
