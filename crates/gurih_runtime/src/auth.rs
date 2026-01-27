@@ -3,11 +3,14 @@ use crate::datastore::DataStore;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 pub struct AuthEngine {
     datastore: Arc<dyn DataStore>,
     sessions: Arc<Mutex<HashMap<String, RuntimeContext>>>,
+    // Track failed attempts: Username -> (Count, Timestamp of first failure in window)
+    login_attempts: Arc<Mutex<HashMap<String, (u32, Instant)>>>,
 }
 
 pub fn hash_password(password: &str) -> String {
@@ -40,25 +43,66 @@ impl AuthEngine {
         Self {
             datastore,
             sessions: Arc::new(Mutex::new(HashMap::new())),
+            login_attempts: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     pub async fn login(&self, username: &str, password: &str) -> Result<RuntimeContext, String> {
+        // Rate Limiting Check
+        {
+            let mut attempts = self.login_attempts.lock().unwrap();
+            // Copy values to avoid borrow conflict
+            if let Some((count, last_time)) = attempts.get(username).copied() {
+                if count >= 5 {
+                    if last_time.elapsed() < Duration::from_secs(300) {
+                        return Err("Too many failed attempts. Please try again later.".to_string());
+                    } else {
+                        attempts.remove(username);
+                    }
+                }
+            }
+        }
+
         let mut filters = HashMap::new();
         filters.insert("username".to_string(), username.to_string());
 
         let users = self.datastore.find("User", filters).await?;
-        if users.is_empty() {
+
+        // Determine if login is successful
+        let mut login_success = false;
+        let mut user_ref = None;
+
+        if !users.is_empty() {
+            let user = &users[0];
+            let stored_password = user.get("password").and_then(|v| v.as_str()).unwrap_or_default();
+            if verify_password(password, stored_password) {
+                login_success = true;
+                user_ref = Some(user);
+            }
+        }
+
+        if !login_success {
+            let mut attempts = self.login_attempts.lock().unwrap();
+            let entry = attempts.entry(username.to_string()).or_insert((0, Instant::now()));
+
+            if entry.1.elapsed() > Duration::from_secs(300) {
+                // Window expired, reset
+                entry.0 = 1;
+                entry.1 = Instant::now();
+            } else {
+                entry.0 += 1;
+            }
+
             return Err("Invalid username or password".to_string());
         }
 
-        let user = &users[0];
-        let stored_password = user.get("password").and_then(|v| v.as_str()).unwrap_or_default();
-
-        if !verify_password(password, stored_password) {
-            return Err("Invalid username or password".to_string());
+        // Success - Clear attempts
+        {
+            let mut attempts = self.login_attempts.lock().unwrap();
+            attempts.remove(username);
         }
 
+        let user = user_ref.unwrap();
         let user_id = user.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
 
         let role = user.get("role").and_then(|v| v.as_str()).unwrap_or("user").to_string();
