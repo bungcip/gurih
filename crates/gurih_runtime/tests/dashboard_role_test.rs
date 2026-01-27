@@ -7,10 +7,11 @@ use std::sync::Arc;
 #[tokio::test]
 async fn test_dashboard_role_filtering() {
     let mut dashboards = HashMap::new();
+    let dashboard_id = Symbol::from("MyDashboard");
     dashboards.insert(
-        Symbol::from("MyDashboard"),
+        dashboard_id,
         DashboardSchema {
-            name: Symbol::from("MyDashboard"),
+            name: dashboard_id,
             title: "Test Dashboard".to_string(),
             widgets: vec![
                 WidgetSchema {
@@ -51,7 +52,7 @@ async fn test_dashboard_role_filtering() {
 
     // Test Admin Role
     let admin_result = engine
-        .evaluate(&schema, "MyDashboard", &datastore, &["Admin".to_string()])
+        .evaluate(&schema, dashboard_id, &datastore, &["Admin".to_string()])
         .await
         .unwrap();
 
@@ -63,7 +64,7 @@ async fn test_dashboard_role_filtering() {
 
     // Test User Role
     let user_result = engine
-        .evaluate(&schema, "MyDashboard", &datastore, &["User".to_string()])
+        .evaluate(&schema, dashboard_id, &datastore, &["User".to_string()])
         .await
         .unwrap();
 
@@ -74,7 +75,7 @@ async fn test_dashboard_role_filtering() {
     assert!(!user_widgets.iter().any(|w| w["name"] == "AdminWidget"));
 
     // Test No Role (Public only)
-    let public_result = engine.evaluate(&schema, "MyDashboard", &datastore, &[]).await.unwrap();
+    let public_result = engine.evaluate(&schema, dashboard_id, &datastore, &[]).await.unwrap();
 
     let public_widgets = public_result["widgets"].as_array().unwrap();
     assert_eq!(public_widgets.len(), 1, "Public should see 1 widget");

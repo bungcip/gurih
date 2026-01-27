@@ -45,19 +45,20 @@ fn test_default_form_label_generation() {
         },
     ];
 
+    let entity_id = Symbol::from("TestEntity");
     let entity = EntitySchema {
-        name: Symbol::from("TestEntity"),
+        name: entity_id,
         fields,
         relationships: vec![],
         options: HashMap::new(),
         seeds: None,
     };
 
-    schema.entities.insert(Symbol::from("TestEntity"), entity);
+    schema.entities.insert(entity_id, entity);
 
     let engine = FormEngine::new();
     let form_json = engine
-        .generate_default_form(&schema, "TestEntity")
+        .generate_default_form(&schema, entity_id)
         .expect("Failed to generate form");
 
     // Helper to find field by name
