@@ -71,7 +71,10 @@ impl SchemaManager {
         let mut values_str = vec![]; // Keep values to bind later
 
         // Sort keys to ensure order? Not strictly necessary but good for debug
-        for (k, v) in seed {
+        let mut sorted_seed: Vec<_> = seed.iter().collect();
+        sorted_seed.sort_by_key(|(k, _)| *k);
+
+        for (k, v) in sorted_seed {
             cols.push(format!("\"{}\"", k));
             values_str.push((k, v));
         }
