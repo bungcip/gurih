@@ -47,6 +47,21 @@ const files = computed(() => {
     return Array.isArray(props.modelValue) ? props.modelValue : [props.modelValue]
 })
 
+const fileIds = new WeakMap()
+let idCounter = 0
+
+function getFileKey(file, index) {
+    if (!file || typeof file !== 'object') return index
+    if (file.id) return file.id
+
+    let id = fileIds.get(file)
+    if (!id) {
+        id = `file-local-${idCounter++}`
+        fileIds.set(file, id)
+    }
+    return id
+}
+
 function formatSize(bytes) {
     if (bytes === 0) return '0 B'
     const k = 1024
@@ -188,7 +203,7 @@ function getPreviewUrl(file) {
     <div v-if="files.length > 0" class="space-y-2 mt-3">
         <div 
             v-for="(file, index) in files" 
-            :key="index"
+            :key="getFileKey(file, index)"
             class="flex items-center gap-3 p-3 bg-[--color-surface] border border-gray-200 dark:border-gray-700 rounded-lg group"
         >
             <!-- Preview or Icon -->
