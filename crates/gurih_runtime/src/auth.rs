@@ -83,9 +83,7 @@ impl AuthEngine {
 
         if !login_success {
             let mut attempts = self.login_attempts.lock().unwrap();
-            let entry = attempts
-                .entry(username.to_string())
-                .or_insert((0, Instant::now()));
+            let entry = attempts.entry(username.to_string()).or_insert((0, Instant::now()));
 
             if entry.1.elapsed() > Duration::from_secs(300) {
                 // Window expired, reset
@@ -105,11 +103,7 @@ impl AuthEngine {
         }
 
         let user = user_ref.unwrap();
-        let user_id = user
-            .get("id")
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
+        let user_id = user.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
 
         let role = user.get("role").and_then(|v| v.as_str()).unwrap_or("user").to_string();
 
