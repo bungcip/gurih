@@ -55,6 +55,9 @@ enum Commands {
         /// Only run the backend server, skip frontend and browser
         #[arg(long)]
         server_only: bool,
+        /// Disable authentication (DANGEROUS: For dev/docs only)
+        #[arg(long)]
+        no_auth: bool,
     },
     /// Run the runtime in watch mode, restarting on file changes
     Watch {
@@ -64,6 +67,9 @@ enum Commands {
         /// Only run the backend server, skip frontend and browser
         #[arg(long)]
         server_only: bool,
+        /// Disable authentication
+        #[arg(long)]
+        no_auth: bool,
     },
     /// Generate fake test data for entities
     Faker {
@@ -79,6 +85,7 @@ struct AppState {
     action_engine: Arc<ActionEngine>,
     auth_engine: Arc<AuthEngine>,
     storage_engine: Arc<gurih_runtime::storage::StorageEngine>,
+    no_auth: bool,
 }
 
 #[tokio::main]
@@ -102,8 +109,12 @@ async fn main() {
             file,
             port,
             server_only,
+            no_auth,
         } => {
-            if start_server(file, port, server_only, false, true).await.is_err() {
+            if start_server(file, port, server_only, no_auth, false, true)
+                .await
+                .is_err()
+            {
                 std::process::exit(1);
             }
         }
@@ -111,8 +122,9 @@ async fn main() {
             file,
             port,
             server_only,
+            no_auth,
         } => {
-            watch_loop(file, port, server_only).await;
+            watch_loop(file, port, server_only, no_auth).await;
         }
         Commands::Faker { file, count } => match read_and_compile_with_diagnostics(&file) {
             Ok(schema) => {
@@ -140,7 +152,7 @@ enum WatchEvent {
     Frontend,
 }
 
-async fn watch_loop(file: PathBuf, port: u16, server_only: bool) {
+async fn watch_loop(file: PathBuf, port: u16, server_only: bool, no_auth: bool) {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
         match res {
@@ -201,7 +213,7 @@ async fn watch_loop(file: PathBuf, port: u16, server_only: bool) {
         let server_task = tokio::spawn(async move {
             // For watch mode, we suppress some errors inside start_server or handle them?
             // start_server prints errors.
-            let _ = start_server(file_clone, port, server_only, true, first_run).await;
+            let _ = start_server(file_clone, port, server_only, no_auth, true, first_run).await;
         });
 
         first_run = false;
@@ -242,6 +254,7 @@ async fn start_server(
     file: PathBuf,
     port: u16,
     server_only: bool,
+    no_auth: bool,
     watch_mode: bool,
     open_browser: bool,
 ) -> Result<(), ()> {
@@ -309,6 +322,7 @@ async fn start_server(
                 action_engine,
                 auth_engine,
                 storage_engine,
+                no_auth,
             };
 
             let mut app = app
@@ -444,6 +458,9 @@ async fn check_auth(
     headers: HeaderMap,
     state: &AppState,
 ) -> Result<RuntimeContext, (StatusCode, Json<serde_json::Value>)> {
+    if state.no_auth {
+        return Ok(RuntimeContext::system());
+    }
     #[allow(clippy::collapsible_if)]
     if let Some(auth_header) = headers.get("Authorization") {
         if let Ok(auth_str) = auth_header.to_str() {
