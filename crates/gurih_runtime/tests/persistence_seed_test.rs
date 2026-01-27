@@ -1,9 +1,9 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-use gurih_ir::{DatabaseType, EntitySchema, FieldType, Schema, Symbol, FieldSchema};
+use gurih_ir::{DatabaseType, EntitySchema, FieldSchema, FieldType, Schema, Symbol};
 use gurih_runtime::persistence::SchemaManager;
 use gurih_runtime::store::DbPool;
 use sqlx::sqlite::SqlitePoolOptions;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 #[tokio::test]
 async fn test_seed_sorting() {
