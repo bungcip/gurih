@@ -4,9 +4,9 @@ use crate::parser::parse;
 use crate::validator::Validator;
 use gurih_ir::Symbol;
 use gurih_ir::{
-    ActionSchema, ColumnSchema, DashboardSchema, DatabaseSchema, DatatableColumnSchema, DatatableSchema, EntitySchema,
-    FieldSchema, FieldType, FormSchema, FormSection, LayoutSchema, MenuItemSchema, MenuSchema, PageContentSchema,
-    PageSchema, PermissionSchema, PrintSchema, QueryFormula, QueryJoin, QuerySchema, QuerySelection,
+    ActionSchema, ColumnSchema, ColumnType, DashboardSchema, DatabaseSchema, DatatableColumnSchema, DatatableSchema,
+    EntitySchema, FieldSchema, FieldType, FormSchema, FormSection, LayoutSchema, MenuItemSchema, MenuSchema,
+    PageContentSchema, PageSchema, PermissionSchema, PrintSchema, QueryFormula, QueryJoin, QuerySchema, QuerySelection,
     RelationshipSchema, RouteSchema, RuleSchema, Schema, SerialGeneratorSchema, StateSchema, StorageSchema,
     TableSchema, Transition, TransitionEffect, TransitionPrecondition, WidgetSchema, WorkflowSchema,
 };
@@ -300,7 +300,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             .iter()
             .map(|c| ColumnSchema {
                 name: c.name.as_str().into(),
-                type_name: c.type_name.clone(),
+                type_name: parse_column_type(&c.type_name),
                 props: c.props.clone(),
                 primary: c.primary,
                 unique: c.unique,
@@ -773,6 +773,22 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         rules: ir_rules,
         posting_rules: ir_posting_rules,
     })
+}
+
+fn parse_column_type(s: &str) -> ColumnType {
+    match s.to_lowercase().as_str() {
+        "serial" => ColumnType::Serial,
+        "varchar" => ColumnType::Varchar,
+        "text" => ColumnType::Text,
+        "int" | "integer" => ColumnType::Integer,
+        "float" | "double" | "real" => ColumnType::Float,
+        "bool" | "boolean" => ColumnType::Boolean,
+        "date" => ColumnType::Date,
+        "timestamp" => ColumnType::Timestamp,
+        "uuid" => ColumnType::Uuid,
+        "json" | "jsonb" => ColumnType::Json,
+        _ => ColumnType::Custom(s.to_string()),
+    }
 }
 
 fn parse_field_type(

@@ -111,7 +111,7 @@ async fn test_workflow_extensions() {
     assert!(res_success.is_ok(), "Transition failed: {:?}", res_success.err());
 
     // Test Case 4: Effects
-    let (updates, _notifications) = engine.apply_effects(&schema, "Pegawai", "CPNS", "PNS", &data_success);
+    let (updates, _notifications, _postings) = engine.apply_effects(&schema, "Pegawai", "CPNS", "PNS", &data_success);
 
     assert_eq!(updates.get("rank_eligible"), Some(&json!("true")));
     assert_eq!(updates.get("custom_field"), Some(&json!("updated")));
