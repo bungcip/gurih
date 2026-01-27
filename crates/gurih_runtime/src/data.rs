@@ -124,7 +124,7 @@ impl DataEngine {
             return Err("Data must be an object".to_string());
         }
 
-        let id = self.datastore.insert(entity_name, data.clone()).await?;
+        let id = self.datastore.insert(entity_schema.table_name.as_str(), data.clone()).await?;
 
         // Audit Trail
         if let Some(val) = entity_schema.options.get("track_changes")
@@ -148,10 +148,12 @@ impl DataEngine {
     }
 
     pub async fn read(&self, entity_name: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
-        if !self.schema.entities.contains_key(&Symbol::from(entity_name)) {
-            return Err(format!("Entity '{}' not defined", entity_name));
+        let entity_schema = self.schema.entities.get(&Symbol::from(entity_name));
+        if let Some(schema) = entity_schema {
+             self.datastore.get(schema.table_name.as_str(), id).await
+        } else {
+             Err(format!("Entity '{}' not defined", entity_name))
         }
-        self.datastore.get(entity_name, id).await
     }
 
     pub async fn update(&self, entity_name: &str, id: &str, data: Value, ctx: &RuntimeContext) -> Result<(), String> {
@@ -183,7 +185,7 @@ impl DataEngine {
         let mut current_record_opt: Option<Arc<Value>> = None;
 
         if workflow.is_some() || has_update_rules || track_changes {
-            current_record_opt = self.datastore.get(entity_name, id).await?;
+            current_record_opt = self.datastore.get(entity_schema.table_name.as_str(), id).await?;
         }
 
         // Rule Check (Update)
@@ -297,7 +299,7 @@ impl DataEngine {
             self.process_data_fields(entity_schema, obj)?;
         }
 
-        self.datastore.update(entity_name, id, data.clone()).await?;
+        self.datastore.update(entity_schema.table_name.as_str(), id, data.clone()).await?;
 
         // Audit Trail (Post-update)
         if track_changes {
@@ -369,7 +371,7 @@ impl DataEngine {
             }
         }
 
-        self.datastore.delete(entity_name, id).await?;
+        self.datastore.delete(entity_schema.table_name.as_str(), id).await?;
 
         // Audit Trail
         if let Some(val) = entity_schema.options.get("track_changes")
@@ -431,10 +433,11 @@ impl DataEngine {
             return Err("Query engine failed to produce SQL plan".to_string());
         }
 
-        if !self.schema.entities.contains_key(&Symbol::from(entity)) {
-            return Err(format!("Entity or Query '{}' not defined", entity));
+        if let Some(schema) = self.schema.entities.get(&Symbol::from(entity)) {
+             self.datastore.list(schema.table_name.as_str(), limit, offset).await
+        } else {
+             Err(format!("Entity or Query '{}' not defined", entity))
         }
-        self.datastore.list(entity, limit, offset).await
     }
 
     async fn execute_posting_rule(
@@ -470,9 +473,14 @@ impl DataEngine {
             let account_term = line.account.as_str();
             // Basic sanitization to prevent breaking SQL
             let safe_term = account_term.replace('\'', "''");
+
+            let account_table = self.schema.entities.get(&Symbol::from("Account"))
+                .map(|e| e.table_name.as_str())
+                .unwrap_or("Account");
+
             let sql = format!(
-                "SELECT id FROM Account WHERE code = '{}' OR name = '{}' LIMIT 1",
-                safe_term, safe_term
+                "SELECT id FROM \"{}\" WHERE code = '{}' OR name = '{}' LIMIT 1",
+                account_table, safe_term, safe_term
             );
 
             let accounts = self

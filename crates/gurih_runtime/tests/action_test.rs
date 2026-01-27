@@ -44,6 +44,7 @@ async fn test_action_execution_delete() {
         Symbol::from("Item"),
         EntitySchema {
             name: Symbol::from("Item"), // Missing in previous test
+            table_name: Symbol::from("item"),
             fields,
             relationships: vec![],
             options: HashMap::new(),

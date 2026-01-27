@@ -94,8 +94,11 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 options.insert("is_single".to_string(), "true".to_string());
             }
 
+            let table_name = to_snake_case(entity_def.name.as_str());
+
             Ok(EntitySchema {
                 name: entity_def.name.as_str().into(),
+                table_name: Symbol::from(table_name.as_str()),
                 fields,
                 relationships,
                 options,
@@ -750,6 +753,86 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         );
     }
 
+    // 17. Generate missing TableSchemas for Entities
+    for entity in ir_entities.values() {
+        if !ir_tables.contains_key(&entity.table_name) {
+            let mut columns = vec![];
+
+            for field in &entity.fields {
+                let type_name = match &field.field_type {
+                    FieldType::Pk => "String",
+                    FieldType::Serial => "String",
+                    FieldType::Sku => "String",
+                    FieldType::Name => "String",
+                    FieldType::Title => "String",
+                    FieldType::Description => "String",
+                    FieldType::Avatar => "String",
+                    FieldType::Money => "String", // Or Decimal if supported, but String/Text is safe for now
+                    FieldType::Email => "String",
+                    FieldType::Phone => "String",
+                    FieldType::Address => "String",
+                    FieldType::Password => "String",
+                    FieldType::Enum(_) => "String",
+                    FieldType::Integer => "Integer",
+                    FieldType::Float => "Float",
+                    FieldType::Date => "Date",
+                    FieldType::Timestamp => "Timestamp",
+                    FieldType::String => "String",
+                    FieldType::Text => "String",
+                    FieldType::Image => "String",
+                    FieldType::File => "String",
+                    FieldType::Relation => "String",
+                    FieldType::Boolean => "Boolean",
+                    FieldType::Code => "String",
+                    FieldType::Custom(_) => "String",
+                };
+
+                let mut props = HashMap::new();
+                if field.required {
+                    props.insert("not_null".to_string(), "true".to_string());
+                }
+                if let Some(default) = &field.default {
+                     props.insert("default".to_string(), default.clone());
+                }
+
+                columns.push(ColumnSchema {
+                    name: field.name,
+                    type_name: type_name.to_string(),
+                    props,
+                    primary: matches!(field.field_type, FieldType::Pk),
+                    unique: field.unique,
+                });
+            }
+
+            // Generate FK columns for BelongsTo relationships
+            for rel in &entity.relationships {
+                if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
+                    let col_name = format!("{}_id", rel.name);
+                    let col_symbol = Symbol::from(col_name.as_str());
+
+                    // Avoid duplicate columns if field already exists (e.g. explicitly defined)
+                    if !columns.iter().any(|c| c.name == col_symbol) {
+                         columns.push(ColumnSchema {
+                            name: col_symbol,
+                            type_name: "String".to_string(),
+                            props: HashMap::new(),
+                            primary: false,
+                            unique: false,
+                        });
+                    }
+                }
+            }
+
+            ir_tables.insert(
+                entity.table_name,
+                TableSchema {
+                    name: entity.table_name,
+                    columns,
+                },
+            );
+        }
+    }
+
     Ok(Schema {
         name: ast_root.name.unwrap_or("GurihApp".to_string()).as_str().into(),
         version: ast_root.version.unwrap_or("1.0.0".to_string()),
@@ -802,4 +885,19 @@ fn parse_field_type(
         FieldType::Code => Ok(FieldType::Code),
         other => Ok(other.clone()),
     }
+}
+
+fn to_snake_case(s: &str) -> String {
+    let mut result = String::new();
+    for (i, c) in s.char_indices() {
+        if c.is_uppercase() {
+            if i > 0 {
+                result.push('_');
+            }
+            result.push(c.to_ascii_lowercase());
+        } else {
+            result.push(c);
+        }
+    }
+    result
 }

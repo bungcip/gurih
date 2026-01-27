@@ -74,6 +74,7 @@ async fn test_immutability() {
         entity_name,
         gurih_ir::EntitySchema {
             name: entity_name,
+            table_name: Symbol::from("journal_entry"),
             fields: vec![gurih_ir::FieldSchema {
                 name: Symbol::from("status"),
                 field_type: gurih_ir::FieldType::String,
@@ -136,6 +137,7 @@ async fn test_delete_immutable() {
         entity_name,
         gurih_ir::EntitySchema {
             name: entity_name,
+            table_name: Symbol::from("journal_entry"),
             fields: vec![gurih_ir::FieldSchema {
                 name: Symbol::from("status"),
                 field_type: gurih_ir::FieldType::String,

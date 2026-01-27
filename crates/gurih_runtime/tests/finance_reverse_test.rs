@@ -79,6 +79,7 @@ async fn test_finance_reverse_journal() {
         Symbol::from("JournalEntry"),
         EntitySchema {
             name: Symbol::from("JournalEntry"),
+            table_name: Symbol::from("journal_entry"),
             fields: je_fields,
             relationships: vec![],
             options: HashMap::new(),
@@ -141,6 +142,7 @@ async fn test_finance_reverse_journal() {
         Symbol::from("JournalLine"),
         EntitySchema {
             name: Symbol::from("JournalLine"),
+            table_name: Symbol::from("journal_line"),
             fields: jl_fields,
             relationships: vec![],
             options: HashMap::new(),
@@ -250,7 +252,7 @@ async fn test_finance_reverse_journal() {
     let reversal_id = reversal["id"].as_str().unwrap();
     let mut filters = HashMap::new();
     filters.insert("journal_entry".to_string(), reversal_id.to_string());
-    let lines = datastore.find("JournalLine", filters).await.expect("Find lines failed");
+    let lines = datastore.find("journal_line", filters).await.expect("Find lines failed");
     assert_eq!(lines.len(), 2);
 
     // Helper to parse money string
