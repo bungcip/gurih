@@ -98,3 +98,30 @@ page "JournalForm" {
         // In real impl, need "grid" or similar.
     }
 }
+
+// -----------------------------------------------------------------------------
+// RULES
+// -----------------------------------------------------------------------------
+rule "PositiveDebit" {
+    on "JournalLine:create"
+    assert "debit >= 0"
+    message "Debit must be positive"
+}
+
+rule "PositiveCredit" {
+    on "JournalLine:create"
+    assert "credit >= 0"
+    message "Credit must be positive"
+}
+
+rule "PositiveDebitUpdate" {
+    on "JournalLine:update"
+    assert "debit >= 0"
+    message "Debit must be positive"
+}
+
+rule "PositiveCreditUpdate" {
+    on "JournalLine:update"
+    assert "credit >= 0"
+    message "Credit must be positive"
+}
