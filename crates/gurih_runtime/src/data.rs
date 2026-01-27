@@ -31,13 +31,34 @@ impl DataEngine {
         &self.datastore
     }
 
-    fn check_rules(&self, entity_name: &str, action: &str, data: &Value) -> Result<(), String> {
+    fn check_rules(
+        &self,
+        entity_name: &str,
+        action: &str,
+        new_data: &Value,
+        old_data: Option<&Value>,
+    ) -> Result<(), String> {
         let event = format!("{}:{}", entity_name, action);
         let event_sym = Symbol::from(&event);
 
+        // Construct context with self and old
+        let mut context_map = if let Some(obj) = new_data.as_object() {
+            obj.clone()
+        } else {
+            serde_json::Map::new()
+        };
+
+        context_map.insert("self".to_string(), new_data.clone());
+        if let Some(old) = old_data {
+            context_map.insert("old".to_string(), old.clone());
+        } else {
+            context_map.insert("old".to_string(), Value::Null);
+        }
+        let context = Value::Object(context_map);
+
         for rule in self.schema.rules.values() {
             if rule.on_event == event_sym {
-                let result = crate::evaluator::evaluate(&rule.assertion, data)
+                let result = crate::evaluator::evaluate(&rule.assertion, &context)
                     .map_err(|e| format!("Rule '{}' error: {}", rule.name, e))?;
 
                 match result {
@@ -72,7 +93,7 @@ impl DataEngine {
         }
 
         // Rule Check (Create)
-        self.check_rules(entity_name, "create", &data)?;
+        self.check_rules(entity_name, "create", &data, None)?;
 
         // Workflow: Set initial state if applicable
         if let Some(wf) = self
@@ -176,7 +197,7 @@ impl DataEngine {
                         target.insert(k.clone(), v.clone());
                     }
                 }
-                self.check_rules(entity_name, "update", &merged)?;
+                self.check_rules(entity_name, "update", &merged, Some(&**current))?;
             } else {
                 return Err("Record not found for rule validation".to_string());
             }

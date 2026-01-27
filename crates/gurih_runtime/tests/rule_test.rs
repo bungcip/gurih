@@ -78,3 +78,57 @@ async fn test_rule_enforcement() {
     let res = engine.update("Person", &id, update_valid, &ctx).await;
     assert!(res.is_ok(), "Valid update failed: {:?}", res.err());
 }
+
+#[tokio::test]
+async fn test_rule_self_and_old() {
+    let kdl = r#"
+    entity "Wallet" {
+        field:pk id
+        field:float "amount"
+        options {
+            create_permission "public"
+        }
+    }
+
+    rule "AmountIncrease" {
+        on "Wallet:update"
+        assert "self.amount > old.amount"
+        message "Amount must increase"
+    }
+    "#;
+
+    let schema = Arc::new(compile(kdl, None).expect("Failed to compile schema"));
+    let datastore = Arc::new(MemoryDataStore::new());
+    let engine = DataEngine::new(schema, datastore);
+    let ctx = RuntimeContext::system();
+
+    // 1. Create
+    let data = json!({
+        "amount": 100.0
+    });
+    let id = engine.create("Wallet", data, &ctx).await.expect("Create failed");
+
+    // 2. Valid Update (Increase)
+    let update_ok = json!({
+        "amount": 150.0
+    });
+    let res = engine.update("Wallet", &id, update_ok, &ctx).await;
+    assert!(res.is_ok(), "Valid update failed: {:?}", res.err());
+
+    // 3. Invalid Update (Decrease)
+    // Note: Current amount is 150 now (because memory store persists updates)
+    let update_fail = json!({
+        "amount": 140.0
+    });
+    let res = engine.update("Wallet", &id, update_fail, &ctx).await;
+    assert!(res.is_err());
+    assert_eq!(res.err().unwrap(), "Amount must increase");
+
+    // 4. Invalid Update (Same)
+    let update_fail_same = json!({
+        "amount": 150.0
+    });
+    let res = engine.update("Wallet", &id, update_fail_same, &ctx).await;
+    assert!(res.is_err());
+    assert_eq!(res.err().unwrap(), "Amount must increase");
+}
