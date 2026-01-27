@@ -25,5 +25,8 @@ fn benchmark_parser() {
     let duration = start.elapsed();
     let avg_time = duration / iterations;
 
-    println!("Benchmark result: {:?} per iteration (avg over {} iterations)", avg_time, iterations);
+    println!(
+        "Benchmark result: {:?} per iteration (avg over {} iterations)",
+        avg_time, iterations
+    );
 }
