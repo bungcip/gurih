@@ -60,7 +60,7 @@ const formatCurrency = (value, currencyCode = 'IDR') => {
                       </template>
                   </td>
                   <td v-if="actions.length" class="p-4 px-8 text-right">
-                      <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                           <Button
                               v-for="action in actions"
                               :key="action.label"

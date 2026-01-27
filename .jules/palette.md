@@ -5,3 +5,7 @@
 ## 2025-05-23 - Modal Accessibility & Interaction
 **Learning:** Confirmation modals often lack keyboard support (Escape to close) and semantic roles (`alertdialog`), making them traps for keyboard users and confusing for screen readers.
 **Action:** Always add `keydown` listener for Escape, use `Teleport` for correct DOM placement, and ensure `role="alertdialog"` with `aria-labelledby`/`aria-describedby` are present.
+
+## 2025-05-24 - Invisible Focus Trap in Data Tables
+**Learning:** Actions hidden with `opacity-0` and revealed only on hover created a focus trap. Keyboard users could tab to the buttons but couldn't see them, leaving them lost in "invisible space".
+**Action:** Use `group-focus-within:opacity-100` alongside hover states to ensure container visibility when any child element receives focus.
