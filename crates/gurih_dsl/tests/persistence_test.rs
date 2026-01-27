@@ -1,5 +1,5 @@
 use gurih_dsl::compile;
-use gurih_ir::Symbol;
+use gurih_ir::{ColumnType, Symbol};
 
 #[test]
 fn test_compile_table_and_database() {
@@ -34,7 +34,7 @@ fn test_compile_table_and_database() {
     assert_eq!(table.columns.len(), 3);
 
     let col_code = table.columns.iter().find(|c| c.name == Symbol::from("code")).unwrap();
-    assert_eq!(col_code.type_name, "varchar");
+    assert_eq!(col_code.type_name, ColumnType::Varchar);
     assert!(col_code.unique);
     assert_eq!(col_code.props.get("len").map(|s| s.as_str()), Some("50"));
 }

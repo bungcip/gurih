@@ -1,5 +1,5 @@
 use crate::store::DbPool;
-use gurih_ir::{DatabaseType, EntitySchema, FieldType, Schema, Symbol, TableSchema};
+use gurih_ir::{ColumnType, DatabaseType, EntitySchema, FieldType, Schema, Symbol, TableSchema};
 use sha2::{Digest, Sha256};
 use sqlx::Row;
 use std::collections::HashMap;
@@ -441,7 +441,63 @@ impl SchemaManager {
         let mut defs = vec![];
 
         for col in &table.columns {
-            let mut def = format!("\"{}\" {}", col.name, col.type_name);
+            let col_type_str = match &col.type_name {
+                ColumnType::Serial => {
+                    if self.db_kind == DatabaseType::Postgres {
+                        "SERIAL"
+                    } else {
+                        "INTEGER"
+                    }
+                }
+                ColumnType::Varchar => "VARCHAR",
+                ColumnType::Text => "TEXT",
+                ColumnType::Integer => {
+                    if self.db_kind == DatabaseType::Postgres {
+                        "INT"
+                    } else {
+                        "INTEGER"
+                    }
+                }
+                ColumnType::Float => {
+                    if self.db_kind == DatabaseType::Postgres {
+                        "DOUBLE PRECISION"
+                    } else {
+                        "REAL"
+                    }
+                }
+                ColumnType::Boolean => {
+                    if self.db_kind == DatabaseType::Postgres {
+                        "BOOLEAN"
+                    } else {
+                        "INTEGER"
+                    }
+                }
+                ColumnType::Date => "DATE",
+                ColumnType::Timestamp => {
+                    if self.db_kind == DatabaseType::Postgres {
+                        "TIMESTAMP"
+                    } else {
+                        "TEXT"
+                    }
+                }
+                ColumnType::Uuid => {
+                    if self.db_kind == DatabaseType::Postgres {
+                        "UUID"
+                    } else {
+                        "TEXT"
+                    }
+                }
+                ColumnType::Json => {
+                    if self.db_kind == DatabaseType::Postgres {
+                        "JSONB"
+                    } else {
+                        "TEXT"
+                    }
+                }
+                ColumnType::Custom(s) => s.as_str(),
+            };
+
+            let mut def = format!("\"{}\" {}", col.name, col_type_str);
             if col.primary {
                 def.push_str(" PRIMARY KEY");
             }
