@@ -32,13 +32,25 @@ impl DataEngine {
     }
 
     pub async fn create(&self, entity_name: &str, mut data: Value, ctx: &RuntimeContext) -> Result<String, String> {
-        // TODO: Validate create permission for entity
-
         let entity_schema = self
             .schema
             .entities
             .get(&Symbol::from(entity_name))
             .ok_or_else(|| format!("Entity '{}' not defined", entity_name))?;
+
+        // Validate create permission
+        let create_perm = entity_schema
+            .options
+            .get("create_permission")
+            .cloned()
+            .unwrap_or_else(|| format!("create:{}", entity_name));
+
+        if !ctx.has_permission(&create_perm) {
+            return Err(format!(
+                "Missing permission '{}' to create entity '{}'",
+                create_perm, entity_name
+            ));
+        }
 
         // Workflow: Set initial state if applicable
         if let Some(wf) = self
