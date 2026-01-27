@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 
 const props = defineProps({
   modelValue: {
@@ -121,24 +121,53 @@ function onChange(e) {
     if (fileInput.value) fileInput.value.value = ''
 }
 
+const previewUrls = new Map()
+
 function removeFile(index) {
     if (props.disabled) return
     
     if (props.multiple) {
         const newFiles = [...files.value]
+        const fileToRemove = newFiles[index]
+
+        // Clean up the object URL to avoid memory leaks
+        if (fileToRemove && previewUrls.has(fileToRemove)) {
+            URL.revokeObjectURL(previewUrls.get(fileToRemove))
+            previewUrls.delete(fileToRemove)
+        }
+
         newFiles.splice(index, 1)
         emit('update:modelValue', newFiles)
     } else {
+        // Clean up the single file URL
+        const fileToRemove = props.modelValue
+        if (fileToRemove && previewUrls.has(fileToRemove)) {
+            URL.revokeObjectURL(previewUrls.get(fileToRemove))
+            previewUrls.delete(fileToRemove)
+        }
         emit('update:modelValue', null)
     }
 }
 
+// Optimization: Cache object URLs to prevent creating new ones on every render
+// and to allow proper cleanup.
 function getPreviewUrl(file) {
     if (file && file.type && file.type.startsWith('image/')) {
-        return URL.createObjectURL(file)
+        if (previewUrls.has(file)) {
+            return previewUrls.get(file)
+        }
+        const url = URL.createObjectURL(file)
+        previewUrls.set(file, url)
+        return url
     }
     return null
 }
+
+onUnmounted(() => {
+    // Revoke all URLs to prevent memory leaks when component is destroyed
+    previewUrls.forEach(url => URL.revokeObjectURL(url))
+    previewUrls.clear()
+})
 </script>
 
 <template>
