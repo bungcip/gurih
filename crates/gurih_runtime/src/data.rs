@@ -85,12 +85,7 @@ impl DataEngine {
             .cloned()
             .unwrap_or_else(|| format!("create:{}", entity_name));
 
-        if !ctx.has_permission(&create_perm) {
-            return Err(format!(
-                "Missing permission '{}' to create entity '{}'",
-                create_perm, entity_name
-            ));
-        }
+        self.validate_permission(ctx, &create_perm, entity_name)?;
 
         // Rule Check (Create)
         self.check_rules(entity_name, "create", &data, None)?;
@@ -130,18 +125,8 @@ impl DataEngine {
         if let Some(val) = entity_schema.options.get("track_changes")
             && val == "true"
         {
-            let audit_id = Uuid::new_v4().to_string();
             let diff = serde_json::to_string(&data).unwrap_or_default();
-
-            let mut audit_record = serde_json::Map::new();
-            audit_record.insert("id".to_string(), Value::String(audit_id));
-            audit_record.insert("entity".to_string(), Value::String(entity_name.to_string()));
-            audit_record.insert("record_id".to_string(), Value::String(id.clone()));
-            audit_record.insert("action".to_string(), Value::String("CREATE".to_string()));
-            audit_record.insert("user_id".to_string(), Value::String(ctx.user_id.clone()));
-            audit_record.insert("diff".to_string(), Value::String(diff));
-
-            self.datastore.insert("_audit_log", Value::Object(audit_record)).await?;
+            self.log_audit(entity_name, &id, "CREATE", ctx, Some(diff)).await?;
         }
 
         Ok(id)
@@ -326,18 +311,8 @@ impl DataEngine {
                 }
 
                 if !changes.is_empty() {
-                    let audit_id = Uuid::new_v4().to_string();
                     let diff = serde_json::to_string(&changes).unwrap_or_default();
-
-                    let mut audit_record = serde_json::Map::new();
-                    audit_record.insert("id".to_string(), Value::String(audit_id));
-                    audit_record.insert("entity".to_string(), Value::String(entity_name.to_string()));
-                    audit_record.insert("record_id".to_string(), Value::String(id.to_string()));
-                    audit_record.insert("action".to_string(), Value::String("UPDATE".to_string()));
-                    audit_record.insert("user_id".to_string(), Value::String(ctx.user_id.clone()));
-                    audit_record.insert("diff".to_string(), Value::String(diff));
-
-                    self.datastore.insert("_audit_log", Value::Object(audit_record)).await?;
+                    self.log_audit(entity_name, id, "UPDATE", ctx, Some(diff)).await?;
                 }
             }
         }
@@ -377,19 +352,49 @@ impl DataEngine {
         if let Some(val) = entity_schema.options.get("track_changes")
             && val == "true"
         {
-            let audit_id = Uuid::new_v4().to_string();
-            let mut audit_record = serde_json::Map::new();
-            audit_record.insert("id".to_string(), Value::String(audit_id));
-            audit_record.insert("entity".to_string(), Value::String(entity_name.to_string()));
-            audit_record.insert("record_id".to_string(), Value::String(id.to_string()));
-            audit_record.insert("action".to_string(), Value::String("DELETE".to_string()));
-            audit_record.insert("user_id".to_string(), Value::String(ctx.user_id.clone()));
-            audit_record.insert("diff".to_string(), Value::Null);
-
-            self.datastore.insert("_audit_log", Value::Object(audit_record)).await?;
+            self.log_audit(entity_name, id, "DELETE", ctx, None).await?;
         }
 
         Ok(())
+    }
+
+    fn validate_permission(&self, ctx: &RuntimeContext, permission: &str, entity_name: &str) -> Result<(), String> {
+        if !ctx.has_permission(permission) {
+            Err(format!(
+                "Missing permission '{}' to create entity '{}'",
+                permission, entity_name
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn log_audit(
+        &self,
+        entity_name: &str,
+        id: &str,
+        action: &str,
+        ctx: &RuntimeContext,
+        diff: Option<String>,
+    ) -> Result<(), String> {
+        let audit_id = Uuid::new_v4().to_string();
+        let mut audit_record = serde_json::Map::new();
+        audit_record.insert("id".to_string(), Value::String(audit_id));
+        audit_record.insert("entity".to_string(), Value::String(entity_name.to_string()));
+        audit_record.insert("record_id".to_string(), Value::String(id.to_string()));
+        audit_record.insert("action".to_string(), Value::String(action.to_string()));
+        audit_record.insert("user_id".to_string(), Value::String(ctx.user_id.clone()));
+
+        if let Some(d) = diff {
+            audit_record.insert("diff".to_string(), Value::String(d));
+        } else {
+            audit_record.insert("diff".to_string(), Value::Null);
+        }
+
+        self.datastore
+            .insert("_audit_log", Value::Object(audit_record))
+            .await
+            .map(|_| ())
     }
 
     fn process_data_fields(

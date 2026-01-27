@@ -110,60 +110,31 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             })
         };
 
-    let convert_transition = |t: &ast::TransitionDef| -> Transition {
-        Transition {
+    let convert_transition = |t: &ast::TransitionDef| -> Result<Transition, CompileError> {
+        let mut preconditions = vec![];
+        for p in &t.preconditions {
+            match p {
+                ast::TransitionPreconditionDef::Assertion { expression, span } => {
+                    let expr = crate::expr::parse_expression(expression, span.offset())?;
+                    preconditions.push(TransitionPrecondition::Assertion(convert_expr(&expr)));
+                }
+                ast::TransitionPreconditionDef::BalancedTransaction { .. } => {
+                    preconditions.push(TransitionPrecondition::BalancedTransaction);
+                }
+                ast::TransitionPreconditionDef::PeriodOpen { entity, .. } => {
+                    preconditions.push(TransitionPrecondition::PeriodOpen {
+                        entity: entity.as_ref().map(|s| Symbol::from(s.as_str())),
+                    });
+                }
+            }
+        }
+
+        Ok(Transition {
             name: t.name.as_str().into(),
             from: t.from.as_str().into(),
             to: t.to.as_str().into(),
             required_permission: t.permission.as_ref().map(|p| Symbol::from(p.as_str())),
-            preconditions: t
-                .preconditions
-                .iter()
-                .map(|p| match p {
-                    ast::TransitionPreconditionDef::Document { name, .. } => {
-                        TransitionPrecondition::Assertion(gurih_ir::Expression::FunctionCall {
-                            name: Symbol::from("is_set"),
-                            args: vec![gurih_ir::Expression::Field(Symbol::from(name.as_str()))],
-                        })
-                    }
-                    ast::TransitionPreconditionDef::MinYearsOfService { years, from_field, .. } => {
-                        TransitionPrecondition::Assertion(gurih_ir::Expression::BinaryOp {
-                            left: Box::new(gurih_ir::Expression::FunctionCall {
-                                name: Symbol::from("years_of_service"),
-                                args: vec![gurih_ir::Expression::Field(Symbol::from(
-                                    from_field.as_deref().unwrap_or("join_date"),
-                                ))],
-                            }),
-                            op: gurih_ir::BinaryOperator::Gte,
-                            right: Box::new(gurih_ir::Expression::Literal(*years as f64)),
-                        })
-                    }
-                    ast::TransitionPreconditionDef::MinAge {
-                        age, birth_date_field, ..
-                    } => TransitionPrecondition::Assertion(gurih_ir::Expression::BinaryOp {
-                        left: Box::new(gurih_ir::Expression::FunctionCall {
-                            name: Symbol::from("age"),
-                            args: vec![gurih_ir::Expression::Field(Symbol::from(
-                                birth_date_field.as_deref().unwrap_or("birth_date"),
-                            ))],
-                        }),
-                        op: gurih_ir::BinaryOperator::Gte,
-                        right: Box::new(gurih_ir::Expression::Literal(*age as f64)),
-                    }),
-                    ast::TransitionPreconditionDef::ValidEffectiveDate { field, .. } => {
-                        TransitionPrecondition::Assertion(gurih_ir::Expression::FunctionCall {
-                            name: Symbol::from("valid_date"),
-                            args: vec![gurih_ir::Expression::Field(Symbol::from(field.as_str()))],
-                        })
-                    }
-                    ast::TransitionPreconditionDef::BalancedTransaction { .. } => {
-                        TransitionPrecondition::BalancedTransaction
-                    }
-                    ast::TransitionPreconditionDef::PeriodOpen { entity, .. } => TransitionPrecondition::PeriodOpen {
-                        entity: entity.as_ref().map(|s| Symbol::from(s.as_str())),
-                    },
-                })
-                .collect(),
+            preconditions,
             effects: t
                 .effects
                 .iter()
@@ -188,7 +159,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     }
                 })
                 .collect(),
-        }
+        })
     };
 
     // 0. Process Database
@@ -213,60 +184,6 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 entities: module_entities.iter().map(|s| Symbol::from(s.as_str())).collect(),
             },
         );
-    }
-
-    // 4.1 Process Employee Statuses (synthesize workflow)
-    if !ast_root.employee_statuses.is_empty() {
-        let mut grouped_statuses: HashMap<(String, String), Vec<&ast::EmployeeStatusDef>> = HashMap::new();
-
-        for status_def in &ast_root.employee_statuses {
-            let entity = status_def.entity.clone().unwrap_or_else(|| "Employee".to_string());
-            let field = status_def.field.clone().unwrap_or_else(|| "status".to_string());
-            grouped_statuses.entry((entity, field)).or_default().push(status_def);
-        }
-
-        for ((entity_name, field_name), statuses) in grouped_statuses {
-            let workflow_name = format!("{}StatusWorkflow", entity_name);
-
-            let mut states: Vec<StateSchema> = vec![];
-            let mut transitions: Vec<Transition> = vec![];
-
-            // Track seen states to avoid duplicates
-            let mut seen_states: std::collections::HashSet<String> = std::collections::HashSet::new();
-
-            for status_def in statuses {
-                // Add the defined status as a state
-                if seen_states.insert(status_def.name.clone()) {
-                    states.push(StateSchema {
-                        name: Symbol::from(status_def.name.as_str()),
-                        immutable: false,
-                    });
-                }
-
-                for trans_def in &status_def.transitions {
-                    // Add the target status as a state if not already seen
-                    if seen_states.insert(trans_def.to.clone()) {
-                        states.push(StateSchema {
-                            name: Symbol::from(trans_def.to.as_str()),
-                            immutable: false,
-                        });
-                    }
-                    transitions.push(convert_transition(trans_def));
-                }
-            }
-
-            ir_workflows.insert(
-                Symbol::from(workflow_name.as_str()),
-                WorkflowSchema {
-                    name: Symbol::from(workflow_name.as_str()),
-                    entity: Symbol::from(entity_name.as_str()),
-                    field: Symbol::from(field_name.as_str()),
-                    initial_state: states.first().map(|s| s.name).unwrap_or_else(|| Symbol::from("")),
-                    states,
-                    transitions,
-                },
-            );
-        }
     }
 
     // 2. Process Top-Level Entities
@@ -321,6 +238,8 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
     // 4. Process Workflows
     for wf_def in &ast_root.workflows {
+        let transitions: Result<Vec<Transition>, CompileError> = wf_def.transitions.iter().map(convert_transition).collect();
+
         ir_workflows.insert(
             wf_def.name.as_str().into(),
             WorkflowSchema {
@@ -341,7 +260,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                         immutable: s.immutable,
                     })
                     .collect(),
-                transitions: wf_def.transitions.iter().map(convert_transition).collect(),
+                transitions: transitions?,
             },
         );
     }
@@ -585,45 +504,6 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     }
 
     // 14. Process Queries
-    fn convert_expr(e: &crate::expr::Expr) -> gurih_ir::Expression {
-        match e {
-            crate::expr::Expr::Field(n, _) => gurih_ir::Expression::Field(n.as_str().into()),
-            crate::expr::Expr::Literal(n, _) => gurih_ir::Expression::Literal(*n),
-            crate::expr::Expr::StringLiteral(s, _) => gurih_ir::Expression::StringLiteral(s.clone()),
-            crate::expr::Expr::BoolLiteral(b, _) => gurih_ir::Expression::BoolLiteral(*b),
-            crate::expr::Expr::FunctionCall { name, args, .. } => gurih_ir::Expression::FunctionCall {
-                name: name.as_str().into(),
-                args: args.iter().map(convert_expr).collect(),
-            },
-            crate::expr::Expr::BinaryOp { left, op, right, .. } => gurih_ir::Expression::BinaryOp {
-                left: Box::new(convert_expr(left)),
-                op: match op {
-                    crate::expr::BinaryOpType::Add => gurih_ir::BinaryOperator::Add,
-                    crate::expr::BinaryOpType::Sub => gurih_ir::BinaryOperator::Sub,
-                    crate::expr::BinaryOpType::Mul => gurih_ir::BinaryOperator::Mul,
-                    crate::expr::BinaryOpType::Div => gurih_ir::BinaryOperator::Div,
-                    crate::expr::BinaryOpType::Eq => gurih_ir::BinaryOperator::Eq,
-                    crate::expr::BinaryOpType::Neq => gurih_ir::BinaryOperator::Neq,
-                    crate::expr::BinaryOpType::Gt => gurih_ir::BinaryOperator::Gt,
-                    crate::expr::BinaryOpType::Lt => gurih_ir::BinaryOperator::Lt,
-                    crate::expr::BinaryOpType::Gte => gurih_ir::BinaryOperator::Gte,
-                    crate::expr::BinaryOpType::Lte => gurih_ir::BinaryOperator::Lte,
-                    crate::expr::BinaryOpType::And => gurih_ir::BinaryOperator::And,
-                    crate::expr::BinaryOpType::Or => gurih_ir::BinaryOperator::Or,
-                },
-                right: Box::new(convert_expr(right)),
-            },
-            crate::expr::Expr::UnaryOp { op, expr, .. } => gurih_ir::Expression::UnaryOp {
-                op: match op {
-                    crate::expr::UnaryOpType::Not => gurih_ir::UnaryOperator::Not,
-                    crate::expr::UnaryOpType::Neg => gurih_ir::UnaryOperator::Neg,
-                },
-                expr: Box::new(convert_expr(expr)),
-            },
-            crate::expr::Expr::Grouping(e, _) => gurih_ir::Expression::Grouping(Box::new(convert_expr(e))),
-        }
-    }
-
     fn convert_query_join(def: &ast::QueryJoinDef) -> Result<QueryJoin, CompileError> {
         let formulas: Result<Vec<QueryFormula>, CompileError> = def
             .formulas
@@ -856,6 +736,45 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         rules: ir_rules,
         posting_rules: ir_posting_rules,
     })
+}
+
+fn convert_expr(e: &crate::expr::Expr) -> gurih_ir::Expression {
+    match e {
+        crate::expr::Expr::Field(n, _) => gurih_ir::Expression::Field(n.as_str().into()),
+        crate::expr::Expr::Literal(n, _) => gurih_ir::Expression::Literal(*n),
+        crate::expr::Expr::StringLiteral(s, _) => gurih_ir::Expression::StringLiteral(s.clone()),
+        crate::expr::Expr::BoolLiteral(b, _) => gurih_ir::Expression::BoolLiteral(*b),
+        crate::expr::Expr::FunctionCall { name, args, .. } => gurih_ir::Expression::FunctionCall {
+            name: name.as_str().into(),
+            args: args.iter().map(convert_expr).collect(),
+        },
+        crate::expr::Expr::BinaryOp { left, op, right, .. } => gurih_ir::Expression::BinaryOp {
+            left: Box::new(convert_expr(left)),
+            op: match op {
+                crate::expr::BinaryOpType::Add => gurih_ir::BinaryOperator::Add,
+                crate::expr::BinaryOpType::Sub => gurih_ir::BinaryOperator::Sub,
+                crate::expr::BinaryOpType::Mul => gurih_ir::BinaryOperator::Mul,
+                crate::expr::BinaryOpType::Div => gurih_ir::BinaryOperator::Div,
+                crate::expr::BinaryOpType::Eq => gurih_ir::BinaryOperator::Eq,
+                crate::expr::BinaryOpType::Neq => gurih_ir::BinaryOperator::Neq,
+                crate::expr::BinaryOpType::Gt => gurih_ir::BinaryOperator::Gt,
+                crate::expr::BinaryOpType::Lt => gurih_ir::BinaryOperator::Lt,
+                crate::expr::BinaryOpType::Gte => gurih_ir::BinaryOperator::Gte,
+                crate::expr::BinaryOpType::Lte => gurih_ir::BinaryOperator::Lte,
+                crate::expr::BinaryOpType::And => gurih_ir::BinaryOperator::And,
+                crate::expr::BinaryOpType::Or => gurih_ir::BinaryOperator::Or,
+            },
+            right: Box::new(convert_expr(right)),
+        },
+        crate::expr::Expr::UnaryOp { op, expr, .. } => gurih_ir::Expression::UnaryOp {
+            op: match op {
+                crate::expr::UnaryOpType::Not => gurih_ir::UnaryOperator::Not,
+                crate::expr::UnaryOpType::Neg => gurih_ir::UnaryOperator::Neg,
+            },
+            expr: Box::new(convert_expr(expr)),
+        },
+        crate::expr::Expr::Grouping(e, _) => gurih_ir::Expression::Grouping(Box::new(convert_expr(e))),
+    }
 }
 
 fn parse_column_type(s: &str) -> ColumnType {

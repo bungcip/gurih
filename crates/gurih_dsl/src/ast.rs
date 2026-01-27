@@ -25,7 +25,6 @@ pub struct Ast {
     pub prints: Vec<PrintDef>,
     pub queries: Vec<QueryDef>,
     pub permissions: Vec<PermissionDef>,
-    pub employee_statuses: Vec<EmployeeStatusDef>,
     pub accounts: Vec<AccountDef>,
     pub rules: Vec<RuleDef>,
     pub posting_rules: Vec<PostingRuleDef>,
@@ -218,22 +217,8 @@ pub struct TransitionDef {
 
 #[derive(Debug, Clone)]
 pub enum TransitionPreconditionDef {
-    Document {
-        name: String,
-        span: SourceSpan,
-    },
-    MinYearsOfService {
-        years: u32,
-        from_field: Option<String>,
-        span: SourceSpan,
-    },
-    MinAge {
-        age: u32,
-        birth_date_field: Option<String>,
-        span: SourceSpan,
-    },
-    ValidEffectiveDate {
-        field: String,
+    Assertion {
+        expression: String,
         span: SourceSpan,
     },
     BalancedTransaction {
@@ -479,11 +464,3 @@ pub struct AllowDef {
     pub actions: Option<String>,
 }
 
-#[derive(Debug, Clone)]
-pub struct EmployeeStatusDef {
-    pub name: String,
-    pub entity: Option<String>,
-    pub field: Option<String>,
-    pub transitions: Vec<TransitionDef>,
-    pub span: SourceSpan,
-}
