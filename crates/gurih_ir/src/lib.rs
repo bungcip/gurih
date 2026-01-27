@@ -27,6 +27,23 @@ pub struct Schema {
     pub prints: HashMap<Symbol, PrintSchema>,
     pub queries: HashMap<Symbol, QuerySchema>,
     pub rules: HashMap<Symbol, RuleSchema>,
+    pub posting_rules: HashMap<Symbol, PostingRuleSchema>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PostingRuleSchema {
+    pub name: Symbol,
+    pub source_entity: Symbol,
+    pub description_expr: Expression,
+    pub date_expr: Expression,
+    pub lines: Vec<PostingLineSchema>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PostingLineSchema {
+    pub account: Symbol,
+    pub debit_expr: Option<Expression>,
+    pub credit_expr: Option<Expression>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -287,6 +304,7 @@ pub enum TransitionPrecondition {
 pub enum TransitionEffect {
     Notify(Symbol),
     UpdateField { field: Symbol, value: String },
+    PostJournal(Symbol),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -466,6 +484,7 @@ impl Default for Schema {
             prints: HashMap::default(),
             queries: HashMap::default(),
             rules: HashMap::default(),
+            posting_rules: HashMap::default(),
         }
     }
 }

@@ -180,6 +180,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                         field: Symbol::from(field.as_str()),
                         value: value.clone(),
                     },
+                    ast::TransitionEffectDef::PostJournal { rule, .. } => {
+                        TransitionEffect::PostJournal(Symbol::from(rule.as_str()))
+                    }
                 })
                 .collect(),
         }
@@ -709,6 +712,44 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         );
     }
 
+    // 16. Process Posting Rules
+    let mut ir_posting_rules: HashMap<Symbol, gurih_ir::PostingRuleSchema> = HashMap::new();
+    for pr_def in &ast_root.posting_rules {
+        let desc_expr = crate::expr::parse_expression(&pr_def.description_expr, pr_def.span.offset())?;
+        let date_expr = crate::expr::parse_expression(&pr_def.date_expr, pr_def.span.offset())?;
+
+        let mut lines = vec![];
+        for line in &pr_def.lines {
+            let debit = if let Some(d) = &line.debit_expr {
+                Some(convert_expr(&crate::expr::parse_expression(d, line.span.offset())?))
+            } else {
+                None
+            };
+            let credit = if let Some(c) = &line.credit_expr {
+                Some(convert_expr(&crate::expr::parse_expression(c, line.span.offset())?))
+            } else {
+                None
+            };
+
+            lines.push(gurih_ir::PostingLineSchema {
+                account: Symbol::from(line.account.as_str()),
+                debit_expr: debit,
+                credit_expr: credit,
+            });
+        }
+
+        ir_posting_rules.insert(
+            pr_def.name.as_str().into(),
+            gurih_ir::PostingRuleSchema {
+                name: pr_def.name.as_str().into(),
+                source_entity: pr_def.source_entity.as_str().into(),
+                description_expr: convert_expr(&desc_expr),
+                date_expr: convert_expr(&date_expr),
+                lines,
+            },
+        );
+    }
+
     Ok(Schema {
         name: ast_root.name.unwrap_or("GurihApp".to_string()).as_str().into(),
         version: ast_root.version.unwrap_or("1.0.0".to_string()),
@@ -730,6 +771,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         prints: ir_prints,
         queries: ir_queries,
         rules: ir_rules,
+        posting_rules: ir_posting_rules,
     })
 }
 

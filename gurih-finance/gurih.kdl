@@ -34,6 +34,7 @@ include "coa.kdl"
 include "period.kdl"
 include "journal.kdl"
 include "reports.kdl"
+include "integration.kdl"
 
 routes {
     route "/" to="FinanceDashboard" layout="FinanceLayout"

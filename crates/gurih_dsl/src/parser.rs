@@ -31,6 +31,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
         employee_statuses: vec![],
         accounts: vec![],
         rules: vec![],
+        posting_rules: vec![],
     };
 
     for node in doc.nodes() {
@@ -107,6 +108,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
             "employee_status" => ast.employee_statuses.push(parse_employee_status(node, src)?),
             "account" => ast.accounts.push(parse_account(node, src)?),
             "rule" => ast.rules.push(parse_rule(node, src)?),
+            "posting_rule" => ast.posting_rules.push(parse_posting_rule(node, src)?),
             _ => {
                 // Ignore unknown nodes or warn? Strict for now.
                 return Err(CompileError::ParseError {
@@ -786,6 +788,13 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
                                         span: eff.span().into(),
                                     });
                                 }
+                                "post_journal" => {
+                                    let rule = get_arg_string(eff, 0, src)?;
+                                    effects.push(TransitionEffectDef::PostJournal {
+                                        rule,
+                                        span: eff.span().into(),
+                                    });
+                                }
                                 _ => {}
                             }
                         }
@@ -861,6 +870,58 @@ fn parse_rule(node: &KdlNode, src: &str) -> Result<RuleDef, CompileError> {
         on_event,
         assertion,
         message,
+        span: node.span().into(),
+    })
+}
+
+fn parse_posting_rule(node: &KdlNode, src: &str) -> Result<PostingRuleDef, CompileError> {
+    let name = get_arg_string(node, 0, src)?;
+    let source_entity = get_prop_string(node, "for", src)?;
+    let mut description_expr = String::new();
+    let mut date_expr = String::new();
+    let mut lines = vec![];
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            match child.name().value() {
+                "description" => description_expr = get_arg_string(child, 0, src)?,
+                "date" => date_expr = get_arg_string(child, 0, src)?,
+                "entry" | "line" => lines.push(parse_posting_line(child, src)?),
+                _ => {}
+            }
+        }
+    }
+
+    Ok(PostingRuleDef {
+        name,
+        source_entity,
+        description_expr,
+        date_expr,
+        lines,
+        span: node.span().into(),
+    })
+}
+
+fn parse_posting_line(node: &KdlNode, src: &str) -> Result<PostingLineDef, CompileError> {
+    let mut account = String::new();
+    let mut debit_expr = None;
+    let mut credit_expr = None;
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            match child.name().value() {
+                "account" => account = get_arg_string(child, 0, src)?,
+                "debit" => debit_expr = Some(get_arg_string(child, 0, src)?),
+                "credit" => credit_expr = Some(get_arg_string(child, 0, src)?),
+                _ => {}
+            }
+        }
+    }
+
+    Ok(PostingLineDef {
+        account,
+        debit_expr,
+        credit_expr,
         span: node.span().into(),
     })
 }
