@@ -61,15 +61,18 @@ fn test_employee_status_compilation() {
     let t1 = pns_to_cuti.unwrap();
 
     // Check preconditions
+    use gurih_ir::Expression;
     assert!(
         t1.preconditions
             .iter()
-            .any(|p| matches!(p, TransitionPrecondition::Document(d) if d == &Symbol::from("surat_cuti")))
+            .any(|p| matches!(p, TransitionPrecondition::Assertion(Expression::FunctionCall { name, args })
+                if name.as_str() == "is_set" && matches!(&args[0], Expression::Field(f) if f.as_str() == "surat_cuti")))
     );
     assert!(
         t1.preconditions
             .iter()
-            .any(|p| matches!(p, TransitionPrecondition::MinYearsOfService { years: 1, .. }))
+            .any(|p| matches!(p, TransitionPrecondition::Assertion(Expression::BinaryOp { op, right, .. })
+                if matches!(op, gurih_ir::BinaryOperator::Gte) && matches!(**right, Expression::Literal(l) if l == 1.0)))
     );
 
     // Check effects

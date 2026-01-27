@@ -41,9 +41,12 @@ fn test_employee_status_dsl() {
         .find(|t| t.from == Symbol::from("Draft") && t.to == Symbol::from("Published"))
         .expect("Transition missing");
 
-    assert!(
-        matches!(trans.preconditions[0], TransitionPrecondition::Document(ref s) if s.as_str() == "approval_letter")
+    // Expect Assertion(is_set(field("approval_letter")))
+    use gurih_ir::Expression;
+    let is_correct = matches!(&trans.preconditions[0], TransitionPrecondition::Assertion(Expression::FunctionCall { name, args })
+        if name.as_str() == "is_set" && matches!(&args[0], Expression::Field(f) if f.as_str() == "approval_letter")
     );
+    assert!(is_correct, "Expected Assertion(is_set('approval_letter')), found {:?}", trans.preconditions[0]);
     assert!(
         matches!(trans.effects[0], TransitionEffect::UpdateField { ref field, ref value } if field.as_str() == "is_visible" && value == "true")
     );
