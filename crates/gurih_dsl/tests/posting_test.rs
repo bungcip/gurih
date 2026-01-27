@@ -36,8 +36,15 @@ fn test_compile_posting_rule() {
     let schema = compile(src, None).expect("Should compile");
 
     // Check Posting Rule
-    assert!(schema.posting_rules.contains_key(&gurih_ir::Symbol::from("InvoicePosting")));
-    let rule = schema.posting_rules.get(&gurih_ir::Symbol::from("InvoicePosting")).unwrap();
+    assert!(
+        schema
+            .posting_rules
+            .contains_key(&gurih_ir::Symbol::from("InvoicePosting"))
+    );
+    let rule = schema
+        .posting_rules
+        .get(&gurih_ir::Symbol::from("InvoicePosting"))
+        .unwrap();
     assert_eq!(rule.lines.len(), 2);
 
     // Check Workflow Effect

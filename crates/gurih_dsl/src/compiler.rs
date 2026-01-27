@@ -721,18 +721,12 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         let mut lines = vec![];
         for line in &pr_def.lines {
             let debit = if let Some(d) = &line.debit_expr {
-                Some(convert_expr(&crate::expr::parse_expression(
-                    d,
-                    line.span.offset(),
-                )?))
+                Some(convert_expr(&crate::expr::parse_expression(d, line.span.offset())?))
             } else {
                 None
             };
             let credit = if let Some(c) = &line.credit_expr {
-                Some(convert_expr(&crate::expr::parse_expression(
-                    c,
-                    line.span.offset(),
-                )?))
+                Some(convert_expr(&crate::expr::parse_expression(c, line.span.offset())?))
             } else {
                 None
             };
