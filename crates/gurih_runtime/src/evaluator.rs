@@ -7,7 +7,25 @@ pub fn evaluate(expr: &Expression, context: &Value) -> Result<Value, RuntimeErro
     match expr {
         Expression::Field(name) => {
             let key = name.as_str();
-            Ok(context.get(key).cloned().unwrap_or(Value::Null))
+            if key.contains('.') {
+                let parts: Vec<&str> = key.split('.').collect();
+                let mut current = context;
+                for part in parts {
+                    match current {
+                        Value::Object(map) => {
+                            if let Some(val) = map.get(part) {
+                                current = val;
+                            } else {
+                                return Ok(Value::Null);
+                            }
+                        }
+                        _ => return Ok(Value::Null),
+                    }
+                }
+                Ok(current.clone())
+            } else {
+                Ok(context.get(key).cloned().unwrap_or(Value::Null))
+            }
         }
         Expression::Literal(n) => {
             Ok(Value::Number(serde_json::Number::from_f64(*n).ok_or_else(|| {
