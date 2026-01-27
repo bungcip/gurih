@@ -7,6 +7,7 @@ import Switch from './Switch.vue'
 import Tabs from './Tabs.vue'
 import FileUpload from './FileUpload.vue'
 import CurrencyInput from './CurrencyInput.vue'
+import Alert from './Alert.vue'
 
 const props = defineProps(['entity', 'id'])
 const emit = defineEmits(['saved', 'cancel'])
@@ -22,6 +23,7 @@ const API_BASE = 'http://localhost:3000/api'
 
 // Relation Options Cache
 const relationOptions = ref({})
+const errors = ref([])
 
 const activeTab = ref(0)
 
@@ -83,7 +85,7 @@ async function fetchRelations(targetEntity, fieldNames) {
              }
         }
     } catch(e) {
-        // Silent failure for relation fetching
+        errors.value.push(`Could not fetch relation for ${targetEntity}`)
     }
 }
 
@@ -160,6 +162,10 @@ onMounted(() => {
                 <div class="p-6 pb-0 border-b border-gray-100 dark:border-gray-700">
                     <div class="flex items-center gap-4 mb-6">
                          <h2 class="text-xl font-bold text-text-main">{{ schema.name }} Form</h2>
+                    </div>
+
+                    <div v-if="errors.length" class="mb-6 space-y-2">
+                         <Alert v-for="(error, i) in errors" :key="i" variant="danger" :title="error" closable @close="errors.splice(i, 1)" />
                     </div>
 
                     <!-- Tabs -->
