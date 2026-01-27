@@ -329,3 +329,18 @@ page "FormRiwayatSKP" {
         }
     }
 }
+
+// -----------------------------------------------------------------------------
+// RULES
+// -----------------------------------------------------------------------------
+rule "MinAgeRule" {
+    on "Pegawai:create"
+    assert "age(tanggal_lahir) >= 18"
+    message "Pegawai must be at least 18 years old"
+}
+
+rule "MinAgeRuleUpdate" {
+    on "Pegawai:update"
+    assert "age(tanggal_lahir) >= 18"
+    message "Pegawai must be at least 18 years old"
+}

@@ -31,6 +31,25 @@ impl DataEngine {
         &self.datastore
     }
 
+    fn check_rules(&self, entity_name: &str, action: &str, data: &Value) -> Result<(), String> {
+        let event = format!("{}:{}", entity_name, action);
+        let event_sym = Symbol::from(&event);
+
+        for rule in self.schema.rules.values() {
+            if rule.on_event == event_sym {
+                let result = crate::evaluator::evaluate(&rule.assertion, data)
+                    .map_err(|e| format!("Rule '{}' error: {}", rule.name, e))?;
+
+                match result {
+                    Value::Bool(true) => continue,
+                    Value::Bool(false) => return Err(rule.message.clone()),
+                    _ => return Err(format!("Rule '{}' assertion must return a boolean", rule.name)),
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub async fn create(&self, entity_name: &str, mut data: Value, ctx: &RuntimeContext) -> Result<String, String> {
         let entity_schema = self
             .schema
@@ -51,6 +70,9 @@ impl DataEngine {
                 create_perm, entity_name
             ));
         }
+
+        // Rule Check (Create)
+        self.check_rules(entity_name, "create", &data)?;
 
         // Workflow: Set initial state if applicable
         if let Some(wf) = self
@@ -120,18 +142,48 @@ impl DataEngine {
 
         let mut data = data;
 
-        // Workflow Check (Immutability & Transition)
+        // Determine if we need to fetch current record
         let workflow = self
             .schema
             .workflows
             .values()
             .find(|w| w.entity == Symbol::from(entity_name));
 
+        let update_event = format!("{}:update", entity_name);
+        let update_event_sym = Symbol::from(&update_event);
+        let has_update_rules = self.schema.rules.values().any(|r| r.on_event == update_event_sym);
+
+        let track_changes = entity_schema
+            .options
+            .get("track_changes")
+            .map(|v| v == "true")
+            .unwrap_or(false);
+
         let mut current_record_opt: Option<Arc<Value>> = None;
 
+        if workflow.is_some() || has_update_rules || track_changes {
+            current_record_opt = self.datastore.get(entity_name, id).await?;
+        }
+
+        // Rule Check (Update)
+        if has_update_rules {
+            if let Some(current) = &current_record_opt {
+                let mut merged = (**current).clone();
+                if let Some(target) = merged.as_object_mut()
+                    && let Some(source) = data.as_object()
+                {
+                    for (k, v) in source {
+                        target.insert(k.clone(), v.clone());
+                    }
+                }
+                self.check_rules(entity_name, "update", &merged)?;
+            } else {
+                return Err("Record not found for rule validation".to_string());
+            }
+        }
+
         if let Some(wf) = workflow {
-            let current_record = self.datastore.get(entity_name, id).await?.ok_or("Record not found")?;
-            current_record_opt = Some(current_record.clone());
+            let current_record = current_record_opt.as_ref().ok_or("Record not found")?;
 
             let current_state = current_record
                 .get(wf.field.as_str())
@@ -157,7 +209,7 @@ impl DataEngine {
 
             if let Some(new_state) = data.get(wf.field.as_str()).and_then(|v| v.as_str()) {
                 // Merge data for validation
-                let mut merged_record = (*current_record).clone();
+                let mut merged_record = (**current_record).clone();
                 if let Some(target) = merged_record.as_object_mut()
                     && let Some(source) = data.as_object()
                 {
@@ -208,16 +260,6 @@ impl DataEngine {
             }
         }
 
-        // Pre-fetch current record for Audit Trail if needed
-        #[allow(clippy::collapsible_if)]
-        if let Some(val) = entity_schema.options.get("track_changes") {
-            if val == "true" {
-                if current_record_opt.is_none() {
-                    current_record_opt = self.datastore.get(entity_name, id).await?;
-                }
-            }
-        }
-
         // Validation & Transformation (Hashing)
         if let Some(obj) = data.as_object_mut() {
             self.process_data_fields(entity_schema, obj)?;
@@ -226,45 +268,42 @@ impl DataEngine {
         self.datastore.update(entity_name, id, data.clone()).await?;
 
         // Audit Trail (Post-update)
-        #[allow(clippy::collapsible_if)]
-        if let Some(val) = entity_schema.options.get("track_changes") {
-            if val == "true" {
-                if let Some(current) = &current_record_opt {
-                    let mut changes = serde_json::Map::new();
-                    if let Some(new_obj) = data.as_object() {
-                        if let Some(old_obj) = current.as_object() {
-                            for (k, new_v) in new_obj {
-                                if k == "id" {
-                                    continue;
-                                }
-                                let old_v = old_obj.get(k).unwrap_or(&Value::Null);
-                                if new_v != old_v {
-                                    changes.insert(
-                                        k.clone(),
-                                        serde_json::json!({
-                                            "old": old_v,
-                                            "new": new_v
-                                        }),
-                                    );
-                                }
+        if track_changes {
+            if let Some(current) = &current_record_opt {
+                let mut changes = serde_json::Map::new();
+                if let Some(new_obj) = data.as_object() {
+                    if let Some(old_obj) = current.as_object() {
+                        for (k, new_v) in new_obj {
+                            if k == "id" {
+                                continue;
+                            }
+                            let old_v = old_obj.get(k).unwrap_or(&Value::Null);
+                            if new_v != old_v {
+                                changes.insert(
+                                    k.clone(),
+                                    serde_json::json!({
+                                        "old": old_v,
+                                        "new": new_v
+                                    }),
+                                );
                             }
                         }
                     }
+                }
 
-                    if !changes.is_empty() {
-                        let audit_id = Uuid::new_v4().to_string();
-                        let diff = serde_json::to_string(&changes).unwrap_or_default();
+                if !changes.is_empty() {
+                    let audit_id = Uuid::new_v4().to_string();
+                    let diff = serde_json::to_string(&changes).unwrap_or_default();
 
-                        let mut audit_record = serde_json::Map::new();
-                        audit_record.insert("id".to_string(), Value::String(audit_id));
-                        audit_record.insert("entity".to_string(), Value::String(entity_name.to_string()));
-                        audit_record.insert("record_id".to_string(), Value::String(id.to_string()));
-                        audit_record.insert("action".to_string(), Value::String("UPDATE".to_string()));
-                        audit_record.insert("user_id".to_string(), Value::String(ctx.user_id.clone()));
-                        audit_record.insert("diff".to_string(), Value::String(diff));
+                    let mut audit_record = serde_json::Map::new();
+                    audit_record.insert("id".to_string(), Value::String(audit_id));
+                    audit_record.insert("entity".to_string(), Value::String(entity_name.to_string()));
+                    audit_record.insert("record_id".to_string(), Value::String(id.to_string()));
+                    audit_record.insert("action".to_string(), Value::String("UPDATE".to_string()));
+                    audit_record.insert("user_id".to_string(), Value::String(ctx.user_id.clone()));
+                    audit_record.insert("diff".to_string(), Value::String(diff));
 
-                        self.datastore.insert("_audit_log", Value::Object(audit_record)).await?;
-                    }
+                    self.datastore.insert("_audit_log", Value::Object(audit_record)).await?;
                 }
             }
         }
