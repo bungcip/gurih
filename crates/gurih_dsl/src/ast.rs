@@ -28,6 +28,25 @@ pub struct Ast {
     pub employee_statuses: Vec<EmployeeStatusDef>,
     pub accounts: Vec<AccountDef>,
     pub rules: Vec<RuleDef>,
+    pub posting_rules: Vec<PostingRuleDef>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PostingRuleDef {
+    pub name: String,
+    pub source_entity: String,
+    pub description_expr: String,
+    pub date_expr: String,
+    pub lines: Vec<PostingLineDef>,
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone)]
+pub struct PostingLineDef {
+    pub account: String,
+    pub debit_expr: Option<String>,
+    pub credit_expr: Option<String>,
+    pub span: SourceSpan,
 }
 
 #[derive(Debug, Clone)]
@@ -243,6 +262,10 @@ pub enum TransitionEffectDef {
     UpdateField {
         field: String,
         value: String,
+        span: SourceSpan,
+    },
+    PostJournal {
+        rule: String,
         span: SourceSpan,
     },
 }

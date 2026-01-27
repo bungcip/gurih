@@ -1,0 +1,36 @@
+// Integration Rules for other modules to post to Finance
+
+posting_rule "InvoicePosting" for="Invoice" {
+    description "\"Invoice #\" + doc.invoice_number"
+    date "doc.date"
+
+    entry {
+        account "Accounts Receivable"
+        debit "doc.total_amount"
+    }
+
+    entry {
+        account "Sales Revenue"
+        credit "doc.total_amount"
+    }
+}
+
+posting_rule "PayrollPosting" for="PayrollRun" {
+    description "\"Payroll for \" + doc.period_name"
+    date "doc.payment_date"
+
+    entry {
+        account "Salaries Expense"
+        debit "doc.total_gross_pay"
+    }
+
+    entry {
+        account "Tax Payable"
+        credit "doc.total_tax"
+    }
+
+    entry {
+        account "Cash"
+        credit "doc.total_net_pay"
+    }
+}

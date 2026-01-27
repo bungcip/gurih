@@ -215,9 +215,10 @@ impl WorkflowEngine {
         current_state: &str,
         new_state: &str,
         _entity_data: &Value,
-    ) -> (Value, Vec<String>) {
+    ) -> (Value, Vec<String>, Vec<Symbol>) {
         let mut updates = serde_json::Map::new();
         let mut notifications = vec![];
+        let mut postings = vec![];
 
         let workflow = schema
             .workflows
@@ -249,11 +250,14 @@ impl WorkflowEngine {
 
                         updates.insert(field.to_string(), json_val);
                     }
+                    TransitionEffect::PostJournal(rule) => {
+                        postings.push(rule.clone());
+                    }
                 }
             }
         }
 
-        (Value::Object(updates), notifications)
+        (Value::Object(updates), notifications, postings)
     }
 
     pub fn get_initial_state(&self, schema: &Schema, entity_name: &str) -> Option<String> {

@@ -262,12 +262,23 @@ impl DataEngine {
                 }
 
                 // Apply Side Effects
-                let (updates, notifications) =
+                let (updates, notifications, postings) =
                     self.workflow
                         .apply_effects(&self.schema, entity_name, current_state, new_state, &merged_record);
 
                 for notification in notifications {
                     println!("NOTIFICATION: {}", notification);
+                }
+
+                // Execute Posting Rules
+                for rule_name in postings {
+                    if let Err(e) = self.execute_posting_rule(&rule_name, &merged_record, ctx).await {
+                        println!("POSTING ERROR: {}", e);
+                        // Optional: fail the transaction?
+                        // For now, log error and continue or return error?
+                        // If critical, we should probably fail.
+                        return Err(format!("Posting failed: {}", e));
+                    }
                 }
 
                 // Merge updates into data
@@ -424,5 +435,83 @@ impl DataEngine {
             return Err(format!("Entity or Query '{}' not defined", entity));
         }
         self.datastore.list(entity, limit, offset).await
+    }
+
+    async fn execute_posting_rule(
+        &self,
+        rule_name: &Symbol,
+        source_data: &Value,
+        ctx: &RuntimeContext,
+    ) -> Result<(), String> {
+        let rule = self
+            .schema
+            .posting_rules
+            .get(rule_name)
+            .ok_or_else(|| format!("Posting rule '{}' not found", rule_name))?;
+
+        // Evaluate Description
+        let description = crate::evaluator::evaluate(&rule.description_expr, source_data)
+            .map_err(|e| format!("Failed to evaluate description: {}", e))?
+            .as_str()
+            .unwrap_or("")
+            .to_string();
+
+        // Evaluate Date
+        let date_val = crate::evaluator::evaluate(&rule.date_expr, source_data)
+            .map_err(|e| format!("Failed to evaluate date: {}", e))?;
+
+        let date_str = date_val.as_str().unwrap_or("").to_string();
+
+        let mut journal_lines = vec![];
+        for line in &rule.lines {
+            let mut line_obj = serde_json::Map::new();
+
+            // Resolve Account (Simple Lookup)
+            let account_term = line.account.as_str();
+            // Basic sanitization to prevent breaking SQL
+            let safe_term = account_term.replace('\'', "''");
+            let sql = format!(
+                "SELECT id FROM Account WHERE code = '{}' OR name = '{}' LIMIT 1",
+                safe_term, safe_term
+            );
+
+            let accounts = self
+                .datastore
+                .query(&sql)
+                .await
+                .map_err(|e| format!("Account lookup failed: {}", e))?;
+
+            let account_id = accounts
+                .first()
+                .and_then(|row| row.get("id").and_then(|v| v.as_str()))
+                .ok_or_else(|| format!("Account '{}' not found", account_term))?;
+
+            line_obj.insert("account".to_string(), Value::String(account_id.to_string()));
+
+            if let Some(debit_expr) = &line.debit_expr {
+                let val = crate::evaluator::evaluate(debit_expr, source_data)
+                    .map_err(|e| format!("Failed to evaluate debit: {}", e))?;
+                line_obj.insert("debit".to_string(), val);
+                line_obj.insert("credit".to_string(), Value::from(0));
+            } else if let Some(credit_expr) = &line.credit_expr {
+                let val = crate::evaluator::evaluate(credit_expr, source_data)
+                    .map_err(|e| format!("Failed to evaluate credit: {}", e))?;
+                line_obj.insert("credit".to_string(), val);
+                line_obj.insert("debit".to_string(), Value::from(0));
+            }
+
+            journal_lines.push(Value::Object(line_obj));
+        }
+
+        // Create JournalEntry
+        let mut journal = serde_json::Map::new();
+        journal.insert("description".to_string(), Value::String(description));
+        journal.insert("date".to_string(), Value::String(date_str));
+        journal.insert("lines".to_string(), Value::Array(journal_lines));
+        journal.insert("status".to_string(), Value::String("Draft".to_string()));
+
+        self.create("JournalEntry", Value::Object(journal), ctx).await?;
+
+        Ok(())
     }
 }
