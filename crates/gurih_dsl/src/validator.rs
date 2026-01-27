@@ -255,17 +255,17 @@ impl<'a> Validator<'a> {
         let mut valid_targets = HashSet::new();
 
         for page in &ast.pages {
-            valid_targets.insert(page.name.clone());
+            valid_targets.insert(page.name.as_str());
         }
         for dashboard in &ast.dashboards {
-            valid_targets.insert(dashboard.name.clone());
+            valid_targets.insert(dashboard.name.as_str());
         }
         for action in &ast.actions {
-            valid_targets.insert(action.name.clone());
+            valid_targets.insert(action.name.as_str());
         }
         for module in &ast.modules {
             for action in &module.actions {
-                valid_targets.insert(action.name.clone());
+                valid_targets.insert(action.name.as_str());
             }
         }
 
@@ -278,10 +278,10 @@ impl<'a> Validator<'a> {
         Ok(())
     }
 
-    fn validate_route_node(&self, node: &ast::RouteNode, valid_targets: &HashSet<String>) -> Result<(), CompileError> {
+    fn validate_route_node(&self, node: &ast::RouteNode, valid_targets: &HashSet<&str>) -> Result<(), CompileError> {
         match node {
             ast::RouteNode::Route(r) => {
-                if !valid_targets.contains(&r.action) {
+                if !valid_targets.contains(r.action.as_str()) {
                     return Err(CompileError::ValidationError {
                         src: self.src.to_string(),
                         span: r.span,
