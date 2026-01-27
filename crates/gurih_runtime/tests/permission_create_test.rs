@@ -79,7 +79,11 @@ async fn test_create_permission_missing() {
 
     assert!(result.is_err(), "Create should fail when permission is missing");
     if let Err(err) = result {
-         assert!(err.contains("Missing permission"), "Error message should mention missing permission: {}", err);
+        assert!(
+            err.contains("Missing permission"),
+            "Error message should mention missing permission: {}",
+            err
+        );
     }
 }
 
@@ -154,5 +158,9 @@ async fn test_create_permission_granted() {
         )
         .await;
 
-    assert!(result.is_ok(), "Create should succeed when permission is granted. Error: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Create should succeed when permission is granted. Error: {:?}",
+        result.err()
+    );
 }
