@@ -38,9 +38,7 @@ impl SchemaManager {
                 println!("✅ Schema matches. Skipping table reset.");
             }
         } else {
-            // In non-dev mode, we assume migration is handled differently or manual.
-            // But if we want to try creating tables (which fails if exist), we keep legacy behavior:
-            println!("🛠 Creating tables...");
+            println!("🛠 Creating tables if missing...");
             self.create_tables().await?;
         }
 
@@ -427,7 +425,7 @@ impl SchemaManager {
     }
 
     async fn create_explicit_table(&self, table: &TableSchema) -> Result<(), String> {
-        let mut sql = format!("CREATE TABLE \"{}\" (", table.name);
+        let mut sql = format!("CREATE TABLE IF NOT EXISTS \"{}\" (", table.name);
         let mut defs = vec![];
 
         for col in &table.columns {
@@ -482,6 +480,111 @@ impl SchemaManager {
             }
 
             defs.push(def);
+        }
+
+        sql.push_str(&defs.join(", "));
+        sql.push(')');
+
+        match &self.pool {
+            DbPool::Sqlite(p) => {
+                sqlx::query::<sqlx::Sqlite>(&sql)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+            }
+            DbPool::Postgres(p) => {
+                sqlx::query::<sqlx::Postgres>(&sql)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn create_entity_table(&self, entity: &EntitySchema) -> Result<(), String> {
+        let mut sql = format!("CREATE TABLE IF NOT EXISTS \"{}\" (", entity.name);
+        let mut defs = vec![];
+        let db_kind = &self.db_kind;
+
+        for field in &entity.fields {
+            let col_type = match &field.field_type {
+                FieldType::Pk
+                | FieldType::Serial
+                | FieldType::Sku
+                | FieldType::Name
+                | FieldType::Title
+                | FieldType::Description
+                | FieldType::Avatar
+                | FieldType::Money
+                | FieldType::Email
+                | FieldType::Phone
+                | FieldType::Address
+                | FieldType::Password
+                | FieldType::String
+                | FieldType::Text
+                | FieldType::Image
+                | FieldType::File
+                | FieldType::Relation
+                | FieldType::Code
+                | FieldType::Custom(_)
+                | FieldType::Enum(_) => "TEXT",
+                FieldType::Integer => {
+                    if *db_kind == DatabaseType::Postgres {
+                        "INT"
+                    } else {
+                        "INTEGER"
+                    }
+                }
+                FieldType::Float => {
+                    if *db_kind == DatabaseType::Postgres {
+                        "DOUBLE PRECISION"
+                    } else {
+                        "REAL"
+                    }
+                }
+                FieldType::Boolean => {
+                    if *db_kind == DatabaseType::Postgres {
+                        "BOOLEAN"
+                    } else {
+                        "INTEGER"
+                    }
+                }
+                FieldType::Date => "DATE",
+                FieldType::Timestamp => {
+                    if *db_kind == DatabaseType::Postgres {
+                        "TIMESTAMP"
+                    } else {
+                        "TEXT"
+                    }
+                }
+            };
+
+            let mut def = format!("\"{}\" {}", field.name, col_type);
+
+            if field.name == Symbol::from("id") {
+                def.push_str(" PRIMARY KEY");
+            }
+
+            if field.required {
+                def.push_str(" NOT NULL");
+            }
+            if field.unique {
+                def.push_str(" UNIQUE");
+            }
+
+            defs.push(def);
+        }
+
+        // Process Relationships (belongs_to -> foreign key column)
+        for rel in &entity.relationships {
+            if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
+                let col_name = format!("{}_id", rel.name);
+                if !entity.fields.iter().any(|f| f.name == Symbol::from(col_name.as_str())) {
+                    let def = format!("\"{}\" TEXT", col_name);
+                    defs.push(def);
+                }
+            }
         }
 
         sql.push_str(&defs.join(", "));
