@@ -217,17 +217,9 @@ pub struct TransitionDef {
 
 #[derive(Debug, Clone)]
 pub enum TransitionPreconditionDef {
-    Assertion {
-        expression: String,
-        span: SourceSpan,
-    },
-    BalancedTransaction {
-        span: SourceSpan,
-    },
-    PeriodOpen {
-        entity: Option<String>,
-        span: SourceSpan,
-    },
+    Assertion { expression: String, span: SourceSpan },
+    BalancedTransaction { span: SourceSpan },
+    PeriodOpen { entity: Option<String>, span: SourceSpan },
 }
 
 #[derive(Debug, Clone)]
@@ -463,4 +455,3 @@ pub struct AllowDef {
     pub resource: String,
     pub actions: Option<String>,
 }
-

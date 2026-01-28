@@ -1,5 +1,5 @@
 use gurih_dsl::compiler::compile;
-use gurih_ir::{TransitionPrecondition, Expression};
+use gurih_ir::{Expression, TransitionPrecondition};
 
 #[test]
 fn test_employee_status_desugaring() {
@@ -18,12 +18,19 @@ fn test_employee_status_desugaring() {
     let schema = compile(src, None).expect("Compilation failed");
 
     // Check workflow was generated
-    let workflow = schema.workflows.get(&"PegawaiStatusWorkflow".into()).expect("Workflow not found");
+    let workflow = schema
+        .workflows
+        .get(&"PegawaiStatusWorkflow".into())
+        .expect("Workflow not found");
     assert_eq!(workflow.entity.as_str(), "Pegawai");
     assert_eq!(workflow.field.as_str(), "status_pegawai");
 
     // Check transition
-    let transition = workflow.transitions.iter().find(|t| t.from == "CPNS".into() && t.to == "PNS".into()).expect("Transition not found");
+    let transition = workflow
+        .transitions
+        .iter()
+        .find(|t| t.from == "CPNS".into() && t.to == "PNS".into())
+        .expect("Transition not found");
 
     // Check preconditions desugared to Assertions
     assert_eq!(transition.preconditions.len(), 3);

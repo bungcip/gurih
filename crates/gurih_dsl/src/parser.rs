@@ -150,7 +150,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
 
             for status in statuses {
                 if seen_states.insert(status.name.clone()) {
-                     states.push(StateDef {
+                    states.push(StateDef {
                         name: status.name.clone(),
                         initial: false, // Default
                         immutable: false,
@@ -159,7 +159,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
                 }
 
                 for t in status.transitions {
-                     if seen_states.insert(t.to.clone()) {
+                    if seen_states.insert(t.to.clone()) {
                         states.push(StateDef {
                             name: t.to.clone(),
                             initial: false,
@@ -770,7 +770,9 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
                                 }
                                 "min_years_of_service" => {
                                     let years = get_arg_int(req, 0, src)? as u32;
-                                    let from_field = get_prop_string(req, "from", src).ok().unwrap_or_else(|| "join_date".to_string());
+                                    let from_field = get_prop_string(req, "from", src)
+                                        .ok()
+                                        .unwrap_or_else(|| "join_date".to_string());
                                     preconditions.push(TransitionPreconditionDef::Assertion {
                                         expression: format!("years_of_service({}) >= {}", from_field, years),
                                         span: req.span().into(),
@@ -778,7 +780,9 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
                                 }
                                 "min_age" => {
                                     let age = get_arg_int(req, 0, src)? as u32;
-                                    let birth_date_field = get_prop_string(req, "from", src).ok().unwrap_or_else(|| "birth_date".to_string());
+                                    let birth_date_field = get_prop_string(req, "from", src)
+                                        .ok()
+                                        .unwrap_or_else(|| "birth_date".to_string());
                                     preconditions.push(TransitionPreconditionDef::Assertion {
                                         expression: format!("age({}) >= {}", birth_date_field, age),
                                         span: req.span().into(),
@@ -1038,7 +1042,9 @@ fn parse_employee_status_transition(node: &KdlNode, src: &str) -> Result<Transit
                                 }
                                 "min_years_of_service" => {
                                     let years = get_arg_int(req, 0, src)? as u32;
-                                    let from_field = get_prop_string(req, "from", src).ok().unwrap_or_else(|| "join_date".to_string());
+                                    let from_field = get_prop_string(req, "from", src)
+                                        .ok()
+                                        .unwrap_or_else(|| "join_date".to_string());
                                     preconditions.push(TransitionPreconditionDef::Assertion {
                                         expression: format!("years_of_service({}) >= {}", from_field, years),
                                         span: req.span().into(),
@@ -1046,7 +1052,9 @@ fn parse_employee_status_transition(node: &KdlNode, src: &str) -> Result<Transit
                                 }
                                 "min_age" => {
                                     let age = get_arg_int(req, 0, src)? as u32;
-                                    let birth_date_field = get_prop_string(req, "from", src).ok().unwrap_or_else(|| "birth_date".to_string());
+                                    let birth_date_field = get_prop_string(req, "from", src)
+                                        .ok()
+                                        .unwrap_or_else(|| "birth_date".to_string());
                                     preconditions.push(TransitionPreconditionDef::Assertion {
                                         expression: format!("age({}) >= {}", birth_date_field, age),
                                         span: req.span().into(),

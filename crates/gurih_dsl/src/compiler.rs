@@ -238,7 +238,8 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
     // 4. Process Workflows
     for wf_def in &ast_root.workflows {
-        let transitions: Result<Vec<Transition>, CompileError> = wf_def.transitions.iter().map(convert_transition).collect();
+        let transitions: Result<Vec<Transition>, CompileError> =
+            wf_def.transitions.iter().map(convert_transition).collect();
 
         ir_workflows.insert(
             wf_def.name.as_str().into(),
@@ -672,7 +673,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     props.insert("not_null".to_string(), "true".to_string());
                 }
                 if let Some(default) = &field.default {
-                     props.insert("default".to_string(), default.clone());
+                    props.insert("default".to_string(), default.clone());
                 }
 
                 columns.push(ColumnSchema {
@@ -692,7 +693,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
                     // Avoid duplicate columns if field already exists (e.g. explicitly defined)
                     if !columns.iter().any(|c| c.name == col_symbol) {
-                         columns.push(ColumnSchema {
+                        columns.push(ColumnSchema {
                             name: col_symbol,
                             type_name: "String".to_string(),
                             props: HashMap::new(),

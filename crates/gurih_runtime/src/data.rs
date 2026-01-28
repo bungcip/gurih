@@ -119,7 +119,10 @@ impl DataEngine {
             return Err("Data must be an object".to_string());
         }
 
-        let id = self.datastore.insert(entity_schema.table_name.as_str(), data.clone()).await?;
+        let id = self
+            .datastore
+            .insert(entity_schema.table_name.as_str(), data.clone())
+            .await?;
 
         // Audit Trail
         if let Some(val) = entity_schema.options.get("track_changes")
@@ -135,9 +138,9 @@ impl DataEngine {
     pub async fn read(&self, entity_name: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
         let entity_schema = self.schema.entities.get(&Symbol::from(entity_name));
         if let Some(schema) = entity_schema {
-             self.datastore.get(schema.table_name.as_str(), id).await
+            self.datastore.get(schema.table_name.as_str(), id).await
         } else {
-             Err(format!("Entity '{}' not defined", entity_name))
+            Err(format!("Entity '{}' not defined", entity_name))
         }
     }
 
@@ -284,7 +287,9 @@ impl DataEngine {
             self.process_data_fields(entity_schema, obj)?;
         }
 
-        self.datastore.update(entity_schema.table_name.as_str(), id, data.clone()).await?;
+        self.datastore
+            .update(entity_schema.table_name.as_str(), id, data.clone())
+            .await?;
 
         // Audit Trail (Post-update)
         if track_changes {
@@ -439,9 +444,9 @@ impl DataEngine {
         }
 
         if let Some(schema) = self.schema.entities.get(&Symbol::from(entity)) {
-             self.datastore.list(schema.table_name.as_str(), limit, offset).await
+            self.datastore.list(schema.table_name.as_str(), limit, offset).await
         } else {
-             Err(format!("Entity or Query '{}' not defined", entity))
+            Err(format!("Entity or Query '{}' not defined", entity))
         }
     }
 
@@ -479,7 +484,10 @@ impl DataEngine {
             // Basic sanitization to prevent breaking SQL
             let safe_term = account_term.replace('\'', "''");
 
-            let account_table = self.schema.entities.get(&Symbol::from("Account"))
+            let account_table = self
+                .schema
+                .entities
+                .get(&Symbol::from("Account"))
                 .map(|e| e.table_name.as_str())
                 .unwrap_or("Account");
 
