@@ -31,7 +31,7 @@ impl DataEngine {
         &self.datastore
     }
 
-    fn check_rules(
+    async fn check_rules(
         &self,
         entity_name: &str,
         action: &str,
@@ -58,7 +58,8 @@ impl DataEngine {
 
         for rule in self.schema.rules.values() {
             if rule.on_event == event_sym {
-                let result = crate::evaluator::evaluate(&rule.assertion, &context)
+                let result = crate::evaluator::evaluate(&rule.assertion, &context, Some(&self.schema), Some(&self.datastore))
+                    .await
                     .map_err(|e| format!("Rule '{}' error: {}", rule.name, e))?;
 
                 match result {
@@ -88,7 +89,7 @@ impl DataEngine {
         self.validate_permission(ctx, &create_perm, entity_name)?;
 
         // Rule Check (Create)
-        self.check_rules(entity_name, "create", &data, None)?;
+        self.check_rules(entity_name, "create", &data, None).await?;
 
         // Workflow: Set initial state if applicable
         if let Some(wf) = self
@@ -187,7 +188,7 @@ impl DataEngine {
                         target.insert(k.clone(), v.clone());
                     }
                 }
-                self.check_rules(entity_name, "update", &merged, Some(&**current))?;
+                self.check_rules(entity_name, "update", &merged, Some(&**current)).await?;
             } else {
                 return Err("Record not found for rule validation".to_string());
             }
@@ -463,14 +464,16 @@ impl DataEngine {
             .ok_or_else(|| format!("Posting rule '{}' not found", rule_name))?;
 
         // Evaluate Description
-        let description = crate::evaluator::evaluate(&rule.description_expr, source_data)
+        let description = crate::evaluator::evaluate(&rule.description_expr, source_data, Some(&self.schema), Some(&self.datastore))
+            .await
             .map_err(|e| format!("Failed to evaluate description: {}", e))?
             .as_str()
             .unwrap_or("")
             .to_string();
 
         // Evaluate Date
-        let date_val = crate::evaluator::evaluate(&rule.date_expr, source_data)
+        let date_val = crate::evaluator::evaluate(&rule.date_expr, source_data, Some(&self.schema), Some(&self.datastore))
+            .await
             .map_err(|e| format!("Failed to evaluate date: {}", e))?;
 
         let date_str = date_val.as_str().unwrap_or("").to_string();
@@ -526,12 +529,14 @@ impl DataEngine {
             line_obj.insert("account".to_string(), Value::String(account_id.to_string()));
 
             if let Some(debit_expr) = &line.debit_expr {
-                let val = crate::evaluator::evaluate(debit_expr, source_data)
+                let val = crate::evaluator::evaluate(debit_expr, source_data, Some(&self.schema), Some(&self.datastore))
+                    .await
                     .map_err(|e| format!("Failed to evaluate debit: {}", e))?;
                 line_obj.insert("debit".to_string(), val);
                 line_obj.insert("credit".to_string(), Value::from(0));
             } else if let Some(credit_expr) = &line.credit_expr {
-                let val = crate::evaluator::evaluate(credit_expr, source_data)
+                let val = crate::evaluator::evaluate(credit_expr, source_data, Some(&self.schema), Some(&self.datastore))
+                    .await
                     .map_err(|e| format!("Failed to evaluate credit: {}", e))?;
                 line_obj.insert("credit".to_string(), val);
                 line_obj.insert("debit".to_string(), Value::from(0));

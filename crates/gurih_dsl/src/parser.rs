@@ -88,6 +88,9 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
                     ast.prints.extend(included_ast.prints);
                     ast.permissions.extend(included_ast.permissions);
                     ast.accounts.extend(included_ast.accounts);
+                    ast.rules.extend(included_ast.rules);
+                    ast.posting_rules.extend(included_ast.posting_rules);
+                    ast.queries.extend(included_ast.queries);
 
                     // Included employee_statuses are already merged into workflows in the recursive call
                 } else {

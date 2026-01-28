@@ -48,7 +48,7 @@ impl WorkflowEngine {
             if let Some(t) = transition {
                 // Check Preconditions
                 for pre in &t.preconditions {
-                    self.check_precondition(pre, entity_data, datastore).await?;
+                    self.check_precondition(pre, entity_data, schema, datastore).await?;
                 }
                 return Ok(());
             }
@@ -66,11 +66,12 @@ impl WorkflowEngine {
         &self,
         pre: &TransitionPrecondition,
         entity_data: &Value,
+        schema: &Schema,
         datastore: Option<&Arc<dyn DataStore>>,
     ) -> Result<(), RuntimeError> {
         match pre {
             TransitionPrecondition::Assertion(expr) => {
-                let result = crate::evaluator::evaluate(expr, entity_data)?;
+                let result = crate::evaluator::evaluate(expr, entity_data, Some(schema), datastore).await?;
                 match result {
                     Value::Bool(true) => {}
                     Value::Bool(false) => {
