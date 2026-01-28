@@ -41,6 +41,7 @@ async fn test_create_permission_missing() {
         Symbol::from("TestEntity"),
         EntitySchema {
             name: Symbol::from("TestEntity"),
+            table_name: Symbol::from("test_entity"),
             fields,
             relationships: vec![],
             options: HashMap::new(),
@@ -122,6 +123,7 @@ async fn test_create_permission_granted() {
         Symbol::from("TestEntity"),
         EntitySchema {
             name: Symbol::from("TestEntity"),
+            table_name: Symbol::from("test_entity"),
             fields,
             relationships: vec![],
             options: HashMap::new(),

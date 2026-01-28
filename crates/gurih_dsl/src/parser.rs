@@ -5,6 +5,14 @@ use kdl::{KdlDocument, KdlNode};
 use std::collections::HashMap;
 use std::path::Path;
 
+struct PartialWorkflowDef {
+    name: String,
+    entity: Option<String>,
+    field: Option<String>,
+    transitions: Vec<TransitionDef>,
+    span: SourceSpan,
+}
+
 pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
     let doc: KdlDocument = src.parse()?;
     let mut ast = Ast {
@@ -28,11 +36,12 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
         actions: vec![],
         storages: vec![],
         queries: vec![],
-        employee_statuses: vec![],
         accounts: vec![],
         rules: vec![],
         posting_rules: vec![],
     };
+
+    let mut employee_statuses: Vec<PartialWorkflowDef> = vec![];
 
     for node in doc.nodes() {
         let name = node.name().value();
@@ -79,7 +88,8 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
                     ast.prints.extend(included_ast.prints);
                     ast.permissions.extend(included_ast.permissions);
                     ast.accounts.extend(included_ast.accounts);
-                    ast.employee_statuses.extend(included_ast.employee_statuses);
+
+                    // Included employee_statuses are already merged into workflows in the recursive call
                 } else {
                     return Err(CompileError::ParseError {
                         src: src.to_string(),
@@ -105,7 +115,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
             "print" => ast.prints.push(parse_print(node, src)?),
             "role" | "permission" => ast.permissions.push(parse_permission(node, src)?),
             "query" | "query:nested" | "query:flat" => ast.queries.push(parse_query(node, src)?),
-            "employee_status" => ast.employee_statuses.push(parse_employee_status(node, src)?),
+            "employee_status" => employee_statuses.push(parse_employee_status(node, src)?),
             "account" => ast.accounts.push(parse_account(node, src)?),
             "rule" => ast.rules.push(parse_rule(node, src)?),
             "posting_rule" => ast.posting_rules.push(parse_posting_rule(node, src)?),
@@ -117,6 +127,58 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
                     message: format!("Unknown top-level definition: {}", name),
                 });
             }
+        }
+    }
+
+    // Merge employee_statuses into workflows
+    if !employee_statuses.is_empty() {
+        let mut grouped: HashMap<(String, String), Vec<PartialWorkflowDef>> = HashMap::new();
+        for status in employee_statuses {
+            let entity = status.entity.clone().unwrap_or_else(|| "Employee".to_string());
+            let field = status.field.clone().unwrap_or_else(|| "status".to_string());
+            grouped.entry((entity, field)).or_default().push(status);
+        }
+
+        for ((entity_name, field_name), statuses) in grouped {
+            let workflow_name = format!("{}StatusWorkflow", entity_name);
+            let mut states = vec![];
+            let mut transitions = vec![];
+            let mut seen_states = std::collections::HashSet::new();
+
+            // Span from first status definition
+            let span = statuses.first().map(|s| s.span).unwrap_or_default();
+
+            for status in statuses {
+                if seen_states.insert(status.name.clone()) {
+                    states.push(StateDef {
+                        name: status.name.clone(),
+                        initial: false, // Default
+                        immutable: false,
+                        span: status.span,
+                    });
+                }
+
+                for t in status.transitions {
+                    if seen_states.insert(t.to.clone()) {
+                        states.push(StateDef {
+                            name: t.to.clone(),
+                            initial: false,
+                            immutable: false,
+                            span: t.span,
+                        });
+                    }
+                    transitions.push(t);
+                }
+            }
+
+            ast.workflows.push(WorkflowDef {
+                name: workflow_name,
+                entity: entity_name,
+                field: field_name,
+                states,
+                transitions,
+                span,
+            });
         }
     }
 
@@ -682,33 +744,35 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
                             match req.name().value() {
                                 "document" => {
                                     let doc_name = get_arg_string(req, 0, src)?;
-                                    preconditions.push(TransitionPreconditionDef::Document {
-                                        name: doc_name,
+                                    preconditions.push(TransitionPreconditionDef::Assertion {
+                                        expression: format!("is_set({})", doc_name),
                                         span: req.span().into(),
                                     });
                                 }
                                 "min_years_of_service" => {
                                     let years = get_arg_int(req, 0, src)? as u32;
-                                    let from_field = get_prop_string(req, "from", src).ok();
-                                    preconditions.push(TransitionPreconditionDef::MinYearsOfService {
-                                        years,
-                                        from_field,
+                                    let from_field = get_prop_string(req, "from", src)
+                                        .ok()
+                                        .unwrap_or_else(|| "join_date".to_string());
+                                    preconditions.push(TransitionPreconditionDef::Assertion {
+                                        expression: format!("years_of_service({}) >= {}", from_field, years),
                                         span: req.span().into(),
                                     });
                                 }
                                 "min_age" => {
                                     let age = get_arg_int(req, 0, src)? as u32;
-                                    let birth_date_field = get_prop_string(req, "from", src).ok();
-                                    preconditions.push(TransitionPreconditionDef::MinAge {
-                                        age,
-                                        birth_date_field,
+                                    let birth_date_field = get_prop_string(req, "from", src)
+                                        .ok()
+                                        .unwrap_or_else(|| "birth_date".to_string());
+                                    preconditions.push(TransitionPreconditionDef::Assertion {
+                                        expression: format!("age({}) >= {}", birth_date_field, age),
                                         span: req.span().into(),
                                     });
                                 }
                                 "valid_effective_date" => {
                                     let field = get_arg_string(req, 0, src)?;
-                                    preconditions.push(TransitionPreconditionDef::ValidEffectiveDate {
-                                        field,
+                                    preconditions.push(TransitionPreconditionDef::Assertion {
+                                        expression: format!("valid_date({})", field),
                                         span: req.span().into(),
                                     });
                                 }
@@ -907,7 +971,7 @@ fn parse_posting_line(node: &KdlNode, src: &str) -> Result<PostingLineDef, Compi
     })
 }
 
-fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef, CompileError> {
+fn parse_employee_status(node: &KdlNode, src: &str) -> Result<PartialWorkflowDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
     let entity = get_prop_string(node, "for", src)
         .ok()
@@ -928,7 +992,7 @@ fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef,
         }
     }
 
-    Ok(EmployeeStatusDef {
+    Ok(PartialWorkflowDef {
         name,
         entity,
         field,
@@ -952,33 +1016,35 @@ fn parse_employee_status_transition(node: &KdlNode, src: &str) -> Result<Transit
                             match req.name().value() {
                                 "document" => {
                                     let doc_name = get_arg_string(req, 0, src)?;
-                                    preconditions.push(TransitionPreconditionDef::Document {
-                                        name: doc_name,
+                                    preconditions.push(TransitionPreconditionDef::Assertion {
+                                        expression: format!("is_set({})", doc_name),
                                         span: req.span().into(),
                                     });
                                 }
                                 "min_years_of_service" => {
                                     let years = get_arg_int(req, 0, src)? as u32;
-                                    let from_field = get_prop_string(req, "from", src).ok();
-                                    preconditions.push(TransitionPreconditionDef::MinYearsOfService {
-                                        years,
-                                        from_field,
+                                    let from_field = get_prop_string(req, "from", src)
+                                        .ok()
+                                        .unwrap_or_else(|| "join_date".to_string());
+                                    preconditions.push(TransitionPreconditionDef::Assertion {
+                                        expression: format!("years_of_service({}) >= {}", from_field, years),
                                         span: req.span().into(),
                                     });
                                 }
                                 "min_age" => {
                                     let age = get_arg_int(req, 0, src)? as u32;
-                                    let birth_date_field = get_prop_string(req, "from", src).ok();
-                                    preconditions.push(TransitionPreconditionDef::MinAge {
-                                        age,
-                                        birth_date_field,
+                                    let birth_date_field = get_prop_string(req, "from", src)
+                                        .ok()
+                                        .unwrap_or_else(|| "birth_date".to_string());
+                                    preconditions.push(TransitionPreconditionDef::Assertion {
+                                        expression: format!("age({}) >= {}", birth_date_field, age),
                                         span: req.span().into(),
                                     });
                                 }
                                 "valid_effective_date" => {
                                     let field = get_arg_string(req, 0, src)?;
-                                    preconditions.push(TransitionPreconditionDef::ValidEffectiveDate {
-                                        field,
+                                    preconditions.push(TransitionPreconditionDef::Assertion {
+                                        expression: format!("valid_date({})", field),
                                         span: req.span().into(),
                                     });
                                 }

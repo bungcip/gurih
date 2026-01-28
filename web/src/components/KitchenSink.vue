@@ -17,6 +17,7 @@ import MetricCard from './MetricCard.vue'
 import DescriptionList from './DescriptionList.vue'
 import ActionCard from './ActionCard.vue'
 import Alert from './Alert.vue'
+import Drawer from './Drawer.vue'
 import { inject } from 'vue'
 
 const isDarkMode = ref(false)
@@ -44,8 +45,38 @@ const amountValue = ref(1500000)
 const isModalOpen = ref(false)
 const loading = ref(false)
 const showAlert = ref(true)
+const isDrawerOpen = ref(false)
+const drawerPlacement = ref('right')
+const isDrawerLoading = ref(false)
+const drawerMode = ref('details')
+const drawerTitle = ref('Employee Details')
 
 const showToast = inject('showToast')
+
+function openDrawer(mode) {
+    isDrawerOpen.value = true
+    drawerMode.value = mode
+
+    if (mode === 'left') {
+        drawerPlacement.value = 'left'
+        drawerTitle.value = 'Left Drawer'
+        drawerMode.value = 'details'
+        isDrawerLoading.value = false
+    } else {
+        drawerPlacement.value = 'right'
+
+        if (mode === 'loading') {
+            drawerTitle.value = 'Loading Data...'
+            isDrawerLoading.value = true
+        } else if (mode === 'empty') {
+            drawerTitle.value = 'Empty State'
+            isDrawerLoading.value = false
+        } else {
+            drawerTitle.value = 'Employee Details'
+            isDrawerLoading.value = false
+        }
+    }
+}
 
 function triggerToast(type) {
     if (type === 'success') showToast('Success message!', 'success')
@@ -595,6 +626,51 @@ function toggleLoading() {
                     </div>
                 </div>
             </div>
+        </section>
+
+        <!-- Drawers -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Drawers & Slide-overs</h2>
+            <div class="flex flex-wrap gap-4">
+                <Button variant="primary" @click="openDrawer('details')">Open Right Drawer</Button>
+                <Button variant="outline" @click="openDrawer('left')">Open Left Drawer</Button>
+                <Button variant="secondary" @click="openDrawer('loading')">Open Loading Drawer</Button>
+                <Button variant="ghost" @click="openDrawer('empty')">Open Empty Drawer</Button>
+            </div>
+
+            <Drawer
+                :isOpen="isDrawerOpen"
+                :title="drawerTitle"
+                :placement="drawerPlacement"
+                :loading="isDrawerLoading"
+                @close="isDrawerOpen = false"
+            >
+                <div v-if="drawerMode === 'details' || drawerMode === 'left'" class="space-y-6">
+                    <Alert variant="info" title="Context Preserved" description="Drawers allow users to view details without losing their place in the list." />
+
+                    <DescriptionList
+                        title="Personal Information"
+                        :items="employeeDetails"
+                        :columns="1"
+                    />
+
+                    <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                         <h4 class="font-medium text-text-main mb-2">History</h4>
+                         <Timeline :items="timelineItems.slice(0, 2)" />
+                    </div>
+                </div>
+
+                <div v-else-if="drawerMode === 'empty'" class="flex flex-col items-center justify-center h-64 text-center">
+                    <div class="text-4xl mb-4">📭</div>
+                    <h3 class="font-medium text-text-main">No Content</h3>
+                    <p class="text-text-muted">This drawer is currently empty.</p>
+                </div>
+
+                <template #footer>
+                    <Button variant="ghost" @click="isDrawerOpen = false">Close</Button>
+                    <Button v-if="drawerMode === 'details' || drawerMode === 'left'" variant="primary" @click="isDrawerOpen = false; triggerToast('success')">Save Changes</Button>
+                </template>
+            </Drawer>
         </section>
     </div>
 </template>

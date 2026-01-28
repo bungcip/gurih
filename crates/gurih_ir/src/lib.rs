@@ -184,6 +184,7 @@ pub struct ModuleSchema {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntitySchema {
     pub name: Symbol,
+    pub table_name: Symbol,
     pub fields: Vec<FieldSchema>,
     pub relationships: Vec<RelationshipSchema>,
     pub options: HashMap<String, String>,

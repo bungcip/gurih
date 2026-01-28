@@ -54,6 +54,7 @@ async fn test_password_hashing() {
         Symbol::from("User"),
         EntitySchema {
             name: Symbol::from("User"),
+            table_name: Symbol::from("user"),
             fields,
             relationships: vec![],
             options: HashMap::new(),
@@ -70,7 +71,7 @@ async fn test_password_hashing() {
     // 2. Setup Engines
     let datastore = Arc::new(MemoryDataStore::new());
     let data_engine = DataEngine::new(schema_arc.clone(), datastore.clone());
-    let auth_engine = AuthEngine::new(datastore.clone());
+    let auth_engine = AuthEngine::new(datastore.clone(), Some("user".to_string()));
 
     // 3. Create User
     let ctx = RuntimeContext::system();

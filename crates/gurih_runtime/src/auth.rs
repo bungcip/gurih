@@ -11,6 +11,7 @@ pub struct AuthEngine {
     sessions: Arc<Mutex<HashMap<String, RuntimeContext>>>,
     // Track failed attempts: Username -> (Count, Timestamp of first failure in window)
     login_attempts: Arc<Mutex<HashMap<String, (u32, Instant)>>>,
+    user_table: String,
 }
 
 pub fn hash_password(password: &str) -> String {
@@ -39,11 +40,12 @@ pub fn verify_password(password: &str, stored_value: &str) -> bool {
 }
 
 impl AuthEngine {
-    pub fn new(datastore: Arc<dyn DataStore>) -> Self {
+    pub fn new(datastore: Arc<dyn DataStore>, user_table: Option<String>) -> Self {
         Self {
             datastore,
             sessions: Arc::new(Mutex::new(HashMap::new())),
             login_attempts: Arc::new(Mutex::new(HashMap::new())),
+            user_table: user_table.unwrap_or_else(|| "User".to_string()),
         }
     }
 
@@ -66,7 +68,7 @@ impl AuthEngine {
         let mut filters = HashMap::new();
         filters.insert("username".to_string(), username.to_string());
 
-        let users = self.datastore.find("User", filters).await?;
+        let users = self.datastore.find(&self.user_table, filters).await?;
 
         // Determine if login is successful
         let mut login_success = false;

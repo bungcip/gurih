@@ -2,79 +2,72 @@
 
 ## 1. Overview
 
-**GurihFinance** is the financial management module of the GurihERP suite. It provides a robust, double-entry accounting system driven entirely by the Gurih DSL. It handles the core financial data structures, including Chart of Accounts (CoA), Journal Entries, General Ledger (via dynamic queries), and Financial Reports.
+**GurihFinance** is the core financial module of the GurihERP ecosystem. It provides a robust, double-entry accounting system driven entirely by the Gurih DSL.
 
-It interacts with other modules (like Sales, Procurement, HR) by acting as the central repository for financial transactions. Operational modules generate `JournalEntry` records which are then processed by GurihFinance.
+### Role in GurihERP
+GurihFinance acts as the central ledger for all financial transactions. Other modules (like HR, POS, Procurement) do not write directly to the ledger; instead, they submit transactions via **Posting Rules** which are validated and processed by GurihFinance.
+
+### Key Features
+- **Double-Entry Accounting**: Ensures debits equal credits for every transaction.
+- **Configurable Chart of Accounts**: Hierarchical account structure defined in DSL.
+- **Strict Validations**: Rules enforce positive balances, closed periods, and valid attributes.
+- **Automated Posting**: Integration with other modules via `posting_rule`.
+- **Real-time Reporting**: Financial statements generated on-the-fly.
 
 ## 2. Architecture
 
-GurihFinance follows the standard **Gurih Framework** architecture, where business logic is defined in **KDL** (Knowledge Description Language) and executed by the **Gurih Runtime**.
+GurihFinance is built on the **Gurih Framework**, which separates the business definition (DSL) from the execution engine (Runtime).
 
-### Architecture Diagram
+### Architectural Diagram
 
 ```mermaid
 graph TD
-    subgraph "GurihFinance DSL"
-        COA[coa.kdl]
-        Journal[journal.kdl]
-        Period[period.kdl]
-        Reports[reports.kdl]
+    subgraph "Gurih Framework"
+        Engine[Runtime Engine]
+        DB[(DataStore)]
     end
 
-    subgraph "Gurih Runtime"
-        Parser[DSL Parser]
-        Schema[Schema Registry]
-        Data[Data Engine]
-        Workflow[Workflow Engine]
-        Action[Action Engine]
+    subgraph "GurihFinance Module"
+        DSL[DSL Files (*.kdl)]
+        Rules[Business Rules]
+        Reports[Report Definitions]
     end
 
-    subgraph "Database"
-        DB[(finance.db)]
+    subgraph "External Modules"
+        HR[GurihHR]
+        POS[GurihPOS]
     end
 
-    COA --> Parser
-    Journal --> Parser
-    Period --> Parser
-    Reports --> Parser
-
-    Parser --> Schema
-    Schema --> Data
-    Schema --> Workflow
-
-    Data --> DB
-    Workflow --> DB
-
-    Action -- "finance:reverse_journal" --> Data
+    DSL -->|Loaded by| Engine
+    Engine -->|Persists to| DB
+    HR -->|Triggers| PostingRule
+    POS -->|Triggers| PostingRule
+    PostingRule -->|Creates| Journal[Journal Entry]
+    Journal -->|Update| Ledger
 ```
 
 ### Project Structure
 
-The module is self-contained in the `gurih-finance` directory.
+The project is structured as a standalone module containing DSL definitions:
 
 ```text
-[Screenshot: Project Structure]
 gurih-finance/
-├── coa.kdl         # Chart of Accounts & Account Entity
-├── gurih.kdl       # Main entry point (App config, Routes, Menu)
-├── journal.kdl     # Journal Entry Entity & Workflows
-├── period.kdl      # Accounting Period Management
-└── reports.kdl     # Financial Reporting Queries
+├── coa.kdl          # Chart of Accounts definition
+├── journal.kdl      # Journal Entry entity & workflows
+├── period.kdl       # Accounting Period management
+├── reports.kdl      # Financial Report queries
+├── integration.kdl  # Posting rules for external modules
+└── gurih.kdl        # Main configuration & routing
 ```
 
 ## 3. GurihFinance DSL
 
-The behavior of GurihFinance is defined using the Gurih DSL. Below are the key constructs used.
+GurihFinance uses the Gurih DSL to define its domain model. Below are the key constructs.
 
-### Chart of Accounts (`coa.kdl`)
-
-Defines the `Account` entity and the initial seed data for the Chart of Accounts.
-
-- **Entity**: `Account` (Self-referencing for hierarchy).
-- **Seed Data**: `account` keyword is used to define initial accounts.
+### 3.1 Chart of Accounts (`coa.kdl`)
+Accounts are defined with strict types and normal balances.
 
 ```kdl
-[Screenshot: coa.kdl]
 enum "AccountType" {
     Asset
     Liability
@@ -88,34 +81,28 @@ entity "Account" {
     field:string "code" unique=#true
     field:string "name"
     field:enum "type" "AccountType"
-    belongs_to "parent" entity="Account"
-}
-
-// Seed Data
-account "Cash" {
-    code "101"
-    type "Asset"
-    normal_balance "Debit"
+    field:enum "normal_balance" "NormalBalance"
+    belongs_to "parent" entity="Account" // Hierarchy
 }
 ```
 
-### Journal & Workflow (`journal.kdl`)
+![Chart of Accounts UI](images/finance-coa-list.png)
 
-Manages the lifecycle of financial transactions.
+### 3.2 Journal Entries (`journal.kdl`)
+The `JournalEntry` is the heart of the system. It supports a workflow from `Draft` to `Posted`.
 
-- **Entity**: `JournalEntry` (Header) and `JournalLine` (Detail).
-- **Workflow**: `JournalWorkflow` enforces rules like `balanced_transaction` and `period_open`.
+**Transaction Lifecycle:**
+1.  **Draft**: Created manually or via API. Editable.
+2.  **Posted**: Validated (balanced, period open) and locked. Immutable.
+3.  **Cancelled**: Voided entries.
 
 ```kdl
-[Screenshot: journal.kdl]
 workflow "JournalWorkflow" for="JournalEntry" field="status" {
     state "Draft" initial=#true
     state "Posted" immutable=#true
-    state "Cancelled" immutable=#true
 
     transition "post" {
-        from "Draft"
-        to "Posted"
+        from "Draft" to "Posted"
         requires {
             balanced_transaction #true
             period_open entity="AccountingPeriod"
@@ -124,120 +111,97 @@ workflow "JournalWorkflow" for="JournalEntry" field="status" {
 }
 ```
 
-### Reports (`reports.kdl`)
+![Journal Entry List](images/finance-journal-list.png)
 
-Uses `query:flat` with aggregations to generate reports like Trial Balance on the fly.
+### 3.3 Accounting Periods (`period.kdl`)
+Periods control when transactions can be posted.
 
 ```kdl
-[Screenshot: reports.kdl]
+entity "AccountingPeriod" {
+    field:string "name" // "Jan 2024"
+    field:date "start_date"
+    field:date "end_date"
+    field:enum "status" "PeriodStatus" // Open, Closed, Locked
+}
+```
+
+### 3.4 Reports (`reports.kdl`)
+Reports are defined using the `query:flat` DSL, which aggregates data from the ledger.
+
+```kdl
 query:flat "TrialBalanceQuery" for="Account" {
     select "code"
     select "name"
     formula "total_debit" "SUM([debit])"
     formula "total_credit" "SUM([credit])"
-
-    join "JournalLine" {
-        select "debit"
-        select "credit"
-    }
-
-    group_by "id"
-    group_by "code"
-    group_by "name"
+    join "JournalLine" { ... }
 }
 ```
+
+![Trial Balance Report](images/finance-report-trial-balance.png)
 
 ## 4. End-to-End Example
 
-This section demonstrates how a financial transaction is processed from definition to posting.
+### Step 1: Define an Account
+```kdl
+account "Cash" {
+    code "101"
+    type "Asset"
+    normal_balance "Debit"
+}
+```
 
-### 1. Account Definition
-We start with a valid Chart of Accounts defined in `coa.kdl`.
+### Step 2: Create a Journal Entry
+A user creates a journal entry to record a sale.
 
-### 2. Creating a Journal Entry (DSL/API)
-A new journal entry is created via the API or UI.
-
-**Request (JSON):**
-```json
-POST /api/JournalEntry
-{
-    "date": "2026-01-15",
-    "description": "Initial Capital",
-    "lines": [
-        { "account": "101", "debit": 10000, "credit": 0 },
-        { "account": "301", "debit": 0, "credit": 10000 }
+```kdl
+// Conceptually
+JournalEntry {
+    description: "Cash Sale"
+    date: "2024-01-01"
+    lines: [
+        { account: "Cash", debit: 100 },
+        { account: "Sales Revenue", credit: 100 }
     ]
 }
 ```
 
-### 3. Posting the Journal
-The user attempts to transition the journal from `Draft` to `Posted`.
+### Step 3: Posting
+The user clicks "Post". The system checks:
+- Is Total Debit == Total Credit? (Yes, 100 == 100)
+- Is the period for "2024-01-01" open? (Yes)
+- **Result**: Status becomes `Posted`. Record is immutable.
 
-**Terminal Output (Runtime Log):**
-```text
-[Screenshot: Terminal Output]
-INFO  gurih_runtime::workflow > Attempting transition 'post' for JournalEntry:JE/2026/0001
-DEBUG gurih_runtime::workflow > Checking precondition: balanced_transaction
-DEBUG gurih_runtime::workflow > Debit: 10000, Credit: 10000. Balance check PASSED.
-DEBUG gurih_runtime::workflow > Checking precondition: period_open (Entity: AccountingPeriod)
-DEBUG gurih_runtime::workflow > Period 'Jan 2026' is OPEN. Check PASSED.
-INFO  gurih_runtime::workflow > Transition 'post' successful. New status: Posted.
-INFO  gurih_runtime::data     > Record JournalEntry:JE/2026/0001 updated.
-```
-
-If the transaction were unbalanced, the `balanced_transaction` check would fail, and the runtime would reject the update.
-
-### 4. Closing the Period
-Once all transactions for the month are posted, the accounting period is closed to prevent further changes.
-
-**Request:**
-```json
-PUT /api/AccountingPeriod/period-2026-01
-{
-    "status": "Closed"
-}
-```
-
-**Terminal Output:**
-```text
-INFO  gurih_runtime::data     > Record AccountingPeriod:period-2026-01 updated.
-INFO  gurih_runtime::workflow > Period 'Jan 2026' status changed to Closed.
-```
-
-### 5. Generating Reports
-Finally, we generate the Trial Balance to verify the accounts.
-
-**Request:**
-```
-GET /api/ui/dashboard/TrialBalanceReport
-```
-
-**Result (JSON):**
-```json
-{
-    "columns": ["code", "name", "total_debit", "total_credit"],
-    "data": [
-        { "code": "101", "name": "Cash", "total_debit": 10000, "total_credit": 0 },
-        { "code": "301", "name": "Equity", "total_debit": 0, "total_credit": 10000 }
-    ]
-}
-```
+### Step 4: Reporting
+The `TrialBalanceReport` now shows:
+- Cash: 100 (Debit)
+- Sales Revenue: 100 (Credit)
 
 ## 5. Integration Guide
 
-Other modules integrate with GurihFinance by creating `JournalEntry` records.
+Other modules integrate using `posting_rule`. This decouples the modules from Finance internals.
 
-### Integration Points
+### Example: Invoice Posting
 
-1.  **API Submission**: Modules should submit payloads to `/api/JournalEntry`.
-2.  **Metadata**: Include `description` or `memo` fields linking back to the source document (e.g., "Invoice #123").
+When an `Invoice` is created in the Sales module, a `JournalEntry` is automatically generated.
 
-### Error Handling
+```kdl
+posting_rule "InvoicePosting" for="Invoice" {
+    description "\"Invoice #\" + doc.invoice_number"
+    date "doc.date"
 
-If a module attempts to post an unbalanced journal or post to a closed period, the API will return a `400 Bad Request` with a specific error message from the workflow engine.
+    entry {
+        account "Accounts Receivable"
+        debit "doc.total_amount"
+    }
 
-```json
-{
-    "error": "Workflow validation failed: Transaction is not balanced."
+    entry {
+        account "Sales Revenue"
+        credit "doc.total_amount"
+    }
 }
 ```
+
+**Integration Points:**
+- **Trigger**: Document creation/update in external module.
+- **Validation**: If the posting rule fails (e.g., account missing), the source transaction may be rejected or flagged.

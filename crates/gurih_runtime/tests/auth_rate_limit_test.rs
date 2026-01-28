@@ -54,6 +54,7 @@ async fn test_rate_limiting() {
         Symbol::from("User"),
         EntitySchema {
             name: Symbol::from("User"),
+            table_name: Symbol::from("user"),
             fields,
             relationships: vec![],
             options: HashMap::new(),
@@ -69,7 +70,7 @@ async fn test_rate_limiting() {
 
     let datastore = Arc::new(MemoryDataStore::new());
     let data_engine = DataEngine::new(schema_arc.clone(), datastore.clone());
-    let auth_engine = AuthEngine::new(datastore.clone());
+    let auth_engine = AuthEngine::new(datastore.clone(), Some("user".to_string()));
 
     let ctx = RuntimeContext::system();
     data_engine
