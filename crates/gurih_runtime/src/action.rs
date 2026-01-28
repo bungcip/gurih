@@ -122,7 +122,9 @@ impl ActionEngine {
         filters.insert("journal_entry".to_string(), id.clone());
 
         let schema = data_engine.get_schema();
-        let table_name = schema.entities.get(&Symbol::from("JournalLine"))
+        let table_name = schema
+            .entities
+            .get(&Symbol::from("JournalLine"))
             .map(|e| e.table_name.as_str())
             .unwrap_or("JournalLine");
 
