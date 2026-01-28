@@ -38,10 +38,12 @@ async function fetchDashboardData() {
   }, 800)
 }
 
-onMounted(fetchDashboardData)
+// onMounted not needed because watch immediate: true handles the initial fetch
+// onMounted(fetchDashboardData)
 
 watch(() => props.schema, (newSchema) => {
   if (newSchema) {
+    // immediate: true ensures this runs on mount as well
     fetchDashboardData()
   }
 }, { immediate: true })
