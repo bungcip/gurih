@@ -18,6 +18,7 @@ import DescriptionList from './DescriptionList.vue'
 import ActionCard from './ActionCard.vue'
 import Alert from './Alert.vue'
 import Drawer from './Drawer.vue'
+import TreeView from './TreeView.vue'
 import { inject } from 'vue'
 
 const isDarkMode = ref(false)
@@ -208,6 +209,45 @@ function onCardAction(action) {
 function toggleLoading() {
     loading.value = !loading.value
 }
+
+const treeData = [
+  {
+    id: 'root',
+    label: 'Corporate Headquarters',
+    icon: 'dashboard',
+    children: [
+      {
+        id: 'finance',
+        label: 'Finance & Legal',
+        icon: 'users',
+        children: [
+          { id: 'acc', label: 'Accounting', icon: 'user' },
+          { id: 'audit', label: 'Internal Audit', icon: 'user' },
+          { id: 'legal', label: 'Legal Counsel', icon: 'user' }
+        ]
+      },
+      {
+        id: 'tech',
+        label: 'Technology Division',
+        icon: 'settings',
+        children: [
+          {
+            id: 'eng',
+            label: 'Engineering',
+            icon: 'users',
+            children: [
+                { id: 'fe', label: 'Frontend Guild', icon: 'user' },
+                { id: 'be', label: 'Backend Guild', icon: 'user' }
+            ]
+          },
+          { id: 'infra', label: 'Infrastructure', icon: 'settings' }
+        ]
+      }
+    ]
+  }
+]
+const treeExpanded = ref(['root', 'tech', 'eng'])
+const treeSelected = ref('fe')
 </script>
 
 <template>
@@ -671,6 +711,51 @@ function toggleLoading() {
                     <Button v-if="drawerMode === 'details' || drawerMode === 'left'" variant="primary" @click="isDrawerOpen = false; triggerToast('success')">Save Changes</Button>
                 </template>
             </Drawer>
+        </section>
+
+        <!-- Tree View -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Hierarchical Data (Tree View)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- Interactive Tree -->
+                <div class="space-y-4">
+                    <h3 class="text-sm font-medium text-text-muted uppercase tracking-wider">Organizational Structure</h3>
+                    <div class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg min-h-[300px]">
+                        <TreeView
+                            :nodes="treeData"
+                            v-model="treeSelected"
+                            v-model:expandedKeys="treeExpanded"
+                        />
+                    </div>
+                    <div class="text-xs text-text-muted">
+                        Selected: <span class="font-mono">{{ treeSelected }}</span>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div class="space-y-4">
+                    <h3 class="text-sm font-medium text-text-muted uppercase tracking-wider">Loading State</h3>
+                    <div class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg min-h-[300px]">
+                        <TreeView loading />
+                    </div>
+                </div>
+
+                <!-- Empty State -->
+                <div class="space-y-4">
+                    <h3 class="text-sm font-medium text-text-muted uppercase tracking-wider">Empty State</h3>
+                    <div class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg min-h-[300px]">
+                        <TreeView :nodes="[]" emptyText="No organization data found." />
+                    </div>
+                </div>
+
+                <!-- Error State -->
+                <div class="space-y-4">
+                    <h3 class="text-sm font-medium text-text-muted uppercase tracking-wider">Error State</h3>
+                    <div class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg min-h-[300px]">
+                        <TreeView error="Failed to load hierarchy." />
+                    </div>
+                </div>
+            </div>
         </section>
     </div>
 </template>
