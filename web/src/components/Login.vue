@@ -1,6 +1,7 @@
 <script setup>
 import { ref, inject } from 'vue'
 import Button from './Button.vue'
+import Password from './Password.vue'
 
 const username = ref('')
 const password = ref('')
@@ -54,12 +55,10 @@ async function handleLogin() {
                     />
                 </div>
                 <div>
-                    <label for="password" class="block text-sm font-medium text-text-muted">Password</label>
-                    <input
+                    <Password
                         id="password"
                         v-model="password"
-                        type="password"
-                        class="input-field mt-1"
+                        label="Password"
                         required
                     />
                 </div>

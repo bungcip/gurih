@@ -1,6 +1,10 @@
 <script setup>
 import { ref } from 'vue'
 
+defineOptions({
+  inheritAttrs: false
+})
+
 const props = defineProps({
     modelValue: {
         type: String,
@@ -41,6 +45,7 @@ function togglePassword() {
         </label>
         <div class="relative">
             <input
+                v-bind="$attrs"
                 :id="id"
                 :type="showPassword ? 'text' : 'password'"
                 :value="modelValue"
