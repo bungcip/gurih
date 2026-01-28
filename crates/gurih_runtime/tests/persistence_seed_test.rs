@@ -1,4 +1,4 @@
-use gurih_ir::{DatabaseType, EntitySchema, FieldSchema, FieldType, Schema, Symbol};
+use gurih_ir::{ColumnSchema, DatabaseType, EntitySchema, FieldSchema, FieldType, Schema, Symbol, TableSchema};
 use gurih_runtime::persistence::SchemaManager;
 use gurih_runtime::store::DbPool;
 use sqlx::sqlite::SqlitePoolOptions;
@@ -85,6 +85,7 @@ async fn test_seed_sorting() {
 
     let entity = EntitySchema {
         name: Symbol::from("TestEntity"),
+        table_name: Symbol::from("test_entity"),
         fields,
         relationships: vec![],
         options: HashMap::new(),
@@ -94,8 +95,54 @@ async fn test_seed_sorting() {
     let mut entities = HashMap::new();
     entities.insert(Symbol::from("TestEntity"), entity);
 
+    let mut tables = HashMap::new();
+    tables.insert(
+        Symbol::from("test_entity"),
+        TableSchema {
+            name: Symbol::from("test_entity"),
+            columns: vec![
+                ColumnSchema {
+                    name: Symbol::from("id"),
+                    type_name: "String".to_string(),
+                    props: HashMap::from([("not_null".to_string(), "true".to_string())]),
+                    primary: true,
+                    unique: true,
+                },
+                ColumnSchema {
+                    name: Symbol::from("name"),
+                    type_name: "String".to_string(),
+                    props: HashMap::from([("not_null".to_string(), "true".to_string())]),
+                    primary: false,
+                    unique: false,
+                },
+                ColumnSchema {
+                    name: Symbol::from("description"),
+                    type_name: "String".to_string(),
+                    props: HashMap::new(),
+                    primary: false,
+                    unique: false,
+                },
+                ColumnSchema {
+                    name: Symbol::from("active"),
+                    type_name: "Boolean".to_string(),
+                    props: HashMap::new(),
+                    primary: false,
+                    unique: false,
+                },
+                ColumnSchema {
+                    name: Symbol::from("count"),
+                    type_name: "Integer".to_string(),
+                    props: HashMap::new(),
+                    primary: false,
+                    unique: false,
+                },
+            ],
+        },
+    );
+
     let schema = Schema {
         entities,
+        tables,
         ..Default::default()
     };
 
@@ -105,7 +152,7 @@ async fn test_seed_sorting() {
     manager.migrate().await.unwrap();
 
     // Query to verify insertion
-    let count: (i64,) = sqlx::query_as("SELECT count(*) FROM TestEntity")
+    let count: (i64,) = sqlx::query_as("SELECT count(*) FROM test_entity")
         .fetch_one(&pool)
         .await
         .unwrap();

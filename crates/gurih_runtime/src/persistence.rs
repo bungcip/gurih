@@ -89,7 +89,7 @@ impl SchemaManager {
 
         let sql = format!(
             "INSERT INTO \"{}\" ({}) VALUES ({})",
-            entity.name,
+            entity.table_name,
             cols.join(", "),
             placeholders.join(", ")
         );
@@ -350,9 +350,6 @@ impl SchemaManager {
         for name in self.schema.tables.keys() {
             tables_to_drop.push(*name);
         }
-        for name in self.schema.entities.keys() {
-            tables_to_drop.push(*name);
-        }
 
         for table in tables_to_drop {
             let sql = if *db_kind == DatabaseType::Postgres {
@@ -381,16 +378,9 @@ impl SchemaManager {
     }
 
     async fn create_tables(&self) -> Result<(), String> {
-        // 1. Create Explicit Tables
+        // 1. Create Tables
         for table in self.schema.tables.values() {
             self.create_explicit_table(table).await?;
-        }
-
-        // 2. Create Entity Tables
-        for entity in self.schema.entities.values() {
-            if !self.schema.tables.contains_key(&entity.name) {
-                self.create_entity_table(entity).await?;
-            }
         }
 
         Ok(())
@@ -441,63 +431,41 @@ impl SchemaManager {
         let mut defs = vec![];
 
         for col in &table.columns {
-            let col_type_str = match &col.type_name {
-                ColumnType::Serial => {
-                    if self.db_kind == DatabaseType::Postgres {
-                        "SERIAL"
-                    } else {
-                        "INTEGER"
-                    }
-                }
-                ColumnType::Varchar => "VARCHAR",
-                ColumnType::Text => "TEXT",
-                ColumnType::Integer => {
+            let sql_type = match col.type_name.as_str() {
+                "String" | "Text" => "TEXT",
+                "Integer" => {
                     if self.db_kind == DatabaseType::Postgres {
                         "INT"
                     } else {
                         "INTEGER"
                     }
                 }
-                ColumnType::Float => {
+                "Float" => {
                     if self.db_kind == DatabaseType::Postgres {
                         "DOUBLE PRECISION"
                     } else {
                         "REAL"
                     }
                 }
-                ColumnType::Boolean => {
+                "Boolean" => {
                     if self.db_kind == DatabaseType::Postgres {
                         "BOOLEAN"
                     } else {
                         "INTEGER"
                     }
                 }
-                ColumnType::Date => "DATE",
-                ColumnType::Timestamp => {
+                "Date" => "DATE",
+                "Timestamp" => {
                     if self.db_kind == DatabaseType::Postgres {
                         "TIMESTAMP"
                     } else {
                         "TEXT"
                     }
                 }
-                ColumnType::Uuid => {
-                    if self.db_kind == DatabaseType::Postgres {
-                        "UUID"
-                    } else {
-                        "TEXT"
-                    }
-                }
-                ColumnType::Json => {
-                    if self.db_kind == DatabaseType::Postgres {
-                        "JSONB"
-                    } else {
-                        "TEXT"
-                    }
-                }
-                ColumnType::Custom(s) => s.as_str(),
+                other => other,
             };
 
-            let mut def = format!("\"{}\" {}", col.name, col_type_str);
+            let mut def = format!("\"{}\" {}", col.name, sql_type);
             if col.primary {
                 def.push_str(" PRIMARY KEY");
             }
@@ -514,111 +482,6 @@ impl SchemaManager {
             }
 
             defs.push(def);
-        }
-
-        sql.push_str(&defs.join(", "));
-        sql.push(')');
-
-        match &self.pool {
-            DbPool::Sqlite(p) => {
-                sqlx::query::<sqlx::Sqlite>(&sql)
-                    .execute(p)
-                    .await
-                    .map_err(|e: sqlx::Error| e.to_string())?;
-            }
-            DbPool::Postgres(p) => {
-                sqlx::query::<sqlx::Postgres>(&sql)
-                    .execute(p)
-                    .await
-                    .map_err(|e: sqlx::Error| e.to_string())?;
-            }
-        }
-        Ok(())
-    }
-
-    async fn create_entity_table(&self, entity: &EntitySchema) -> Result<(), String> {
-        let mut sql = format!("CREATE TABLE \"{}\" (", entity.name);
-        let mut defs = vec![];
-        let db_kind = &self.db_kind;
-
-        for field in &entity.fields {
-            let col_type = match &field.field_type {
-                FieldType::Pk
-                | FieldType::Serial
-                | FieldType::Sku
-                | FieldType::Name
-                | FieldType::Title
-                | FieldType::Description
-                | FieldType::Avatar
-                | FieldType::Money
-                | FieldType::Email
-                | FieldType::Phone
-                | FieldType::Address
-                | FieldType::Password
-                | FieldType::String
-                | FieldType::Text
-                | FieldType::Image
-                | FieldType::File
-                | FieldType::Relation
-                | FieldType::Code
-                | FieldType::Custom(_)
-                | FieldType::Enum(_) => "TEXT",
-                FieldType::Integer => {
-                    if *db_kind == DatabaseType::Postgres {
-                        "INT"
-                    } else {
-                        "INTEGER"
-                    }
-                }
-                FieldType::Float => {
-                    if *db_kind == DatabaseType::Postgres {
-                        "DOUBLE PRECISION"
-                    } else {
-                        "REAL"
-                    }
-                }
-                FieldType::Boolean => {
-                    if *db_kind == DatabaseType::Postgres {
-                        "BOOLEAN"
-                    } else {
-                        "INTEGER"
-                    }
-                }
-                FieldType::Date => "DATE",
-                FieldType::Timestamp => {
-                    if *db_kind == DatabaseType::Postgres {
-                        "TIMESTAMP"
-                    } else {
-                        "TEXT"
-                    }
-                }
-            };
-
-            let mut def = format!("\"{}\" {}", field.name, col_type);
-
-            if field.name == Symbol::from("id") {
-                def.push_str(" PRIMARY KEY");
-            }
-
-            if field.required {
-                def.push_str(" NOT NULL");
-            }
-            if field.unique {
-                def.push_str(" UNIQUE");
-            }
-
-            defs.push(def);
-        }
-
-        // Process Relationships (belongs_to -> foreign key column)
-        for rel in &entity.relationships {
-            if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
-                let col_name = format!("{}_id", rel.name);
-                if !entity.fields.iter().any(|f| f.name == Symbol::from(col_name.as_str())) {
-                    let def = format!("\"{}\" TEXT", col_name);
-                    defs.push(def);
-                }
-            }
         }
 
         sql.push_str(&defs.join(", "));

@@ -251,7 +251,8 @@ async fn start_server(
             let datastore = create_datastore(schema.clone(), &file).await;
 
             let engine = Arc::new(DataEngine::new(schema.clone(), datastore.clone()));
-            let auth_engine = Arc::new(AuthEngine::new(datastore));
+            let user_table = schema.entities.get(&Symbol::from("User")).map(|e| e.table_name.as_str().to_string());
+            let auth_engine = Arc::new(AuthEngine::new(datastore, user_table));
 
             println!("Runtime initialized with {} entities.", schema.entities.len());
 

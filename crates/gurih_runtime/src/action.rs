@@ -121,7 +121,12 @@ impl ActionEngine {
         let mut filters = HashMap::new();
         filters.insert("journal_entry".to_string(), id.clone());
 
-        let lines = data_engine.datastore().find("JournalLine", filters).await?;
+        let schema = data_engine.get_schema();
+        let table_name = schema.entities.get(&Symbol::from("JournalLine"))
+            .map(|e| e.table_name.as_str())
+            .unwrap_or("JournalLine");
+
+        let lines = data_engine.datastore().find(table_name, filters).await?;
 
         // 3. Create Reverse Header
         let mut new_entry = original.clone();

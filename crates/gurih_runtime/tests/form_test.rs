@@ -48,6 +48,7 @@ fn test_default_form_label_generation() {
     let entity_id = Symbol::from("TestEntity");
     let entity = EntitySchema {
         name: entity_id,
+        table_name: Symbol::from("test_entity"),
         fields,
         relationships: vec![],
         options: HashMap::new(),
