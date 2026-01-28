@@ -1,4 +1,6 @@
-use gurih_ir::{ColumnSchema, ColumnType, DatabaseType, EntitySchema, FieldSchema, FieldType, Schema, Symbol, TableSchema};
+use gurih_ir::{
+    ColumnSchema, ColumnType, DatabaseType, EntitySchema, FieldSchema, FieldType, Schema, Symbol, TableSchema,
+};
 use gurih_runtime::persistence::SchemaManager;
 use gurih_runtime::store::DbPool;
 use sqlx::sqlite::SqlitePoolOptions;
