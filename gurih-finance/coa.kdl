@@ -18,6 +18,7 @@ entity "Account" {
     field:enum "type" "AccountType"
     field:enum "normal_balance" "NormalBalance"
     field:boolean "is_active" default="true"
+    field:boolean "is_group" default="false"
 
     // Using self-referencing relationship for hierarchy
     belongs_to "parent" entity="Account"
@@ -86,6 +87,7 @@ page "AccountForm" {
                 field "type"
                 field "normal_balance"
             }
+            field "is_group"
             field "parent"
         }
     }

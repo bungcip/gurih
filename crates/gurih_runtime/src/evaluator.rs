@@ -1,9 +1,16 @@
+use crate::datastore::DataStore;
 use crate::errors::RuntimeError;
 use chrono::{Datelike, NaiveDate, Utc};
-use gurih_ir::{BinaryOperator, Expression, UnaryOperator};
+use gurih_ir::{BinaryOperator, Expression, Schema, Symbol, UnaryOperator};
 use serde_json::Value;
+use std::sync::Arc;
 
-pub fn evaluate(expr: &Expression, context: &Value) -> Result<Value, RuntimeError> {
+pub async fn evaluate(
+    expr: &Expression,
+    context: &Value,
+    schema: Option<&Schema>,
+    datastore: Option<&Arc<dyn DataStore>>,
+) -> Result<Value, RuntimeError> {
     match expr {
         Expression::Field(name) => {
             let key = name.as_str();
@@ -27,29 +34,30 @@ pub fn evaluate(expr: &Expression, context: &Value) -> Result<Value, RuntimeErro
                 Ok(context.get(key).cloned().unwrap_or(Value::Null))
             }
         }
-        Expression::Literal(n) => {
-            Ok(Value::Number(serde_json::Number::from_f64(*n).ok_or_else(|| {
-                RuntimeError::EvaluationError("Invalid float literal".to_string())
-            })?))
-        }
+        Expression::Literal(n) => Ok(Value::Number(serde_json::Number::from_f64(*n).ok_or_else(
+            || RuntimeError::EvaluationError("Invalid float literal".to_string()),
+        )?)),
         Expression::StringLiteral(s) => Ok(Value::String(s.clone())),
         Expression::BoolLiteral(b) => Ok(Value::Bool(*b)),
-        Expression::Grouping(inner) => evaluate(inner, context),
+        Expression::Grouping(inner) => {
+            Box::pin(evaluate(inner, context, schema, datastore.clone())).await
+        }
         Expression::UnaryOp { op, expr } => {
-            let val = evaluate(expr, context)?;
+            let val = Box::pin(evaluate(expr, context, schema, datastore.clone())).await?;
             eval_unary_op(op, val)
         }
         Expression::BinaryOp { left, op, right } => {
-            let l = evaluate(left, context)?;
-            let r = evaluate(right, context)?;
+            let l = Box::pin(evaluate(left, context, schema, datastore.clone())).await?;
+            let r = Box::pin(evaluate(right, context, schema, datastore.clone())).await?;
             eval_binary_op(op, l, r)
         }
         Expression::FunctionCall { name, args } => {
             let mut eval_args = Vec::new();
             for arg in args {
-                eval_args.push(evaluate(arg, context)?);
+                eval_args
+                    .push(Box::pin(evaluate(arg, context, schema, datastore.clone())).await?);
             }
-            eval_function(name.as_str(), &eval_args)
+            eval_function(name.as_str(), &eval_args, schema, datastore).await
         }
     }
 }
@@ -68,7 +76,9 @@ fn eval_unary_op(op: &UnaryOperator, val: Value) -> Result<Value, RuntimeError> 
                 if let Some(f) = n.as_f64() {
                     Ok(Value::Number(serde_json::Number::from_f64(-f).unwrap()))
                 } else {
-                    Err(RuntimeError::EvaluationError("Invalid number for negation".into()))
+                    Err(RuntimeError::EvaluationError(
+                        "Invalid number for negation".into(),
+                    ))
                 }
             }
             _ => Err(RuntimeError::EvaluationError(format!(
@@ -96,9 +106,9 @@ fn eval_binary_op(op: &BinaryOperator, left: Value, right: Value) -> Result<Valu
                 }
                 _ => unreachable!(),
             };
-            Ok(Value::Number(serde_json::Number::from_f64(res).ok_or_else(|| {
-                RuntimeError::EvaluationError("Result is not a valid number".into())
-            })?))
+            Ok(Value::Number(serde_json::Number::from_f64(res).ok_or_else(
+                || RuntimeError::EvaluationError("Result is not a valid number".into()),
+            )?))
         }
         BinaryOperator::Eq => Ok(Value::Bool(left == right)),
         BinaryOperator::Neq => Ok(Value::Bool(left != right)),
@@ -135,7 +145,12 @@ fn eval_binary_op(op: &BinaryOperator, left: Value, right: Value) -> Result<Valu
     }
 }
 
-fn eval_function(name: &str, args: &[Value]) -> Result<Value, RuntimeError> {
+async fn eval_function(
+    name: &str,
+    args: &[Value],
+    schema: Option<&Schema>,
+    datastore: Option<&Arc<dyn DataStore>>,
+) -> Result<Value, RuntimeError> {
     match name {
         "age" => {
             if args.len() != 1 {
@@ -175,7 +190,9 @@ fn eval_function(name: &str, args: &[Value]) -> Result<Value, RuntimeError> {
         }
         "is_set" => {
             if args.len() != 1 {
-                return Err(RuntimeError::EvaluationError("is_set() takes 1 argument".into()));
+                return Err(RuntimeError::EvaluationError(
+                    "is_set() takes 1 argument".into(),
+                ));
             }
             match &args[0] {
                 Value::Null => Ok(Value::Bool(false)),
@@ -185,7 +202,9 @@ fn eval_function(name: &str, args: &[Value]) -> Result<Value, RuntimeError> {
         }
         "valid_date" => {
             if args.len() != 1 {
-                return Err(RuntimeError::EvaluationError("valid_date() takes 1 argument".into()));
+                return Err(RuntimeError::EvaluationError(
+                    "valid_date() takes 1 argument".into(),
+                ));
             }
             let date_str = match &args[0] {
                 Value::String(s) => s,
@@ -196,15 +215,56 @@ fn eval_function(name: &str, args: &[Value]) -> Result<Value, RuntimeError> {
             let valid = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").is_ok();
             Ok(Value::Bool(valid))
         }
-        _ => Err(RuntimeError::EvaluationError(format!("Unknown function: {}", name))),
+        "lookup_field" => {
+            if args.len() != 3 {
+                return Err(RuntimeError::EvaluationError(
+                    "lookup_field() takes 3 arguments".into(),
+                ));
+            }
+            if let Some(ds) = datastore {
+                let entity_name = as_str(&args[0])?;
+                let id = as_str(&args[1])?;
+                let field = as_str(&args[2])?;
+
+                let table_name = if let Some(s) = schema {
+                    s.entities
+                        .get(&Symbol::from(entity_name))
+                        .map(|e| e.table_name.to_string())
+                        .unwrap_or_else(|| to_snake_case(entity_name))
+                } else {
+                    to_snake_case(entity_name)
+                };
+
+                let record = ds.get(&table_name, id).await.map_err(|e| {
+                    RuntimeError::EvaluationError(format!("DB Error in lookup_field: {}", e))
+                })?;
+
+                if let Some(rec) = record {
+                    Ok(rec.get(field).cloned().unwrap_or(Value::Null))
+                } else {
+                    Ok(Value::Null)
+                }
+            } else {
+                Err(RuntimeError::EvaluationError(
+                    "lookup_field requires datastore".into(),
+                ))
+            }
+        }
+        _ => Err(RuntimeError::EvaluationError(format!(
+            "Unknown function: {}",
+            name
+        ))),
     }
 }
 
 fn as_f64(v: &Value) -> Result<f64, RuntimeError> {
     match v {
-        Value::Number(n) => n
-            .as_f64()
-            .ok_or_else(|| RuntimeError::EvaluationError(format!("Type mismatch: expected f64, found {:?}", v))),
+        Value::Number(n) => n.as_f64().ok_or_else(|| {
+            RuntimeError::EvaluationError(format!("Type mismatch: expected f64, found {:?}", v))
+        }),
+        Value::String(s) => s.parse::<f64>().map_err(|_| {
+            RuntimeError::EvaluationError(format!("Invalid number format in string: {}", s))
+        }),
         _ => Err(RuntimeError::EvaluationError(format!(
             "Type mismatch: expected number, found {:?}",
             v
@@ -232,42 +292,57 @@ fn as_str(v: &Value) -> Result<&str, RuntimeError> {
     }
 }
 
+fn to_snake_case(s: &str) -> String {
+    let mut result = String::new();
+    for (i, c) in s.char_indices() {
+        if c.is_uppercase() {
+            if i > 0 {
+                result.push('_');
+            }
+            result.push(c.to_ascii_lowercase());
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use gurih_ir::{BinaryOperator, Expression, Symbol};
     use serde_json::json;
 
-    #[test]
-    fn test_eval_literal() {
+    #[tokio::test]
+    async fn test_eval_literal() {
         let expr = Expression::Literal(42.0);
         let ctx = json!({});
-        let res = evaluate(&expr, &ctx).unwrap();
+        let res = evaluate(&expr, &ctx, None, None).await.unwrap();
         assert_eq!(res, json!(42.0));
     }
 
-    #[test]
-    fn test_eval_add() {
+    #[tokio::test]
+    async fn test_eval_add() {
         let expr = Expression::BinaryOp {
             left: Box::new(Expression::Literal(10.0)),
             op: BinaryOperator::Add,
             right: Box::new(Expression::Literal(32.0)),
         };
         let ctx = json!({});
-        let res = evaluate(&expr, &ctx).unwrap();
+        let res = evaluate(&expr, &ctx, None, None).await.unwrap();
         assert_eq!(res, json!(42.0));
     }
 
-    #[test]
-    fn test_eval_field() {
+    #[tokio::test]
+    async fn test_eval_field() {
         let expr = Expression::Field(Symbol::from("score"));
         let ctx = json!({"score": 100});
-        let res = evaluate(&expr, &ctx).unwrap();
+        let res = evaluate(&expr, &ctx, None, None).await.unwrap();
         assert_eq!(res, json!(100));
     }
 
-    #[test]
-    fn test_eval_age() {
+    #[tokio::test]
+    async fn test_eval_age() {
         // Mock current date behavior by comparing relative years
         // This test is tricky because `evaluate` uses `Utc::now()`.
         // Let's assume `age` logic is correct if basic math works.
@@ -278,19 +353,19 @@ mod tests {
             args: vec![Expression::Literal(0.0)], // Invalid arg type
         };
         let ctx = json!({});
-        let res = evaluate(&expr, &ctx);
+        let res = evaluate(&expr, &ctx, None, None).await;
         assert!(res.is_err()); // expects string
 
         let expr = Expression::FunctionCall {
             name: Symbol::from("age"),
             args: vec![Expression::StringLiteral("2000-01-01".into())],
         };
-        let res = evaluate(&expr, &ctx).unwrap();
+        let res = evaluate(&expr, &ctx, None, None).await.unwrap();
         assert!(res.is_number());
     }
 
-    #[test]
-    fn test_min_age_logic() {
+    #[tokio::test]
+    async fn test_min_age_logic() {
         // MinAge { age: 18 } -> age(field) >= 18
         let expr = Expression::BinaryOp {
             left: Box::new(Expression::FunctionCall {
@@ -301,7 +376,7 @@ mod tests {
             right: Box::new(Expression::Literal(18.0)),
         };
         let ctx = json!({});
-        let res = evaluate(&expr, &ctx).unwrap();
+        let res = evaluate(&expr, &ctx, None, None).await.unwrap();
         assert_eq!(res, json!(true)); // Should be > 18 in 2024
     }
 }

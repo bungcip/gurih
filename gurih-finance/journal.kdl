@@ -114,6 +114,18 @@ rule "PositiveCredit" {
     message "Credit must be positive"
 }
 
+rule "LeafAccountOnly" {
+    on "JournalLine:create"
+    assert "lookup_field(\"Account\", account, \"is_group\") == false"
+    message "Cannot post to a group account"
+}
+
+rule "LeafAccountOnlyUpdate" {
+    on "JournalLine:update"
+    assert "lookup_field(\"Account\", account, \"is_group\") == false"
+    message "Cannot post to a group account"
+}
+
 rule "PositiveDebitUpdate" {
     on "JournalLine:update"
     assert "debit >= 0"
