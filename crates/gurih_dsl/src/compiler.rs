@@ -678,7 +678,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
                 columns.push(ColumnSchema {
                     name: field.name,
-                    type_name: type_name.to_string(),
+                    type_name: parse_column_type(type_name),
                     props,
                     primary: matches!(field.field_type, FieldType::Pk),
                     unique: field.unique,
@@ -695,7 +695,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     if !columns.iter().any(|c| c.name == col_symbol) {
                         columns.push(ColumnSchema {
                             name: col_symbol,
-                            type_name: "String".to_string(),
+                            type_name: parse_column_type("String"),
                             props: HashMap::new(),
                             primary: false,
                             unique: false,
@@ -782,7 +782,7 @@ fn parse_column_type(s: &str) -> ColumnType {
     match s.to_lowercase().as_str() {
         "serial" => ColumnType::Serial,
         "varchar" => ColumnType::Varchar,
-        "text" => ColumnType::Text,
+        "text" | "string" => ColumnType::Text,
         "int" | "integer" => ColumnType::Integer,
         "float" | "double" | "real" => ColumnType::Float,
         "bool" | "boolean" => ColumnType::Boolean,

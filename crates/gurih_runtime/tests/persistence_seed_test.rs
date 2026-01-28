@@ -1,4 +1,4 @@
-use gurih_ir::{ColumnSchema, DatabaseType, EntitySchema, FieldSchema, FieldType, Schema, Symbol, TableSchema};
+use gurih_ir::{ColumnSchema, ColumnType, DatabaseType, EntitySchema, FieldSchema, FieldType, Schema, Symbol, TableSchema};
 use gurih_runtime::persistence::SchemaManager;
 use gurih_runtime::store::DbPool;
 use sqlx::sqlite::SqlitePoolOptions;
@@ -103,35 +103,35 @@ async fn test_seed_sorting() {
             columns: vec![
                 ColumnSchema {
                     name: Symbol::from("id"),
-                    type_name: "String".to_string(),
+                    type_name: ColumnType::Text,
                     props: HashMap::from([("not_null".to_string(), "true".to_string())]),
                     primary: true,
                     unique: true,
                 },
                 ColumnSchema {
                     name: Symbol::from("name"),
-                    type_name: "String".to_string(),
+                    type_name: ColumnType::Text,
                     props: HashMap::from([("not_null".to_string(), "true".to_string())]),
                     primary: false,
                     unique: false,
                 },
                 ColumnSchema {
                     name: Symbol::from("description"),
-                    type_name: "String".to_string(),
+                    type_name: ColumnType::Text,
                     props: HashMap::new(),
                     primary: false,
                     unique: false,
                 },
                 ColumnSchema {
                     name: Symbol::from("active"),
-                    type_name: "Boolean".to_string(),
+                    type_name: ColumnType::Boolean,
                     props: HashMap::new(),
                     primary: false,
                     unique: false,
                 },
                 ColumnSchema {
                     name: Symbol::from("count"),
-                    type_name: "Integer".to_string(),
+                    type_name: ColumnType::Integer,
                     props: HashMap::new(),
                     primary: false,
                     unique: false,

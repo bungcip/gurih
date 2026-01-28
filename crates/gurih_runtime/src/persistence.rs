@@ -429,38 +429,42 @@ impl SchemaManager {
         let mut defs = vec![];
 
         for col in &table.columns {
-            let sql_type = match col.type_name.as_str() {
-                "String" | "Text" => "TEXT",
-                "Integer" => {
+            let sql_type = match &col.type_name {
+                ColumnType::Varchar | ColumnType::Text => "TEXT".to_string(),
+                ColumnType::Integer => {
                     if self.db_kind == DatabaseType::Postgres {
-                        "INT"
+                        "INT".to_string()
                     } else {
-                        "INTEGER"
+                        "INTEGER".to_string()
                     }
                 }
-                "Float" => {
+                ColumnType::Float => {
                     if self.db_kind == DatabaseType::Postgres {
-                        "DOUBLE PRECISION"
+                        "DOUBLE PRECISION".to_string()
                     } else {
-                        "REAL"
+                        "REAL".to_string()
                     }
                 }
-                "Boolean" => {
+                ColumnType::Boolean => {
                     if self.db_kind == DatabaseType::Postgres {
-                        "BOOLEAN"
+                        "BOOLEAN".to_string()
                     } else {
-                        "INTEGER"
+                        "INTEGER".to_string()
                     }
                 }
-                "Date" => "DATE",
-                "Timestamp" => {
+                ColumnType::Date => "DATE".to_string(),
+                ColumnType::Timestamp => {
                     if self.db_kind == DatabaseType::Postgres {
-                        "TIMESTAMP"
+                        "TIMESTAMP".to_string()
                     } else {
-                        "TEXT"
+                        "TEXT".to_string()
                     }
                 }
-                other => other,
+                ColumnType::Custom(s) => s.clone(),
+                // Fallbacks for other types
+                ColumnType::Serial => "SERIAL".to_string(),
+                ColumnType::Uuid => "TEXT".to_string(),
+                ColumnType::Json => "TEXT".to_string(),
             };
 
             let mut def = format!("\"{}\" {}", col.name, sql_type);
