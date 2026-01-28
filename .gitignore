@@ -1,3 +1,4 @@
 /target
 hr.db
 server.log
+*.db
