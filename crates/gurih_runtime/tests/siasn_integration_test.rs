@@ -18,7 +18,11 @@ async fn test_siasn_integration_workflow() {
     };
 
     let app_kdl_path = base_path.join("app.kdl");
-    assert!(app_kdl_path.exists(), "Could not find gurih-siasn/app.kdl at {:?}", app_kdl_path);
+    assert!(
+        app_kdl_path.exists(),
+        "Could not find gurih-siasn/app.kdl at {:?}",
+        app_kdl_path
+    );
 
     let src = std::fs::read_to_string(&app_kdl_path).expect("Failed to read app.kdl");
     let schema = compile(&src, Some(&base_path)).expect("Failed to compile Siasn schema");
@@ -44,7 +48,10 @@ async fn test_siasn_integration_workflow() {
         "is_payroll_active": true
     });
 
-    let id = engine.create("Pegawai", emp_data, &ctx).await.expect("Failed to create Pegawai");
+    let id = engine
+        .create("Pegawai", emp_data, &ctx)
+        .await
+        .expect("Failed to create Pegawai");
 
     // 4. Attempt transition CPNS -> PNS (Fail: Missing doc)
     let update_to_pns = json!({
@@ -61,10 +68,16 @@ async fn test_siasn_integration_workflow() {
         "sk_pns": "doc_sk_pns.pdf",
         "tmt_pns": "2024-02-01" // > 1 year from 2023-01-01
     });
-    engine.update("Pegawai", &id, doc_update, &ctx).await.expect("Failed to update doc");
+    engine
+        .update("Pegawai", &id, doc_update, &ctx)
+        .await
+        .expect("Failed to update doc");
 
     // Transition
-    engine.update("Pegawai", &id, update_to_pns, &ctx).await.expect("Failed transition to PNS");
+    engine
+        .update("Pegawai", &id, update_to_pns, &ctx)
+        .await
+        .expect("Failed transition to PNS");
 
     // Verify State
     let emp = engine.read("Pegawai", &id).await.unwrap().unwrap();
@@ -82,10 +95,16 @@ async fn test_siasn_integration_workflow() {
     assert!(res.is_err(), "Should fail without sk_pemberhentian");
 
     // Add doc
-    engine.update("Pegawai", &id, json!({"sk_pemberhentian": "sk_stop.pdf"}), &ctx).await.unwrap();
+    engine
+        .update("Pegawai", &id, json!({"sk_pemberhentian": "sk_stop.pdf"}), &ctx)
+        .await
+        .unwrap();
 
     // Transition
-    engine.update("Pegawai", &id, update_to_nonaktif, &ctx).await.expect("Failed transition to Nonaktif");
+    engine
+        .update("Pegawai", &id, update_to_nonaktif, &ctx)
+        .await
+        .expect("Failed transition to Nonaktif");
 
     // Verify Effect
     let emp = engine.read("Pegawai", &id).await.unwrap().unwrap();
@@ -95,5 +114,9 @@ async fn test_siasn_integration_workflow() {
     // The effect sets is_payroll_active to false.
     // Check if the field is present and false.
     let payroll_active = emp.get("is_payroll_active");
-    assert_eq!(payroll_active, Some(&json!(false)), "Payroll should be suspended (false)");
+    assert_eq!(
+        payroll_active,
+        Some(&json!(false)),
+        "Payroll should be suspended (false)"
+    );
 }
