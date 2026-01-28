@@ -217,23 +217,21 @@ pub struct TransitionDef {
 
 #[derive(Debug, Clone)]
 pub enum TransitionPreconditionDef {
-    Assertion { expression: String, span: SourceSpan },
-    BalancedTransaction { span: SourceSpan },
-    PeriodOpen { entity: Option<String>, span: SourceSpan },
+    Assertion {
+        expression: String,
+        span: SourceSpan,
+    },
+    Custom {
+        name: String,
+        args: Vec<String>,
+        span: SourceSpan,
+    },
 }
 
 #[derive(Debug, Clone)]
 pub enum TransitionEffectDef {
-    SuspendPayroll {
-        active: bool,
-        span: SourceSpan,
-    },
     Notify {
         target: String,
-        span: SourceSpan,
-    },
-    UpdateRankEligibility {
-        active: bool,
         span: SourceSpan,
     },
     UpdateField {
@@ -241,8 +239,9 @@ pub enum TransitionEffectDef {
         value: String,
         span: SourceSpan,
     },
-    PostJournal {
-        rule: String,
+    Custom {
+        name: String,
+        args: Vec<String>,
         span: SourceSpan,
     },
 }

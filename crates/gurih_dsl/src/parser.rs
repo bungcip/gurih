@@ -777,7 +777,9 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
                                 "balanced_transaction" => {
                                     let enabled = get_arg_bool(req, 0)?;
                                     if enabled {
-                                        preconditions.push(TransitionPreconditionDef::BalancedTransaction {
+                                        preconditions.push(TransitionPreconditionDef::Custom {
+                                            name: "balanced_transaction".to_string(),
+                                            args: vec![],
                                             span: req.span().into(),
                                         });
                                     }
@@ -786,8 +788,13 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
                                     let enabled = get_arg_bool(req, 0).unwrap_or(true);
                                     let entity = get_prop_string(req, "entity", src).ok();
                                     if enabled {
-                                        preconditions.push(TransitionPreconditionDef::PeriodOpen {
-                                            entity,
+                                        let mut args = vec![];
+                                        if let Some(e) = entity {
+                                            args.push(e);
+                                        }
+                                        preconditions.push(TransitionPreconditionDef::Custom {
+                                            name: "period_open".to_string(),
+                                            args,
                                             span: req.span().into(),
                                         });
                                     }
@@ -803,8 +810,9 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
                             match eff.name().value() {
                                 "suspend_payroll" => {
                                     let suspend = get_arg_bool(eff, 0)?;
-                                    effects.push(TransitionEffectDef::SuspendPayroll {
-                                        active: !suspend,
+                                    effects.push(TransitionEffectDef::Custom {
+                                        name: "suspend_payroll".to_string(),
+                                        args: vec![suspend.to_string()],
                                         span: eff.span().into(),
                                     });
                                 }
@@ -817,8 +825,9 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
                                 }
                                 "update_rank_eligibility" => {
                                     let active = get_arg_bool(eff, 0)?;
-                                    effects.push(TransitionEffectDef::UpdateRankEligibility {
-                                        active,
+                                    effects.push(TransitionEffectDef::Custom {
+                                        name: "update_rank_eligibility".to_string(),
+                                        args: vec![active.to_string()],
                                         span: eff.span().into(),
                                     });
                                 }
@@ -833,8 +842,9 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
                                 }
                                 "post_journal" => {
                                     let rule = get_arg_string(eff, 0, src)?;
-                                    effects.push(TransitionEffectDef::PostJournal {
-                                        rule,
+                                    effects.push(TransitionEffectDef::Custom {
+                                        name: "post_journal".to_string(),
+                                        args: vec![rule],
                                         span: eff.span().into(),
                                     });
                                 }
@@ -1057,8 +1067,9 @@ fn parse_employee_status_transition(node: &KdlNode, src: &str) -> Result<Transit
                             match eff.name().value() {
                                 "suspend_payroll" => {
                                     let suspend = get_arg_bool(eff, 0)?;
-                                    effects.push(TransitionEffectDef::SuspendPayroll {
-                                        active: !suspend,
+                                    effects.push(TransitionEffectDef::Custom {
+                                        name: "suspend_payroll".to_string(),
+                                        args: vec![suspend.to_string()],
                                         span: eff.span().into(),
                                     });
                                 }
@@ -1071,8 +1082,9 @@ fn parse_employee_status_transition(node: &KdlNode, src: &str) -> Result<Transit
                                 }
                                 "update_rank_eligibility" => {
                                     let active = get_arg_bool(eff, 0)?;
-                                    effects.push(TransitionEffectDef::UpdateRankEligibility {
-                                        active,
+                                    effects.push(TransitionEffectDef::Custom {
+                                        name: "update_rank_eligibility".to_string(),
+                                        args: vec![active.to_string()],
                                         span: eff.span().into(),
                                     });
                                 }

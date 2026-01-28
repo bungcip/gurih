@@ -118,12 +118,14 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     let expr = crate::expr::parse_expression(expression, span.offset())?;
                     preconditions.push(TransitionPrecondition::Assertion(convert_expr(&expr)));
                 }
-                ast::TransitionPreconditionDef::BalancedTransaction { .. } => {
-                    preconditions.push(TransitionPrecondition::BalancedTransaction);
-                }
-                ast::TransitionPreconditionDef::PeriodOpen { entity, .. } => {
-                    preconditions.push(TransitionPrecondition::PeriodOpen {
-                        entity: entity.as_ref().map(|s| Symbol::from(s.as_str())),
+                ast::TransitionPreconditionDef::Custom { name, args, .. } => {
+                    let expr_args = args
+                        .iter()
+                        .map(|s| gurih_ir::Expression::StringLiteral(s.clone()))
+                        .collect();
+                    preconditions.push(TransitionPrecondition::Custom {
+                        name: Symbol::from(name.as_str()),
+                        args: expr_args,
                     });
                 }
             }
@@ -139,24 +141,37 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 .effects
                 .iter()
                 .map(|e| match e {
-                    ast::TransitionEffectDef::SuspendPayroll { active, .. } => TransitionEffect::UpdateField {
-                        field: Symbol::from("is_payroll_active"),
-                        value: active.to_string(),
-                    },
+                    ast::TransitionEffectDef::Custom { name, args, .. } => {
+                        if name == "suspend_payroll" {
+                            let suspend = args.first().map(|s| s == "true").unwrap_or(false);
+                            TransitionEffect::UpdateField {
+                                field: Symbol::from("is_payroll_active"),
+                                value: (!suspend).to_string(),
+                            }
+                        } else if name == "update_rank_eligibility" {
+                            let active = args.first().map(|s| s == "true").unwrap_or(false);
+                            TransitionEffect::UpdateField {
+                                field: Symbol::from("rank_eligible"),
+                                value: active.to_string(),
+                            }
+                        } else {
+                            let expr_args = args
+                                .iter()
+                                .map(|s| gurih_ir::Expression::StringLiteral(s.clone()))
+                                .collect();
+                            TransitionEffect::Custom {
+                                name: Symbol::from(name.as_str()),
+                                args: expr_args,
+                            }
+                        }
+                    }
                     ast::TransitionEffectDef::Notify { target, .. } => {
                         TransitionEffect::Notify(Symbol::from(target.as_str()))
                     }
-                    ast::TransitionEffectDef::UpdateRankEligibility { active, .. } => TransitionEffect::UpdateField {
-                        field: Symbol::from("rank_eligible"),
-                        value: active.to_string(),
-                    },
                     ast::TransitionEffectDef::UpdateField { field, value, .. } => TransitionEffect::UpdateField {
                         field: Symbol::from(field.as_str()),
                         value: value.clone(),
                     },
-                    ast::TransitionEffectDef::PostJournal { rule, .. } => {
-                        TransitionEffect::PostJournal(Symbol::from(rule.as_str()))
-                    }
                 })
                 .collect(),
         })

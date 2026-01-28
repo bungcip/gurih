@@ -1,11 +1,13 @@
 use crate::datastore::DataStore;
 use crate::errors::RuntimeError;
-use chrono::NaiveDate;
+use crate::plugins::WorkflowPlugin;
 use gurih_ir::{FieldType, Schema, Symbol, TransitionEffect, TransitionPrecondition};
 use serde_json::Value;
 use std::sync::Arc;
 
-pub struct WorkflowEngine;
+pub struct WorkflowEngine {
+    plugins: Vec<Box<dyn WorkflowPlugin>>,
+}
 
 impl Default for WorkflowEngine {
     fn default() -> Self {
@@ -15,7 +17,12 @@ impl Default for WorkflowEngine {
 
 impl WorkflowEngine {
     pub fn new() -> Self {
-        Self
+        Self { plugins: vec![] }
+    }
+
+    pub fn with_plugins(mut self, plugins: Vec<Box<dyn WorkflowPlugin>>) -> Self {
+        self.plugins = plugins;
+        self
     }
 
     pub async fn validate_transition(
@@ -86,136 +93,34 @@ impl WorkflowEngine {
                     }
                 }
             }
-            TransitionPrecondition::BalancedTransaction => {
-                // Find fields that are arrays (composition/child tables)
-                if let Some(obj) = entity_data.as_object() {
-                    let mut found_lines = false;
-                    for (_key, val) in obj {
-                        if let Some(lines) = val.as_array() {
-                            // Heuristic: check if items have debit/credit
-                            // Or assuming user names it something like "lines" or "items"?
-                            // Let's assume ANY array with debit/credit is a journal line list.
-                            let mut total_debit = 0.0;
-                            let mut total_credit = 0.0;
-                            let mut is_journal_line = false;
-
-                            for line in lines {
-                                if let Some(line_obj) = line.as_object()
-                                    && (line_obj.contains_key("debit") || line_obj.contains_key("credit"))
-                                {
-                                    is_journal_line = true;
-                                    let debit = line_obj
-                                        .get("debit")
-                                        .and_then(|v| v.as_str())
-                                        .unwrap_or("0")
-                                        .parse::<f64>()
-                                        .unwrap_or(0.0)
-                                        + line_obj.get("debit").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                                    let credit = line_obj
-                                        .get("credit")
-                                        .and_then(|v| v.as_str())
-                                        .unwrap_or("0")
-                                        .parse::<f64>()
-                                        .unwrap_or(0.0)
-                                        + line_obj.get("credit").and_then(|v| v.as_f64()).unwrap_or(0.0);
-
-                                    total_debit += debit;
-                                    total_credit += credit;
-                                }
-                            }
-
-                            if is_journal_line {
-                                found_lines = true;
-                                let diff = (total_debit - total_credit).abs();
-                                if diff > 0.01 {
-                                    // epsilon
-                                    return Err(RuntimeError::ValidationError(format!(
-                                        "Transaction not balanced: Debit {}, Credit {} (Diff {})",
-                                        total_debit, total_credit, diff
-                                    )));
-                                }
-                            }
-                        }
-                    }
-                    if !found_lines {
-                        // Should we fail if no lines? A journal without lines is technically balanced (0=0), but maybe useless.
-                        // Let's allow it for now, or fail?
-                        // "Balanced Transaction" implies there is a transaction.
-                        // But if 0=0, it's balanced.
-                    }
+            TransitionPrecondition::Custom { name, args } => {
+                for plugin in &self.plugins {
+                    // We call check_precondition on all plugins.
+                    // The contract is: if plugin recognizes it, checks it.
+                    // If it passes or unknown, returns Ok. If fails, returns Err.
+                    // We assume that if ANY plugin fails, the whole thing fails.
+                    // But we also need to know if at least one plugin recognized it?
+                    // The current trait returns Result<(), Error>. This implies "Pass or Ignore".
+                    // If a plugin ignores it (Ok), and no plugin handles it, should we fail?
+                    // For now, let's assume plugins handle what they know. If unknown, we ignore (maybe it's a client-side rule?)
+                    // Or we should warn "Unknown rule".
+                    // Let's stick to simple "Try all plugins, fail if any errors".
+                    plugin.check_precondition(name.as_str(), args, entity_data, schema, datastore).await?;
                 }
-            }
-            TransitionPrecondition::PeriodOpen { entity } => {
-                // Needs datastore access
-                if let Some(ds) = datastore {
-                    // 1. Get transaction date
-                    let date_str = entity_data
-                        .get("date")
-                        .or_else(|| entity_data.get("transaction_date"))
-                        .and_then(|v| v.as_str());
-
-                    if let Some(date_s) = date_str {
-                        // Strict validation
-                        if NaiveDate::parse_from_str(date_s, "%Y-%m-%d").is_err() {
-                            return Err(RuntimeError::ValidationError(format!(
-                                "Invalid date format: {}",
-                                date_s
-                            )));
-                        }
-
-                        let target_entity = entity.as_ref().map(|s| s.as_str()).unwrap_or("AccountingPeriod");
-
-                        // Validate identifier
-                        if !target_entity.chars().all(|c| c.is_alphanumeric() || c == '_') {
-                            return Err(RuntimeError::WorkflowError(format!(
-                                "Invalid entity name for period check: {}",
-                                target_entity
-                            )));
-                        }
-
-                        // Determine table name
-                        // Note: We don't have access to full schema.tables easily unless passed, but we have `schema`.
-                        // self.validate_transition receives &Schema.
-                        // But check_precondition doesn't receive &Schema in my previous edit?
-                        // Let's check check_precondition signature.
-
-                        let table_name = target_entity.to_lowercase(); // Simple heuristic for now, safe with alphanumeric check
-
-                        // Construct SQL
-                        let sql = format!(
-                            "SELECT id FROM {} WHERE status = 'Open' AND start_date <= '{}' AND end_date >= '{}'",
-                            table_name, date_s, date_s
-                        );
-
-                        let periods = ds.query(&sql).await.map_err(RuntimeError::WorkflowError)?;
-                        if periods.is_empty() {
-                            return Err(RuntimeError::ValidationError(format!(
-                                "No open {} found for date {}",
-                                target_entity, date_s
-                            )));
-                        }
-                    } else {
-                        return Err(RuntimeError::ValidationError(
-                            "Missing date field for period check".to_string(),
-                        ));
-                    }
-                } else {
-                    return Err(RuntimeError::WorkflowError(
-                        "Cannot check PeriodOpen: Datastore not available".to_string(),
-                    ));
-                }
+                // If not handled by any plugin, strictly speaking we should probably allow it (maybe implemented elsewhere or future)
+                // or fail.
             }
         }
         Ok(())
     }
 
-    pub fn apply_effects(
+    pub async fn apply_effects(
         &self,
         schema: &Schema,
         entity_name: &str,
         current_state: &str,
         new_state: &str,
-        _entity_data: &Value,
+        entity_data: &Value,
     ) -> (Value, Vec<String>, Vec<Symbol>) {
         let mut updates = serde_json::Map::new();
         let mut notifications = vec![];
@@ -251,8 +156,19 @@ impl WorkflowEngine {
 
                         updates.insert(field.to_string(), json_val);
                     }
-                    TransitionEffect::PostJournal(rule) => {
-                        postings.push(rule.clone());
+                    TransitionEffect::Custom { name, args } => {
+                        for plugin in &self.plugins {
+                            if let Ok((p_updates, p_notifications, p_postings)) = plugin.apply_effect(name.as_str(), args, schema, entity_name, entity_data).await {
+                                // Merge results
+                                if let Value::Object(obj) = p_updates {
+                                    for (k, v) in obj {
+                                        updates.insert(k, v);
+                                    }
+                                }
+                                notifications.extend(p_notifications);
+                                postings.extend(p_postings);
+                            }
+                        }
                     }
                 }
             }

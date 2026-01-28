@@ -13,6 +13,7 @@ pub mod image_processor;
 pub mod page;
 pub mod persistence;
 pub mod portal;
+pub mod plugins;
 pub mod query_engine;
 pub mod storage;
 pub mod store;
