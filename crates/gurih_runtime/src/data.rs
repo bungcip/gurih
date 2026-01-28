@@ -3,7 +3,7 @@ use crate::context::RuntimeContext;
 use crate::datastore::DataStore;
 use crate::query_engine::{QueryEngine, QueryPlan};
 use crate::workflow::WorkflowEngine;
-use gurih_ir::{FieldType, Schema, Symbol};
+use gurih_ir::{DatabaseType, FieldType, Schema, Symbol};
 use serde_json::Value;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -481,8 +481,6 @@ impl DataEngine {
 
             // Resolve Account (Simple Lookup)
             let account_term = line.account.as_str();
-            // Basic sanitization to prevent breaking SQL
-            let safe_term = account_term.replace('\'', "''");
 
             let account_table = self
                 .schema
@@ -491,14 +489,32 @@ impl DataEngine {
                 .map(|e| e.table_name.as_str())
                 .unwrap_or("Account");
 
+            let db_type = self
+                .schema
+                .database
+                .as_ref()
+                .map(|d| d.db_type.clone())
+                .unwrap_or(DatabaseType::Sqlite);
+
+            let (p1, p2) = if db_type == DatabaseType::Postgres {
+                ("$1", "$2")
+            } else {
+                ("?", "?")
+            };
+
             let sql = format!(
-                "SELECT id FROM \"{}\" WHERE code = '{}' OR name = '{}' LIMIT 1",
-                account_table, safe_term, safe_term
+                "SELECT id FROM \"{}\" WHERE code = {} OR name = {} LIMIT 1",
+                account_table, p1, p2
             );
+
+            let params = vec![
+                Value::String(account_term.to_string()),
+                Value::String(account_term.to_string()),
+            ];
 
             let accounts = self
                 .datastore
-                .query(&sql)
+                .query_with_params(&sql, params)
                 .await
                 .map_err(|e| format!("Account lookup failed: {}", e))?;
 

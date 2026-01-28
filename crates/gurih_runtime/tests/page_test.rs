@@ -35,6 +35,7 @@ fn test_generate_page_config_fallback() {
 
     let entity = EntitySchema {
         name: entity_name.clone(),
+        table_name: Symbol::from("my_entity"),
         fields: vec![field1, field2],
         relationships: vec![],
         options: HashMap::new(),
