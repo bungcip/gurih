@@ -1,5 +1,5 @@
 use crate::store::DbPool;
-use gurih_ir::{DatabaseType, EntitySchema, FieldType, Schema, Symbol, TableSchema};
+use gurih_ir::{ColumnType, DatabaseType, EntitySchema, FieldType, Schema, Symbol, TableSchema};
 use sha2::{Digest, Sha256};
 use sqlx::Row;
 use std::collections::HashMap;
