@@ -427,35 +427,7 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                 | "description" | "pk" | "serial" | "sku" | "title" | "avatar" | "address" | "image" | "file" => {
                     let type_name = parse_field_type_str(child_name);
                     let field_name = get_arg_string(child, 0, src).unwrap_or(child_name.to_string());
-
-                    let required = get_prop_bool(child, "required").unwrap_or(false);
-                    let unique = get_prop_bool(child, "unique").unwrap_or(false);
-                    let default = get_prop_string(child, "default", src).ok();
-                    let serial_generator = get_prop_string(child, "serial_generator", src).ok();
-
-                    let references = if child_name == "enum" {
-                        Some(get_arg_string(child, 1, src)?)
-                    } else {
-                        get_prop_string(child, "references", src).ok()
-                    };
-
-                    let storage = get_prop_string(child, "storage", src).ok();
-                    let resize = get_prop_string(child, "resize", src).ok();
-                    let filetype = get_prop_string(child, "filetype", src).ok();
-
-                    fields.push(FieldDef {
-                        name: field_name,
-                        type_name,
-                        serial_generator,
-                        required,
-                        unique,
-                        default,
-                        references,
-                        storage,
-                        resize,
-                        filetype,
-                        span: child.span().into(),
-                    });
+                    fields.push(parse_field_props(child, src, field_name, type_name)?);
                 }
                 _ => {}
             }
@@ -523,11 +495,20 @@ fn parse_column(node: &KdlNode, src: &str) -> Result<ColumnDef, CompileError> {
 
 fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
     let name = get_arg_string(node, 0, src).unwrap_or_else(|_| "unknown".to_string());
-
     let type_str = get_prop_string(node, "type", src).unwrap_or_else(|_| "String".to_string());
     let type_name = parse_field_type_str(&type_str);
+    parse_field_props(node, src, name, type_name)
+}
 
-    let references = if node.name().value() == "enum" || node.name().value() == "field:enum" {
+fn parse_field_props(
+    node: &KdlNode,
+    src: &str,
+    name: String,
+    type_name: FieldType,
+) -> Result<FieldDef, CompileError> {
+    let node_name = node.name().value();
+
+    let references = if node_name == "enum" || node_name == "field:enum" {
         get_arg_string(node, 1, src)
             .ok()
             .or_else(|| get_prop_string(node, "references", src).ok())

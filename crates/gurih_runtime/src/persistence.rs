@@ -38,9 +38,7 @@ impl SchemaManager {
                 println!("✅ Schema matches. Skipping table reset.");
             }
         } else {
-            // In non-dev mode, we assume migration is handled differently or manual.
-            // But if we want to try creating tables (which fails if exist), we keep legacy behavior:
-            println!("🛠 Creating tables...");
+            println!("🛠 Creating tables if missing...");
             self.create_tables().await?;
         }
 
@@ -437,7 +435,7 @@ impl SchemaManager {
     }
 
     async fn create_explicit_table(&self, table: &TableSchema) -> Result<(), String> {
-        let mut sql = format!("CREATE TABLE \"{}\" (", table.name);
+        let mut sql = format!("CREATE TABLE IF NOT EXISTS \"{}\" (", table.name);
         let mut defs = vec![];
 
         for col in &table.columns {
@@ -537,7 +535,7 @@ impl SchemaManager {
     }
 
     async fn create_entity_table(&self, entity: &EntitySchema) -> Result<(), String> {
-        let mut sql = format!("CREATE TABLE \"{}\" (", entity.name);
+        let mut sql = format!("CREATE TABLE IF NOT EXISTS \"{}\" (", entity.name);
         let mut defs = vec![];
         let db_kind = &self.db_kind;
 
