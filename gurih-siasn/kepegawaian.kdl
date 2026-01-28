@@ -36,6 +36,13 @@ module "Kepegawaian" {
         field:boolean "rank_eligible" default="false"
         field:boolean "is_payroll_active" default="true"
 
+        // Document Fields for Transitions
+        field:file "sk_pns" required=#false
+        field:file "sk_pemberhentian" required=#false
+        field:file "surat_cuti" required=#false
+        field:file "sk_tugas_belajar" required=#false
+        field:file "sk_lolos_butuh" required=#false
+
         field:image "foto" required=#false
 
         // Current Position/Unit (Denormalized or Main Reference)
@@ -207,6 +214,13 @@ page "FormPegawai" {
             field "golongan"
             field "jabatan"
             field "unor"
+        }
+        section "Dokumen" {
+            field "sk_pns"
+            field "sk_pemberhentian"
+            field "surat_cuti"
+            field "sk_tugas_belajar"
+            field "sk_lolos_butuh"
         }
     }
 }
