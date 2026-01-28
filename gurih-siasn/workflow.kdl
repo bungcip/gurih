@@ -42,6 +42,27 @@ employee_status "PNS" for="Pegawai" field="status_pegawai" {
             notify "unit_pengembangan"
         }
     }
+
+    can_transition_to "Nonaktif" {
+        requires {
+            document "sk_pemberhentian"
+        }
+        effects {
+            suspend_payroll #true
+            notify "bkn"
+        }
+    }
+
+    can_transition_to "Pindah" {
+        requires {
+            document "sk_lolos_butuh"
+            min_years_of_service 2
+        }
+        effects {
+            suspend_payroll #true
+            notify "bkn"
+        }
+    }
 }
 
 employee_status "Cuti" for="Pegawai" field="status_pegawai" {

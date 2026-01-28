@@ -6,6 +6,11 @@ enum "StatusPegawai" {
     PNS
     PPPK
     Honorer
+    Cuti
+    TugasBelajar
+    Pensiun
+    Nonaktif
+    Pindah
 }
 
 // -----------------------------------------------------------------------------
