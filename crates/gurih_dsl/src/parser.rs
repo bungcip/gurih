@@ -562,12 +562,7 @@ fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
     parse_field_props(node, src, name, type_name)
 }
 
-fn parse_field_props(
-    node: &KdlNode,
-    src: &str,
-    name: String,
-    type_name: FieldType,
-) -> Result<FieldDef, CompileError> {
+fn parse_field_props(node: &KdlNode, src: &str, name: String, type_name: FieldType) -> Result<FieldDef, CompileError> {
     let node_name = node.name().value();
 
     let references = if node_name == "enum" || node_name == "field:enum" {

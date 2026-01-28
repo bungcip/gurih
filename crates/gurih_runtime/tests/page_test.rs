@@ -64,7 +64,6 @@ fn test_generate_page_config_fallback() {
     assert_eq!(col2["label"], "Age");
     assert_eq!(col2["type"], "Integer");
 
-
     let actions = config["actions"].as_array().unwrap();
     assert_eq!(actions.len(), 3);
     assert_eq!(actions[0]["label"], "Create");
