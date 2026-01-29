@@ -1,5 +1,7 @@
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, useId } from 'vue'
+
+const titleId = useId()
 
 const props = defineProps({
     isOpen: {
@@ -64,15 +66,19 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape))
                 <div 
                     class="relative bg-[--color-surface] rounded-2xl shadow-2xl w-full flex flex-col max-h-[90vh] overflow-hidden"
                     :class="sizes[size]"
+                    role="dialog"
+                    aria-modal="true"
+                    :aria-labelledby="title ? titleId : undefined"
                 >
                     <!-- Header -->
                     <div v-if="title || $slots.header" class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between shrink-0">
                         <slot name="header">
-                            <h3 class="text-lg font-bold text-text-main">{{ title }}</h3>
+                            <h3 :id="titleId" class="text-lg font-bold text-text-main">{{ title }}</h3>
                         </slot>
                         <button 
                             @click="$emit('close')"
                             class="text-text-muted hover:text-text-main p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                            aria-label="Close modal"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
