@@ -105,7 +105,9 @@ impl WorkflowEngine {
                     // For now, let's assume plugins handle what they know. If unknown, we ignore (maybe it's a client-side rule?)
                     // Or we should warn "Unknown rule".
                     // Let's stick to simple "Try all plugins, fail if any errors".
-                    plugin.check_precondition(name.as_str(), args, entity_data, schema, datastore).await?;
+                    plugin
+                        .check_precondition(name.as_str(), args, entity_data, schema, datastore)
+                        .await?;
                 }
                 // If not handled by any plugin, strictly speaking we should probably allow it (maybe implemented elsewhere or future)
                 // or fail.
@@ -158,7 +160,10 @@ impl WorkflowEngine {
                     }
                     TransitionEffect::Custom { name, args } => {
                         for plugin in &self.plugins {
-                            if let Ok((p_updates, p_notifications, p_postings)) = plugin.apply_effect(name.as_str(), args, schema, entity_name, entity_data).await {
+                            if let Ok((p_updates, p_notifications, p_postings)) = plugin
+                                .apply_effect(name.as_str(), args, schema, entity_name, entity_data)
+                                .await
+                            {
                                 // Merge results
                                 if let Value::Object(obj) = p_updates {
                                     for (k, v) in obj {

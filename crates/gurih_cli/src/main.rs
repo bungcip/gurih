@@ -14,9 +14,9 @@ use gurih_runtime::auth::AuthEngine;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::DataStore;
-use gurih_runtime::plugins::FinancePlugin;
 use gurih_runtime::form::FormEngine;
 use gurih_runtime::page::PageEngine;
+use gurih_runtime::plugins::FinancePlugin;
 use gurih_runtime::portal::PortalEngine;
 use notify::{RecursiveMode, Watcher};
 use serde_json::Value;
@@ -265,8 +265,7 @@ async fn start_server(
             let datastore = create_datastore(schema.clone(), &file).await;
 
             let engine = Arc::new(
-                DataEngine::new(schema.clone(), datastore.clone())
-                    .with_plugins(vec![Box::new(FinancePlugin)]),
+                DataEngine::new(schema.clone(), datastore.clone()).with_plugins(vec![Box::new(FinancePlugin)]),
             );
             let user_table = schema
                 .entities
