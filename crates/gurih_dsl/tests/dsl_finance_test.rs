@@ -27,14 +27,13 @@ fn test_finance_dsl_parsing() {
         .find(|t| t.name == Symbol::from("post"))
         .expect("Transition missing");
 
-    let has_balanced = transition
-        .preconditions
-        .iter()
-        .any(|p| matches!(p, TransitionPrecondition::BalancedTransaction));
+    let has_balanced = transition.preconditions.iter().any(
+        |p| matches!(p, TransitionPrecondition::Custom { name, .. } if name == &Symbol::from("balanced_transaction")),
+    );
     let has_period_open = transition
         .preconditions
         .iter()
-        .any(|p| matches!(p, TransitionPrecondition::PeriodOpen { .. }));
+        .any(|p| matches!(p, TransitionPrecondition::Custom { name, .. } if name == &Symbol::from("period_open")));
 
     assert!(has_balanced);
     assert!(has_period_open);
