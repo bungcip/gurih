@@ -2,107 +2,94 @@
 
 ## 1. Overview
 
-**GurihSIASN** is a comprehensive Human Resource Information System (HRIS) designed for Civil Servants (ASN) in Indonesia. It is built using the Gurih DSL, enabling rapid adaptation to changing government regulations.
+**GurihSIASN** is a Human Resource Information System (HRIS) tailored for the Indonesian Civil Service (ASN). Built on the **Gurih Framework**, it manages employee lifecycle events, including recruitment, promotions, leave (Cuti), and retirement.
 
-### Target Users
-- **Administrator**: Manages master data (Golongan, Jabatan).
-- **Pegawai (ASN)**: Views profile, requests leave, submits documents.
-- **Approver**: Reviews leave requests and status changes.
+Target Users:
+*   **ASN (Pegawai)**: Self-service for bio-data, leave requests, and document history.
+*   **Admin/Kepegawaian**: Management of master data, approval workflows, and reporting.
 
-### Why DSL?
-Civil service rules (e.g., retirement age, promotion requirements) change frequently. Using DSL allows:
-- **Policy as Code**: Rules like "Minimum 58 years for retirement" are defined in KDL, not hardcoded.
-- **Workflow Agility**: Approval hierarchies can be modified without recompiling.
+Why DSL?
+Using DSL allows regulations (which change frequently) to be updated in `.kdl` files without recompiling the core engine.
+
+![SIASN Dashboard](screenshots/siasn_dashboard.png)
 
 ## 2. DSL Usage in GurihSIASN
 
-GurihSIASN utilizes domain-specific DSL extensions for HR workflows.
+GurihSIASN utilizes domain-specific DSL constructs to model complex HR relationships and workflows.
 
-### 2.1 Employee Management (`kepegawaian.kdl`)
-The core entity is `Pegawai`. It links to various history tables (`Riwayat*`) to track career progression.
+### Project Structure
+
+```text
+gurih-siasn/
+├── app.kdl            # Main application entry, layouts, and role definitions
+├── kepegawaian.kdl    # Core Employee (Pegawai) and History entities
+├── cuti.kdl           # Leave management logic
+├── workflow.kdl       # Approval workflows for various processes
+└── master.kdl         # Master data (Golongan, Jabatan, Unor)
+```
+
+### Entity Modeling
+
+Entities in SIASN often have complex history (Riwayat). This is modeled using `has_many` relationships.
 
 ```kdl
+// kepegawaian.kdl
 entity "Pegawai" {
     field:pk id
     field:string "nip" unique=#true
     field:name "nama"
-    field:enum "status_pegawai" "StatusPegawai" // CPNS, PNS, etc.
+    field:enum "status_pegawai" "StatusPegawai"
 
-    // Histories
+    // History tables
     has_many "riwayat_jabatan" "RiwayatJabatan"
     has_many "riwayat_unor" "RiwayatUnor"
 }
 ```
 
-![Pegawai List UI](images/siasn-pegawai-list.png)
+![Pegawai List](screenshots/siasn_pegawai.png)
 
-### 2.2 Leave Management (`cuti.kdl`)
-Handles leave requests with a state machine workflow.
+### Policies and Rules
 
-```kdl
-workflow "AlurCuti" for="PengajuanCuti" field="status" {
-    state "Draft" initial="true"
-    state "Diajukan"
-    state "Disetujui"
-    state "Ditolak"
-
-    transition "ajukan" { from "Draft" to "Diajukan" }
-    transition "setujui" { from "Diajukan" to "Disetujui" }
-}
-```
-
-![Cuti List](images/siasn-cuti-list.png)
-
-### 2.3 Status Transitions (`workflow.kdl`)
-Complex rules for status changes (e.g., CPNS to PNS) are defined using `employee_status`.
+Business rules, such as minimum age requirements, are defined declaratively.
 
 ```kdl
-employee_status "CPNS" for="Pegawai" field="status_pegawai" {
-    can_transition_to "PNS" {
-        requires {
-             min_years_of_service 1 from="tmt_cpns"
-             valid_effective_date "tmt_pns"
-             document "sk_pns"
-        }
-        effects {
-             update_rank_eligibility #true
-             notify "unit_kepegawaian"
-        }
-    }
+rule "MinAgeRule" {
+    on "Pegawai:create"
+    assert "age(tanggal_lahir) >= 18"
+    message "Pegawai must be at least 18 years old"
 }
 ```
 
 ## 3. System Flow
 
-The system transforms these definitions into a runtime application.
+The behavior of GurihSIASN is strictly driven by the DSL definitions executed by the runtime.
 
-```mermaid
-flowchart LR
-    DSL[DSL Definitions] -->|Compile| Schema[Internal Schema]
-    Schema -->|Init| Runtime[Runtime Engine]
+### Flow Diagram: Data Update
 
-    User[User Action] -->|API Request| Runtime
-    Runtime -->|Validate| Rules[Rule Engine]
-    Rules -->|Check| Workflows
-    Workflows -->|Update| DB[(Database)]
-```
+1.  **User Action**: User submits a form (e.g., "Update Jabatan").
+2.  **Validation**: Runtime checks `rule` definitions (e.g., Is the new Jabatan valid for the Golongan?).
+3.  **Workflow**: If the change requires approval (defined in `workflow.kdl`), the record enters a "Draft" or "Pending" state.
+4.  **Effect**: Upon approval, the `transition` effects apply the change to the `Pegawai` record and create a `RiwayatJabatan` entry.
 
 ### Runtime Behavior
-1.  **Validation**: When a user creates a `Pegawai`, the `MinAgeRule` ensures they are >18 years old.
-2.  **Transition**: When requesting a status change to "PNS", the engine checks `requires` blocks (e.g., is `sk_pns` uploaded?).
-3.  **Effect**: Upon success, side effects (like notifications) are triggered automatically.
+
+Changes in DSL immediately reflect in the application behavior (with Hot Reload in dev mode).
+
+*   **Adding a Field**: Adding `field:string "nik"` to `Pegawai` in `kepegawaian.kdl` automatically updates the database schema, API, and default UI forms.
+*   **Changing a Workflow**: Modifying approval steps in `workflow.kdl` immediately changes the process flow.
 
 ## 4. Comparison: GurihSIASN vs GurihFinance
 
 | Feature | GurihFinance | GurihSIASN |
 | :--- | :--- | :--- |
-| **Primary Goal** | Accuracy & Auditability | Compliance & Workflow |
-| **Core Entity** | `JournalEntry` (Immutable) | `Pegawai` (Mutable, Versioned) |
-| **Workflow** | Rigid (Draft -> Posted) | Flexible (Draft -> Review -> Approved) |
-| **Rules** | Math-heavy (Debit=Credit) | Policy-heavy (Age, Service Years) |
-| **DSL Usage** | `posting_rule`, `query:flat` | `employee_status`, `document` |
+| **Primary Domain** | Financial Accounting | Human Resources (Public Sector) |
+| **Key Entities** | Account, JournalEntry | Pegawai, Riwayat, PengajuanCuti |
+| **Workflow Focus** | Transaction State (Draft -> Posted) | Approval Chains (Draft -> Verified -> Approved) |
+| **DSL Patterns** | `posting_rule` (Integration), `balanced_transaction` | `has_many` (History Composition), Role-based Access |
+| **Shared Core** | Both use Gurih Framework's `entity`, `page`, `workflow`, and `rule` constructs. | |
 
-### Shared Patterns
-- **Entity Definition**: Both use standard `entity` and `field` definitions.
-- **UI Generation**: Both rely on `page`, `form`, and `datatable` DSLs for frontend generation.
-- **Security**: Both use `role` and `permission` logic.
+### Reusable Patterns
+
+Future module developers can observe:
+*   **Finance**: How to implement immutable ledgers and integration points.
+*   **SIASN**: How to handle extensive data relationships (Histories) and granular role-based permissions (`role "Pegawai"` vs `role "Admin"`).
