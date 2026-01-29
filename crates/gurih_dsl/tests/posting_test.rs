@@ -62,10 +62,10 @@ fn test_compile_posting_rule() {
 
     match effect {
         TransitionEffect::Custom { name, args } if name.as_str() == "post_journal" => {
-             if let gurih_ir::Expression::StringLiteral(rule_name) = &args[0] {
-                 assert_eq!(rule_name, "InvoicePosting");
+            if let gurih_ir::Expression::StringLiteral(rule_name) = &args[0] {
+                assert_eq!(rule_name, "InvoicePosting");
             } else {
-                 panic!("Expected StringLiteral");
+                panic!("Expected StringLiteral");
             }
         }
         _ => panic!("Expected PostJournal effect"),
