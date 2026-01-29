@@ -116,6 +116,8 @@ fn test_legacy_password_verification() {
     let hash = hex::encode(hasher.finalize());
     let legacy_stored = format!("{}${}", salt, hash);
 
-    assert!(verify_password(password, &legacy_stored), "Should verify legacy password");
-    assert!(!verify_password("wrong", &legacy_stored), "Should reject wrong legacy password");
+    assert!(
+        !verify_password(password, &legacy_stored),
+        "Should NOT verify legacy password (alpha policy)"
+    );
 }

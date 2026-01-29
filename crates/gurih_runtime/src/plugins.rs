@@ -1,10 +1,10 @@
+use crate::datastore::DataStore;
+use crate::errors::RuntimeError;
 use async_trait::async_trait;
+use chrono::NaiveDate;
 use gurih_ir::{Expression, Schema, Symbol};
 use serde_json::Value;
 use std::sync::Arc;
-use crate::datastore::DataStore;
-use crate::errors::RuntimeError;
-use chrono::NaiveDate;
 
 #[async_trait]
 pub trait WorkflowPlugin: Send + Sync {
@@ -102,7 +102,7 @@ impl WorkflowPlugin for FinancePlugin {
                 Ok(())
             }
             "period_open" => {
-                 if let Some(ds) = datastore {
+                if let Some(ds) = datastore {
                     // 1. Get transaction date
                     let date_str = entity_data
                         .get("date")
@@ -155,7 +155,7 @@ impl WorkflowPlugin for FinancePlugin {
                 }
                 Ok(())
             }
-            _ => Ok(())
+            _ => Ok(()),
         }
     }
 
