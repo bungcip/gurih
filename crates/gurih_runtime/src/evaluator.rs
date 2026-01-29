@@ -41,20 +41,20 @@ pub async fn evaluate(
         }
         Expression::StringLiteral(s) => Ok(Value::String(s.clone())),
         Expression::BoolLiteral(b) => Ok(Value::Bool(*b)),
-        Expression::Grouping(inner) => Box::pin(evaluate(inner, context, schema, datastore.clone())).await,
+        Expression::Grouping(inner) => Box::pin(evaluate(inner, context, schema, datastore)).await,
         Expression::UnaryOp { op, expr } => {
-            let val = Box::pin(evaluate(expr, context, schema, datastore.clone())).await?;
+            let val = Box::pin(evaluate(expr, context, schema, datastore)).await?;
             eval_unary_op(op, val)
         }
         Expression::BinaryOp { left, op, right } => {
-            let l = Box::pin(evaluate(left, context, schema, datastore.clone())).await?;
-            let r = Box::pin(evaluate(right, context, schema, datastore.clone())).await?;
+            let l = Box::pin(evaluate(left, context, schema, datastore)).await?;
+            let r = Box::pin(evaluate(right, context, schema, datastore)).await?;
             eval_binary_op(op, l, r)
         }
         Expression::FunctionCall { name, args } => {
             let mut eval_args = Vec::new();
             for arg in args {
-                eval_args.push(Box::pin(evaluate(arg, context, schema, datastore.clone())).await?);
+                eval_args.push(Box::pin(evaluate(arg, context, schema, datastore)).await?);
             }
             eval_function(name.as_str(), &eval_args, schema, datastore).await
         }

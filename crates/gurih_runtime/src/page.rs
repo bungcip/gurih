@@ -129,7 +129,7 @@ impl PageEngine {
 
 fn humanize_label(input: &str) -> String {
     input
-        .split(|c| c == '_' || c == '-')
+        .split(['_', '-'])
         .filter(|s| !s.is_empty())
         .map(|s| {
             let mut chars = s.chars();

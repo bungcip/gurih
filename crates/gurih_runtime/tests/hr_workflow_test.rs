@@ -21,7 +21,7 @@ async fn test_hr_workflow_rules() {
                 min_years_of_service 1 from="tmt_cpns"
             }
             effects {
-                suspend_payroll "true"
+                update "is_payroll_active" "false"
                 notify "unit_kepegawaian"
             }
         }
@@ -141,7 +141,7 @@ async fn test_retirement_min_age() {
                 min_age 58 from="birth_date"
             }
             effects {
-                suspend_payroll "true"
+                update "is_payroll_active" "false"
             }
         }
     }

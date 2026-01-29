@@ -722,6 +722,162 @@ fn parse_state(node: &KdlNode, src: &str) -> Result<StateDef, CompileError> {
     })
 }
 
+fn parse_transition_body(
+    children: &KdlDocument,
+    src: &str,
+) -> Result<(Vec<TransitionPreconditionDef>, Vec<TransitionEffectDef>), CompileError> {
+    let mut preconditions = vec![];
+    let mut effects = vec![];
+
+    for child in children.nodes() {
+        match child.name().value() {
+            "requires" => {
+                if let Some(req_children) = child.children() {
+                    for req in req_children.nodes() {
+                        match req.name().value() {
+                            "document" => {
+                                let doc_name = get_arg_string(req, 0, src)?;
+                                preconditions.push(TransitionPreconditionDef::Assertion {
+                                    expression: format!("is_set({})", doc_name),
+                                    span: req.span().into(),
+                                });
+                            }
+                            "min_years_of_service" => {
+                                let years = get_arg_int(req, 0, src)? as u32;
+                                let from_field = get_prop_string(req, "from", src)
+                                    .ok()
+                                    .unwrap_or_else(|| "join_date".to_string());
+                                preconditions.push(TransitionPreconditionDef::Assertion {
+                                    expression: format!("years_of_service({}) >= {}", from_field, years),
+                                    span: req.span().into(),
+                                });
+                            }
+                            "min_age" => {
+                                let age = get_arg_int(req, 0, src)? as u32;
+                                let birth_date_field = get_prop_string(req, "from", src)
+                                    .ok()
+                                    .unwrap_or_else(|| "birth_date".to_string());
+                                preconditions.push(TransitionPreconditionDef::Assertion {
+                                    expression: format!("age({}) >= {}", birth_date_field, age),
+                                    span: req.span().into(),
+                                });
+                            }
+                            "valid_effective_date" => {
+                                let field = get_arg_string(req, 0, src)?;
+                                preconditions.push(TransitionPreconditionDef::Assertion {
+                                    expression: format!("valid_date({})", field),
+                                    span: req.span().into(),
+                                });
+                            }
+                            "balanced_transaction" => {
+                                let enabled = get_arg_bool(req, 0)?;
+                                if enabled {
+                                    preconditions.push(TransitionPreconditionDef::Custom {
+                                        name: "balanced_transaction".to_string(),
+                                        args: vec![],
+                                        span: req.span().into(),
+                                    });
+                                }
+                            }
+                            "period_open" => {
+                                let enabled = get_arg_bool(req, 0).unwrap_or(true);
+                                let entity = get_prop_string(req, "entity", src).ok();
+                                if enabled {
+                                    let mut args = vec![];
+                                    if let Some(e) = entity {
+                                        args.push(e);
+                                    }
+                                    preconditions.push(TransitionPreconditionDef::Custom {
+                                        name: "period_open".to_string(),
+                                        args,
+                                        span: req.span().into(),
+                                    });
+                                }
+                            }
+                            custom_req => {
+                                let mut args = vec![];
+                                for entry in req.entries() {
+                                    if entry.name().is_none() {
+                                        if let Some(val) = entry.value().as_string() {
+                                            args.push(val.to_string());
+                                        } else if let Some(val) = entry.value().as_bool() {
+                                            args.push(val.to_string());
+                                        } else if let Some(val) = entry.value().as_integer() {
+                                            args.push(val.to_string());
+                                        } else if let Some(val) = entry.value().as_float() {
+                                            args.push(val.to_string());
+                                        }
+                                    }
+                                }
+                                preconditions.push(TransitionPreconditionDef::Custom {
+                                    name: custom_req.to_string(),
+                                    args,
+                                    span: req.span().into(),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            "effects" => {
+                if let Some(eff_children) = child.children() {
+                    for eff in eff_children.nodes() {
+                        match eff.name().value() {
+                            "notify" => {
+                                let target = get_arg_string(eff, 0, src)?;
+                                effects.push(TransitionEffectDef::Notify {
+                                    target,
+                                    span: eff.span().into(),
+                                });
+                            }
+                            "update" => {
+                                let field = get_arg_string(eff, 0, src)?;
+                                let value = get_arg_string(eff, 1, src)?;
+                                effects.push(TransitionEffectDef::UpdateField {
+                                    field,
+                                    value,
+                                    span: eff.span().into(),
+                                });
+                            }
+                            "post_journal" => {
+                                let rule = get_arg_string(eff, 0, src)?;
+                                effects.push(TransitionEffectDef::Custom {
+                                    name: "post_journal".to_string(),
+                                    args: vec![rule],
+                                    span: eff.span().into(),
+                                });
+                            }
+                            custom_eff => {
+                                let mut args = vec![];
+                                for entry in eff.entries() {
+                                    if entry.name().is_none() {
+                                        if let Some(val) = entry.value().as_string() {
+                                            args.push(val.to_string());
+                                        } else if let Some(val) = entry.value().as_bool() {
+                                            args.push(val.to_string());
+                                        } else if let Some(val) = entry.value().as_integer() {
+                                            args.push(val.to_string());
+                                        } else if let Some(val) = entry.value().as_float() {
+                                            args.push(val.to_string());
+                                        }
+                                    }
+                                }
+                                effects.push(TransitionEffectDef::Custom {
+                                    name: custom_eff.to_string(),
+                                    args,
+                                    span: eff.span().into(),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok((preconditions, effects))
+}
+
 fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
     let mut from = get_prop_string(node, "from", src).ok();
@@ -736,126 +892,12 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
             match child.name().value() {
                 "from" => from = Some(get_arg_string(child, 0, src)?),
                 "to" => to = Some(get_arg_string(child, 0, src)?),
-                "requires" => {
-                    if let Some(req_children) = child.children() {
-                        for req in req_children.nodes() {
-                            match req.name().value() {
-                                "document" => {
-                                    let doc_name = get_arg_string(req, 0, src)?;
-                                    preconditions.push(TransitionPreconditionDef::Assertion {
-                                        expression: format!("is_set({})", doc_name),
-                                        span: req.span().into(),
-                                    });
-                                }
-                                "min_years_of_service" => {
-                                    let years = get_arg_int(req, 0, src)? as u32;
-                                    let from_field = get_prop_string(req, "from", src)
-                                        .ok()
-                                        .unwrap_or_else(|| "join_date".to_string());
-                                    preconditions.push(TransitionPreconditionDef::Assertion {
-                                        expression: format!("years_of_service({}) >= {}", from_field, years),
-                                        span: req.span().into(),
-                                    });
-                                }
-                                "min_age" => {
-                                    let age = get_arg_int(req, 0, src)? as u32;
-                                    let birth_date_field = get_prop_string(req, "from", src)
-                                        .ok()
-                                        .unwrap_or_else(|| "birth_date".to_string());
-                                    preconditions.push(TransitionPreconditionDef::Assertion {
-                                        expression: format!("age({}) >= {}", birth_date_field, age),
-                                        span: req.span().into(),
-                                    });
-                                }
-                                "valid_effective_date" => {
-                                    let field = get_arg_string(req, 0, src)?;
-                                    preconditions.push(TransitionPreconditionDef::Assertion {
-                                        expression: format!("valid_date({})", field),
-                                        span: req.span().into(),
-                                    });
-                                }
-                                "balanced_transaction" => {
-                                    let enabled = get_arg_bool(req, 0)?;
-                                    if enabled {
-                                        preconditions.push(TransitionPreconditionDef::Custom {
-                                            name: "balanced_transaction".to_string(),
-                                            args: vec![],
-                                            span: req.span().into(),
-                                        });
-                                    }
-                                }
-                                "period_open" => {
-                                    let enabled = get_arg_bool(req, 0).unwrap_or(true);
-                                    let entity = get_prop_string(req, "entity", src).ok();
-                                    if enabled {
-                                        let mut args = vec![];
-                                        if let Some(e) = entity {
-                                            args.push(e);
-                                        }
-                                        preconditions.push(TransitionPreconditionDef::Custom {
-                                            name: "period_open".to_string(),
-                                            args,
-                                            span: req.span().into(),
-                                        });
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-                "effects" => {
-                    if let Some(eff_children) = child.children() {
-                        for eff in eff_children.nodes() {
-                            match eff.name().value() {
-                                "suspend_payroll" => {
-                                    let suspend = get_arg_bool(eff, 0)?;
-                                    effects.push(TransitionEffectDef::Custom {
-                                        name: "suspend_payroll".to_string(),
-                                        args: vec![suspend.to_string()],
-                                        span: eff.span().into(),
-                                    });
-                                }
-                                "notify" => {
-                                    let target = get_arg_string(eff, 0, src)?;
-                                    effects.push(TransitionEffectDef::Notify {
-                                        target,
-                                        span: eff.span().into(),
-                                    });
-                                }
-                                "update_rank_eligibility" => {
-                                    let active = get_arg_bool(eff, 0)?;
-                                    effects.push(TransitionEffectDef::Custom {
-                                        name: "update_rank_eligibility".to_string(),
-                                        args: vec![active.to_string()],
-                                        span: eff.span().into(),
-                                    });
-                                }
-                                "update" => {
-                                    let field = get_arg_string(eff, 0, src)?;
-                                    let value = get_arg_string(eff, 1, src)?;
-                                    effects.push(TransitionEffectDef::UpdateField {
-                                        field,
-                                        value,
-                                        span: eff.span().into(),
-                                    });
-                                }
-                                "post_journal" => {
-                                    let rule = get_arg_string(eff, 0, src)?;
-                                    effects.push(TransitionEffectDef::Custom {
-                                        name: "post_journal".to_string(),
-                                        args: vec![rule],
-                                        span: eff.span().into(),
-                                    });
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
                 _ => {}
             }
         }
+        let (mut p, mut e) = parse_transition_body(children, src)?;
+        preconditions.append(&mut p);
+        effects.append(&mut e);
     }
 
     let from = from.ok_or_else(|| CompileError::ParseError {
@@ -1016,95 +1058,9 @@ fn parse_employee_status_transition(node: &KdlNode, src: &str) -> Result<Transit
     let mut effects = vec![];
 
     if let Some(children) = node.children() {
-        for child in children.nodes() {
-            match child.name().value() {
-                "requires" => {
-                    if let Some(req_children) = child.children() {
-                        for req in req_children.nodes() {
-                            match req.name().value() {
-                                "document" => {
-                                    let doc_name = get_arg_string(req, 0, src)?;
-                                    preconditions.push(TransitionPreconditionDef::Assertion {
-                                        expression: format!("is_set({})", doc_name),
-                                        span: req.span().into(),
-                                    });
-                                }
-                                "min_years_of_service" => {
-                                    let years = get_arg_int(req, 0, src)? as u32;
-                                    let from_field = get_prop_string(req, "from", src)
-                                        .ok()
-                                        .unwrap_or_else(|| "join_date".to_string());
-                                    preconditions.push(TransitionPreconditionDef::Assertion {
-                                        expression: format!("years_of_service({}) >= {}", from_field, years),
-                                        span: req.span().into(),
-                                    });
-                                }
-                                "min_age" => {
-                                    let age = get_arg_int(req, 0, src)? as u32;
-                                    let birth_date_field = get_prop_string(req, "from", src)
-                                        .ok()
-                                        .unwrap_or_else(|| "birth_date".to_string());
-                                    preconditions.push(TransitionPreconditionDef::Assertion {
-                                        expression: format!("age({}) >= {}", birth_date_field, age),
-                                        span: req.span().into(),
-                                    });
-                                }
-                                "valid_effective_date" => {
-                                    let field = get_arg_string(req, 0, src)?;
-                                    preconditions.push(TransitionPreconditionDef::Assertion {
-                                        expression: format!("valid_date({})", field),
-                                        span: req.span().into(),
-                                    });
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-                "effects" => {
-                    if let Some(eff_children) = child.children() {
-                        for eff in eff_children.nodes() {
-                            match eff.name().value() {
-                                "suspend_payroll" => {
-                                    let suspend = get_arg_bool(eff, 0)?;
-                                    effects.push(TransitionEffectDef::Custom {
-                                        name: "suspend_payroll".to_string(),
-                                        args: vec![suspend.to_string()],
-                                        span: eff.span().into(),
-                                    });
-                                }
-                                "notify" => {
-                                    let target = get_arg_string(eff, 0, src)?;
-                                    effects.push(TransitionEffectDef::Notify {
-                                        target,
-                                        span: eff.span().into(),
-                                    });
-                                }
-                                "update_rank_eligibility" => {
-                                    let active = get_arg_bool(eff, 0)?;
-                                    effects.push(TransitionEffectDef::Custom {
-                                        name: "update_rank_eligibility".to_string(),
-                                        args: vec![active.to_string()],
-                                        span: eff.span().into(),
-                                    });
-                                }
-                                "update" => {
-                                    let field = get_arg_string(eff, 0, src)?;
-                                    let value = get_arg_string(eff, 1, src)?;
-                                    effects.push(TransitionEffectDef::UpdateField {
-                                        field,
-                                        value,
-                                        span: eff.span().into(),
-                                    });
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
+        let (mut p, mut e) = parse_transition_body(children, src)?;
+        preconditions.append(&mut p);
+        effects.append(&mut e);
     }
 
     Ok(TransitionDef {

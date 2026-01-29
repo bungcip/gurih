@@ -20,7 +20,7 @@ fn test_employee_status_compilation() {
         }
 
         effects {
-          suspend_payroll #true
+          update "is_payroll_active" "false"
           notify "unit_kepegawaian"
         }
       }
@@ -29,7 +29,7 @@ fn test_employee_status_compilation() {
     employee_status "cuti" {
       can_transition_to "aktif" {
         effects {
-           suspend_payroll #false
+           update "is_payroll_active" "true"
         }
       }
     }
@@ -90,7 +90,7 @@ fn test_employee_status_compilation() {
     }));
 
     // Check effects
-    // suspend_payroll #true means active = false
+    // update "is_payroll_active" "false"
     assert!(
         t1.effects
             .iter()
@@ -110,7 +110,7 @@ fn test_employee_status_compilation() {
     assert!(cuti_to_aktif.is_some());
     let t2 = cuti_to_aktif.unwrap();
 
-    // suspend_payroll #false means active = true
+    // update "is_payroll_active" "true"
     assert!(
         t2.effects
             .iter()
