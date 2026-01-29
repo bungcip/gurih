@@ -4,6 +4,14 @@ use gurih_ir::TransitionEffect;
 #[test]
 fn test_compile_posting_rule() {
     let src = r#"
+    entity "Invoice" {
+        pk "id"
+        field "number" type="String"
+        field "date" type="Date"
+        field "total" type="Money"
+        field "status" type="String"
+    }
+
     posting_rule "InvoicePosting" for="Invoice" {
         description "\"Inv \" + doc.number"
         date "doc.date"
@@ -53,8 +61,12 @@ fn test_compile_posting_rule() {
     let effect = &transition.effects[0];
 
     match effect {
-        TransitionEffect::PostJournal(rule_name) => {
-            assert_eq!(rule_name.as_str(), "InvoicePosting");
+        TransitionEffect::Custom { name, args } if name.as_str() == "post_journal" => {
+             if let gurih_ir::Expression::StringLiteral(rule_name) = &args[0] {
+                 assert_eq!(rule_name, "InvoicePosting");
+            } else {
+                 panic!("Expected StringLiteral");
+            }
         }
         _ => panic!("Expected PostJournal effect"),
     }

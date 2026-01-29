@@ -56,7 +56,7 @@ employee_status "PNS" for="Pegawai" field="status_pegawai" {
     can_transition_to "Pindah" {
         requires {
             document "sk_lolos_butuh"
-            min_years_of_service 2
+            min_years_of_service 2 from="tmt_cpns"
         }
         effects {
             suspend_payroll #true

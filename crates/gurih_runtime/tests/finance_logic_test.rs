@@ -1,11 +1,12 @@
 use gurih_ir::{Schema, StateSchema, Symbol, Transition, TransitionPrecondition, WorkflowSchema};
+use gurih_runtime::plugins::FinancePlugin;
 use gurih_runtime::workflow::WorkflowEngine;
 use serde_json::json;
 use std::collections::HashMap;
 
 #[tokio::test]
 async fn test_balanced_transaction() {
-    let engine = WorkflowEngine::new();
+    let engine = WorkflowEngine::new().with_plugins(vec![Box::new(FinancePlugin)]);
 
     // Construct minimal schema with workflow
     let transitions = vec![Transition {
@@ -13,7 +14,10 @@ async fn test_balanced_transaction() {
         from: Symbol::from("Draft"),
         to: Symbol::from("Posted"),
         required_permission: None,
-        preconditions: vec![TransitionPrecondition::BalancedTransaction],
+        preconditions: vec![TransitionPrecondition::Custom {
+            name: Symbol::from("balanced_transaction"),
+            args: vec![],
+        }],
         effects: vec![],
     }];
 
