@@ -355,11 +355,11 @@ mod tests {
         assert_eq!(strategy.plans.len(), 1);
         let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0];
         println!("Generated SQL: {}", sql);
-        assert!(sql.contains("SELECT courseentity.title"));
+        assert!(sql.contains("SELECT course_entity.title"));
         assert!(sql.contains("SUM([duration]) AS total_duration"));
-        assert!(sql.contains("FROM courseentity"));
-        assert!(sql.contains("LEFT JOIN sectionentity"));
-        assert!(sql.contains("LEFT JOIN meetingentity"));
+        assert!(sql.contains("FROM course_entity"));
+        assert!(sql.contains("LEFT JOIN section_entity"));
+        assert!(sql.contains("LEFT JOIN meeting_entity"));
     }
 
     #[test]
@@ -415,10 +415,10 @@ mod tests {
         let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0];
         println!("Flat SQL: {}", sql);
 
-        assert!(sql.contains("SELECT bookentity.title, bookentity.price"));
-        assert!(sql.contains("peopleentity.name AS author"));
-        assert!(sql.contains("FROM bookentity"));
-        assert!(sql.contains("LEFT JOIN peopleentity"));
+        assert!(sql.contains("SELECT book_entity.title, book_entity.price"));
+        assert!(sql.contains("people_entity.name AS author"));
+        assert!(sql.contains("FROM book_entity"));
+        assert!(sql.contains("LEFT JOIN people_entity"));
         assert!(sql.contains("WHERE [published_at] - DATE()"));
     }
 
