@@ -8,6 +8,7 @@ fn test_compile_valid_schema() {
         pk "id"
         field "title" type="String" required="true"
         field "author" type="String"
+        field "status" type="String"
     }
 
     workflow "BookPublishing" entity="Book" field="status" {

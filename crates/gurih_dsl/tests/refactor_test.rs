@@ -1,9 +1,17 @@
 use gurih_dsl::compiler::compile;
-use gurih_ir::{Expression, TransitionPrecondition};
+use gurih_ir::TransitionPrecondition;
 
 #[test]
 fn test_employee_status_desugaring() {
     let src = r#"
+        entity "Pegawai" {
+            pk "id"
+            field "status_pegawai" type="String"
+            field "tmt_cpns" type="Date"
+            field "tanggal_lahir" type="Date"
+            field "sk_pns" type="String"
+        }
+
         employee_status "CPNS" for="Pegawai" field="status_pegawai" {
             can_transition_to "PNS" {
                 requires {

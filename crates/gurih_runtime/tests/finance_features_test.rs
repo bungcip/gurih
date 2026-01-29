@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use gurih_ir::{
-    QuerySchema, QuerySelection, QueryType, Schema, StateSchema, Symbol, Transition, TransitionPrecondition,
-    WorkflowSchema,
+    Expression, QuerySchema, QuerySelection, QueryType, Schema, StateSchema, Symbol, Transition,
+    TransitionPrecondition, WorkflowSchema,
 };
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::DataStore;
@@ -193,7 +193,7 @@ async fn test_period_open_configured() {
 
     let pre = TransitionPrecondition::Custom {
         name: Symbol::from("period_open"),
-        args: vec![gurih_ir::Expression::StringLiteral("MyPeriod".to_string())],
+        args: vec![Expression::StringLiteral("MyPeriod".to_string())],
     };
     let data = json!({ "date": "2024-01-01" });
 
