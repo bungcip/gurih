@@ -438,9 +438,28 @@ impl DataEngine {
         entity: &str,
         limit: Option<usize>,
         offset: Option<usize>,
+        filters: Option<std::collections::HashMap<String, String>>,
     ) -> Result<Vec<Arc<Value>>, String> {
         if self.schema.queries.contains_key(&Symbol::from(entity)) {
-            let strategy = QueryEngine::plan(&self.schema, entity)?;
+            let mut runtime_params = std::collections::HashMap::new();
+            if let Some(f) = filters {
+                for (k, v) in f {
+                    // Naive conversion: try parse as f64, bool, or keep string
+                    if let Ok(b) = v.parse::<bool>() {
+                        runtime_params.insert(k, Value::Bool(b));
+                    } else if let Ok(f) = v.parse::<f64>() {
+                        if let Some(n) = serde_json::Number::from_f64(f) {
+                            runtime_params.insert(k, Value::Number(n));
+                        } else {
+                            runtime_params.insert(k, Value::String(v));
+                        }
+                    } else {
+                        runtime_params.insert(k, Value::String(v));
+                    }
+                }
+            }
+
+            let strategy = QueryEngine::plan(&self.schema, entity, &runtime_params)?;
             if let Some(QueryPlan::ExecuteSql { mut sql, params }) = strategy.plans.first().cloned() {
                 if let Some(l) = limit {
                     sql.push_str(&format!(" LIMIT {}", l));

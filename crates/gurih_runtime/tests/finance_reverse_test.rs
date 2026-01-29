@@ -237,7 +237,7 @@ async fn test_finance_reverse_journal() {
 
     // 6. Verify
     // Find all JournalEntries
-    let journals = data_engine.list("JournalEntry", None, None).await.expect("List failed");
+    let journals = data_engine.list("JournalEntry", None, None, None).await.expect("List failed");
     assert_eq!(journals.len(), 2);
 
     let reversal = journals

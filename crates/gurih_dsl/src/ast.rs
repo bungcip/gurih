@@ -286,6 +286,7 @@ pub enum PageContent {
 #[derive(Debug, Clone)]
 pub struct QueryDef {
     pub name: String,
+    pub params: Vec<String>,
     pub root_entity: String,
     pub query_type: QueryType,
     pub selections: Vec<QuerySelectionDef>,

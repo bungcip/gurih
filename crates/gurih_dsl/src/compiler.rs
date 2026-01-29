@@ -578,6 +578,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             query_def.name.as_str().into(),
             QuerySchema {
                 name: query_def.name.as_str().into(),
+                params: query_def.params.iter().map(|s| Symbol::from(s.as_str())).collect(),
                 root_entity: query_def.root_entity.as_str().into(),
                 query_type: query_def.query_type.clone(),
                 selections: query_def
