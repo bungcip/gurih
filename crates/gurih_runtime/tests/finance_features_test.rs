@@ -191,8 +191,9 @@ async fn test_period_open_configured() {
     let engine = WorkflowEngine::new();
     let datastore: Arc<dyn DataStore> = Arc::new(MockDataStore);
 
-    let pre = TransitionPrecondition::PeriodOpen {
-        entity: Some(Symbol::from("MyPeriod")),
+    let pre = TransitionPrecondition::Custom {
+        name: Symbol::from("period_open"),
+        args: vec![gurih_ir::Expression::StringLiteral("MyPeriod".to_string())],
     };
     let data = json!({ "date": "2024-01-01" });
 

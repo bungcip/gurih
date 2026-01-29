@@ -16,14 +16,50 @@ pub struct AuthEngine {
 
 pub fn hash_password(password: &str) -> String {
     let salt = Uuid::new_v4().to_string();
+
+    // Initial salt mix
     let mut hasher = Sha256::new();
     hasher.update(salt.as_bytes());
     hasher.update(password.as_bytes());
-    let hash = hex::encode(hasher.finalize());
-    format!("{}${}", salt, hash)
+    let mut hash = hasher.finalize();
+
+    // Iterative hashing (PBKDF2-like) - 100,000 rounds
+    for _ in 0..100_000 {
+        let mut hasher = Sha256::new();
+        hasher.update(&hash);
+        hash = hasher.finalize();
+    }
+
+    let hash_hex = hex::encode(hash);
+    format!("v2${}${}", salt, hash_hex)
 }
 
 pub fn verify_password(password: &str, stored_value: &str) -> bool {
+    if stored_value.starts_with("v2$") {
+        let parts: Vec<&str> = stored_value.split('$').collect();
+        if parts.len() != 3 {
+            return false;
+        }
+        let salt = parts[1];
+        let hash_str = parts[2];
+
+        // Initial salt mix
+        let mut hasher = Sha256::new();
+        hasher.update(salt.as_bytes());
+        hasher.update(password.as_bytes());
+        let mut current_hash = hasher.finalize();
+
+        for _ in 0..100_000 {
+            let mut hasher = Sha256::new();
+            hasher.update(&current_hash);
+            current_hash = hasher.finalize();
+        }
+
+        let computed_hash = hex::encode(current_hash);
+        return computed_hash == hash_str;
+    }
+
+    // Legacy fallback
     let parts: Vec<&str> = stored_value.split('$').collect();
     if parts.len() != 2 {
         return false;
