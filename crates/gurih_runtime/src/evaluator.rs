@@ -379,4 +379,30 @@ mod tests {
         let res = evaluate(&expr, &ctx, None, None).await.unwrap();
         assert_eq!(res, json!(true)); // Should be > 18 in 2024
     }
+
+    #[tokio::test]
+    async fn test_eval_nested_field() {
+        let ctx = json!({
+            "user": {
+                "profile": {
+                    "age": 30
+                }
+            }
+        });
+
+        // Test valid nested access
+        let expr = Expression::Field(Symbol::from("user.profile.age"));
+        let res = evaluate(&expr, &ctx, None, None).await.unwrap();
+        assert_eq!(res, json!(30));
+
+        // Test missing nested key
+        let expr = Expression::Field(Symbol::from("user.profile.missing"));
+        let res = evaluate(&expr, &ctx, None, None).await.unwrap();
+        assert_eq!(res, Value::Null);
+
+        // Test non-object intermediate
+        let expr = Expression::Field(Symbol::from("user.profile.age.bad"));
+        let res = evaluate(&expr, &ctx, None, None).await.unwrap();
+        assert_eq!(res, Value::Null);
+    }
 }
