@@ -532,7 +532,11 @@ async fn list_entities(
     if let Err(e) = check_auth(headers, &state).await {
         return e.into_response();
     }
-    match state.data_engine.list(&entity, params.limit, params.offset, Some(params.filters)).await {
+    match state
+        .data_engine
+        .list(&entity, params.limit, params.offset, Some(params.filters))
+        .await
+    {
         Ok(list) => (StatusCode::OK, Json(list)).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }

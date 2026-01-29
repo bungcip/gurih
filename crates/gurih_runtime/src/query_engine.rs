@@ -55,8 +55,7 @@ impl QueryEngine {
             }
         }
         for form in &query.formulas {
-            let expr_sql =
-                Self::expression_to_sql(&form.expression, &mut params, &db_type, runtime_params);
+            let expr_sql = Self::expression_to_sql(&form.expression, &mut params, &db_type, runtime_params);
             select_parts.push(format!("{} AS {}", expr_sql, form.name));
         }
 
@@ -70,12 +69,7 @@ impl QueryEngine {
             runtime_params,
         };
 
-        Self::process_joins(
-            &query.joins,
-            &root_table,
-            &query.root_entity.to_string(),
-            &mut state,
-        )?;
+        Self::process_joins(&query.joins, &root_table, &query.root_entity.to_string(), &mut state)?;
 
         let select_clause = if select_parts.is_empty() {
             "*".to_string()
@@ -167,12 +161,8 @@ impl QueryEngine {
                 }
             }
             for form in &join.formulas {
-                let expr_sql = Self::expression_to_sql(
-                    &form.expression,
-                    state.params,
-                    state.db_type,
-                    state.runtime_params,
-                );
+                let expr_sql =
+                    Self::expression_to_sql(&form.expression, state.params, state.db_type, state.runtime_params);
                 state.select_parts.push(format!("{} AS {}", expr_sql, form.name));
             }
 
@@ -281,10 +271,7 @@ impl QueryEngine {
                 )
             }
             Expression::Grouping(inner) => {
-                format!(
-                    "({})",
-                    Self::expression_to_sql(inner, params, db_type, runtime_params)
-                )
+                format!("({})", Self::expression_to_sql(inner, params, db_type, runtime_params))
             }
         }
     }
@@ -443,7 +430,10 @@ mod tests {
             params: vec!["min_price".into()],
             root_entity: "Product".into(),
             query_type: QueryType::Flat,
-            selections: vec![QuerySelection { field: "name".into(), alias: None }],
+            selections: vec![QuerySelection {
+                field: "name".into(),
+                alias: None,
+            }],
             formulas: vec![],
             filters: vec![Expression::BinaryOp {
                 left: Box::new(Expression::Field("price".into())),
