@@ -67,6 +67,7 @@ pub struct DatatableSchema {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuerySchema {
     pub name: Symbol,
+    pub params: Vec<Symbol>,
     pub root_entity: Symbol,
     pub query_type: QueryType,
     pub selections: Vec<QuerySelection>,

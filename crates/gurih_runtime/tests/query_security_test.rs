@@ -20,6 +20,7 @@ fn test_sql_injection_reproduction() {
     // If [name] + '' OR '1'='1' is generated, injection is proven.
     let query = QuerySchema {
         name: "InjectionQuery".into(),
+        params: vec![],
         root_entity: "User".into(),
         query_type: QueryType::Flat,
         filters: vec![Expression::BinaryOp {
@@ -38,7 +39,8 @@ fn test_sql_injection_reproduction() {
 
     schema.queries.insert("InjectionQuery".into(), query);
 
-    let strategy = QueryEngine::plan(&schema, "InjectionQuery").expect("Failed to plan");
+    let runtime_params = std::collections::HashMap::new();
+    let strategy = QueryEngine::plan(&schema, "InjectionQuery", &runtime_params).expect("Failed to plan");
     let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0];
 
     println!("Generated SQL: {}", sql);

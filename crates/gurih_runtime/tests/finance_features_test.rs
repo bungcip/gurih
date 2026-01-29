@@ -238,6 +238,7 @@ fn test_query_group_by() {
         Symbol::from("Q"),
         QuerySchema {
             name: Symbol::from("Q"),
+            params: vec![],
             root_entity: Symbol::from("E"),
             query_type: QueryType::Flat,
             selections: vec![QuerySelection {
@@ -251,7 +252,8 @@ fn test_query_group_by() {
         },
     );
 
-    let plan = QueryEngine::plan(&schema, "Q").unwrap();
+    let runtime_params = std::collections::HashMap::new();
+    let plan = QueryEngine::plan(&schema, "Q", &runtime_params).unwrap();
     let QueryPlan::ExecuteSql { sql, .. } = &plan.plans[0];
     assert!(sql.contains("GROUP BY [f]"));
 }

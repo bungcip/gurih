@@ -1,18 +1,25 @@
 // Reporting queries
 
 query:flat "TrialBalanceQuery" for="Account" {
+    params "start_date" "end_date"
     select "code"
     select "name"
-    // Formula for balance. Assuming SQL dialect supports this.
-    // Ideally: SUM(CASE WHEN type='Asset' THEN debit - credit ELSE credit - debit END)
-    // But for simplicity: SUM(debit) - SUM(credit)
+    // Formula for balance.
     formula "total_debit" "SUM([debit])"
     formula "total_credit" "SUM([credit])"
 
     join "JournalLine" {
         select "debit"
         select "credit"
+
+        join "JournalEntry" {
+            // Filter only
+        }
     }
+
+    filter "param(\"start_date\") <= [journal_entry.date]"
+    filter "[journal_entry.date] <= param(\"end_date\")"
+    filter "[journal_entry.status] == \"Posted\""
 
     group_by "id"
     group_by "code"

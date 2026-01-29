@@ -1562,6 +1562,7 @@ fn parse_print(node: &KdlNode, src: &str) -> Result<PrintDef, CompileError> {
 fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
     let root_entity = get_prop_string(node, "for", src)?;
+    let mut params = vec![];
     let mut selections = vec![];
     let mut formulas = vec![];
     let mut joins = vec![];
@@ -1576,6 +1577,13 @@ fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
+                "params" => {
+                    for entry in child.entries() {
+                        if let Some(val) = entry.value().as_string() {
+                            params.push(val.to_string());
+                        }
+                    }
+                }
                 "select" => selections.push(parse_query_selection(child, src)?),
                 "formula" => formulas.push(parse_query_formula(child, src)?),
                 "join" => joins.push(parse_query_join(child, src)?),
@@ -1588,6 +1596,7 @@ fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
 
     Ok(QueryDef {
         name,
+        params,
         root_entity,
         query_type,
         selections,

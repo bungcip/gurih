@@ -18,12 +18,17 @@ struct QueryBuilderState<'a> {
     join_parts: &'a mut Vec<String>,
     params: &'a mut Vec<Value>,
     db_type: &'a DatabaseType,
+    runtime_params: &'a std::collections::HashMap<String, Value>,
 }
 
 pub struct QueryEngine;
 
 impl QueryEngine {
-    pub fn plan(schema: &Schema, query_name: &str) -> Result<QueryExecutionStrategy, String> {
+    pub fn plan(
+        schema: &Schema,
+        query_name: &str,
+        runtime_params: &std::collections::HashMap<String, Value>,
+    ) -> Result<QueryExecutionStrategy, String> {
         let query = schema
             .queries
             .get(&query_name.into())
@@ -50,7 +55,7 @@ impl QueryEngine {
             }
         }
         for form in &query.formulas {
-            let expr_sql = Self::expression_to_sql(&form.expression, &mut params, &db_type);
+            let expr_sql = Self::expression_to_sql(&form.expression, &mut params, &db_type, runtime_params);
             select_parts.push(format!("{} AS {}", expr_sql, form.name));
         }
 
@@ -61,6 +66,7 @@ impl QueryEngine {
             join_parts: &mut join_parts,
             params: &mut params,
             db_type: &db_type,
+            runtime_params,
         };
 
         Self::process_joins(&query.joins, &root_table, &query.root_entity.to_string(), &mut state)?;
@@ -78,7 +84,7 @@ impl QueryEngine {
             let filter_parts: Vec<String> = query
                 .filters
                 .iter()
-                .map(|e| Self::expression_to_sql(e, &mut params, &db_type))
+                .map(|e| Self::expression_to_sql(e, &mut params, &db_type, runtime_params))
                 .collect();
             where_clause = format!("WHERE {}", filter_parts.join(" AND "));
         }
@@ -155,7 +161,8 @@ impl QueryEngine {
                 }
             }
             for form in &join.formulas {
-                let expr_sql = Self::expression_to_sql(&form.expression, state.params, state.db_type);
+                let expr_sql =
+                    Self::expression_to_sql(&form.expression, state.params, state.db_type, state.runtime_params);
                 state.select_parts.push(format!("{} AS {}", expr_sql, form.name));
             }
 
@@ -164,14 +171,39 @@ impl QueryEngine {
         Ok(())
     }
 
-    fn entity_to_table(entity_name: &str) -> String {
-        // Simple heuristic: lowercase
-        entity_name.to_lowercase()
+    fn entity_to_table(s: &str) -> String {
+        let mut result = String::new();
+        for (i, c) in s.char_indices() {
+            if c.is_uppercase() {
+                if i > 0 {
+                    result.push('_');
+                }
+                result.push(c.to_ascii_lowercase());
+            } else {
+                result.push(c);
+            }
+        }
+        result
     }
 
-    fn expression_to_sql(expr: &Expression, params: &mut Vec<Value>, db_type: &DatabaseType) -> String {
+    fn expression_to_sql(
+        expr: &Expression,
+        params: &mut Vec<Value>,
+        db_type: &DatabaseType,
+        runtime_params: &std::collections::HashMap<String, Value>,
+    ) -> String {
         match expr {
-            Expression::Field(f) => format!("[{}]", f), // Naive, should probably be qualified if possible, but context is hard
+            Expression::Field(f) => {
+                let s = f.as_str();
+                if s.contains('.') {
+                    s.split('.')
+                        .map(|part| format!("[{}]", part))
+                        .collect::<Vec<_>>()
+                        .join(".")
+                } else {
+                    format!("[{}]", f)
+                }
+            }
             Expression::Literal(n) => n.to_string(),
             Expression::BoolLiteral(b) => {
                 if *b {
@@ -189,14 +221,28 @@ impl QueryEngine {
                 }
             }
             Expression::FunctionCall { name, args } => {
+                if name.as_str() == "param" {
+                    if let Some(Expression::StringLiteral(key)) = args.first() {
+                        if let Some(val) = runtime_params.get(key) {
+                            params.push(val.clone());
+                            if *db_type == DatabaseType::Postgres {
+                                return format!("${}", params.len());
+                            } else {
+                                return "?".to_string();
+                            }
+                        }
+                    }
+                    return "NULL".to_string();
+                }
+
                 let args_sql: Vec<String> = args
                     .iter()
-                    .map(|a| Self::expression_to_sql(a, params, db_type))
+                    .map(|a| Self::expression_to_sql(a, params, db_type, runtime_params))
                     .collect();
                 format!("{}({})", name, args_sql.join(", "))
             }
             Expression::UnaryOp { op, expr } => {
-                let expr_sql = Self::expression_to_sql(expr, params, db_type);
+                let expr_sql = Self::expression_to_sql(expr, params, db_type, runtime_params);
                 match op {
                     UnaryOperator::Not => format!("NOT ({})", expr_sql),
                     UnaryOperator::Neg => format!("-({})", expr_sql),
@@ -219,13 +265,13 @@ impl QueryEngine {
                 };
                 format!(
                     "{} {} {}",
-                    Self::expression_to_sql(left, params, db_type),
+                    Self::expression_to_sql(left, params, db_type, runtime_params),
                     op_str,
-                    Self::expression_to_sql(right, params, db_type)
+                    Self::expression_to_sql(right, params, db_type, runtime_params)
                 )
             }
             Expression::Grouping(inner) => {
-                format!("({})", Self::expression_to_sql(inner, params, db_type))
+                format!("({})", Self::expression_to_sql(inner, params, db_type, runtime_params))
             }
         }
     }
@@ -234,7 +280,7 @@ impl QueryEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gurih_ir::{Expression, QueryFormula, QueryJoin, QuerySchema, QuerySelection, QueryType};
+    use gurih_ir::{BinaryOperator, Expression, QueryFormula, QueryJoin, QuerySchema, QuerySelection, QueryType};
 
     #[test]
     fn test_lower_perspective_query() {
@@ -243,6 +289,7 @@ mod tests {
         // Setup Query Schema
         let query = QuerySchema {
             name: "ActiveCourseQuery".into(),
+            params: vec![],
             root_entity: "CourseEntity".into(),
             query_type: QueryType::Nested,
             filters: vec![],
@@ -302,7 +349,8 @@ mod tests {
 
         schema.queries.insert("ActiveCourseQuery".into(), query);
 
-        let strategy = QueryEngine::plan(&schema, "ActiveCourseQuery").expect("Failed to plan");
+        let runtime_params = std::collections::HashMap::new();
+        let strategy = QueryEngine::plan(&schema, "ActiveCourseQuery", &runtime_params).expect("Failed to plan");
 
         assert_eq!(strategy.plans.len(), 1);
         let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0];
@@ -319,6 +367,7 @@ mod tests {
         let mut schema = Schema::default();
         let query = QuerySchema {
             name: "BookQuery".into(),
+            params: vec![],
             root_entity: "BookEntity".into(),
             query_type: QueryType::Flat,
             group_by: vec![],
@@ -361,7 +410,8 @@ mod tests {
         };
         schema.queries.insert("BookQuery".into(), query);
 
-        let strategy = QueryEngine::plan(&schema, "BookQuery").expect("Failed to plan");
+        let runtime_params = std::collections::HashMap::new();
+        let strategy = QueryEngine::plan(&schema, "BookQuery", &runtime_params).expect("Failed to plan");
         let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0];
         println!("Flat SQL: {}", sql);
 
@@ -370,5 +420,48 @@ mod tests {
         assert!(sql.contains("FROM bookentity"));
         assert!(sql.contains("LEFT JOIN peopleentity"));
         assert!(sql.contains("WHERE [published_at] - DATE()"));
+    }
+
+    #[test]
+    fn test_parameterized_query() {
+        let mut schema = Schema::default();
+        let query = QuerySchema {
+            name: "ParamQuery".into(),
+            params: vec!["min_price".into()],
+            root_entity: "Product".into(),
+            query_type: QueryType::Flat,
+            selections: vec![QuerySelection {
+                field: "name".into(),
+                alias: None,
+            }],
+            formulas: vec![],
+            filters: vec![Expression::BinaryOp {
+                left: Box::new(Expression::Field("price".into())),
+                op: BinaryOperator::Gte,
+                right: Box::new(Expression::FunctionCall {
+                    name: "param".into(),
+                    args: vec![Expression::StringLiteral("min_price".into())],
+                }),
+            }],
+            joins: vec![],
+            group_by: vec![],
+        };
+        schema.queries.insert("ParamQuery".into(), query);
+
+        let mut runtime_params = std::collections::HashMap::new();
+        runtime_params.insert("min_price".to_string(), Value::from(100));
+
+        let strategy = QueryEngine::plan(&schema, "ParamQuery", &runtime_params).expect("Failed to plan");
+        let QueryPlan::ExecuteSql { sql, params } = &strategy.plans[0];
+
+        println!("SQL: {}", sql);
+        println!("Params: {:?}", params);
+
+        assert!(sql.contains("WHERE [price] >="));
+        // Check placeholder
+        // Default db_type is Sqlite -> ?
+        assert!(sql.contains("?"));
+        assert_eq!(params.len(), 1);
+        assert_eq!(params[0], Value::from(100));
     }
 }
