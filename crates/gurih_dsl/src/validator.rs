@@ -26,6 +26,90 @@ impl<'a> Validator<'a> {
         self.validate_entities(ast)?;
         self.validate_routes(ast)?;
         self.validate_rules(ast)?;
+        self.validate_workflows(ast)?;
+        Ok(())
+    }
+
+    fn validate_workflows(&self, ast: &Ast) -> Result<(), CompileError> {
+        // Build entity field map for validation
+        let mut entity_fields: HashMap<String, HashSet<String>> = HashMap::new();
+        for entity in &ast.entities {
+            let fields: HashSet<String> = entity.fields.iter().map(|f| f.name.clone()).collect();
+            entity_fields.insert(entity.name.clone(), fields);
+        }
+        for module in &ast.modules {
+            for entity in &module.entities {
+                let fields: HashSet<String> = entity.fields.iter().map(|f| f.name.clone()).collect();
+                entity_fields.insert(entity.name.clone(), fields);
+            }
+        }
+
+        for workflow in &ast.workflows {
+            if let Some(fields) = entity_fields.get(&workflow.entity) {
+                // Check field exists (status field)
+                if !fields.contains(&workflow.field) {
+                    return Err(CompileError::ValidationError {
+                        src: self.src.to_string(),
+                        span: workflow.span,
+                        message: format!(
+                            "Workflow target field '{}' not found in entity '{}'",
+                            workflow.field, workflow.entity
+                        ),
+                    });
+                }
+
+                for transition in &workflow.transitions {
+                    for precondition in &transition.preconditions {
+                        if let ast::TransitionPreconditionDef::Assertion { expression, span } = precondition {
+                            let expr = parse_expression(expression, span.offset())?;
+                            self.validate_expression_fields(&expr, fields, *span)?;
+                        }
+                    }
+                }
+            } else {
+                return Err(CompileError::ValidationError {
+                    src: self.src.to_string(),
+                    span: workflow.span,
+                    message: format!("Workflow target entity '{}' not found", workflow.entity),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_expression_fields(
+        &self,
+        expr: &Expr,
+        fields: &HashSet<String>,
+        span: SourceSpan,
+    ) -> Result<(), CompileError> {
+        match expr {
+            Expr::Field(name, _) => {
+                if !fields.contains(name) {
+                    return Err(CompileError::ValidationError {
+                        src: self.src.to_string(),
+                        span,
+                        message: format!("Field '{}' not found in entity", name),
+                    });
+                }
+            }
+            Expr::FunctionCall { args, .. } => {
+                for arg in args {
+                    self.validate_expression_fields(arg, fields, span)?;
+                }
+            }
+            Expr::BinaryOp { left, right, .. } => {
+                self.validate_expression_fields(left, fields, span)?;
+                self.validate_expression_fields(right, fields, span)?;
+            }
+            Expr::UnaryOp { expr, .. } => {
+                self.validate_expression_fields(expr, fields, span)?;
+            }
+            Expr::Grouping(expr, _) => {
+                self.validate_expression_fields(expr, fields, span)?;
+            }
+            _ => {}
+        }
         Ok(())
     }
 
