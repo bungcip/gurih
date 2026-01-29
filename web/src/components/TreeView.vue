@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, inject, provide } from 'vue'
 import Icon from './Icon.vue'
 
 defineOptions({
@@ -55,9 +55,26 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'update:expandedKeys', 'node-click'])
 
+// Bolt Optimization: Use a shared Set for O(1) lookup of expanded keys across recursive components
+// instead of O(N) Array.includes at every level.
+const parentExpandedSet = inject('expandedKeysSet', null)
+const localExpandedSet = computed(() => new Set(props.expandedKeys))
+
+const expandedSet = computed(() => {
+  // If we are a child node (depth > 0) and have a parent provider, use it.
+  if (props.depth > 0 && parentExpandedSet) {
+    return parentExpandedSet.value
+  }
+  return localExpandedSet.value
+})
+
+if (props.depth === 0) {
+  provide('expandedKeysSet', localExpandedSet)
+}
+
 function isExpanded(node) {
   const key = node[props.itemKey]
-  return props.expandedKeys.includes(key)
+  return expandedSet.value.has(key)
 }
 
 function toggleNode(node, event) {

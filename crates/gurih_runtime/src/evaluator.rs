@@ -34,14 +34,14 @@ pub async fn evaluate(
                 Ok(context.get(key).cloned().unwrap_or(Value::Null))
             }
         }
-        Expression::Literal(n) => Ok(Value::Number(serde_json::Number::from_f64(*n).ok_or_else(
-            || RuntimeError::EvaluationError("Invalid float literal".to_string()),
-        )?)),
+        Expression::Literal(n) => {
+            Ok(Value::Number(serde_json::Number::from_f64(*n).ok_or_else(|| {
+                RuntimeError::EvaluationError("Invalid float literal".to_string())
+            })?))
+        }
         Expression::StringLiteral(s) => Ok(Value::String(s.clone())),
         Expression::BoolLiteral(b) => Ok(Value::Bool(*b)),
-        Expression::Grouping(inner) => {
-            Box::pin(evaluate(inner, context, schema, datastore.clone())).await
-        }
+        Expression::Grouping(inner) => Box::pin(evaluate(inner, context, schema, datastore.clone())).await,
         Expression::UnaryOp { op, expr } => {
             let val = Box::pin(evaluate(expr, context, schema, datastore.clone())).await?;
             eval_unary_op(op, val)
@@ -54,8 +54,7 @@ pub async fn evaluate(
         Expression::FunctionCall { name, args } => {
             let mut eval_args = Vec::new();
             for arg in args {
-                eval_args
-                    .push(Box::pin(evaluate(arg, context, schema, datastore.clone())).await?);
+                eval_args.push(Box::pin(evaluate(arg, context, schema, datastore.clone())).await?);
             }
             eval_function(name.as_str(), &eval_args, schema, datastore).await
         }
@@ -76,9 +75,7 @@ fn eval_unary_op(op: &UnaryOperator, val: Value) -> Result<Value, RuntimeError> 
                 if let Some(f) = n.as_f64() {
                     Ok(Value::Number(serde_json::Number::from_f64(-f).unwrap()))
                 } else {
-                    Err(RuntimeError::EvaluationError(
-                        "Invalid number for negation".into(),
-                    ))
+                    Err(RuntimeError::EvaluationError("Invalid number for negation".into()))
                 }
             }
             _ => Err(RuntimeError::EvaluationError(format!(
@@ -106,9 +103,9 @@ fn eval_binary_op(op: &BinaryOperator, left: Value, right: Value) -> Result<Valu
                 }
                 _ => unreachable!(),
             };
-            Ok(Value::Number(serde_json::Number::from_f64(res).ok_or_else(
-                || RuntimeError::EvaluationError("Result is not a valid number".into()),
-            )?))
+            Ok(Value::Number(serde_json::Number::from_f64(res).ok_or_else(|| {
+                RuntimeError::EvaluationError("Result is not a valid number".into())
+            })?))
         }
         BinaryOperator::Eq => Ok(Value::Bool(left == right)),
         BinaryOperator::Neq => Ok(Value::Bool(left != right)),
@@ -190,9 +187,7 @@ async fn eval_function(
         }
         "is_set" => {
             if args.len() != 1 {
-                return Err(RuntimeError::EvaluationError(
-                    "is_set() takes 1 argument".into(),
-                ));
+                return Err(RuntimeError::EvaluationError("is_set() takes 1 argument".into()));
             }
             match &args[0] {
                 Value::Null => Ok(Value::Bool(false)),
@@ -202,9 +197,7 @@ async fn eval_function(
         }
         "valid_date" => {
             if args.len() != 1 {
-                return Err(RuntimeError::EvaluationError(
-                    "valid_date() takes 1 argument".into(),
-                ));
+                return Err(RuntimeError::EvaluationError("valid_date() takes 1 argument".into()));
             }
             let date_str = match &args[0] {
                 Value::String(s) => s,
@@ -217,9 +210,7 @@ async fn eval_function(
         }
         "lookup_field" => {
             if args.len() != 3 {
-                return Err(RuntimeError::EvaluationError(
-                    "lookup_field() takes 3 arguments".into(),
-                ));
+                return Err(RuntimeError::EvaluationError("lookup_field() takes 3 arguments".into()));
             }
             if let Some(ds) = datastore {
                 let entity_name = as_str(&args[0])?;
@@ -235,9 +226,10 @@ async fn eval_function(
                     to_snake_case(entity_name)
                 };
 
-                let record = ds.get(&table_name, id).await.map_err(|e| {
-                    RuntimeError::EvaluationError(format!("DB Error in lookup_field: {}", e))
-                })?;
+                let record = ds
+                    .get(&table_name, id)
+                    .await
+                    .map_err(|e| RuntimeError::EvaluationError(format!("DB Error in lookup_field: {}", e)))?;
 
                 if let Some(rec) = record {
                     Ok(rec.get(field).cloned().unwrap_or(Value::Null))
@@ -245,26 +237,21 @@ async fn eval_function(
                     Ok(Value::Null)
                 }
             } else {
-                Err(RuntimeError::EvaluationError(
-                    "lookup_field requires datastore".into(),
-                ))
+                Err(RuntimeError::EvaluationError("lookup_field requires datastore".into()))
             }
         }
-        _ => Err(RuntimeError::EvaluationError(format!(
-            "Unknown function: {}",
-            name
-        ))),
+        _ => Err(RuntimeError::EvaluationError(format!("Unknown function: {}", name))),
     }
 }
 
 fn as_f64(v: &Value) -> Result<f64, RuntimeError> {
     match v {
-        Value::Number(n) => n.as_f64().ok_or_else(|| {
-            RuntimeError::EvaluationError(format!("Type mismatch: expected f64, found {:?}", v))
-        }),
-        Value::String(s) => s.parse::<f64>().map_err(|_| {
-            RuntimeError::EvaluationError(format!("Invalid number format in string: {}", s))
-        }),
+        Value::Number(n) => n
+            .as_f64()
+            .ok_or_else(|| RuntimeError::EvaluationError(format!("Type mismatch: expected f64, found {:?}", v))),
+        Value::String(s) => s
+            .parse::<f64>()
+            .map_err(|_| RuntimeError::EvaluationError(format!("Invalid number format in string: {}", s))),
         _ => Err(RuntimeError::EvaluationError(format!(
             "Type mismatch: expected number, found {:?}",
             v

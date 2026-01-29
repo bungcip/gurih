@@ -32,7 +32,10 @@ async fn test_leaf_account_validation() {
         "is_group": true,
         "is_active": true
     });
-    let group_id = engine.create("Account", group_acc, &ctx).await.expect("Failed to create group account");
+    let group_id = engine
+        .create("Account", group_acc, &ctx)
+        .await
+        .expect("Failed to create group account");
 
     // Verify Group Account
     let saved_group = engine.read("Account", &group_id).await.unwrap().unwrap();
@@ -49,7 +52,10 @@ async fn test_leaf_account_validation() {
         "is_active": true,
         "parent": group_id
     });
-    let leaf_id = engine.create("Account", leaf_acc, &ctx).await.expect("Failed to create leaf account");
+    let leaf_id = engine
+        .create("Account", leaf_acc, &ctx)
+        .await
+        .expect("Failed to create leaf account");
 
     // 5. Create Journal Header
     let journal = json!({
@@ -57,7 +63,10 @@ async fn test_leaf_account_validation() {
         "date": "2024-01-01",
         "status": "Draft"
     });
-    let journal_id = engine.create("JournalEntry", journal, &ctx).await.expect("Failed to create journal");
+    let journal_id = engine
+        .create("JournalEntry", journal, &ctx)
+        .await
+        .expect("Failed to create journal");
 
     // 6. Try Posting to Group Account (Should Fail)
     let bad_line = json!({
@@ -69,7 +78,11 @@ async fn test_leaf_account_validation() {
     let res = engine.create("JournalLine", bad_line, &ctx).await;
     assert!(res.is_err(), "Should not allow posting to group account");
     if let Err(msg) = res {
-        assert!(msg.contains("Cannot post to a group account"), "Wrong error message: {}", msg);
+        assert!(
+            msg.contains("Cannot post to a group account"),
+            "Wrong error message: {}",
+            msg
+        );
     }
 
     // 7. Try Posting to Leaf Account (Should Succeed)
