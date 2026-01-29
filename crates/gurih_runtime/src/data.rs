@@ -3,6 +3,7 @@ use crate::context::RuntimeContext;
 use crate::datastore::DataStore;
 use crate::query_engine::{QueryEngine, QueryPlan};
 use crate::workflow::WorkflowEngine;
+use crate::plugins::WorkflowPlugin;
 use gurih_ir::{DatabaseType, FieldType, Schema, Symbol};
 use serde_json::Value;
 use std::sync::Arc;
@@ -21,6 +22,11 @@ impl DataEngine {
             datastore,
             workflow: WorkflowEngine::new(),
         }
+    }
+
+    pub fn with_plugins(mut self, plugins: Vec<Box<dyn WorkflowPlugin>>) -> Self {
+        self.workflow = self.workflow.with_plugins(plugins);
+        self
     }
 
     pub fn get_schema(&self) -> &Schema {
@@ -255,7 +261,8 @@ impl DataEngine {
                 // Apply Side Effects
                 let (updates, notifications, postings) =
                     self.workflow
-                        .apply_effects(&self.schema, entity_name, current_state, new_state, &merged_record);
+                        .apply_effects(&self.schema, entity_name, current_state, new_state, &merged_record)
+                        .await;
 
                 for notification in notifications {
                     println!("NOTIFICATION: {}", notification);

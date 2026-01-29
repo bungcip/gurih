@@ -313,15 +313,20 @@ pub struct Transition {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransitionPrecondition {
     Assertion(Expression),
-    BalancedTransaction,
-    PeriodOpen { entity: Option<Symbol> },
+    Custom {
+        name: Symbol,
+        args: Vec<Expression>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransitionEffect {
     Notify(Symbol),
     UpdateField { field: Symbol, value: String },
-    PostJournal(Symbol),
+    Custom {
+        name: Symbol,
+        args: Vec<Expression>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
