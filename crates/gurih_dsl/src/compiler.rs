@@ -638,36 +638,36 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
     // 17. Generate missing TableSchemas for Entities
     for entity in ir_entities.values() {
-        if !ir_tables.contains_key(&entity.table_name) {
+        ir_tables.entry(entity.table_name).or_insert_with(|| {
             let mut columns = vec![];
 
             for field in &entity.fields {
                 let type_name = match &field.field_type {
-                    FieldType::Pk => "String",
-                    FieldType::Serial => "String",
-                    FieldType::Sku => "String",
-                    FieldType::Name => "String",
-                    FieldType::Title => "String",
-                    FieldType::Description => "String",
-                    FieldType::Avatar => "String",
-                    FieldType::Money => "String", // Or Decimal if supported, but String/Text is safe for now
-                    FieldType::Email => "String",
-                    FieldType::Phone => "String",
-                    FieldType::Address => "String",
-                    FieldType::Password => "String",
-                    FieldType::Enum(_) => "String",
+                    FieldType::Pk
+                    | FieldType::Serial
+                    | FieldType::Sku
+                    | FieldType::Name
+                    | FieldType::Title
+                    | FieldType::Description
+                    | FieldType::Avatar
+                    | FieldType::Money
+                    | FieldType::Email
+                    | FieldType::Phone
+                    | FieldType::Address
+                    | FieldType::Password
+                    | FieldType::Enum(_)
+                    | FieldType::String
+                    | FieldType::Text
+                    | FieldType::Image
+                    | FieldType::File
+                    | FieldType::Relation
+                    | FieldType::Code
+                    | FieldType::Custom(_) => "String",
                     FieldType::Integer => "Integer",
                     FieldType::Float => "Float",
                     FieldType::Date => "Date",
                     FieldType::Timestamp => "Timestamp",
-                    FieldType::String => "String",
-                    FieldType::Text => "String",
-                    FieldType::Image => "String",
-                    FieldType::File => "String",
-                    FieldType::Relation => "String",
                     FieldType::Boolean => "Boolean",
-                    FieldType::Code => "String",
-                    FieldType::Custom(_) => "String",
                 };
 
                 let mut props = HashMap::new();
@@ -706,14 +706,11 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 }
             }
 
-            ir_tables.insert(
-                entity.table_name,
-                TableSchema {
-                    name: entity.table_name,
-                    columns,
-                },
-            );
-        }
+            TableSchema {
+                name: entity.table_name,
+                columns,
+            }
+        });
     }
 
     Ok(Schema {

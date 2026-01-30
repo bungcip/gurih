@@ -92,13 +92,9 @@ impl FakerEngine {
                         }
 
                         let value = if let Some(fks) = foreign_keys.get(&field.name.to_string()) {
-                            if !fks.is_empty() {
-                                let mut rng = rand::rng();
-                                let id = fks.choose(&mut rng).unwrap();
-                                Value::String(id.clone())
-                            } else {
-                                Value::Null
-                            }
+                            fks.choose(&mut rand::rng())
+                                .map(|id| Value::String(id.clone()))
+                                .unwrap_or(Value::Null)
                         } else {
                             self.generate_value(&field.field_type, &field.name.to_string())
                         };

@@ -81,9 +81,8 @@ impl AuthEngine {
                 if count >= 5 {
                     if last_time.elapsed() < Duration::from_secs(300) {
                         return Err("Too many failed attempts. Please try again later.".to_string());
-                    } else {
-                        attempts.remove(username);
                     }
+                    attempts.remove(username);
                 }
             }
         }
