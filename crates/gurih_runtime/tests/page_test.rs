@@ -34,7 +34,7 @@ fn test_generate_page_config_fallback() {
     };
 
     let entity = EntitySchema {
-        name: entity_name.clone(),
+        name: entity_name,
         table_name: Symbol::from("my_entity"),
         fields: vec![field1, field2],
         relationships: vec![],
@@ -42,7 +42,7 @@ fn test_generate_page_config_fallback() {
         seeds: None,
     };
 
-    schema.entities.insert(entity_name.clone(), entity);
+    schema.entities.insert(entity_name, entity);
 
     let engine = PageEngine::new();
     let config = engine.generate_page_config(&schema, entity_name).unwrap();

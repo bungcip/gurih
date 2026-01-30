@@ -1,12 +1,12 @@
 use crate::datastore::DataStore;
 use crate::errors::RuntimeError;
-use crate::plugins::WorkflowPlugin;
+use crate::plugins::Plugin;
 use gurih_ir::{FieldType, Schema, Symbol, TransitionEffect, TransitionPrecondition};
 use serde_json::Value;
 use std::sync::Arc;
 
 pub struct WorkflowEngine {
-    plugins: Vec<Box<dyn WorkflowPlugin>>,
+    plugins: Vec<Box<dyn Plugin>>,
 }
 
 impl Default for WorkflowEngine {
@@ -20,7 +20,7 @@ impl WorkflowEngine {
         Self { plugins: vec![] }
     }
 
-    pub fn with_plugins(mut self, plugins: Vec<Box<dyn WorkflowPlugin>>) -> Self {
+    pub fn with_plugins(mut self, plugins: Vec<Box<dyn Plugin>>) -> Self {
         self.plugins = plugins;
         self
     }

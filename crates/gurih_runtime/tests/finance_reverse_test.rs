@@ -3,6 +3,7 @@ use gurih_runtime::action::ActionEngine;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::{DataStore, MemoryDataStore};
+use gurih_runtime::plugins::FinancePlugin;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -178,7 +179,7 @@ async fn test_finance_reverse_journal() {
     // 3. Engines
     let datastore = Arc::new(MemoryDataStore::new());
     let data_engine = DataEngine::new(schema_arc.clone(), datastore.clone());
-    let action_engine = ActionEngine::new(actions);
+    let action_engine = ActionEngine::new(actions).with_plugins(vec![Box::new(FinancePlugin)]);
     let ctx = RuntimeContext::system();
 
     // 4. Create Data

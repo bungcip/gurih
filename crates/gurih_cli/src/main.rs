@@ -304,7 +304,10 @@ async fn start_server(
             }
 
             // Initialize Action Engine
-            let action_engine = Arc::new(ActionEngine::new(schema.actions.clone()));
+            let action_engine = Arc::new(
+                ActionEngine::new(schema.actions.clone())
+                    .with_plugins(vec![Box::new(FinancePlugin), Box::new(HrPlugin)]),
+            );
 
             // Initialize Storage Engine (File Storage)
             let storage_engine = Arc::new(gurih_runtime::storage::StorageEngine::new(&schema.storages).await);

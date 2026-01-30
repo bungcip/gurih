@@ -1,19 +1,20 @@
+use crate::context::RuntimeContext;
 use crate::datastore::DataStore;
 use crate::errors::RuntimeError;
+use crate::traits::DataAccess;
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use gurih_ir::{Expression, Schema, Symbol};
-use serde_json::Value;
+use gurih_ir::{ActionStep, Expression, Schema, Symbol};
+use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::sync::Arc;
+use uuid::Uuid;
 
 #[async_trait]
-pub trait WorkflowPlugin: Send + Sync {
+pub trait Plugin: Send + Sync {
     fn name(&self) -> &str;
 
     /// Checks a custom precondition.
-    /// If the plugin recognizes the precondition name, it performs the check.
-    /// If the check fails, it returns an Error.
-    /// If the check passes or the plugin does not recognize the name, it returns Ok(()).
     async fn check_precondition(
         &self,
         name: &str,
@@ -24,8 +25,6 @@ pub trait WorkflowPlugin: Send + Sync {
     ) -> Result<(), RuntimeError>;
 
     /// Applies a custom effect.
-    /// Returns (updates, notifications, postings).
-    /// If the plugin does not recognize the effect, it returns empty results.
     async fn apply_effect(
         &self,
         name: &str,
@@ -34,12 +33,23 @@ pub trait WorkflowPlugin: Send + Sync {
         entity_name: &str,
         entity_data: &Value,
     ) -> Result<(Value, Vec<String>, Vec<Symbol>), RuntimeError>;
+
+    /// Executes a custom action step.
+    /// Returns Ok(true) if handled, Ok(false) if not recognized.
+    async fn execute_action_step(
+        &self,
+        step_name: &str,
+        step: &ActionStep,
+        params: &HashMap<String, String>,
+        data_access: &dyn DataAccess,
+        ctx: &RuntimeContext,
+    ) -> Result<bool, RuntimeError>;
 }
 
 pub struct FinancePlugin;
 
 #[async_trait]
-impl WorkflowPlugin for FinancePlugin {
+impl Plugin for FinancePlugin {
     fn name(&self) -> &str {
         "FinancePlugin"
     }
@@ -54,7 +64,6 @@ impl WorkflowPlugin for FinancePlugin {
     ) -> Result<(), RuntimeError> {
         match name {
             "balanced_transaction" => {
-                // Find fields that are arrays (composition/child tables)
                 if let Some(obj) = entity_data.as_object() {
                     for (_key, val) in obj {
                         if let Some(lines) = val.as_array() {
@@ -103,7 +112,6 @@ impl WorkflowPlugin for FinancePlugin {
             }
             "period_open" => {
                 if let Some(ds) = datastore {
-                    // 1. Get transaction date
                     let date_str = entity_data
                         .get("date")
                         .or_else(|| entity_data.get("transaction_date"))
@@ -167,11 +175,114 @@ impl WorkflowPlugin for FinancePlugin {
         _entity_name: &str,
         _entity_data: &Value,
     ) -> Result<(Value, Vec<String>, Vec<Symbol>), RuntimeError> {
-        if name == "post_journal" {
-            if let Some(Expression::StringLiteral(rule)) = args.first() {
-                return Ok((Value::Null, vec![], vec![Symbol::from(rule.as_str())]));
-            }
+        if name == "post_journal" && let Some(Expression::StringLiteral(rule)) = args.first() {
+            return Ok((Value::Null, vec![], vec![Symbol::from(rule.as_str())]));
         }
         Ok((Value::Null, vec![], vec![]))
+    }
+
+    async fn execute_action_step(
+        &self,
+        step_name: &str,
+        step: &ActionStep,
+        params: &HashMap<String, String>,
+        data_access: &dyn DataAccess,
+        ctx: &RuntimeContext,
+    ) -> Result<bool, RuntimeError> {
+        if step_name == "finance:reverse_journal" {
+            let resolve_arg = |val: &str| -> String {
+                if val.starts_with("param(") && val.ends_with(")") {
+                    let key = &val[6..val.len() - 1];
+                    let cleaned_key = key.trim_matches('"');
+                    params.get(cleaned_key).cloned().unwrap_or(val.to_string())
+                } else {
+                    val.to_string()
+                }
+            };
+
+            let id_raw = step
+                .args
+                .get("id")
+                .ok_or(RuntimeError::WorkflowError(
+                    "Missing 'id' argument for finance:reverse_journal".to_string(),
+                ))?;
+            let id = resolve_arg(id_raw);
+
+            // 1. Read Original
+            let original_arc = data_access
+                .read("JournalEntry", &id)
+                .await
+                .map_err(RuntimeError::WorkflowError)?
+                .ok_or(RuntimeError::WorkflowError("JournalEntry not found".to_string()))?;
+            let original = original_arc.as_ref();
+
+            // 2. Read Lines
+            let mut filters = HashMap::new();
+            filters.insert("journal_entry".to_string(), id.clone());
+
+            let schema = data_access.get_schema();
+            let table_name = schema
+                .entities
+                .get(&Symbol::from("JournalLine"))
+                .map(|e| e.table_name.as_str())
+                .unwrap_or("JournalLine");
+
+            // Direct datastore access for generic filtering not supported fully via DataAccess::list yet (list returns Values)
+            // But DataAccess::datastore() is available.
+            let lines = data_access.datastore().find(table_name, filters).await.map_err(RuntimeError::WorkflowError)?;
+
+            // 3. Create Reverse Header
+            let mut new_entry = original.clone();
+            let mut old_entry_number = "?".to_string();
+
+            if let Some(obj) = new_entry.as_object_mut() {
+                if let Some(num) = obj.get("entry_number").and_then(|v| v.as_str()) {
+                    old_entry_number = num.to_string();
+                }
+
+                obj.remove("id");
+                obj.insert("id".to_string(), json!(Uuid::new_v4().to_string()));
+                obj.remove("entry_number");
+
+                obj.insert("status".to_string(), json!("Draft"));
+                obj.insert(
+                    "description".to_string(),
+                    json!(format!("Reversal of {}", old_entry_number)),
+                );
+                obj.insert("related_journal".to_string(), json!(id));
+            }
+
+            let new_id = data_access.create("JournalEntry", new_entry, ctx).await.map_err(RuntimeError::WorkflowError)?;
+
+            // 4. Create Reverse Lines
+            for line_arc in lines {
+                let mut line = line_arc.as_ref().clone();
+                if let Some(obj) = line.as_object_mut() {
+                    obj.remove("id");
+                    obj.insert("id".to_string(), json!(Uuid::new_v4().to_string()));
+                    obj.insert("journal_entry".to_string(), json!(new_id));
+
+                    let get_val = |v: &serde_json::Value| -> f64 {
+                        if let Some(f) = v.as_f64() {
+                            f
+                        } else if let Some(s) = v.as_str() {
+                            s.parse().unwrap_or(0.0)
+                        } else {
+                            0.0
+                        }
+                    };
+
+                    let debit = obj.get("debit").map(get_val).unwrap_or(0.0);
+                    let credit = obj.get("credit").map(get_val).unwrap_or(0.0);
+
+                    obj.insert("debit".to_string(), json!(credit.to_string()));
+                    obj.insert("credit".to_string(), json!(debit.to_string()));
+                }
+                data_access.create("JournalLine", line, ctx).await.map_err(RuntimeError::WorkflowError)?;
+            }
+
+            return Ok(true);
+        }
+        Ok(false)
     }
 }
