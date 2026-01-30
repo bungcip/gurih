@@ -35,7 +35,7 @@ gurih-siasn/
 Entities in SIASN often have complex history (Riwayat). This is modeled using `has_many` relationships.
 
 ```kdl
-// kepegawaian.kdl
+// kepegawaian.kdl snippet
 entity "Pegawai" {
     field:pk id
     field:string "nip" unique=#true
@@ -56,12 +56,12 @@ A specialized DSL construct `employee_status` is used to define transitions betw
 
 **Key Features:**
 *   **Preconditions**: `min_years_of_service`, `document` (checks for file existence), `min_age`.
-*   **Effects**: `suspend_payroll`, `update_rank_eligibility`.
+*   **Effects**: `suspend_payroll`, `update` fields (e.g. rank eligibility).
 
 ![Employee Status DSL](images/siasn-dsl-example.png)
 
 ```kdl
-// workflow.kdl
+// workflow.kdl snippet
 employee_status "CPNS" for="Pegawai" field="status_pegawai" {
     can_transition_to "PNS" {
         requires {
@@ -70,7 +70,7 @@ employee_status "CPNS" for="Pegawai" field="status_pegawai" {
              document "sk_pns"
         }
         effects {
-             update_rank_eligibility #true
+             update "rank_eligible" "true"
              notify "unit_kepegawaian"
         }
     }
@@ -110,7 +110,7 @@ For `employee_status` transitions:
     *   Has the employee served > 1 year (`min_years_of_service`)?
     *   Is the SK PNS document uploaded (`document "sk_pns"`)?
 3.  **Transition**: If checks pass, status updates to "PNS".
-4.  **Effects**: Side effects run (e.g., `update_rank_eligibility` flag set to true).
+4.  **Effects**: Side effects run (e.g., `rank_eligible` flag set to true).
 
 ### Runtime Behavior
 

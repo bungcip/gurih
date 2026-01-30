@@ -73,12 +73,22 @@ enum "AccountType" {
     Expense
 }
 
+enum "NormalBalance" {
+    Debit
+    Credit
+}
+
 entity "Account" {
     field:pk id
     field:string "code" unique=#true
     field:string "name"
     field:enum "type" "AccountType"
-    // ...
+    field:enum "normal_balance" "NormalBalance"
+    field:boolean "is_active" default="true"
+    field:boolean "is_group" default="false"
+
+    // Using self-referencing relationship for hierarchy
+    belongs_to "parent" entity="Account"
 }
 ```
 
@@ -100,6 +110,7 @@ Defined in `journal.kdl`, journal entries capture financial transactions.
 workflow "JournalWorkflow" for="JournalEntry" field="status" {
     state "Draft" initial=#true
     state "Posted" immutable=#true
+    state "Cancelled" immutable=#true
 
     transition "post" {
         from "Draft"
@@ -107,6 +118,9 @@ workflow "JournalWorkflow" for="JournalEntry" field="status" {
         requires {
             balanced_transaction #true
             period_open entity="AccountingPeriod"
+        }
+        effects {
+            // Immutable once posted
         }
     }
 }
