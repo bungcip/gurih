@@ -26,7 +26,7 @@ pub fn hash_password(password: &str) -> String {
     // Iterative hashing (PBKDF2-like) - 100,000 rounds
     for _ in 0..100_000 {
         let mut hasher = Sha256::new();
-        hasher.update(&hash);
+        hasher.update(hash);
         hash = hasher.finalize();
     }
 
@@ -54,7 +54,7 @@ pub fn verify_password(password: &str, stored_value: &str) -> bool {
 
     for _ in 0..100_000 {
         let mut hasher = Sha256::new();
-        hasher.update(&current_hash);
+        hasher.update(current_hash);
         current_hash = hasher.finalize();
     }
 
@@ -81,9 +81,8 @@ impl AuthEngine {
                 if count >= 5 {
                     if last_time.elapsed() < Duration::from_secs(300) {
                         return Err("Too many failed attempts. Please try again later.".to_string());
-                    } else {
-                        attempts.remove(username);
                     }
+                    attempts.remove(username);
                 }
             }
         }
