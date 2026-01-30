@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onUnmounted, watch } from 'vue'
+import { ref, computed, onUnmounted, watch, nextTick } from 'vue'
 
 const props = defineProps({
   modelValue: {
@@ -32,6 +32,7 @@ const emit = defineEmits(['update:modelValue'])
 
 const isOpen = ref(false)
 const containerRef = ref(null)
+const triggerRef = ref(null)
 
 const selectedLabel = computed(() => {
   const selected = props.options.find(opt => opt.value === props.modelValue)
@@ -49,12 +50,59 @@ function toggle() {
 function select(option) {
   emit('update:modelValue', option.value)
   isOpen.value = false
+  triggerRef.value?.focus()
 }
 
 function handleClickOutside(event) {
   if (containerRef.value && !containerRef.value.contains(event.target)) {
     isOpen.value = false
   }
+}
+
+async function openAndFocusNext() {
+  if (!isOpen.value) {
+    isOpen.value = true
+    await nextTick()
+  }
+  focusOption('first')
+}
+
+async function openAndFocusPrev() {
+  if (!isOpen.value) {
+    isOpen.value = true
+    await nextTick()
+  }
+  focusOption('last')
+}
+
+function focusOption(position) {
+  if (!containerRef.value) return
+  const options = containerRef.value.querySelectorAll('[role="option"]:not([aria-disabled="true"])')
+  if (options.length === 0) return
+
+  if (position === 'first') options[0].focus()
+  else if (position === 'last') options[options.length - 1].focus()
+}
+
+function focusNext(event) {
+  let next = event.target.nextElementSibling
+  while (next && next.getAttribute('role') !== 'option') {
+    next = next.nextElementSibling
+  }
+  if (next) next.focus()
+}
+
+function focusPrev(event) {
+  let prev = event.target.previousElementSibling
+  while (prev && prev.getAttribute('role') !== 'option') {
+    prev = prev.previousElementSibling
+  }
+  if (prev) prev.focus()
+}
+
+function closeAndFocusTrigger() {
+  isOpen.value = false
+  triggerRef.value?.focus()
 }
 
 // Bolt Optimization: Only attach global listener when dropdown is open (O(1) vs O(N))
@@ -78,10 +126,14 @@ onUnmounted(() => {
   <div class="relative" ref="containerRef">
     <div 
       :id="id"
+      ref="triggerRef"
       @click="toggle"
       @keydown.enter.prevent="toggle"
       @keydown.space.prevent="toggle"
-      class="input-field flex items-center justify-between cursor-pointer bg-[--color-surface]"
+      @keydown.down.prevent="openAndFocusNext"
+      @keydown.up.prevent="openAndFocusPrev"
+      @keydown.esc="isOpen = false"
+      class="input-field flex items-center justify-between cursor-pointer bg-[--color-surface] focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
       :class="{'text-text-muted': !isSelected, 'border-primary ring-1 ring-primary/20': isOpen}"
       tabindex="0"
       role="combobox"
@@ -127,7 +179,11 @@ onUnmounted(() => {
           @click="select(option)"
           @keydown.enter.prevent="select(option)"
           @keydown.space.prevent="select(option)"
-          class="px-4 py-2 text-sm text-text-main hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary cursor-pointer flex items-center justify-between group"
+          @keydown.down.prevent="focusNext"
+          @keydown.up.prevent="focusPrev"
+          @keydown.esc.prevent="closeAndFocusTrigger"
+          @keydown.tab="isOpen = false"
+          class="px-4 py-2 text-sm text-text-main hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary cursor-pointer flex items-center justify-between group focus:bg-blue-50 focus:text-blue-600 dark:focus:bg-blue-900/30 dark:focus:text-blue-400 focus:outline-none"
           :class="{'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 font-medium': option.value === modelValue}"
           role="option"
           :aria-selected="option.value === modelValue"
