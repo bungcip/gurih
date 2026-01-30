@@ -44,8 +44,7 @@ async fn test_hr_workflow_rules() {
     // However, I need to cast it to DataStore.
     // Explicit type annotation helps.
     let datastore: Arc<dyn DataStore> = Arc::new(MemoryDataStore::new());
-    let engine = DataEngine::new(Arc::new(schema), datastore)
-        .with_plugins(vec![Box::new(HrPlugin)]);
+    let engine = DataEngine::new(Arc::new(schema), datastore).with_plugins(vec![Box::new(HrPlugin)]);
     let ctx = RuntimeContext::system();
 
     // 1. Create Employee
@@ -158,8 +157,7 @@ async fn test_retirement_min_age() {
 
     let schema = compile(kdl, None).unwrap();
     let datastore: Arc<dyn DataStore> = Arc::new(MemoryDataStore::new());
-    let engine = DataEngine::new(Arc::new(schema), datastore)
-        .with_plugins(vec![Box::new(HrPlugin)]);
+    let engine = DataEngine::new(Arc::new(schema), datastore).with_plugins(vec![Box::new(HrPlugin)]);
     let ctx = RuntimeContext::system();
 
     // Calculate birth date for 50 years old (too young)

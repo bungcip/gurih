@@ -37,8 +37,7 @@ async fn test_effective_date_and_rank_eligibility() {
 
     let schema = compile(kdl, None).unwrap();
     let datastore: Arc<dyn DataStore> = Arc::new(MemoryDataStore::new());
-    let engine = DataEngine::new(Arc::new(schema), datastore)
-        .with_plugins(vec![Box::new(HrPlugin)]);
+    let engine = DataEngine::new(Arc::new(schema), datastore).with_plugins(vec![Box::new(HrPlugin)]);
     let ctx = RuntimeContext::system();
 
     // 1. Create Employee

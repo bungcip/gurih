@@ -32,8 +32,7 @@ async fn test_siasn_integration_workflow() {
     // 2. Setup Runtime
     let datastore: Arc<dyn DataStore> = Arc::new(MemoryDataStore::new());
 
-    let engine = DataEngine::new(schema_arc.clone(), datastore)
-        .with_plugins(vec![Box::new(HrPlugin)]);
+    let engine = DataEngine::new(schema_arc.clone(), datastore).with_plugins(vec![Box::new(HrPlugin)]);
     let ctx = RuntimeContext::system(); // Admin context
 
     // 3. Create Pegawai (CPNS)
