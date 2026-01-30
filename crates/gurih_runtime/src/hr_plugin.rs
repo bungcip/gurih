@@ -1,15 +1,18 @@
+use crate::context::RuntimeContext;
 use crate::datastore::DataStore;
 use crate::errors::RuntimeError;
-use crate::plugins::WorkflowPlugin;
+use crate::plugins::Plugin;
+use crate::traits::DataAccess;
 use async_trait::async_trait;
-use gurih_ir::{Expression, Schema, Symbol};
+use gurih_ir::{ActionStep, Expression, Schema, Symbol};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct HrPlugin;
 
 #[async_trait]
-impl WorkflowPlugin for HrPlugin {
+impl Plugin for HrPlugin {
     fn name(&self) -> &str {
         "HrPlugin"
     }
@@ -61,5 +64,16 @@ impl WorkflowPlugin for HrPlugin {
             }
             _ => Ok((Value::Null, vec![], vec![])),
         }
+    }
+
+    async fn execute_action_step(
+        &self,
+        _step_name: &str,
+        _step: &ActionStep,
+        _params: &HashMap<String, String>,
+        _data_access: &dyn DataAccess,
+        _ctx: &RuntimeContext,
+    ) -> Result<bool, RuntimeError> {
+        Ok(false)
     }
 }

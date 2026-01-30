@@ -1,11 +1,14 @@
 use crate::auth::hash_password;
 use crate::context::RuntimeContext;
 use crate::datastore::DataStore;
-use crate::plugins::WorkflowPlugin;
+use crate::plugins::Plugin;
 use crate::query_engine::{QueryEngine, QueryPlan};
+use crate::traits::DataAccess;
 use crate::workflow::WorkflowEngine;
+use async_trait::async_trait;
 use gurih_ir::{DatabaseType, FieldType, Schema, Symbol};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -13,6 +16,43 @@ pub struct DataEngine {
     schema: Arc<Schema>,
     datastore: Arc<dyn DataStore>,
     workflow: WorkflowEngine,
+}
+
+#[async_trait]
+impl DataAccess for DataEngine {
+    fn get_schema(&self) -> &Schema {
+        &self.schema
+    }
+
+    fn datastore(&self) -> &Arc<dyn DataStore> {
+        &self.datastore
+    }
+
+    async fn create(&self, entity_name: &str, data: Value, ctx: &RuntimeContext) -> Result<String, String> {
+        self.create(entity_name, data, ctx).await
+    }
+
+    async fn read(&self, entity_name: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
+        self.read(entity_name, id).await
+    }
+
+    async fn update(&self, entity_name: &str, id: &str, data: Value, ctx: &RuntimeContext) -> Result<(), String> {
+        self.update(entity_name, id, data, ctx).await
+    }
+
+    async fn delete(&self, entity_name: &str, id: &str, ctx: &RuntimeContext) -> Result<(), String> {
+        self.delete(entity_name, id, ctx).await
+    }
+
+    async fn list(
+        &self,
+        entity: &str,
+        limit: Option<usize>,
+        offset: Option<usize>,
+        filters: Option<HashMap<String, String>>,
+    ) -> Result<Vec<Arc<Value>>, String> {
+        self.list(entity, limit, offset, filters).await
+    }
 }
 
 impl DataEngine {
@@ -24,7 +64,7 @@ impl DataEngine {
         }
     }
 
-    pub fn with_plugins(mut self, plugins: Vec<Box<dyn WorkflowPlugin>>) -> Self {
+    pub fn with_plugins(mut self, plugins: Vec<Box<dyn Plugin>>) -> Self {
         self.workflow = self.workflow.with_plugins(plugins);
         self
     }

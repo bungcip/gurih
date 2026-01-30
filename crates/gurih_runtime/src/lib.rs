@@ -17,5 +17,6 @@ pub mod portal;
 pub mod query_engine;
 pub mod storage;
 pub mod store;
+pub mod traits;
 pub mod validation;
 pub mod workflow;
