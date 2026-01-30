@@ -19,7 +19,7 @@ async fn test_effective_date_and_rank_eligibility() {
                 valid_effective_date "tmt_promotion"
             }
             effects {
-                update_rank_eligibility "true"
+                update "rank_eligible" "true"
                 update "last_promotion_date" "2024-01-01"
             }
         }

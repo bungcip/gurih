@@ -85,7 +85,7 @@ async fn test_siasn_integration_workflow() {
 
     // 6. Transition PNS -> Nonaktif (Test new feature)
     // Requires: document "sk_pemberhentian"
-    // Effects: suspend_payroll #true -> is_payroll_active = false
+    // Effects: update "is_payroll_active" "false"
 
     // Attempt fail
     let update_to_nonaktif = json!({
@@ -110,7 +110,7 @@ async fn test_siasn_integration_workflow() {
     let emp = engine.read("Pegawai", &id).await.unwrap().unwrap();
     assert_eq!(emp.get("status_pegawai").unwrap(), "Nonaktif");
 
-    // Check suspend_payroll effect
+    // Check effect
     // The effect sets is_payroll_active to false.
     // Check if the field is present and false.
     let payroll_active = emp.get("is_payroll_active");

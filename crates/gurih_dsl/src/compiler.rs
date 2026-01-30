@@ -142,27 +142,13 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 .iter()
                 .map(|e| match e {
                     ast::TransitionEffectDef::Custom { name, args, .. } => {
-                        if name == "suspend_payroll" {
-                            let suspend = args.first().map(|s| s == "true").unwrap_or(false);
-                            TransitionEffect::UpdateField {
-                                field: Symbol::from("is_payroll_active"),
-                                value: (!suspend).to_string(),
-                            }
-                        } else if name == "update_rank_eligibility" {
-                            let active = args.first().map(|s| s == "true").unwrap_or(false);
-                            TransitionEffect::UpdateField {
-                                field: Symbol::from("rank_eligible"),
-                                value: active.to_string(),
-                            }
-                        } else {
-                            let expr_args = args
-                                .iter()
-                                .map(|s| gurih_ir::Expression::StringLiteral(s.clone()))
-                                .collect();
-                            TransitionEffect::Custom {
-                                name: Symbol::from(name.as_str()),
-                                args: expr_args,
-                            }
+                        let expr_args = args
+                            .iter()
+                            .map(|s| gurih_ir::Expression::StringLiteral(s.clone()))
+                            .collect();
+                        TransitionEffect::Custom {
+                            name: Symbol::from(name.as_str()),
+                            args: expr_args,
                         }
                     }
                     ast::TransitionEffectDef::Notify { target, .. } => {
