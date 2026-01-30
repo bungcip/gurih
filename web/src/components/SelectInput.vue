@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted, watch } from 'vue'
 
 const props = defineProps({
   modelValue: {
@@ -57,8 +57,16 @@ function handleClickOutside(event) {
   }
 }
 
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
+// Bolt Optimization: Only attach global listener when dropdown is open (O(1) vs O(N))
+watch(isOpen, (newValue) => {
+  if (newValue) {
+    // Use setTimeout to avoid immediate closing if the opening click bubbled up
+    setTimeout(() => {
+      document.addEventListener('click', handleClickOutside)
+    }, 0)
+  } else {
+    document.removeEventListener('click', handleClickOutside)
+  }
 })
 
 onUnmounted(() => {
