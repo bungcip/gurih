@@ -2,6 +2,7 @@ use gurih_dsl::compiler::compile;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::{DataStore, MemoryDataStore};
+use gurih_runtime::hr_plugin::HrPlugin;
 use serde_json::json;
 use std::sync::Arc;
 
@@ -31,7 +32,7 @@ async fn test_siasn_integration_workflow() {
     // 2. Setup Runtime
     let datastore: Arc<dyn DataStore> = Arc::new(MemoryDataStore::new());
 
-    let engine = DataEngine::new(schema_arc.clone(), datastore);
+    let engine = DataEngine::new(schema_arc.clone(), datastore).with_plugins(vec![Box::new(HrPlugin)]);
     let ctx = RuntimeContext::system(); // Admin context
 
     // 3. Create Pegawai (CPNS)
