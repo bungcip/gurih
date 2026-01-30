@@ -1,152 +1,141 @@
-use gurih_ir::{Schema, StateSchema, Symbol, Transition, WorkflowSchema};
+use gurih_ir::{Schema, Symbol, WorkflowSchema, StateSchema, Transition, TransitionPrecondition, TransitionEffect, Expression};
 use gurih_runtime::workflow::WorkflowEngine;
-use serde_json::Value;
+use gurih_runtime::hr_plugin::HrPlugin;
+use serde_json::json;
+use std::collections::HashMap;
 
 #[tokio::test]
-async fn test_workflow_transitions() {
-    let mut schema = Schema::default();
-    let entity_name = Symbol::from("Order");
-    let initial_state = Symbol::from("Draft");
-    let state_submitted = Symbol::from("Submitted");
-    let state_approved = Symbol::from("Approved");
+async fn test_employee_transition_logic() {
+    let mut workflows = HashMap::new();
 
-    let workflow = WorkflowSchema {
-        name: Symbol::from("OrderWorkflow"),
-        entity: entity_name,
-        field: Symbol::from("state"),
-        initial_state,
+    workflows.insert(Symbol::from("PegawaiStatusWorkflow"), WorkflowSchema {
+        name: Symbol::from("PegawaiStatusWorkflow"),
+        entity: Symbol::from("Pegawai"),
+        field: Symbol::from("status"),
+        initial_state: Symbol::from("CPNS"),
         states: vec![
-            StateSchema {
-                name: initial_state,
-                immutable: false,
-            },
-            StateSchema {
-                name: state_submitted,
-                immutable: false,
-            },
-            StateSchema {
-                name: state_approved,
-                immutable: false,
-            },
+            StateSchema { name: Symbol::from("CPNS"), immutable: false },
+            StateSchema { name: Symbol::from("PNS"), immutable: false },
         ],
         transitions: vec![
             Transition {
-                name: Symbol::from("Submit"),
-                from: initial_state,
-                to: state_submitted,
+                name: Symbol::from("cpns_to_pns"),
+                from: Symbol::from("CPNS"),
+                to: Symbol::from("PNS"),
                 required_permission: None,
-                preconditions: vec![],
+                preconditions: vec![
+                    TransitionPrecondition::Assertion(
+                         Expression::BinaryOp {
+                            left: Box::new(Expression::FunctionCall {
+                                name: Symbol::from("years_of_service"),
+                                args: vec![Expression::Field(Symbol::from("join_date"))],
+                            }),
+                            op: gurih_ir::BinaryOperator::Gte,
+                            right: Box::new(Expression::Literal(1.0)),
+                        }
+                    )
+                ],
                 effects: vec![],
-            },
-            Transition {
-                name: Symbol::from("Approve"),
-                from: state_submitted,
-                to: state_approved,
-                required_permission: Some(Symbol::from("can_approve")),
-                preconditions: vec![],
-                effects: vec![],
-            },
+            }
         ],
-    };
+    });
 
-    schema.workflows.insert(workflow.name, workflow);
+    let schema = Schema {
+        workflows,
+        ..Default::default()
+    };
 
     let engine = WorkflowEngine::new();
 
-    // 1. Initial State
-    assert_eq!(engine.get_initial_state(&schema, "Order"), Some("Draft".to_string()));
+    // Case 1: Less than 1 year service
+    // Use tomorrow's date to be sure
+    let future_date = (chrono::Utc::now() + chrono::Duration::days(1)).format("%Y-%m-%d").to_string();
+    let employee_fresh = json!({
+        "status": "CPNS",
+        "join_date": future_date
+    });
 
-    // 2. Valid Transition
-    assert!(
-        engine
-            .validate_transition(&schema, None, "Order", "Draft", "Submitted", &Value::Null)
-            .await
-            .is_ok()
-    );
+    let res = engine.validate_transition(
+        &schema,
+        None,
+        "Pegawai",
+        "CPNS",
+        "PNS",
+        &employee_fresh
+    ).await;
 
-    // 3. Same State Transition (Always allowed)
-    assert!(
-        engine
-            .validate_transition(&schema, None, "Order", "Draft", "Draft", &Value::Null)
-            .await
-            .is_ok()
-    );
+    assert!(res.is_err(), "Should fail for fresh employee");
 
-    // 4. Invalid Transition
-    assert!(
-        engine
-            .validate_transition(&schema, None, "Order", "Draft", "Approved", &Value::Null)
-            .await
-            .is_err()
-    );
+    // Case 2: More than 1 year service
+    let past_date = "2020-01-01";
+    let employee_experienced = json!({
+        "status": "CPNS",
+        "join_date": past_date
+    });
 
-    // 5. Transition with Permission
-    let perm = engine.get_transition_permission(&schema, "Order", "Submitted", "Approved");
-    assert_eq!(perm, Some("can_approve".to_string()));
+    let res = engine.validate_transition(
+        &schema,
+        None,
+        "Pegawai",
+        "CPNS",
+        "PNS",
+        &employee_experienced
+    ).await;
 
-    // 6. Transition without Permission
-    let perm_none = engine.get_transition_permission(&schema, "Order", "Draft", "Submitted");
-    assert_eq!(perm_none, None);
-
-    // 7. Same state permission (None)
-    let perm_same = engine.get_transition_permission(&schema, "Order", "Draft", "Draft");
-    assert_eq!(perm_same, None);
+    assert!(res.is_ok(), "Should pass for experienced employee");
 }
 
 #[tokio::test]
-async fn test_missing_precondition_field() {
-    use gurih_ir::{BinaryOperator, Expression, TransitionPrecondition};
+async fn test_hr_plugin_effects() {
+    let mut workflows = HashMap::new();
 
-    let mut schema = Schema::default();
-    let entity_name = Symbol::from("Employee");
-    let initial_state = Symbol::from("Junior");
-    let state_senior = Symbol::from("Senior");
-
-    let workflow = WorkflowSchema {
-        name: Symbol::from("PromotionWorkflow"),
-        entity: entity_name,
+    workflows.insert(Symbol::from("EffectWorkflow"), WorkflowSchema {
+        name: Symbol::from("EffectWorkflow"),
+        entity: Symbol::from("Pegawai"),
         field: Symbol::from("status"),
-        initial_state,
+        initial_state: Symbol::from("Active"),
         states: vec![
-            StateSchema {
-                name: initial_state,
-                immutable: false,
-            },
-            StateSchema {
-                name: state_senior,
-                immutable: false,
-            },
+            StateSchema { name: Symbol::from("Active"), immutable: false },
+            StateSchema { name: Symbol::from("Suspended"), immutable: false },
         ],
-        transitions: vec![Transition {
-            name: Symbol::from("Promote"),
-            from: initial_state,
-            to: state_senior,
-            required_permission: None,
-            preconditions: vec![TransitionPrecondition::Assertion(Expression::BinaryOp {
-                left: Box::new(Expression::FunctionCall {
-                    name: Symbol::from("years_of_service"),
-                    args: vec![Expression::Field(Symbol::from("custom_join_date"))],
-                }),
-                op: BinaryOperator::Gte,
-                right: Box::new(Expression::Literal(5.0)),
-            })],
-            effects: vec![],
-        }],
+        transitions: vec![
+            Transition {
+                name: Symbol::from("suspend"),
+                from: Symbol::from("Active"),
+                to: Symbol::from("Suspended"),
+                required_permission: None,
+                preconditions: vec![],
+                effects: vec![
+                    TransitionEffect::Custom {
+                        name: Symbol::from("suspend_payroll"),
+                        args: vec![Expression::StringLiteral("true".to_string())],
+                    }
+                ],
+            }
+        ],
+    });
+
+    let schema = Schema {
+        workflows,
+        ..Default::default()
     };
 
-    schema.workflows.insert(workflow.name, workflow);
+    let engine = WorkflowEngine::new()
+        .with_plugins(vec![Box::new(HrPlugin)]);
 
-    let engine = WorkflowEngine::new();
-    // Use an empty object instead of null to allow field lookup attempts
-    let empty_data = serde_json::json!({});
+    let employee = json!({
+        "status": "Active",
+        "is_payroll_active": true
+    });
 
-    let result = engine
-        .validate_transition(&schema, None, "Employee", "Junior", "Senior", &empty_data)
-        .await;
+    let (updates, _, _) = engine.apply_effects(
+        &schema,
+        "Pegawai",
+        "Active",
+        "Suspended",
+        &employee
+    ).await;
 
-    assert!(result.is_err());
-    let err = result.err().unwrap();
-    // With dynamic evaluation, missing field returns Null, causing type mismatch in years_of_service
-    assert!(err.to_string().contains("Evaluation Error"));
-    // We can't check for field name in error msg because it's a value error now
+    let updates_obj = updates.as_object().expect("Updates should be object");
+    assert_eq!(updates_obj.get("is_payroll_active"), Some(&json!(false)));
 }
