@@ -175,10 +175,8 @@ impl Plugin for FinancePlugin {
         _entity_name: &str,
         _entity_data: &Value,
     ) -> Result<(Value, Vec<String>, Vec<Symbol>), RuntimeError> {
-        if name == "post_journal" {
-            if let Some(Expression::StringLiteral(rule)) = args.first() {
-                return Ok((Value::Null, vec![], vec![Symbol::from(rule.as_str())]));
-            }
+        if name == "post_journal" && let Some(Expression::StringLiteral(rule)) = args.first() {
+            return Ok((Value::Null, vec![], vec![Symbol::from(rule.as_str())]));
         }
         Ok((Value::Null, vec![], vec![]))
     }

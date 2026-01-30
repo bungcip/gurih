@@ -222,14 +222,14 @@ impl QueryEngine {
             }
             Expression::FunctionCall { name, args } => {
                 if name.as_str() == "param" {
-                    if let Some(Expression::StringLiteral(key)) = args.first() {
-                        if let Some(val) = runtime_params.get(key) {
-                            params.push(val.clone());
-                            if *db_type == DatabaseType::Postgres {
-                                return format!("${}", params.len());
-                            } else {
-                                return "?".to_string();
-                            }
+                    if let Some(Expression::StringLiteral(key)) = args.first()
+                        && let Some(val) = runtime_params.get(key)
+                    {
+                        params.push(val.clone());
+                        if *db_type == DatabaseType::Postgres {
+                            return format!("${}", params.len());
+                        } else {
+                            return "?".to_string();
                         }
                     }
                     return "NULL".to_string();

@@ -342,33 +342,31 @@ impl DataEngine {
             .await?;
 
         // Audit Trail (Post-update)
-        if track_changes {
-            if let Some(current) = &current_record_opt {
-                let mut changes = serde_json::Map::new();
-                if let Some(new_obj) = data.as_object() {
-                    if let Some(old_obj) = current.as_object() {
-                        for (k, new_v) in new_obj {
-                            if k == "id" {
-                                continue;
-                            }
-                            let old_v = old_obj.get(k).unwrap_or(&Value::Null);
-                            if new_v != old_v {
-                                changes.insert(
-                                    k.clone(),
-                                    serde_json::json!({
-                                        "old": old_v,
-                                        "new": new_v
-                                    }),
-                                );
-                            }
-                        }
+        if track_changes && let Some(current) = &current_record_opt {
+            let mut changes = serde_json::Map::new();
+            if let Some(new_obj) = data.as_object()
+                && let Some(old_obj) = current.as_object()
+            {
+                for (k, new_v) in new_obj {
+                    if k == "id" {
+                        continue;
+                    }
+                    let old_v = old_obj.get(k).unwrap_or(&Value::Null);
+                    if new_v != old_v {
+                        changes.insert(
+                            k.clone(),
+                            serde_json::json!({
+                                "old": old_v,
+                                "new": new_v
+                            }),
+                        );
                     }
                 }
+            }
 
-                if !changes.is_empty() {
-                    let diff = serde_json::to_string(&changes).unwrap_or_default();
-                    self.log_audit(entity_name, id, "UPDATE", ctx, Some(diff)).await?;
-                }
+            if !changes.is_empty() {
+                let diff = serde_json::to_string(&changes).unwrap_or_default();
+                self.log_audit(entity_name, id, "UPDATE", ctx, Some(diff)).await?;
             }
         }
 

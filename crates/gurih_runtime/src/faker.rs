@@ -157,11 +157,11 @@ impl FakerEngine {
 
             // Also check fields with references (explicit FKs)
             for field in &entity_schema.fields {
-                if let Some(target) = &field.references {
-                    if target != entity_name && schema.entities.contains_key(target) {
-                        adj.entry(*target).or_default().push(*entity_name);
-                        *in_degree.entry(*entity_name).or_insert(0) += 1;
-                    }
+                if let Some(target) = &field.references
+                    && target != entity_name && schema.entities.contains_key(target)
+                {
+                    adj.entry(*target).or_default().push(*entity_name);
+                    *in_degree.entry(*entity_name).or_insert(0) += 1;
                 }
             }
         }
