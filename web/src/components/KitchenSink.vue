@@ -19,6 +19,7 @@ import ActionCard from './ActionCard.vue'
 import Alert from './Alert.vue'
 import Drawer from './Drawer.vue'
 import TreeView from './TreeView.vue'
+import DiscussionPanel from './DiscussionPanel.vue'
 import { inject } from 'vue'
 
 const isDarkMode = ref(false)
@@ -248,6 +249,22 @@ const treeData = [
 ]
 const treeExpanded = ref(['root', 'tech', 'eng'])
 const treeSelected = ref('fe')
+
+const discussionItems = ref([
+    { id: 1, author: 'Alice Smith', date: '2 hours ago', content: 'Customer requested a callback regarding the Q4 invoice.' },
+    { id: 2, author: 'Bob Jones', date: '1 hour ago', content: 'I tried calling but no answer. Left a voicemail.' },
+    { id: 3, author: 'Charlie Day', date: 'Just now', content: 'They just emailed back. Updating the ticket status.', avatar: 'CD' }
+])
+
+function onDiscussionSubmit(text) {
+    discussionItems.value.push({
+        id: Date.now(),
+        author: 'You',
+        date: 'Just now',
+        content: text
+    })
+    triggerToast('success')
+}
 </script>
 
 <template>
@@ -754,6 +771,44 @@ const treeSelected = ref('fe')
                     <div class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg min-h-[300px]">
                         <TreeView error="Failed to load hierarchy." />
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Collaboration & Notes -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Collaboration & Notes</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Interactive -->
+                <div class="h-[400px]">
+                    <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Interactive Discussion</h3>
+                    <DiscussionPanel
+                        title="Ticket Notes"
+                        :items="discussionItems"
+                        @submit="onDiscussionSubmit"
+                    />
+                </div>
+
+                <!-- Read Only -->
+                <div class="h-[400px]">
+                     <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Read Only</h3>
+                     <DiscussionPanel
+                        title="Audit Log (Read Only)"
+                        :items="discussionItems.slice(0, 2)"
+                        readOnly
+                    />
+                </div>
+
+                 <!-- Loading / Empty / Error -->
+                 <div class="space-y-8 h-[400px] flex flex-col">
+                     <div class="flex-1 min-h-0">
+                         <h3 class="text-sm font-medium text-text-muted mb-2 uppercase tracking-wider">Loading State</h3>
+                         <DiscussionPanel loading />
+                     </div>
+                     <div class="flex-1 min-h-0">
+                         <h3 class="text-sm font-medium text-text-muted mb-2 uppercase tracking-wider">Empty State</h3>
+                         <DiscussionPanel :items="[]" />
+                     </div>
                 </div>
             </div>
         </section>
