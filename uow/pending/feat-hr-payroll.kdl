@@ -1,0 +1,117 @@
+module "Payroll" {
+    enum "PayrollStatus" {
+        Draft
+        Approved
+        Paid
+        Cancelled
+    }
+
+    serial_generator "PayrollCode" {
+        prefix "PAY/"
+        date "YYYY/MM"
+        sequence digits=4
+    }
+
+    entity "PayrollRun" {
+        field:pk id
+        field:serial "run_number" serial_generator="PayrollCode"
+        field:string "period_name" // Matches doc.period_name in integration.kdl
+        field:date "payment_date"  // Matches doc.payment_date
+
+        field:date "start_date"
+        field:date "end_date"
+
+        field:enum "status" "PayrollStatus" default="Draft"
+
+        // Aggregates for Finance Integration
+        field:money "total_gross_pay" // Matches doc.total_gross_pay
+        field:money "total_tax"       // Matches doc.total_tax
+        field:money "total_net_pay"   // Matches doc.total_net_pay
+
+        has_many "details" "PayrollDetail" type="composition"
+
+        options {
+            is_submittable #true
+            track_changes #true
+        }
+    }
+
+    entity "PayrollDetail" {
+        field:pk id
+        belongs_to "PayrollRun"
+        belongs_to "Employee"
+
+        field:money "gross_pay"
+        field:money "tax"
+        field:money "net_pay"
+    }
+
+    workflow "PayrollWorkflow" for="PayrollRun" field="status" {
+        state "Draft" initial=#true
+        state "Approved"
+        state "Paid" immutable=#true
+        state "Cancelled" immutable=#true
+
+        transition "submit" {
+            from "Draft"
+            to "Approved"
+        }
+
+        transition "pay" {
+            from "Approved"
+            to "Paid"
+            effects {
+                post_journal "PayrollPosting" // Triggers finance integration
+            }
+        }
+
+        transition "cancel" {
+            from "Draft" "Approved"
+            to "Cancelled"
+        }
+    }
+
+    // UI Configuration
+    page "PayrollRunList" {
+        title "Payroll Runs"
+        datatable for="PayrollRun" {
+            column "run_number"
+            column "period_name"
+            column "payment_date"
+            column "status"
+            column "total_net_pay" label="Total Payout"
+
+            action "View" icon="file-text" to="/payroll/runs/:id"
+        }
+    }
+
+    page "PayrollRunForm" {
+        title "Payroll Run"
+        form for="PayrollRun" {
+            section "Period Info" {
+                field "period_name"
+                group {
+                    field "start_date"
+                    field "end_date"
+                }
+                field "payment_date"
+            }
+
+            section "Totals" {
+                group {
+                    field "total_gross_pay"
+                    field "total_tax"
+                    field "total_net_pay"
+                }
+            }
+        }
+    }
+
+    routes {
+        group "/payroll" permission="hr.payroll.view" {
+             route "/runs" to="PayrollRunList"
+             route "/runs/new" to="PayrollRunForm" permission="hr.payroll.create"
+             route "/runs/:id" to="PayrollRunForm" permission="hr.payroll.edit"
+        }
+    }
+}
