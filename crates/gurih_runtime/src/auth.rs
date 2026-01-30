@@ -12,6 +12,7 @@ pub struct AuthEngine {
     // Track failed attempts: Username -> (Count, Timestamp of first failure in window)
     login_attempts: Arc<Mutex<HashMap<String, (u32, Instant)>>>,
     user_table: String,
+    dummy_hash: String,
 }
 
 pub fn hash_password(password: &str) -> String {
@@ -26,7 +27,7 @@ pub fn hash_password(password: &str) -> String {
     // Iterative hashing (PBKDF2-like) - 100,000 rounds
     for _ in 0..100_000 {
         let mut hasher = Sha256::new();
-        hasher.update(&hash);
+        hasher.update(hash);
         hash = hasher.finalize();
     }
 
@@ -54,7 +55,7 @@ pub fn verify_password(password: &str, stored_value: &str) -> bool {
 
     for _ in 0..100_000 {
         let mut hasher = Sha256::new();
-        hasher.update(&current_hash);
+        hasher.update(current_hash);
         current_hash = hasher.finalize();
     }
 
@@ -64,14 +65,18 @@ pub fn verify_password(password: &str, stored_value: &str) -> bool {
 
 impl AuthEngine {
     pub fn new(datastore: Arc<dyn DataStore>, user_table: Option<String>) -> Self {
+        // Use a random password for dummy hash so it matches nothing known
+        let dummy_hash = hash_password(&Uuid::new_v4().to_string());
         Self {
             datastore,
             sessions: Arc::new(Mutex::new(HashMap::new())),
             login_attempts: Arc::new(Mutex::new(HashMap::new())),
             user_table: user_table.unwrap_or_else(|| "User".to_string()),
+            dummy_hash,
         }
     }
 
+    #[allow(clippy::collapsible_if)]
     pub async fn login(&self, username: &str, password: &str) -> Result<RuntimeContext, String> {
         // Rate Limiting Check
         {
@@ -94,19 +99,23 @@ impl AuthEngine {
         let users = self.datastore.find(&self.user_table, filters).await?;
 
         // Determine if login is successful
-        let mut login_success = false;
+        let mut stored_password = self.dummy_hash.as_str();
         let mut user_ref = None;
 
         if !users.is_empty() {
             let user = &users[0];
-            let stored_password = user.get("password").and_then(|v| v.as_str()).unwrap_or_default();
-            if verify_password(password, stored_password) {
-                login_success = true;
-                user_ref = Some(user);
-            }
+            // If password field is missing/null, use dummy_hash to fail verification
+            stored_password = user
+                .get("password")
+                .and_then(|v| v.as_str())
+                .unwrap_or(self.dummy_hash.as_str());
+            user_ref = Some(user);
         }
 
-        if !login_success {
+        // Always verify password to prevent timing attacks
+        let password_valid = verify_password(password, stored_password);
+
+        if users.is_empty() || !password_valid {
             let mut attempts = self.login_attempts.lock().unwrap();
             let entry = attempts.entry(username.to_string()).or_insert((0, Instant::now()));
 
@@ -155,5 +164,43 @@ impl AuthEngine {
 
     pub fn verify_token(&self, token: &str) -> Option<RuntimeContext> {
         self.sessions.lock().unwrap().get(token).cloned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::datastore::MemoryDataStore;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn test_login_timing_mitigation_logic() {
+        let store = Arc::new(MemoryDataStore::new());
+        let auth = AuthEngine::new(store.clone(), None);
+
+        // 1. Test non-existent user
+        let result = auth.login("nonexistent", "password").await;
+        assert_eq!(result.err().unwrap(), "Invalid username or password");
+
+        // 2. Test existing user with wrong password
+        let hashed = hash_password("correct_password");
+        store
+            .insert(
+                "User",
+                json!({
+                    "username": "existing",
+                    "password": hashed,
+                    "role": "user"
+                }),
+            )
+            .await
+            .unwrap();
+
+        let result = auth.login("existing", "wrong_password").await;
+        assert_eq!(result.err().unwrap(), "Invalid username or password");
+
+        // 3. Test existing user with correct password
+        let result = auth.login("existing", "correct_password").await;
+        assert!(result.is_ok());
     }
 }
