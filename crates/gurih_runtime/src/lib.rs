@@ -8,6 +8,7 @@ pub mod errors;
 pub mod evaluator;
 pub mod faker;
 pub mod form;
+pub mod hr_plugin;
 pub mod image_processor;
 pub mod page;
 pub mod persistence;
