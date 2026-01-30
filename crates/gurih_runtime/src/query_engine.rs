@@ -464,4 +464,37 @@ mod tests {
         assert_eq!(params.len(), 1);
         assert_eq!(params[0], Value::from(100));
     }
+
+    #[test]
+    fn test_nested_field_expression() {
+        let mut schema = Schema::default();
+        let query = QuerySchema {
+            name: "NestedQuery".into(),
+            params: vec![],
+            root_entity: "User".into(),
+            query_type: QueryType::Flat,
+            selections: vec![QuerySelection {
+                field: "id".into(),
+                alias: None,
+            }],
+            formulas: vec![],
+            filters: vec![Expression::BinaryOp {
+                left: Box::new(Expression::Field("user.profile.age".into())),
+                op: BinaryOperator::Gte,
+                right: Box::new(Expression::Literal(18.0)),
+            }],
+            joins: vec![],
+            group_by: vec![],
+        };
+        schema.queries.insert("NestedQuery".into(), query);
+
+        let runtime_params = std::collections::HashMap::new();
+        let strategy = QueryEngine::plan(&schema, "NestedQuery", &runtime_params).expect("Failed to plan");
+        let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0];
+
+        println!("Nested SQL: {}", sql);
+
+        // Verify that user.profile.age is converted to [user].[profile].[age]
+        assert!(sql.contains("[user].[profile].[age]"));
+    }
 }
