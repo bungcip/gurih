@@ -14,6 +14,7 @@ import Modal from './Modal.vue'
 import Timeline from './Timeline.vue'
 import Steps from './Steps.vue'
 import MetricCard from './MetricCard.vue'
+import ProgressBar from './ProgressBar.vue'
 import DescriptionList from './DescriptionList.vue'
 import ActionCard from './ActionCard.vue'
 import Alert from './Alert.vue'
@@ -255,6 +256,8 @@ const discussionItems = ref([
     { id: 2, author: 'Bob Jones', date: '1 hour ago', content: 'I tried calling but no answer. Left a voicemail.' },
     { id: 3, author: 'Charlie Day', date: 'Just now', content: 'They just emailed back. Updating the ticket status.', avatar: 'CD' }
 ])
+
+const progressValue = ref(65)
 
 function onDiscussionSubmit(text) {
     discussionItems.value.push({
@@ -545,6 +548,34 @@ function onDiscussionSubmit(text) {
                     label="Null Value"
                     icon="calendar"
                 />
+            </div>
+        </section>
+
+        <!-- Progress Indicators -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Progress Indicators</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="space-y-6">
+                    <h3 class="text-sm font-medium text-text-muted uppercase tracking-wider">Standard Variants</h3>
+                    <ProgressBar :value="75" label="Project Completion" variant="primary" showValue />
+                    <ProgressBar :value="50" label="Budget Utilization" variant="warning" showValue />
+                    <ProgressBar :value="92" label="Server CPU Load" variant="danger" showValue />
+                    <ProgressBar :value="100" label="Onboarding Task" variant="success" showValue />
+                </div>
+                <div class="space-y-6">
+                    <h3 class="text-sm font-medium text-text-muted uppercase tracking-wider">Styles & Sizes</h3>
+                    <ProgressBar :value="progressValue" label="Processing Data (Striped)" variant="info" striped showValue />
+                    <ProgressBar :value="20" label="Small Size" size="sm" />
+                    <ProgressBar :value="60" label="Large Size" size="lg" showValue />
+                    <ProgressBar :value="80" label="Extra Large (Text Inside)" size="xl" showValue variant="primary" striped />
+                </div>
+                <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div class="space-y-6">
+                        <h3 class="text-sm font-medium text-text-muted uppercase tracking-wider">States</h3>
+                        <ProgressBar :loading="true" label="Calculating storage..." />
+                        <ProgressBar error="Failed to fetch quota limits." label="Storage Quota" :value="0" />
+                     </div>
+                </div>
             </div>
         </section>
 
