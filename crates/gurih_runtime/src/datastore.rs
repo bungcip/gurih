@@ -131,11 +131,13 @@ impl DataStore for MemoryDataStore {
                 .values()
                 .filter(|record| {
                     for (k, v) in &filters {
-                        if let Some(val) = record.get(k).and_then(|val| val.as_str()) {
-                            if val != v {
-                                return false;
-                            }
-                        } else {
+                        let val_str = match record.get(k) {
+                            Some(Value::String(s)) => s.clone(),
+                            Some(Value::Number(n)) => n.to_string(),
+                            Some(Value::Bool(b)) => b.to_string(),
+                            _ => return false,
+                        };
+                        if val_str != *v {
                             return false;
                         }
                     }
@@ -156,13 +158,13 @@ impl DataStore for MemoryDataStore {
                 .values()
                 .filter(|record| {
                     for (k, v) in &filters {
-                        if let Some(val) = record.get(k).and_then(|val| val.as_str()) {
-                            if val != v {
-                                return false;
-                            }
-                        } else {
-                            // If field is missing or not a string, for now assume no match
-                            // Ideally handle other types by converting to string
+                        let val_str = match record.get(k) {
+                            Some(Value::String(s)) => s.clone(),
+                            Some(Value::Number(n)) => n.to_string(),
+                            Some(Value::Bool(b)) => b.to_string(),
+                            _ => return false,
+                        };
+                        if val_str != *v {
                             return false;
                         }
                     }

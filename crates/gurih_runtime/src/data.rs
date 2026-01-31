@@ -387,24 +387,54 @@ impl DataEngine {
             .values()
             .find(|w| w.entity == Symbol::from(entity_name));
 
-        if let Some(wf) = workflow
-            && let Some(record) = self.read(entity_name, id).await?
-        {
-            let current_state = record.get(wf.field.as_str()).and_then(|v| v.as_str()).unwrap_or("");
+        let delete_event = format!("{}:delete", entity_name);
+        let delete_event_sym = Symbol::from(&delete_event);
+        let has_delete_rules = self.schema.rules.values().any(|r| r.on_event == delete_event_sym);
+
+        let track_changes = entity_schema
+            .options
+            .get("track_changes")
+            .map(|v| v == "true")
+            .unwrap_or(false);
+
+        let mut current_record_opt: Option<Arc<Value>> = None;
+
+        if workflow.is_some() || has_delete_rules {
+            current_record_opt = self.read(entity_name, id).await?;
+        }
+
+        if let Some(wf) = workflow {
+            let record = current_record_opt.as_ref().ok_or("Record not found")?;
+            let current_state = record
+                .get(wf.field.as_str())
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
 
             if let Some(state_schema) = wf.states.iter().find(|s| s.name == Symbol::from(current_state))
                 && state_schema.immutable
             {
-                return Err(format!("Cannot delete record in immutable state '{}'", current_state));
+                return Err(format!(
+                    "Cannot delete record in immutable state '{}'",
+                    current_state
+                ));
             }
         }
 
-        self.datastore.delete(entity_schema.table_name.as_str(), id).await?;
+        // Rule Check (Delete)
+        if has_delete_rules {
+            if let Some(current) = &current_record_opt {
+                self.check_rules(entity_name, "delete", current, None).await?;
+            } else {
+                return Err("Record not found for rule validation".to_string());
+            }
+        }
+
+        self.datastore
+            .delete(entity_schema.table_name.as_str(), id)
+            .await?;
 
         // Audit Trail
-        if let Some(val) = entity_schema.options.get("track_changes")
-            && val == "true"
-        {
+        if track_changes {
             self.log_audit(entity_name, id, "DELETE", ctx, None).await?;
         }
 
