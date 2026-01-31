@@ -1,3 +1,7 @@
 ## 2024-05-23 - Vue Reactivity & Expensive Instantiations
 **Learning:** `v-for` loops in Vue templates that execute expensive constructor calls (like `new Intl.NumberFormat`) re-run those constructors on every render/update, causing significant performance overhead in large lists.
 **Action:** Extract expensive formatters or computations into cached helpers or computed properties outside the render loop.
+
+## 2026-01-31 - Missing Frontend Tests
+**Learning:** The `web` directory lacks a test suite (no `test` script in `package.json`), making automated verification of UI performance optimizations impossible without setting up a test runner.
+**Action:** Rely on `build` verification and manual code inspection. Tread carefully with logic changes.

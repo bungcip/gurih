@@ -1,3 +1,9 @@
+<script>
+// Optimization: Hoist currency formatters to share Intl instances across all DataTable components
+// This prevents expensive Intl.NumberFormat instantiation for every table row/render
+const currencyFormatters = new Map()
+</script>
+
 <script setup>
 import Button from './Button.vue'
 import StatusBadge from './StatusBadge.vue'
@@ -10,8 +16,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['action'])
-
-const currencyFormatters = new Map()
 
 const formatCurrency = (value, currencyCode = 'IDR') => {
     if (!currencyFormatters.has(currencyCode)) {
