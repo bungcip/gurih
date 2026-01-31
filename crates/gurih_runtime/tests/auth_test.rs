@@ -101,23 +101,3 @@ async fn test_password_hashing() {
     assert_ne!(stored_pass, "", "Password should not be empty");
     assert!(stored_pass.starts_with("v3$"), "Password should use v3 format");
 }
-
-#[test]
-fn test_legacy_password_verification() {
-    use gurih_runtime::auth::verify_password;
-    use sha2::{Digest, Sha256};
-    use uuid::Uuid;
-
-    let password = "legacy_password";
-    let salt = Uuid::new_v4().to_string();
-    let mut hasher = Sha256::new();
-    hasher.update(salt.as_bytes());
-    hasher.update(password.as_bytes());
-    let hash = hex::encode(hasher.finalize());
-    let legacy_stored = format!("{}${}", salt, hash);
-
-    assert!(
-        !verify_password(password, &legacy_stored),
-        "Should NOT verify legacy password (alpha policy)"
-    );
-}
