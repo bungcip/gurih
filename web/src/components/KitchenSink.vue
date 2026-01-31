@@ -21,6 +21,7 @@ import Alert from './Alert.vue'
 import Drawer from './Drawer.vue'
 import TreeView from './TreeView.vue'
 import DiscussionPanel from './DiscussionPanel.vue'
+import EmptyState from './EmptyState.vue'
 import { inject } from 'vue'
 
 const isDarkMode = ref(false)
@@ -713,6 +714,55 @@ function onDiscussionSubmit(text) {
                          </div>
                     </div>
                 </div>
+            </div>
+        </section>
+
+        <!-- Empty States -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Empty & Feedback States</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Standard -->
+                <EmptyState
+                    title="No Team Members"
+                    description="Get started by inviting your colleagues."
+                    icon="users"
+                    actionLabel="Invite Member"
+                    @action="triggerToast('success')"
+                />
+
+                <!-- Simple -->
+                <EmptyState
+                    title="No Data Available"
+                    description="There are no records to display at this time."
+                    icon="dashboard"
+                />
+
+                <!-- Loading -->
+                <EmptyState loading />
+
+                <!-- Error -->
+                <EmptyState
+                    title="Failed to Load Data"
+                    description="There was a problem connecting to the server."
+                    icon="alert-circle"
+                    error
+                    actionLabel="Retry Connection"
+                    @action="triggerToast('info')"
+                />
+
+                 <!-- Custom Slot -->
+                <EmptyState
+                    title="System Offline"
+                    description="Maintenance is currently in progress."
+                    icon="settings"
+                >
+                    <template #action>
+                        <div class="flex gap-2">
+                             <Button size="sm" variant="outline">Check Status</Button>
+                             <Button size="sm" variant="ghost">Dismiss</Button>
+                        </div>
+                    </template>
+                </EmptyState>
             </div>
         </section>
 
