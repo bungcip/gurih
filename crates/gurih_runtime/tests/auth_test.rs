@@ -99,7 +99,7 @@ async fn test_password_hashing() {
     println!("Stored password: {}", stored_pass);
     assert_ne!(stored_pass, password, "Password stored in plaintext!");
     assert_ne!(stored_pass, "", "Password should not be empty");
-    assert!(stored_pass.starts_with("v2$"), "Password should use v2 format");
+    assert!(stored_pass.starts_with("v3$"), "Password should use v3 format");
 }
 
 #[test]
