@@ -1,10 +1,10 @@
+use crate::context::RuntimeContext;
+use crate::datastore::DataStore;
 use async_trait::async_trait;
 use gurih_ir::Schema;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::context::RuntimeContext;
-use crate::datastore::DataStore;
 
 #[async_trait]
 pub trait DataAccess: Send + Sync {
