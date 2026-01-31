@@ -78,7 +78,7 @@ async fn test_prevent_account_delete_in_use() {
 
 #[tokio::test]
 async fn test_allow_account_delete_unused() {
-     // 1. Load Schema
+    // 1. Load Schema
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let root = Path::new(&manifest_dir).parent().unwrap().parent().unwrap();
     let finance_path = root.join("gurih-finance");

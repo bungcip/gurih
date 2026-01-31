@@ -12,29 +12,38 @@ async fn test_exists_function() {
     // Note: evaluator::exists uses to_snake_case("JournalLine") -> "journal_line"
     // So we seed "journal_line"
     datastore
-        .insert("journal_line", json!({
-            "id": "1",
-            "account": "acc1",
-            "amount": 100.0
-        }))
+        .insert(
+            "journal_line",
+            json!({
+                "id": "1",
+                "account": "acc1",
+                "amount": 100.0
+            }),
+        )
         .await
         .unwrap();
 
     datastore
-        .insert("journal_line", json!({
-            "id": "2",
-            "account": "acc1",
-            "amount": 200
-        }))
+        .insert(
+            "journal_line",
+            json!({
+                "id": "2",
+                "account": "acc1",
+                "amount": 200
+            }),
+        )
         .await
         .unwrap();
 
     datastore
-        .insert("journal_line", json!({
-            "id": "3",
-            "account": "acc2",
-            "amount": 50
-        }))
+        .insert(
+            "journal_line",
+            json!({
+                "id": "3",
+                "account": "acc2",
+                "amount": 50
+            }),
+        )
         .await
         .unwrap();
 
@@ -77,7 +86,7 @@ async fn test_exists_function() {
     let res = evaluate(&expr, &ctx, None, Some(&datastore)).await.unwrap();
     assert_eq!(res, json!(true));
 
-     // 5. Test exists("JournalLine", "account", "acc1", "amount", 999) -> False
+    // 5. Test exists("JournalLine", "account", "acc1", "amount", 999) -> False
     let expr = Expression::FunctionCall {
         name: Symbol::from("exists"),
         args: vec![

@@ -405,18 +405,12 @@ impl DataEngine {
 
         if let Some(wf) = workflow {
             let record = current_record_opt.as_ref().ok_or("Record not found")?;
-            let current_state = record
-                .get(wf.field.as_str())
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let current_state = record.get(wf.field.as_str()).and_then(|v| v.as_str()).unwrap_or("");
 
             if let Some(state_schema) = wf.states.iter().find(|s| s.name == Symbol::from(current_state))
                 && state_schema.immutable
             {
-                return Err(format!(
-                    "Cannot delete record in immutable state '{}'",
-                    current_state
-                ));
+                return Err(format!("Cannot delete record in immutable state '{}'", current_state));
             }
         }
 
@@ -429,9 +423,7 @@ impl DataEngine {
             }
         }
 
-        self.datastore
-            .delete(entity_schema.table_name.as_str(), id)
-            .await?;
+        self.datastore.delete(entity_schema.table_name.as_str(), id).await?;
 
         // Audit Trail
         if track_changes {
