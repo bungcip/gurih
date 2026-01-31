@@ -240,6 +240,46 @@ async fn eval_function(
                 Err(RuntimeError::EvaluationError("lookup_field requires datastore".into()))
             }
         }
+        "exists" => {
+            if args.len() < 1 || (args.len() - 1) % 2 != 0 {
+                return Err(RuntimeError::EvaluationError(
+                    "exists() requires entity name and pairs of key/value arguments".into(),
+                ));
+            }
+            if let Some(ds) = datastore {
+                let entity_name = as_str(&args[0])?;
+                let mut filters = std::collections::HashMap::new();
+
+                for i in (1..args.len()).step_by(2) {
+                    let key = as_str(&args[i])?;
+                    let val_str = match &args[i + 1] {
+                        Value::String(s) => s.clone(),
+                        Value::Number(n) => n.to_string(),
+                        Value::Bool(b) => b.to_string(),
+                        Value::Null => "null".to_string(),
+                        _ => args[i + 1].to_string(),
+                    };
+                    filters.insert(key.to_string(), val_str);
+                }
+
+                let table_name = if let Some(s) = schema {
+                    s.entities
+                        .get(&Symbol::from(entity_name))
+                        .map(|e| e.table_name.to_string())
+                        .unwrap_or_else(|| to_snake_case(entity_name))
+                } else {
+                    to_snake_case(entity_name)
+                };
+
+                let count = ds
+                    .count(&table_name, filters)
+                    .await
+                    .map_err(RuntimeError::EvaluationError)?;
+                Ok(Value::Bool(count > 0))
+            } else {
+                Err(RuntimeError::EvaluationError("exists() requires datastore".into()))
+            }
+        }
         _ => Err(RuntimeError::EvaluationError(format!("Unknown function: {}", name))),
     }
 }
