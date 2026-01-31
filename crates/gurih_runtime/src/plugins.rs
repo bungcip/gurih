@@ -5,7 +5,7 @@ use crate::traits::DataAccess;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use gurih_ir::{ActionStep, Expression, Schema, Symbol};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -175,7 +175,9 @@ impl Plugin for FinancePlugin {
         _entity_name: &str,
         _entity_data: &Value,
     ) -> Result<(Value, Vec<String>, Vec<Symbol>), RuntimeError> {
-        if name == "post_journal" && let Some(Expression::StringLiteral(rule)) = args.first() {
+        if name == "post_journal"
+            && let Some(Expression::StringLiteral(rule)) = args.first()
+        {
             return Ok((Value::Null, vec![], vec![Symbol::from(rule.as_str())]));
         }
         Ok((Value::Null, vec![], vec![]))
@@ -200,12 +202,9 @@ impl Plugin for FinancePlugin {
                 }
             };
 
-            let id_raw = step
-                .args
-                .get("id")
-                .ok_or(RuntimeError::WorkflowError(
-                    "Missing 'id' argument for finance:reverse_journal".to_string(),
-                ))?;
+            let id_raw = step.args.get("id").ok_or(RuntimeError::WorkflowError(
+                "Missing 'id' argument for finance:reverse_journal".to_string(),
+            ))?;
             let id = resolve_arg(id_raw);
 
             // 1. Read Original
@@ -229,7 +228,11 @@ impl Plugin for FinancePlugin {
 
             // Direct datastore access for generic filtering not supported fully via DataAccess::list yet (list returns Values)
             // But DataAccess::datastore() is available.
-            let lines = data_access.datastore().find(table_name, filters).await.map_err(RuntimeError::WorkflowError)?;
+            let lines = data_access
+                .datastore()
+                .find(table_name, filters)
+                .await
+                .map_err(RuntimeError::WorkflowError)?;
 
             // 3. Create Reverse Header
             let mut new_entry = original.clone();
@@ -252,7 +255,10 @@ impl Plugin for FinancePlugin {
                 obj.insert("related_journal".to_string(), json!(id));
             }
 
-            let new_id = data_access.create("JournalEntry", new_entry, ctx).await.map_err(RuntimeError::WorkflowError)?;
+            let new_id = data_access
+                .create("JournalEntry", new_entry, ctx)
+                .await
+                .map_err(RuntimeError::WorkflowError)?;
 
             // 4. Create Reverse Lines
             for line_arc in lines {
@@ -278,7 +284,10 @@ impl Plugin for FinancePlugin {
                     obj.insert("debit".to_string(), json!(credit.to_string()));
                     obj.insert("credit".to_string(), json!(debit.to_string()));
                 }
-                data_access.create("JournalLine", line, ctx).await.map_err(RuntimeError::WorkflowError)?;
+                data_access
+                    .create("JournalLine", line, ctx)
+                    .await
+                    .map_err(RuntimeError::WorkflowError)?;
             }
 
             return Ok(true);
