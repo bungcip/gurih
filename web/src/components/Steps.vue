@@ -68,17 +68,21 @@ function getStepStatus(item, index) {
     </div>
 
     <!-- Steps -->
-    <div v-else :class="['relative', vertical ? 'flex-col space-y-0' : 'flex items-start justify-between w-full']">
+    <ol v-else :class="['relative', vertical ? 'flex-col space-y-0' : 'flex items-start justify-between w-full']" aria-label="Progress">
 
-      <div
+      <li
         v-for="(step, index) in items"
         :key="index"
         :class="[
             'relative flex group',
             vertical ? 'pb-8 last:pb-0' : 'flex-1',
-            clickable && !loading ? 'cursor-pointer' : 'cursor-default'
+            clickable && !loading ? 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-lg' : 'cursor-default'
         ]"
+        :aria-current="index === current ? 'step' : undefined"
+        :tabindex="clickable && !loading ? 0 : undefined"
         @click="onStepClick(index)"
+        @keydown.enter.prevent="onStepClick(index)"
+        @keydown.space.prevent="onStepClick(index)"
       >
         <!-- Connector Line (Horizontal) -->
         <div
@@ -140,7 +144,7 @@ function getStepStatus(item, index) {
             </div>
 
         </div>
-      </div>
-    </div>
+      </li>
+    </ol>
   </div>
 </template>

@@ -7,3 +7,7 @@
 ## 2025-05-23 - Custom Select Keyboard Navigation
 **Learning:** Custom select components (`role="combobox"`) often lack keyboard navigation (Arrow keys), relying only on mouse or Tab, which breaks the expected "native-like" experience and accessibility.
 **Action:** Ensure all custom dropdowns implement `ArrowDown` (open/next), `ArrowUp` (prev), `Enter` (select), and `Escape` (close), with proper focus management (`trigger.focus()` on close).
+
+## 2025-05-24 - Semantic Steppers
+**Learning:** Stepper components are often built with `div`s, losing semantic meaning (list order) and accessibility (keyboard nav, current step).
+**Action:** Use `<ol>` and `<li>` for ordered steps. Ensure clickable steps have `tabindex="0"`, `focus` styles, and keyboard handlers (`Enter`/`Space`). Use `aria-current="step"` for the active step.
