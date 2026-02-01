@@ -33,3 +33,14 @@ page "PeriodForm" {
         field "status"
     }
 }
+
+action "GenerateClosingEntry" {
+    params "id"
+    step "finance:generate_closing_entry" period_id="param(\"id\")"
+}
+
+routes {
+    group "/finance/periods" {
+        route:post "/:id/close" action="GenerateClosingEntry"
+    }
+}

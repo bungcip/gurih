@@ -1193,6 +1193,7 @@ dependencies = [
  "chrono",
  "gurih_dsl",
  "gurih_ir",
+ "gurih_plugins",
  "hex",
  "hmac",
  "pbkdf2",
