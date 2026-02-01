@@ -3,6 +3,7 @@ members = [
     "crates/gurih_ir",
     "crates/gurih_dsl",
     "crates/gurih_runtime",
+    "crates/gurih_plugins",
     "crates/gurih_cli",
 ]
 resolver = "2"
@@ -12,6 +13,7 @@ resolver = "2"
 gurih_dsl = { version = "0.1.0", path = "crates/gurih_dsl" }
 gurih_ir = { version = "0.1.0", path = "crates/gurih_ir" }
 gurih_runtime = { version = "0.1.0", path = "crates/gurih_runtime" }
+gurih_plugins = { version = "0.1.0", path = "crates/gurih_plugins" }
 
 # External crates
 annotate-snippets = "0.12"

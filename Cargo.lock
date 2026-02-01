@@ -1134,6 +1134,7 @@ dependencies = [
  "fake",
  "gurih_dsl",
  "gurih_ir",
+ "gurih_plugins",
  "gurih_runtime",
  "image",
  "notify",
@@ -1170,6 +1171,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "gurih_plugins"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "gurih_common",
+ "gurih_ir",
+ "gurih_runtime",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "gurih_runtime"
 version = "0.1.0"
 dependencies = [
@@ -1185,6 +1200,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "sqlx",
+ "subtle",
  "symbol_table",
  "tokio",
  "uuid",
@@ -2232,6 +2248,16 @@ name = "pastey"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35fb2e5f958ec131621fdd531e9fc186ed768cbe395337403ae56c17a74c68ec"
+
+[[package]]
+name = "pbkdf2"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8ed6a7761f76e3b9f92dfb0a60a6a6477c61024b775147ff0973a02653abaf2"
+dependencies = [
+ "digest",
+ "hmac",
+]
 
 [[package]]
 name = "pem-rfc7468"

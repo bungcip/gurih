@@ -9,6 +9,7 @@ clap = { workspace = true }
 gurih_dsl = { workspace = true }
 gurih_ir = { workspace = true }
 gurih_runtime = { workspace = true }
+gurih_plugins = { workspace = true }
 notify = "8.2.0"
 serde = { workspace = true }
 serde_json = { workspace = true }

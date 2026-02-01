@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+pbkdf2 = "0.12"
+subtle = "2.4"
+hmac = "0.12.1"
 async-trait = { workspace = true }
 gurih_ir = { workspace = true }
 hex = "0.4.3"

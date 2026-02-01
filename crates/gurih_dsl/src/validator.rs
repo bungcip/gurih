@@ -65,6 +65,24 @@ impl<'a> Validator<'a> {
                             self.validate_expression_fields(&expr, fields, *span)?;
                         }
                     }
+
+                    for effect in &transition.effects {
+                        match effect {
+                            ast::TransitionEffectDef::UpdateField { field, span, .. } => {
+                                if !fields.contains(field) {
+                                    return Err(CompileError::ValidationError {
+                                        src: self.src.to_string(),
+                                        span: *span,
+                                        message: format!(
+                                            "Effect target field '{}' not found in entity '{}'",
+                                            field, workflow.entity
+                                        ),
+                                    });
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
                 }
             } else {
                 return Err(CompileError::ValidationError {

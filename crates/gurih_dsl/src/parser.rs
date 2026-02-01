@@ -1,6 +1,7 @@
 use crate::ast::*;
 use crate::diagnostics::SourceSpan;
 use crate::errors::CompileError;
+use crate::utils::*;
 use kdl::{KdlDocument, KdlNode};
 use std::collections::HashMap;
 use std::path::Path;
@@ -839,6 +840,28 @@ fn parse_transition_body(
                                     span: eff.span().into(),
                                 });
                             }
+                            // HR Domain Extension: suspend_payroll
+                            // Maps `suspend_payroll <bool>` to `update is_payroll_active <!bool>`
+                            "suspend_payroll" => {
+                                let suspend = get_arg_bool(eff, 0)?;
+                                let value = if suspend { "false" } else { "true" };
+                                effects.push(TransitionEffectDef::UpdateField {
+                                    field: "is_payroll_active".to_string(),
+                                    value: value.to_string(),
+                                    span: eff.span().into(),
+                                });
+                            }
+                            // HR Domain Extension: update_rank_eligibility
+                            // Maps `update_rank_eligibility <bool>` to `update rank_eligible <bool>`
+                            "update_rank_eligibility" => {
+                                let eligible = get_arg_bool(eff, 0)?;
+                                let value = if eligible { "true" } else { "false" };
+                                effects.push(TransitionEffectDef::UpdateField {
+                                    field: "rank_eligible".to_string(),
+                                    value: value.to_string(),
+                                    span: eff.span().into(),
+                                });
+                            }
                             "post_journal" => {
                                 let rule = get_arg_string(eff, 0, src)?;
                                 effects.push(TransitionEffectDef::Custom {
@@ -1610,107 +1633,3 @@ fn parse_query_join(node: &KdlNode, src: &str) -> Result<QueryJoinDef, CompileEr
     })
 }
 
-// Helpers
-
-fn get_arg_string(node: &KdlNode, index: usize, src: &str) -> Result<String, CompileError> {
-    node.entry(index)
-        .and_then(|val| val.value().as_string().map(|s| s.to_string()))
-        .ok_or_else(|| CompileError::ParseError {
-            src: src.to_string(),
-            span: node.span().into(),
-            message: format!(
-                "Missing or invalid argument at index {} for node '{}'",
-                index,
-                node.name().value()
-            ),
-        })
-}
-
-fn get_prop_string(node: &KdlNode, key: &str, src: &str) -> Result<String, CompileError> {
-    node.get(key)
-        .and_then(|val| val.as_string().map(|s| s.to_string()))
-        .ok_or_else(|| CompileError::ParseError {
-            src: src.to_string(),
-            span: node.span().into(),
-            message: format!("Missing property '{}'", key),
-        })
-}
-
-fn get_prop_bool(node: &KdlNode, key: &str) -> Option<bool> {
-    node.get(key).and_then(|val| {
-        if let Some(b) = val.as_bool() {
-            Some(b)
-        } else if let Some(s) = val.as_string() {
-            match s {
-                "true" => Some(true),
-                "false" => Some(false),
-                _ => None,
-            }
-        } else {
-            None
-        }
-    })
-}
-
-fn get_prop_int(node: &KdlNode, key: &str) -> Result<i64, CompileError> {
-    node.get(key)
-        .and_then(|val| val.as_integer().map(|i| i as i64))
-        .ok_or_else(|| CompileError::ParseError {
-            src: "".to_string(), // context missing here, ideally pass src
-            span: node.span().into(),
-            message: format!("Missing or invalid int property '{}'", key),
-        })
-}
-
-fn get_arg_bool(node: &KdlNode, index: usize) -> Result<bool, CompileError> {
-    node.entry(index)
-        .and_then(|val| {
-            if let Some(b) = val.value().as_bool() {
-                Some(b)
-            } else if let Some(s) = val.value().as_string() {
-                match s {
-                    "true" => Some(true),
-                    "false" => Some(false),
-                    _ => None,
-                }
-            } else {
-                None
-            }
-        })
-        .ok_or_else(|| CompileError::ParseError {
-            src: "".to_string(),
-            span: node.span().into(),
-            message: format!("Missing or invalid bool argument at index {}", index),
-        })
-}
-
-fn get_arg_int(node: &KdlNode, index: usize, src: &str) -> Result<i64, CompileError> {
-    node.entry(index)
-        .and_then(|val| val.value().as_integer().map(|i| i as i64))
-        .ok_or_else(|| CompileError::ParseError {
-            src: src.to_string(),
-            span: node.span().into(),
-            message: format!("Missing or invalid int argument at index {}", index),
-        })
-}
-
-fn to_title_case(s: &str) -> String {
-    s.split('_')
-        .map(|word| {
-            let mut chars = word.chars();
-            match chars.next() {
-                None => String::new(),
-                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn capitalize(s: &str) -> String {
-    let mut chars = s.chars();
-    match chars.next() {
-        None => String::new(),
-        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-    }
-}

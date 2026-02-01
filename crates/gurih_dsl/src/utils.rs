@@ -1,0 +1,105 @@
+use crate::errors::CompileError;
+use kdl::KdlNode;
+
+pub fn get_arg_string(node: &KdlNode, index: usize, src: &str) -> Result<String, CompileError> {
+    node.entry(index)
+        .and_then(|val| val.value().as_string().map(|s| s.to_string()))
+        .ok_or_else(|| CompileError::ParseError {
+            src: src.to_string(),
+            span: node.span().into(),
+            message: format!(
+                "Missing or invalid argument at index {} for node '{}'",
+                index,
+                node.name().value()
+            ),
+        })
+}
+
+pub fn get_prop_string(node: &KdlNode, key: &str, src: &str) -> Result<String, CompileError> {
+    node.get(key)
+        .and_then(|val| val.as_string().map(|s| s.to_string()))
+        .ok_or_else(|| CompileError::ParseError {
+            src: src.to_string(),
+            span: node.span().into(),
+            message: format!("Missing property '{}'", key),
+        })
+}
+
+pub fn get_prop_bool(node: &KdlNode, key: &str) -> Option<bool> {
+    node.get(key).and_then(|val| {
+        if let Some(b) = val.as_bool() {
+            Some(b)
+        } else if let Some(s) = val.as_string() {
+            match s {
+                "true" => Some(true),
+                "false" => Some(false),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    })
+}
+
+pub fn get_prop_int(node: &KdlNode, key: &str) -> Result<i64, CompileError> {
+    node.get(key)
+        .and_then(|val| val.as_integer().map(|i| i as i64))
+        .ok_or_else(|| CompileError::ParseError {
+            src: "".to_string(), // context missing here, ideally pass src
+            span: node.span().into(),
+            message: format!("Missing or invalid int property '{}'", key),
+        })
+}
+
+pub fn get_arg_bool(node: &KdlNode, index: usize) -> Result<bool, CompileError> {
+    node.entry(index)
+        .and_then(|val| {
+            if let Some(b) = val.value().as_bool() {
+                Some(b)
+            } else if let Some(s) = val.value().as_string() {
+                match s {
+                    "true" => Some(true),
+                    "false" => Some(false),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        })
+        .ok_or_else(|| CompileError::ParseError {
+            src: "".to_string(),
+            span: node.span().into(),
+            message: format!("Missing or invalid bool argument at index {}", index),
+        })
+}
+
+pub fn get_arg_int(node: &KdlNode, index: usize, src: &str) -> Result<i64, CompileError> {
+    node.entry(index)
+        .and_then(|val| val.value().as_integer().map(|i| i as i64))
+        .ok_or_else(|| CompileError::ParseError {
+            src: src.to_string(),
+            span: node.span().into(),
+            message: format!("Missing or invalid int argument at index {}", index),
+        })
+}
+
+pub fn to_title_case(s: &str) -> String {
+    s.split('_')
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+pub fn capitalize(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+    }
+}
