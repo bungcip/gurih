@@ -9,15 +9,15 @@ use axum::{
 use clap::{Parser, Subcommand};
 use gurih_dsl::{compile, diagnostics::DiagnosticEngine, diagnostics::ErrorFormatter};
 use gurih_ir::Symbol;
+use gurih_plugins::finance::FinancePlugin;
+use gurih_plugins::hr::HrPlugin;
 use gurih_runtime::action::ActionEngine;
 use gurih_runtime::auth::AuthEngine;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::DataStore;
 use gurih_runtime::form::FormEngine;
-use gurih_plugins::hr::HrPlugin;
 use gurih_runtime::page::PageEngine;
-use gurih_plugins::finance::FinancePlugin;
 use gurih_runtime::portal::PortalEngine;
 use notify::{RecursiveMode, Watcher};
 use serde_json::Value;
@@ -29,8 +29,8 @@ use std::time::Duration;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
 
-mod frontend;
 mod faker;
+mod frontend;
 mod image_processor;
 
 #[derive(Parser)]

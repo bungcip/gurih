@@ -11,3 +11,7 @@
 ## 2025-05-24 - Semantic Steppers
 **Learning:** Stepper components are often built with `div`s, losing semantic meaning (list order) and accessibility (keyboard nav, current step).
 **Action:** Use `<ol>` and `<li>` for ordered steps. Ensure clickable steps have `tabindex="0"`, `focus` styles, and keyboard handlers (`Enter`/`Space`). Use `aria-current="step"` for the active step.
+
+## 2025-05-24 - Vue 3 Attribute Inheritance in Wrappers
+**Learning:** Custom input wrappers (like `CurrencyInput.vue`) often default to `inheritAttrs: true`, applying `required`, `name`, and `aria-label` to the root `div` instead of the `input`. This breaks form validation and accessibility.
+**Action:** Use `defineOptions({ inheritAttrs: false })` and bind `$attrs` to the inner native control (`<input v-bind="$attrs" />`) for all form components wrapping native inputs.

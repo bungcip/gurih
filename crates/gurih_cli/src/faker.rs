@@ -1,4 +1,3 @@
-use gurih_runtime::datastore::DataStore;
 use fake::faker::address::en::{BuildingNumber, StreetName};
 use fake::faker::company::en::CompanyName;
 use fake::faker::internet::en::FreeEmail;
@@ -7,6 +6,7 @@ use fake::faker::name::en::Name;
 use fake::faker::phone_number::en::PhoneNumber;
 use fake::{Fake, Faker};
 use gurih_ir::{FieldType, Schema, Symbol};
+use gurih_runtime::datastore::DataStore;
 use rand::Rng;
 use rand::prelude::IndexedRandom;
 use serde_json::{Map, Value};

@@ -1632,4 +1632,3 @@ fn parse_query_join(node: &KdlNode, src: &str) -> Result<QueryJoinDef, CompileEr
         span: node.span().into(),
     })
 }
-

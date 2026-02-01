@@ -1,6 +1,6 @@
-pub use symbol_table::GlobalSymbol as Symbol;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+pub use symbol_table::GlobalSymbol as Symbol;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Schema {
