@@ -30,6 +30,8 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
 
 mod frontend;
+mod faker;
+mod image_processor;
 
 #[derive(Parser)]
 #[command(name = "gurih")]
@@ -132,7 +134,7 @@ async fn main() {
             Ok(schema) => {
                 let schema = Arc::new(schema);
                 let datastore = create_datastore(schema.clone(), &file).await;
-                let faker = gurih_runtime::faker::FakerEngine::new();
+                let faker = faker::FakerEngine::new();
                 let count = count.unwrap_or(10);
                 println!("🌱 Generating {} fake records per entity...", count);
                 match faker.seed_entities(&schema, datastore.as_ref(), count).await {
@@ -642,7 +644,7 @@ async fn upload_handler(
         let data = field_part.bytes().await.unwrap_or_default();
 
         let data_bytes = if let Some(resize_dim) = &field.resize {
-            match gurih_runtime::image_processor::resize_image(&data, resize_dim) {
+            match image_processor::resize_image(&data, resize_dim) {
                 Ok(d) => bytes::Bytes::from(d),
                 Err(e) => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": e}))).into_response(),
             }
