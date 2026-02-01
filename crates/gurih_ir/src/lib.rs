@@ -1,4 +1,4 @@
-pub use gurih_common::Symbol;
+pub use symbol_table::GlobalSymbol as Symbol;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

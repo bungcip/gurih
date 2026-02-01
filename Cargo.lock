@@ -1129,11 +1129,13 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "bytes",
+ "chrono",
  "clap",
  "fake",
  "gurih_dsl",
  "gurih_ir",
  "gurih_runtime",
+ "image",
  "notify",
  "rand 0.9.2",
  "serde",
@@ -1143,13 +1145,6 @@ dependencies = [
  "tokio",
  "tower-http",
  "uuid",
-]
-
-[[package]]
-name = "gurih_common"
-version = "0.1.0"
-dependencies = [
- "symbol_table",
 ]
 
 [[package]]
@@ -1169,7 +1164,6 @@ dependencies = [
 name = "gurih_ir"
 version = "0.1.0"
 dependencies = [
- "gurih_common",
  "serde",
  "serde_json",
  "symbol_table",
@@ -1183,13 +1177,9 @@ dependencies = [
  "base64",
  "bytes",
  "chrono",
- "fake",
- "gurih_common",
  "gurih_dsl",
  "gurih_ir",
  "hex",
- "image",
- "rand 0.9.2",
  "rust-s3",
  "serde",
  "serde_json",

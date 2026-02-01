@@ -20,3 +20,5 @@ symbol_table = {workspace = true }
 bytes = { workspace = true }
 fake = { workspace = true }
 rand = { workspace = true }
+image = "0.25"
+chrono = { workspace = true }
