@@ -9,9 +9,14 @@ use std::time::{Duration, Instant};
 use subtle::ConstantTimeEq;
 use uuid::Uuid;
 
+struct Session {
+    ctx: RuntimeContext,
+    expires_at: Instant,
+}
+
 pub struct AuthEngine {
     datastore: Arc<dyn DataStore>,
-    sessions: Arc<Mutex<HashMap<String, RuntimeContext>>>,
+    sessions: Arc<Mutex<HashMap<String, Session>>>,
     // Track failed attempts: Username -> (Count, Timestamp of first failure in window)
     login_attempts: Arc<Mutex<HashMap<String, (u32, Instant)>>>,
     user_table: String,
@@ -150,13 +155,35 @@ impl AuthEngine {
         };
 
         // Store session
-        self.sessions.lock().unwrap().insert(token, ctx.clone());
+        self.sessions.lock().unwrap().insert(
+            token,
+            Session {
+                ctx: ctx.clone(),
+                expires_at: Instant::now() + Duration::from_secs(86400), // 24 hours
+            },
+        );
 
         Ok(ctx)
     }
 
     pub fn verify_token(&self, token: &str) -> Option<RuntimeContext> {
-        self.sessions.lock().unwrap().get(token).cloned()
+        let mut sessions = self.sessions.lock().unwrap();
+        if let Some(session) = sessions.get(token) {
+            if Instant::now() > session.expires_at {
+                sessions.remove(token);
+                return None;
+            }
+            return Some(session.ctx.clone());
+        }
+        None
+    }
+
+    #[cfg(test)]
+    pub fn expire_session(&self, token: &str) {
+        let mut sessions = self.sessions.lock().unwrap();
+        if let Some(session) = sessions.get_mut(token) {
+            session.expires_at = Instant::now() - Duration::from_secs(1);
+        }
     }
 }
 
@@ -206,5 +233,37 @@ mod tests {
 
         assert!(verify_password(password, &stored));
         assert!(!verify_password("wrong", &stored));
+    }
+
+    #[tokio::test]
+    async fn test_session_expiration() {
+        let store = Arc::new(MemoryDataStore::new());
+        let auth = AuthEngine::new(store.clone(), None);
+
+        let hashed = hash_password("secret");
+        store
+            .insert(
+                "User",
+                json!({
+                    "username": "user1",
+                    "password": hashed,
+                    "role": "user"
+                }),
+            )
+            .await
+            .unwrap();
+
+        // 1. Login
+        let ctx = auth.login("user1", "secret").await.unwrap();
+        let token = ctx.token.unwrap();
+
+        // 2. Verify Valid
+        assert!(auth.verify_token(&token).is_some());
+
+        // 3. Expire Session
+        auth.expire_session(&token);
+
+        // 4. Verify Invalid
+        assert!(auth.verify_token(&token).is_none());
     }
 }
