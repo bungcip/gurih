@@ -296,9 +296,10 @@ async fn execute_generate_closing_entry(
         }
     };
 
-    let period_id_raw = step.args.get("period_id").ok_or(RuntimeError::WorkflowError(
-        "Missing 'period_id' argument".to_string(),
-    ))?;
+    let period_id_raw = step
+        .args
+        .get("period_id")
+        .ok_or(RuntimeError::WorkflowError("Missing 'period_id' argument".to_string()))?;
     let period_id = resolve_arg(period_id_raw);
 
     // 1. Fetch Period
@@ -316,13 +317,25 @@ async fn execute_generate_closing_entry(
     let mut filters = HashMap::new();
     filters.insert("name".to_string(), "Retained Earnings".to_string());
 
-    let accounts = data_access.datastore().find("Account", filters).await.map_err(RuntimeError::WorkflowError)?;
-    let retained_earnings_id = accounts.first().and_then(|a| a.get("id").and_then(|v| v.as_str())).ok_or(
-        RuntimeError::WorkflowError("Retained Earnings account not found. Please add it to Chart of Accounts.".to_string())
-    )?;
+    let accounts = data_access
+        .datastore()
+        .find("Account", filters)
+        .await
+        .map_err(RuntimeError::WorkflowError)?;
+    let retained_earnings_id = accounts
+        .first()
+        .and_then(|a| a.get("id").and_then(|v| v.as_str()))
+        .ok_or(RuntimeError::WorkflowError(
+            "Retained Earnings account not found. Please add it to Chart of Accounts.".to_string(),
+        ))?;
 
     // 3. Aggregate Revenue and Expense
-    let db_type = data_access.get_schema().database.as_ref().map(|d| d.db_type.clone()).unwrap_or(gurih_ir::DatabaseType::Sqlite);
+    let db_type = data_access
+        .get_schema()
+        .database
+        .as_ref()
+        .map(|d| d.db_type.clone())
+        .unwrap_or(gurih_ir::DatabaseType::Sqlite);
 
     let (p_start, p_end) = if db_type == gurih_ir::DatabaseType::Postgres {
         ("$1", "$2")
@@ -330,7 +343,8 @@ async fn execute_generate_closing_entry(
         ("?", "?")
     };
 
-    let sql = format!(r#"
+    let sql = format!(
+        r#"
         SELECT
             jl.account as account_id,
             SUM(jl.debit) as total_debit,
@@ -344,27 +358,51 @@ async fn execute_generate_closing_entry(
           AND je.date <= {}
           AND (a.type = 'Revenue' OR a.type = 'Expense')
         GROUP BY jl.account, a.type
-    "#, p_start, p_end);
+    "#,
+        p_start, p_end
+    );
 
     let params_vec = vec![
         Value::String(start_date.to_string()),
         Value::String(end_date.to_string()),
     ];
 
-    let results = data_access.datastore().query_with_params(&sql, params_vec).await.map_err(RuntimeError::WorkflowError)?;
+    let results = data_access
+        .datastore()
+        .query_with_params(&sql, params_vec)
+        .await
+        .map_err(RuntimeError::WorkflowError)?;
 
     let mut closing_lines = vec![];
     let mut total_retained_earnings_impact = 0.0; // Positive = Credit to RE (Profit), Negative = Debit to RE (Loss)
 
     for row in results {
         let account_id = row.get("account_id").and_then(|v| v.as_str()).unwrap_or("");
-        let total_debit = row.get("total_debit").and_then(|v| v.as_f64()).or_else(|| row.get("total_debit").and_then(|v| v.as_str()).map(|s| s.parse().unwrap_or(0.0))).unwrap_or(0.0);
-        let total_credit = row.get("total_credit").and_then(|v| v.as_f64()).or_else(|| row.get("total_credit").and_then(|v| v.as_str()).map(|s| s.parse().unwrap_or(0.0))).unwrap_or(0.0);
+        let total_debit = row
+            .get("total_debit")
+            .and_then(|v| v.as_f64())
+            .or_else(|| {
+                row.get("total_debit")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.parse().unwrap_or(0.0))
+            })
+            .unwrap_or(0.0);
+        let total_credit = row
+            .get("total_credit")
+            .and_then(|v| v.as_f64())
+            .or_else(|| {
+                row.get("total_credit")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.parse().unwrap_or(0.0))
+            })
+            .unwrap_or(0.0);
 
         // Round to 2 decimal places to avoid floating point issues
         let net = ((total_debit * 100.0).round() - (total_credit * 100.0).round()) / 100.0;
 
-        if net.abs() < 0.01 { continue; }
+        if net.abs() < 0.01 {
+            continue;
+        }
 
         let mut line = serde_json::Map::new();
         line.insert("account".to_string(), Value::String(account_id.to_string()));
@@ -414,18 +452,27 @@ async fn execute_generate_closing_entry(
 
     // Create Journal Entry
     let mut journal = serde_json::Map::new();
-    journal.insert("description".to_string(), Value::String(format!("Closing Entry for {}", period_name)));
+    journal.insert(
+        "description".to_string(),
+        Value::String(format!("Closing Entry for {}", period_name)),
+    );
     journal.insert("date".to_string(), Value::String(end_date.to_string()));
     journal.insert("status".to_string(), Value::String("Draft".to_string()));
 
-    let new_journal_id = data_access.create("JournalEntry", Value::Object(journal), ctx).await.map_err(RuntimeError::WorkflowError)?;
+    let new_journal_id = data_access
+        .create("JournalEntry", Value::Object(journal), ctx)
+        .await
+        .map_err(RuntimeError::WorkflowError)?;
 
     // Create Journal Lines
     for mut line_val in closing_lines {
-         if let Some(obj) = line_val.as_object_mut() {
-             obj.insert("journal_entry".to_string(), Value::String(new_journal_id.clone()));
-         }
-         data_access.create("JournalLine", line_val, ctx).await.map_err(RuntimeError::WorkflowError)?;
+        if let Some(obj) = line_val.as_object_mut() {
+            obj.insert("journal_entry".to_string(), Value::String(new_journal_id.clone()));
+        }
+        data_access
+            .create("JournalLine", line_val, ctx)
+            .await
+            .map_err(RuntimeError::WorkflowError)?;
     }
 
     Ok(true)
