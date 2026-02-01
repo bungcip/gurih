@@ -1,6 +1,10 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 
+defineOptions({
+  inheritAttrs: false
+})
+
 const props = defineProps({
   modelValue: {
     type: [Number, String],
@@ -28,7 +32,7 @@ const props = defineProps({
   },
   id: {
     type: String,
-    default: null
+    default: () => 'currency-input-' + Math.random().toString(36).substr(2, 9)
   }
 })
 
@@ -96,8 +100,11 @@ onMounted(() => {
         <span class="text-text-muted sm:text-sm font-medium">{{ prefix }}</span>
       </div>
       <input
+        v-bind="$attrs"
         :id="id"
         type="text"
+        inputmode="decimal"
+        autocomplete="off"
         :value="displayValue"
         @input="updateValue"
         @blur="displayValue = formatCurrency(modelValue)"
