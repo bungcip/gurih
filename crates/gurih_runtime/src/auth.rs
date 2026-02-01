@@ -224,7 +224,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_v3_hashing() {
         let password = "new_secure_password";

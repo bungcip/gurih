@@ -1,6 +1,6 @@
+use gurih_dsl::ast::TransitionEffectDef;
 use gurih_dsl::parser::parse;
 use gurih_dsl::validator::Validator;
-use gurih_dsl::ast::TransitionEffectDef;
 
 #[test]
 fn test_suspend_payroll_parsing() {
