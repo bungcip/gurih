@@ -34,6 +34,9 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
+// Optimization: Cache Intl.NumberFormat instances to avoid expensive re-creation
+const numberFormatters = new Map()
+
 const displayValue = ref('')
 
 function parseCurrency(value) {
@@ -53,11 +56,16 @@ function formatCurrency(value) {
   const number = typeof value === 'string' ? parseCurrency(value) : value
   if (isNaN(number)) return ''
 
-  return new Intl.NumberFormat('id-ID', {
-    style: 'decimal',
-    minimumFractionDigits: props.decimals,
-    maximumFractionDigits: props.decimals,
-  }).format(number)
+  const key = props.decimals
+  if (!numberFormatters.has(key)) {
+    numberFormatters.set(key, new Intl.NumberFormat('id-ID', {
+      style: 'decimal',
+      minimumFractionDigits: props.decimals,
+      maximumFractionDigits: props.decimals,
+    }))
+  }
+
+  return numberFormatters.get(key).format(number)
 }
 
 function updateValue(event) {
