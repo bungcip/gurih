@@ -53,6 +53,12 @@ account "Accounts Payable" {
     normal_balance "Credit"
 }
 
+account "Retained Earnings" {
+    code "300"
+    type "Equity"
+    normal_balance "Credit"
+}
+
 account "Sales Revenue" {
     code "401"
     type "Revenue"
