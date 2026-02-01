@@ -7,7 +7,6 @@ pub mod datastore;
 pub mod errors;
 pub mod evaluator;
 pub mod form;
-pub mod hr_plugin;
 pub mod page;
 pub mod persistence;
 pub mod plugins;
