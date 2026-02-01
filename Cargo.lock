@@ -1133,6 +1133,7 @@ dependencies = [
  "fake",
  "gurih_dsl",
  "gurih_ir",
+ "gurih_plugins",
  "gurih_runtime",
  "notify",
  "rand 0.9.2",
@@ -1173,6 +1174,20 @@ dependencies = [
  "serde",
  "serde_json",
  "symbol_table",
+]
+
+[[package]]
+name = "gurih_plugins"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "gurih_common",
+ "gurih_ir",
+ "gurih_runtime",
+ "serde",
+ "serde_json",
+ "uuid",
 ]
 
 [[package]]
