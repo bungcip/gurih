@@ -12,8 +12,12 @@ fn test_employee_status_compilation() {
         field "is_payroll_active" type="Boolean"
     }
 
-    employee_status "pns" {
-      can_transition_to "cuti" {
+    workflow "EmployeeStatusWorkflow" for="Employee" field="status" {
+      state "pns"
+      state "cuti"
+      state "aktif"
+
+      transition "pns_to_cuti" from="pns" to="cuti" {
         requires {
           document "surat_cuti"
           min_years_of_service 1
@@ -24,10 +28,8 @@ fn test_employee_status_compilation() {
           notify "unit_kepegawaian"
         }
       }
-    }
 
-    employee_status "cuti" {
-      can_transition_to "aktif" {
+      transition "cuti_to_aktif" from="cuti" to="aktif" {
         effects {
            update "is_payroll_active" "true"
         }
@@ -81,6 +83,7 @@ fn test_employee_status_compilation() {
     }));
 
     // min_years_of_service 1 -> Assertion(years_of_service(tmt_cpns) >= 1)
+    // Note: parser defaults to "join_date" if `from` is missing.
     assert!(t1.preconditions.iter().any(|p| {
         if let TransitionPrecondition::Assertion(Expression::BinaryOp { op, .. }) = p {
             matches!(op, BinaryOperator::Gte)
@@ -128,8 +131,12 @@ fn test_document_status_workflow() {
             field "is_visible" type="Boolean"
         }
 
-        employee_status "Draft" for="Document" field="state" {
-            can_transition_to "Published" {
+        workflow "DocumentStatusWorkflow" for="Document" field="state" {
+            state "Draft"
+            state "Published"
+            state "Archived"
+
+            transition "Draft_to_Published" from="Draft" to="Published" {
                 requires {
                     document "approval_letter"
                 }
@@ -137,10 +144,8 @@ fn test_document_status_workflow() {
                     update "is_visible" "true"
                 }
             }
-        }
 
-        employee_status "Published" for="Document" field="state" {
-             can_transition_to "Archived"
+            transition "Published_to_Archived" from="Published" to="Archived" {}
         }
     "#;
 
@@ -156,7 +161,6 @@ fn test_document_status_workflow() {
     let wf = schema.workflows.get(&wf_name).unwrap();
     assert_eq!(wf.entity, Symbol::from("Document"));
     assert_eq!(wf.field, Symbol::from("state"));
-    // assert_eq!(wf.initial_state, Symbol::from("Draft")); // Parser doesn't support initial yet for employee_status
 
     // Check transitions
     let trans = wf

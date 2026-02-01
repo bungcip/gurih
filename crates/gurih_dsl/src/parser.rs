@@ -1,18 +1,11 @@
 use crate::ast::*;
 use crate::diagnostics::SourceSpan;
 use crate::errors::CompileError;
+use crate::expr::parse_expression;
 use crate::utils::*;
 use kdl::{KdlDocument, KdlNode};
 use std::collections::HashMap;
 use std::path::Path;
-
-struct PartialWorkflowDef {
-    name: String,
-    entity: Option<String>,
-    field: Option<String>,
-    transitions: Vec<TransitionDef>,
-    span: SourceSpan,
-}
 
 pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
     let doc: KdlDocument = src.parse()?;
@@ -41,8 +34,6 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
         rules: vec![],
         posting_rules: vec![],
     };
-
-    let mut employee_statuses: Vec<PartialWorkflowDef> = vec![];
 
     for node in doc.nodes() {
         let name = node.name().value();
@@ -92,8 +83,6 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
                     ast.rules.extend(included_ast.rules);
                     ast.posting_rules.extend(included_ast.posting_rules);
                     ast.queries.extend(included_ast.queries);
-
-                    // Included employee_statuses are already merged into workflows in the recursive call
                 } else {
                     return Err(CompileError::ParseError {
                         src: src.to_string(),
@@ -119,70 +108,16 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
             "print" => ast.prints.push(parse_print(node, src)?),
             "role" | "permission" => ast.permissions.push(parse_permission(node, src)?),
             "query" | "query:nested" | "query:flat" => ast.queries.push(parse_query(node, src)?),
-            "employee_status" => employee_statuses.push(parse_employee_status(node, src)?),
             "account" => ast.accounts.push(parse_account(node, src)?),
             "rule" => ast.rules.push(parse_rule(node, src)?),
             "posting_rule" => ast.posting_rules.push(parse_posting_rule(node, src)?),
             _ => {
-                // Ignore unknown nodes or warn? Strict for now.
                 return Err(CompileError::ParseError {
                     src: src.to_string(),
                     span: node.name().span().into(),
                     message: format!("Unknown top-level definition: {}", name),
                 });
             }
-        }
-    }
-
-    // Merge employee_statuses into workflows
-    if !employee_statuses.is_empty() {
-        let mut grouped: HashMap<(String, String), Vec<PartialWorkflowDef>> = HashMap::new();
-        for status in employee_statuses {
-            let entity = status.entity.clone().unwrap_or_else(|| "Employee".to_string());
-            let field = status.field.clone().unwrap_or_else(|| "status".to_string());
-            grouped.entry((entity, field)).or_default().push(status);
-        }
-
-        for ((entity_name, field_name), statuses) in grouped {
-            let workflow_name = format!("{}StatusWorkflow", entity_name);
-            let mut states = vec![];
-            let mut transitions = vec![];
-            let mut seen_states = std::collections::HashSet::new();
-
-            // Span from first status definition
-            let span = statuses.first().map(|s| s.span).unwrap_or_default();
-
-            for status in statuses {
-                if seen_states.insert(status.name.clone()) {
-                    states.push(StateDef {
-                        name: status.name.clone(),
-                        initial: false, // Default
-                        immutable: false,
-                        span: status.span,
-                    });
-                }
-
-                for t in status.transitions {
-                    if seen_states.insert(t.to.clone()) {
-                        states.push(StateDef {
-                            name: t.to.clone(),
-                            initial: false,
-                            immutable: false,
-                            span: t.span,
-                        });
-                    }
-                    transitions.push(t);
-                }
-            }
-
-            ast.workflows.push(WorkflowDef {
-                name: workflow_name,
-                entity: entity_name,
-                field: field_name,
-                states,
-                transitions,
-                span,
-            });
         }
     }
 
@@ -200,11 +135,12 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
             match child.name().value() {
                 "param" => params.push(get_arg_string(child, 0, src)?),
                 "step" => {
-                    // step "entity:delete" target="Position" ...
                     let step_type_str = get_arg_string(child, 0, src)?;
                     let span = child.span();
                     let step_type = parse_step_type(&step_type_str, span.into(), src)?;
-                    let target = get_prop_string(child, "target", src)?;
+
+                    let target = get_prop_string(child, "target", src).unwrap_or_default();
+
                     let mut args = std::collections::HashMap::new();
                     for entry in child.entries() {
                         if let Some(key) = entry.name() {
@@ -224,8 +160,6 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
                     });
                 }
                 step_type_str if step_type_str.starts_with("step:") => {
-                    // e.g. step:entity:delete "Position" id=param("id")
-                    // target is arg 0
                     let target = get_arg_string(child, 0, src)?;
                     let mut args = std::collections::HashMap::new();
                     for entry in child.entries() {
@@ -738,8 +672,11 @@ fn parse_transition_body(
                         match req.name().value() {
                             "document" => {
                                 let doc_name = get_arg_string(req, 0, src)?;
+                                let span = req.entries().get(0).map(|e| e.span().offset()).unwrap_or(req.span().offset());
+                                let expr_str = format!("is_set({})", doc_name);
+                                let expr = parse_expression(&expr_str, span)?;
                                 preconditions.push(TransitionPreconditionDef::Assertion {
-                                    expression: format!("is_set({})", doc_name),
+                                    expression: expr,
                                     span: req.span().into(),
                                 });
                             }
@@ -748,8 +685,11 @@ fn parse_transition_body(
                                 let from_field = get_prop_string(req, "from", src)
                                     .ok()
                                     .unwrap_or_else(|| "join_date".to_string());
+                                let span = req.span().offset(); // using node span as approx for generated expr
+                                let expr_str = format!("years_of_service({}) >= {}", from_field, years);
+                                let expr = parse_expression(&expr_str, span)?;
                                 preconditions.push(TransitionPreconditionDef::Assertion {
-                                    expression: format!("years_of_service({}) >= {}", from_field, years),
+                                    expression: expr,
                                     span: req.span().into(),
                                 });
                             }
@@ -758,15 +698,21 @@ fn parse_transition_body(
                                 let birth_date_field = get_prop_string(req, "from", src)
                                     .ok()
                                     .unwrap_or_else(|| "birth_date".to_string());
+                                let span = req.span().offset();
+                                let expr_str = format!("age({}) >= {}", birth_date_field, age);
+                                let expr = parse_expression(&expr_str, span)?;
                                 preconditions.push(TransitionPreconditionDef::Assertion {
-                                    expression: format!("age({}) >= {}", birth_date_field, age),
+                                    expression: expr,
                                     span: req.span().into(),
                                 });
                             }
                             "valid_effective_date" => {
                                 let field = get_arg_string(req, 0, src)?;
+                                let span = req.span().offset();
+                                let expr_str = format!("valid_date({})", field);
+                                let expr = parse_expression(&expr_str, span)?;
                                 preconditions.push(TransitionPreconditionDef::Assertion {
-                                    expression: format!("valid_date({})", field),
+                                    expression: expr,
                                     span: req.span().into(),
                                 });
                             }
@@ -837,28 +783,6 @@ fn parse_transition_body(
                                 effects.push(TransitionEffectDef::UpdateField {
                                     field,
                                     value,
-                                    span: eff.span().into(),
-                                });
-                            }
-                            // HR Domain Extension: suspend_payroll
-                            // Maps `suspend_payroll <bool>` to `update is_payroll_active <!bool>`
-                            "suspend_payroll" => {
-                                let suspend = get_arg_bool(eff, 0)?;
-                                let value = if suspend { "false" } else { "true" };
-                                effects.push(TransitionEffectDef::UpdateField {
-                                    field: "is_payroll_active".to_string(),
-                                    value: value.to_string(),
-                                    span: eff.span().into(),
-                                });
-                            }
-                            // HR Domain Extension: update_rank_eligibility
-                            // Maps `update_rank_eligibility <bool>` to `update rank_eligible <bool>`
-                            "update_rank_eligibility" => {
-                                let eligible = get_arg_bool(eff, 0)?;
-                                let value = if eligible { "true" } else { "false" };
-                                effects.push(TransitionEffectDef::UpdateField {
-                                    field: "rank_eligible".to_string(),
-                                    value: value.to_string(),
                                     span: eff.span().into(),
                                 });
                             }
@@ -969,19 +893,29 @@ fn parse_account(node: &KdlNode, src: &str) -> Result<AccountDef, CompileError> 
 fn parse_rule(node: &KdlNode, src: &str) -> Result<RuleDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
     let mut on_event = String::new();
-    let mut assertion = String::new();
+    let mut assertion = None;
     let mut message = String::new();
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
                 "on" => on_event = get_arg_string(child, 0, src)?,
-                "assert" => assertion = get_arg_string(child, 0, src)?,
+                "assert" => {
+                    let s = get_arg_string(child, 0, src)?;
+                    let offset = child.entries().get(0).map(|e| e.span().offset()).unwrap_or(child.span().offset());
+                    assertion = Some(parse_expression(&s, offset)?);
+                }
                 "message" => message = get_arg_string(child, 0, src)?,
                 _ => {}
             }
         }
     }
+
+    let assertion = assertion.ok_or_else(|| CompileError::ParseError {
+        src: src.to_string(),
+        span: node.span().into(),
+        message: "Missing assertion in rule".to_string(),
+    })?;
 
     Ok(RuleDef {
         name,
@@ -995,20 +929,39 @@ fn parse_rule(node: &KdlNode, src: &str) -> Result<RuleDef, CompileError> {
 fn parse_posting_rule(node: &KdlNode, src: &str) -> Result<PostingRuleDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
     let source_entity = get_prop_string(node, "for", src)?;
-    let mut description_expr = String::new();
-    let mut date_expr = String::new();
+    let mut description_expr = None;
+    let mut date_expr = None;
     let mut lines = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
-                "description" => description_expr = get_arg_string(child, 0, src)?,
-                "date" => date_expr = get_arg_string(child, 0, src)?,
+                "description" => {
+                     let s = get_arg_string(child, 0, src)?;
+                     let offset = child.entries().get(0).map(|e| e.span().offset()).unwrap_or(child.span().offset());
+                     description_expr = Some(parse_expression(&s, offset)?);
+                }
+                "date" => {
+                     let s = get_arg_string(child, 0, src)?;
+                     let offset = child.entries().get(0).map(|e| e.span().offset()).unwrap_or(child.span().offset());
+                     date_expr = Some(parse_expression(&s, offset)?);
+                }
                 "entry" | "line" => lines.push(parse_posting_line(child, src)?),
                 _ => {}
             }
         }
     }
+
+    let description_expr = description_expr.ok_or_else(|| CompileError::ParseError {
+        src: src.to_string(),
+        span: node.span().into(),
+        message: "Missing description".to_string(),
+    })?;
+    let date_expr = date_expr.ok_or_else(|| CompileError::ParseError {
+        src: src.to_string(),
+        span: node.span().into(),
+        message: "Missing date".to_string(),
+    })?;
 
     Ok(PostingRuleDef {
         name,
@@ -1029,8 +982,16 @@ fn parse_posting_line(node: &KdlNode, src: &str) -> Result<PostingLineDef, Compi
         for child in children.nodes() {
             match child.name().value() {
                 "account" => account = get_arg_string(child, 0, src)?,
-                "debit" => debit_expr = Some(get_arg_string(child, 0, src)?),
-                "credit" => credit_expr = Some(get_arg_string(child, 0, src)?),
+                "debit" => {
+                    let s = get_arg_string(child, 0, src)?;
+                    let offset = child.entries().get(0).map(|e| e.span().offset()).unwrap_or(child.span().offset());
+                    debit_expr = Some(parse_expression(&s, offset)?);
+                }
+                "credit" => {
+                    let s = get_arg_string(child, 0, src)?;
+                    let offset = child.entries().get(0).map(|e| e.span().offset()).unwrap_or(child.span().offset());
+                    credit_expr = Some(parse_expression(&s, offset)?);
+                }
                 _ => {}
             }
         }
@@ -1044,127 +1005,104 @@ fn parse_posting_line(node: &KdlNode, src: &str) -> Result<PostingLineDef, Compi
     })
 }
 
-fn parse_employee_status(node: &KdlNode, src: &str) -> Result<PartialWorkflowDef, CompileError> {
+fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
-    let entity = get_prop_string(node, "for", src)
-        .ok()
-        .or_else(|| get_prop_string(node, "entity", src).ok());
-    let field = get_prop_string(node, "field", src).ok();
+    let root_entity = get_prop_string(node, "for", src)?;
+    let mut params = vec![];
+    let mut selections = vec![];
+    let mut formulas = vec![];
+    let mut joins = vec![];
+    let mut filters = vec![];
+    let mut group_by = vec![];
 
-    let mut transitions = vec![];
-
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            if child.name().value() == "can_transition_to" {
-                let mut trans = parse_employee_status_transition(child, src)?;
-                // Inject implied "from" and generate name
-                trans.from = name.clone();
-                trans.name = format!("{}_to_{}", name, trans.to);
-                transitions.push(trans);
-            }
-        }
-    }
-
-    Ok(PartialWorkflowDef {
-        name,
-        entity,
-        field,
-        transitions,
-        span: node.span().into(),
-    })
-}
-
-fn parse_employee_status_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileError> {
-    let to = get_arg_string(node, 0, src)?;
-    let permission = get_prop_string(node, "permission", src).ok();
-    let mut preconditions = vec![];
-    let mut effects = vec![];
-
-    if let Some(children) = node.children() {
-        let (mut p, mut e) = parse_transition_body(children, src)?;
-        preconditions.append(&mut p);
-        effects.append(&mut e);
-    }
-
-    Ok(TransitionDef {
-        name: String::new(),
-        from: String::new(),
-        to,
-        permission,
-        preconditions,
-        effects,
-        span: node.span().into(),
-    })
-}
-
-fn parse_form(node: &KdlNode, src: &str) -> Result<FormDef, CompileError> {
-    let name = get_arg_string(node, 0, src).unwrap_or_else(|_| "DefaultForm".to_string());
-    let entity = get_prop_string(node, "entity", src).or_else(|_| get_prop_string(node, "for", src))?;
-    let mut sections = vec![];
+    let query_type = match node.name().value() {
+        "query:flat" => QueryType::Flat,
+        _ => QueryType::Nested,
+    };
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            if child.name().value() == "section" {
-                sections.push(parse_section(child, src)?);
-            }
-        }
-    }
-
-    Ok(FormDef {
-        name,
-        entity,
-        sections,
-        span: node.span().into(),
-    })
-}
-
-fn parse_section(node: &KdlNode, src: &str) -> Result<FormSectionDef, CompileError> {
-    let title = get_arg_string(node, 0, src)?;
-    let mut fields = vec![];
-
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            if child.name().value() == "field" {
-                let field_name = get_arg_string(child, 0, src)?;
-                fields.push(field_name);
-            } else if child.name().value() == "group"
-                && let Some(grandkids) = child.children()
-            {
-                for grandkid in grandkids.nodes() {
-                    if grandkid.name().value() == "field" {
-                        let field_name = get_arg_string(grandkid, 0, src)?;
-                        fields.push(field_name);
+            match child.name().value() {
+                "params" => {
+                    for entry in child.entries() {
+                        if let Some(val) = entry.value().as_string() {
+                            params.push(val.to_string());
+                        }
                     }
                 }
+                "select" => selections.push(parse_query_selection(child, src)?),
+                "formula" => formulas.push(parse_query_formula(child, src)?),
+                "join" => joins.push(parse_query_join(child, src)?),
+                "filter" => {
+                    let s = get_arg_string(child, 0, src)?;
+                    let offset = child.entries().get(0).map(|e| e.span().offset()).unwrap_or(child.span().offset());
+                    filters.push(parse_expression(&s, offset)?);
+                }
+                "group_by" => group_by.push(get_arg_string(child, 0, src)?),
+                _ => {}
             }
         }
     }
 
-    Ok(FormSectionDef {
-        title,
-        fields,
+    Ok(QueryDef {
+        name,
+        params,
+        root_entity,
+        query_type,
+        selections,
+        formulas,
+        filters,
+        joins,
+        group_by,
         span: node.span().into(),
     })
 }
 
-fn parse_permission(node: &KdlNode, src: &str) -> Result<PermissionDef, CompileError> {
+fn parse_query_selection(node: &KdlNode, src: &str) -> Result<QuerySelectionDef, CompileError> {
+    let field = get_arg_string(node, 0, src)?;
+    let alias = get_prop_string(node, "as", src).ok();
+    Ok(QuerySelectionDef {
+        field,
+        alias,
+        span: node.span().into(),
+    })
+}
+
+fn parse_query_formula(node: &KdlNode, src: &str) -> Result<QueryFormulaDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
-    let mut allows = vec![];
+    let s = get_arg_string(node, 1, src)?;
+    let offset = node.entries().get(1).map(|e| e.span().offset()).unwrap_or(node.span().offset());
+    let expression = parse_expression(&s, offset)?;
+
+    Ok(QueryFormulaDef {
+        name,
+        expression,
+        span: node.span().into(),
+    })
+}
+
+fn parse_query_join(node: &KdlNode, src: &str) -> Result<QueryJoinDef, CompileError> {
+    let target_entity = get_arg_string(node, 0, src)?;
+    let mut selections = vec![];
+    let mut formulas = vec![];
+    let mut joins = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            if child.name().value() == "allow" {
-                let resource = get_arg_string(child, 0, src)?;
-                let actions = get_arg_string(child, 1, src).ok();
-
-                allows.push(AllowDef { resource, actions });
+            match child.name().value() {
+                "select" => selections.push(parse_query_selection(child, src)?),
+                "formula" => formulas.push(parse_query_formula(child, src)?),
+                "join" => joins.push(parse_query_join(child, src)?),
+                _ => {}
             }
         }
     }
 
-    Ok(PermissionDef {
-        name,
-        allows,
+    Ok(QueryJoinDef {
+        target_entity,
+        selections,
+        formulas,
+        joins,
         span: node.span().into(),
     })
 }
@@ -1538,97 +1476,74 @@ fn parse_print(node: &KdlNode, src: &str) -> Result<PrintDef, CompileError> {
     })
 }
 
-fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
-    let root_entity = get_prop_string(node, "for", src)?;
-    let mut params = vec![];
-    let mut selections = vec![];
-    let mut formulas = vec![];
-    let mut joins = vec![];
-    let mut filters = vec![];
-    let mut group_by = vec![];
-
-    let query_type = match node.name().value() {
-        "query:flat" => QueryType::Flat,
-        _ => QueryType::Nested,
-    };
+fn parse_form(node: &KdlNode, src: &str) -> Result<FormDef, CompileError> {
+    let name = get_arg_string(node, 0, src).unwrap_or_else(|_| "DefaultForm".to_string());
+    let entity = get_prop_string(node, "entity", src).or_else(|_| get_prop_string(node, "for", src))?;
+    let mut sections = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            match child.name().value() {
-                "params" => {
-                    for entry in child.entries() {
-                        if let Some(val) = entry.value().as_string() {
-                            params.push(val.to_string());
-                        }
+            if child.name().value() == "section" {
+                sections.push(parse_section(child, src)?);
+            }
+        }
+    }
+
+    Ok(FormDef {
+        name,
+        entity,
+        sections,
+        span: node.span().into(),
+    })
+}
+
+fn parse_section(node: &KdlNode, src: &str) -> Result<FormSectionDef, CompileError> {
+    let title = get_arg_string(node, 0, src)?;
+    let mut fields = vec![];
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            if child.name().value() == "field" {
+                let field_name = get_arg_string(child, 0, src)?;
+                fields.push(field_name);
+            } else if child.name().value() == "group"
+                && let Some(grandkids) = child.children()
+            {
+                for grandkid in grandkids.nodes() {
+                    if grandkid.name().value() == "field" {
+                        let field_name = get_arg_string(grandkid, 0, src)?;
+                        fields.push(field_name);
                     }
                 }
-                "select" => selections.push(parse_query_selection(child, src)?),
-                "formula" => formulas.push(parse_query_formula(child, src)?),
-                "join" => joins.push(parse_query_join(child, src)?),
-                "filter" => filters.push(get_arg_string(child, 0, src)?),
-                "group_by" => group_by.push(get_arg_string(child, 0, src)?),
-                _ => {}
             }
         }
     }
 
-    Ok(QueryDef {
-        name,
-        params,
-        root_entity,
-        query_type,
-        selections,
-        formulas,
-        filters,
-        joins,
-        group_by,
+    Ok(FormSectionDef {
+        title,
+        fields,
         span: node.span().into(),
     })
 }
 
-fn parse_query_selection(node: &KdlNode, src: &str) -> Result<QuerySelectionDef, CompileError> {
-    let field = get_arg_string(node, 0, src)?;
-    let alias = get_prop_string(node, "as", src).ok();
-    Ok(QuerySelectionDef {
-        field,
-        alias,
-        span: node.span().into(),
-    })
-}
-
-fn parse_query_formula(node: &KdlNode, src: &str) -> Result<QueryFormulaDef, CompileError> {
+fn parse_permission(node: &KdlNode, src: &str) -> Result<PermissionDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
-    let expression = get_arg_string(node, 1, src)?;
-    Ok(QueryFormulaDef {
-        name,
-        expression,
-        span: node.span().into(),
-    })
-}
-
-fn parse_query_join(node: &KdlNode, src: &str) -> Result<QueryJoinDef, CompileError> {
-    let target_entity = get_arg_string(node, 0, src)?;
-    let mut selections = vec![];
-    let mut formulas = vec![];
-    let mut joins = vec![];
+    let mut allows = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            match child.name().value() {
-                "select" => selections.push(parse_query_selection(child, src)?),
-                "formula" => formulas.push(parse_query_formula(child, src)?),
-                "join" => joins.push(parse_query_join(child, src)?),
-                _ => {}
+            if child.name().value() == "allow" {
+                let resource = get_arg_string(child, 0, src)?;
+                let actions = get_arg_string(child, 1, src).ok();
+
+                allows.push(AllowDef { resource, actions });
             }
         }
     }
 
-    Ok(QueryJoinDef {
-        target_entity,
-        selections,
-        formulas,
-        joins,
+    Ok(PermissionDef {
+        name,
+        allows,
         span: node.span().into(),
     })
 }

@@ -114,9 +114,8 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         let mut preconditions = vec![];
         for p in &t.preconditions {
             match p {
-                ast::TransitionPreconditionDef::Assertion { expression, span } => {
-                    let expr = crate::expr::parse_expression(expression, span.offset())?;
-                    preconditions.push(TransitionPrecondition::Assertion(convert_expr(&expr)));
+                ast::TransitionPreconditionDef::Assertion { expression, span: _ } => {
+                    preconditions.push(TransitionPrecondition::Assertion(convert_expr(expression)));
                 }
                 ast::TransitionPreconditionDef::Custom { name, args, .. } => {
                     let expr_args = args
@@ -511,10 +510,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             .formulas
             .iter()
             .map(|f| {
-                let expr = crate::expr::parse_expression(&f.expression, f.span.offset())?;
                 Ok(QueryFormula {
                     name: f.name.as_str().into(),
-                    expression: convert_expr(&expr),
+                    expression: convert_expr(&f.expression),
                 })
             })
             .collect();
@@ -541,10 +539,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             .formulas
             .iter()
             .map(|f| {
-                let expr = crate::expr::parse_expression(&f.expression, f.span.offset())?;
                 Ok(QueryFormula {
                     name: f.name.as_str().into(),
-                    expression: convert_expr(&expr),
+                    expression: convert_expr(&f.expression),
                 })
             })
             .collect();
@@ -554,9 +551,8 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         let filters: Result<Vec<gurih_ir::Expression>, CompileError> = query_def
             .filters
             .iter()
-            .map(|f_str| {
-                let expr = crate::expr::parse_expression(f_str, 0)?;
-                Ok(convert_expr(&expr))
+            .map(|expr| {
+                Ok(convert_expr(expr))
             })
             .collect();
 
@@ -586,13 +582,12 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     // 15. Process Rules
     let mut ir_rules: HashMap<Symbol, RuleSchema> = HashMap::new();
     for rule_def in &ast_root.rules {
-        let expr = crate::expr::parse_expression(&rule_def.assertion, rule_def.span.offset())?;
         ir_rules.insert(
             rule_def.name.as_str().into(),
             RuleSchema {
                 name: rule_def.name.as_str().into(),
                 on_event: rule_def.on_event.as_str().into(),
-                assertion: convert_expr(&expr),
+                assertion: convert_expr(&rule_def.assertion),
                 message: rule_def.message.clone(),
             },
         );
@@ -601,18 +596,18 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     // 16. Process Posting Rules
     let mut ir_posting_rules: HashMap<Symbol, gurih_ir::PostingRuleSchema> = HashMap::new();
     for pr_def in &ast_root.posting_rules {
-        let desc_expr = crate::expr::parse_expression(&pr_def.description_expr, pr_def.span.offset())?;
-        let date_expr = crate::expr::parse_expression(&pr_def.date_expr, pr_def.span.offset())?;
+        let desc_expr = &pr_def.description_expr;
+        let date_expr = &pr_def.date_expr;
 
         let mut lines = vec![];
         for line in &pr_def.lines {
             let debit = if let Some(d) = &line.debit_expr {
-                Some(convert_expr(&crate::expr::parse_expression(d, line.span.offset())?))
+                Some(convert_expr(d))
             } else {
                 None
             };
             let credit = if let Some(c) = &line.credit_expr {
-                Some(convert_expr(&crate::expr::parse_expression(c, line.span.offset())?))
+                Some(convert_expr(c))
             } else {
                 None
             };
@@ -629,8 +624,8 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             gurih_ir::PostingRuleSchema {
                 name: pr_def.name.as_str().into(),
                 source_entity: pr_def.source_entity.as_str().into(),
-                description_expr: convert_expr(&desc_expr),
-                date_expr: convert_expr(&date_expr),
+                description_expr: convert_expr(desc_expr),
+                date_expr: convert_expr(date_expr),
                 lines,
             },
         );

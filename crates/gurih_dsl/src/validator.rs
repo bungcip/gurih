@@ -1,7 +1,7 @@
 use crate::ast::{self, Ast};
 use crate::diagnostics::SourceSpan;
 use crate::errors::CompileError;
-use crate::expr::{BinaryOpType, Expr, UnaryOpType, parse_expression};
+use crate::expr::{BinaryOpType, Expr, UnaryOpType};
 use gurih_ir::FieldType;
 use std::collections::{HashMap, HashSet};
 
@@ -61,8 +61,7 @@ impl<'a> Validator<'a> {
                 for transition in &workflow.transitions {
                     for precondition in &transition.preconditions {
                         if let ast::TransitionPreconditionDef::Assertion { expression, span } = precondition {
-                            let expr = parse_expression(expression, span.offset())?;
-                            self.validate_expression_fields(&expr, fields, *span)?;
+                            self.validate_expression_fields(expression, fields, *span)?;
                         }
                     }
 
@@ -133,8 +132,7 @@ impl<'a> Validator<'a> {
 
     fn validate_rules(&self, ast: &Ast) -> Result<(), CompileError> {
         for rule in &ast.rules {
-            let expr = parse_expression(&rule.assertion, rule.span.offset())?;
-            let ty = self.infer_type(&expr)?;
+            let ty = self.infer_type(&rule.assertion)?;
             if ty != DataType::Boolean && ty != DataType::Any {
                 return Err(CompileError::ValidationError {
                     src: self.src.to_string(),

@@ -1,4 +1,5 @@
 use crate::diagnostics::SourceSpan;
+use crate::expr::Expr;
 pub use gurih_ir::{
     ActionStepType, DatabaseType, FieldType, QueryType, RelationshipType, RouteVerb, StorageDriver, WidgetType,
 };
@@ -34,8 +35,8 @@ pub struct Ast {
 pub struct PostingRuleDef {
     pub name: String,
     pub source_entity: String,
-    pub description_expr: String,
-    pub date_expr: String,
+    pub description_expr: Expr,
+    pub date_expr: Expr,
     pub lines: Vec<PostingLineDef>,
     pub span: SourceSpan,
 }
@@ -43,8 +44,8 @@ pub struct PostingRuleDef {
 #[derive(Debug, Clone)]
 pub struct PostingLineDef {
     pub account: String,
-    pub debit_expr: Option<String>,
-    pub credit_expr: Option<String>,
+    pub debit_expr: Option<Expr>,
+    pub credit_expr: Option<Expr>,
     pub span: SourceSpan,
 }
 
@@ -52,7 +53,7 @@ pub struct PostingLineDef {
 pub struct RuleDef {
     pub name: String,
     pub on_event: String,
-    pub assertion: String,
+    pub assertion: Expr,
     pub message: String,
     pub span: SourceSpan,
 }
@@ -218,7 +219,7 @@ pub struct TransitionDef {
 #[derive(Debug, Clone)]
 pub enum TransitionPreconditionDef {
     Assertion {
-        expression: String,
+        expression: Expr,
         span: SourceSpan,
     },
     Custom {
@@ -291,7 +292,7 @@ pub struct QueryDef {
     pub query_type: QueryType,
     pub selections: Vec<QuerySelectionDef>,
     pub formulas: Vec<QueryFormulaDef>,
-    pub filters: Vec<String>,
+    pub filters: Vec<Expr>,
     pub joins: Vec<QueryJoinDef>,
     pub group_by: Vec<String>,
     pub span: SourceSpan,
@@ -307,7 +308,7 @@ pub struct QuerySelectionDef {
 #[derive(Debug, Clone)]
 pub struct QueryFormulaDef {
     pub name: String,
-    pub expression: String,
+    pub expression: Expr,
     pub span: SourceSpan,
 }
 
