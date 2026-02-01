@@ -2,76 +2,82 @@
 
 ## 1. Overview
 
-**GurihSIASN** (Sistem Informasi ASN) is a comprehensive Human Resource Management system designed for Indonesian government agencies. It is built on the **Gurih Framework**, utilizing a powerful DSL to manage the complex lifecycle of civil servants (ASN).
+**GurihSIASN** (Sistem Informasi ASN) is the Human Resources management system for the Indonesian State Civil Apparatus (ASN), built on the Gurih Framework.
+
+It manages the entire lifecycle of civil servants, from onboarding (CPNS) to retirement (Pensiun), including promotions, transfers, and leave management.
 
 ### Target Audience
-- **ASN (Pegawai):** To view their profile, history, and submit leave requests.
-- **Admin/HR:** To manage master data, process mutations, and handle certifications.
+- **Admin**: Manages master data (Jabatan, Golongan) and system configuration.
+- **ASN (Pegawai)**: Views profile, requests leave, submits documents.
+- **Auditor**: Reviews personnel history and compliance.
+
+---
 
 ## 2. DSL Usage in GurihSIASN
 
-GurihSIASN extensively uses the **Gurih DSL** to model the intricacies of staffing (Kepegawaian).
+GurihSIASN utilizes specific DSL extensions to model HR complexity, particularly around employee status transitions.
 
-### Domain Entities
-The core entity is `Pegawai` (Employee), with rich relationships to history tables (`Riwayat*`).
+### Employee Status DSL
 
-```kdl
-entity "Pegawai" {
-    field:pk id
-    field:string "nip" unique=#true
-    field:name "nama"
-    field:enum "status_pegawai" "StatusPegawai" // CPNS, PNS, Pensiun, etc.
+Instead of generic state machines, SIASN uses the `employee_status` block to define the lifecycle of a `Pegawai`.
 
-    // Relationships to Master Data
-    belongs_to "Jabatan"
-    belongs_to "Unor" // Unit Organisasi
-    belongs_to "Golongan"
-}
-```
+![Workflow DSL](images/ide_workflow.png)
 
-![Pegawai List](images/siasn-pegawai-list.png)
+**Key Components:**
+- **requires**: Preconditions like `min_years_of_service`, `min_age`, or `document` existence.
+- **effects**: Side effects triggered upon transition.
+  - `suspend_payroll`: Custom HR effect to stop salary payments.
+  - `update_rank_eligibility`: Flags the employee for promotion.
+  - `notify`: Sends notifications to external systems (Taspen, BKN).
 
-### Workflow & Transitions (`workflow.kdl`)
-The lifecycle of an employee is strictly controlled by workflow definitions. Transitions between statuses (e.g., CPNS to PNS) require specific documents and conditions.
+### Domain-Specific Keywords
 
-```kdl
-employee_status "CPNS" for="Pegawai" field="status_pegawai" {
-    can_transition_to "PNS" {
-        requires {
-             min_years_of_service 1 from="tmt_cpns"
-             document "sk_pns"
-        }
-        effects {
-             update "rank_eligible" "true"
-             notify "unit_kepegawaian"
-        }
-    }
-}
-```
+The DSL parser supports HR-specific keywords that translate to underlying framework actions:
 
-### Dashboard
-The dashboard aggregates key statistics using DSL query widgets.
+| DSL Keyword | Framework Action | Purpose |
+|-------------|------------------|---------|
+| `suspend_payroll #true` | `UpdateField(is_payroll_active, false)` | Stops payroll for unpaid leave/suspension. |
+| `update_rank_eligibility #true` | `UpdateField(rank_eligible, true)` | Marks employee as eligible for rank promotion. |
 
-![SIASN Dashboard](images/siasn-dashboard.png)
+---
 
 ## 3. System Flow
 
-1.  **DSL Definition**: Policies are defined in `workflow.kdl` and `kepegawaian.kdl`.
-2.  **Runtime Execution**: The Gurih Runtime loads these definitions.
-    - **HrPlugin**: A specialized plugin (`gurih_runtime::hr_plugin`) handles custom logic like `suspend_payroll` or `update_rank_eligibility`.
-3.  **User Interaction**: Users interact with the system via the generic web UI, which dynamically renders forms and tables based on the DSL.
+### Runtime Execution
 
-![System Architecture](images/siasn-project-structure.png)
+1. **DSL Loading**: The `app.kdl` and `workflow.kdl` files are loaded.
+2. **Plugin Initialization**: The `HrPlugin` initializes and registers handlers for the custom effects (`suspend_payroll`).
+3. **Transition Request**:
+   - A user requests to move a `Pegawai` from `PNS` to `Pensiun`.
+4. **Validation**:
+   - Framework checks `min_age 58`.
+   - If `age < 58`, the transition is rejected.
+5. **Execution**:
+   - Status updates to `Pensiun`.
+   - `suspend_payroll` effect is executed, setting `is_payroll_active = false` in the database.
+   - `notify "taspen"` sends a message to the pension system.
+
+### Runtime Output
+
+![Runtime Terminal](images/ui_siasn_terminal.png)
+
+---
 
 ## 4. Comparison: GurihSIASN vs GurihFinance
 
-While both modules run on the same core framework, they demonstrate different strengths of the DSL:
+While both modules use the Gurih Framework, they differ in their usage patterns.
 
 | Feature | GurihFinance | GurihSIASN |
-| :--- | :--- | :--- |
-| **Primary Focus** | Transactional Integrity, Ledgers | Lifecycle Management, Compliance |
-| **Key DSL Feature** | `posting_rule`, `balanced_transaction` | `employee_status` workflow, `requires` |
-| **Plugin Logic** | `FinancePlugin` (Double Entry) | `HrPlugin` (Payroll Status, Eligibility) |
-| **Reporting** | Financial Statements (Balance Sheet) | Operational Stats (Gender, Status) |
+|---------|--------------|------------|
+| **Core Entity** | `JournalEntry` (Immutable Ledger) | `Pegawai` (Mutable State Machine) |
+| **Logic Focus** | Mathematical balance, integrity | Workflow rules, time-based eligibility |
+| **DSL Style** | `rule`, `posting_rule` (declarative mapping) | `employee_status` (lifecycle definition) |
+| **Validation** | `balanced_transaction` (strict equality) | `min_years_of_service`, `document` (policy checks) |
 
-Both share the same **UI components**, **Authentication**, and **Permission** models defined in the core framework.
+### Reusable Patterns
+
+Both modules share:
+- **`workflow`**: State transitions.
+- **`dashboard`**: Widget definitions for UI.
+- **`role`**: RBAC permissions.
+- **`report/query`**: Data extraction logic.
