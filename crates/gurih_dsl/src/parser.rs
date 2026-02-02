@@ -898,15 +898,16 @@ fn parse_rule(node: &KdlNode, src: &str) -> Result<RuleDef, CompileError> {
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            match child.name().value() {
-                "on" => on_event = get_arg_string(child, 0, src)?,
-                "assert" => {
-                    let s = get_arg_string(child, 0, src)?;
-                    let offset = child.entries().first().map(|e| e.span().offset()).unwrap_or(child.span().offset());
-                    assertion = Some(parse_expression(&s, offset)?);
-                }
-                "message" => message = get_arg_string(child, 0, src)?,
-                _ => {}
+            let child_name = child.name().value();
+            if child_name == "assert" {
+                let s = get_arg_string(child, 0, src)?;
+                let offset = child.entries().get(0).map(|e| e.span().offset()).unwrap_or(child.span().offset());
+                assertion = Some(parse_expression(&s, offset)?);
+            } else if child_name == "message" {
+                message = get_arg_string(child, 0, src)?;
+            } else if let Some(lifecycle) = child_name.strip_prefix("on:") {
+                let entity = get_arg_string(child, 0, src)?;
+                on_event = format!("{}:{}", entity, lifecycle);
             }
         }
     }

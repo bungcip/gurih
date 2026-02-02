@@ -5,7 +5,7 @@ use gurih_ir::{BinaryOperator, Expression, Symbol};
 fn test_compile_rule() {
     let src = r#"
         rule "DebitEqualsCredit" {
-            on "JournalEntry.post"
+            on:post "JournalEntry"
             assert "lines.debit == lines.credit"
             message "Debit and Credit must be equal"
         }
@@ -14,7 +14,7 @@ fn test_compile_rule() {
     let schema = compile(src, None).expect("Should compile");
     assert!(schema.rules.contains_key(&Symbol::from("DebitEqualsCredit")));
     let rule = schema.rules.get(&Symbol::from("DebitEqualsCredit")).unwrap();
-    assert_eq!(rule.on_event.as_str(), "JournalEntry.post");
+    assert_eq!(rule.on_event.as_str(), "JournalEntry:post");
     assert_eq!(rule.message, "Debit and Credit must be equal");
 
     match &rule.assertion {
@@ -40,7 +40,7 @@ fn test_compile_rule() {
 fn test_compile_rule_boolean() {
     let src = r#"
         rule "CheckPeriod" {
-            on "Post"
+            on:post "Entity"
             assert "period.closed == false"
             message "Period is closed"
         }
@@ -63,7 +63,7 @@ fn test_compile_rule_boolean() {
 fn test_compile_rule_complex_logic() {
     let src = r#"
         rule "Complex" {
-            on "Save"
+            on:save "Entity"
             assert "amount > 0 && (status == \"draft\" || role == \"admin\")"
             message "Invalid state"
         }
@@ -79,7 +79,7 @@ fn test_compile_rule_complex_logic() {
 fn test_compile_rule_type_error() {
     let src = r#"
         rule "BadType" {
-            on "Save"
+            on:save "Entity"
             assert "1 + true"
             message "Invalid math"
         }
@@ -92,10 +92,24 @@ fn test_compile_rule_type_error() {
 fn test_compile_rule_non_bool_assert() {
     let src = r#"
         rule "BadReturn" {
-            on "Save"
+            on:save "Entity"
             assert "1 + 1"
             message "Returns number"
         }
     "#;
     compile(src, None).unwrap();
+}
+
+#[test]
+fn test_compile_rule_new_syntax() {
+    let src = r#"
+        rule "MinAge" {
+            on:update "Employee"
+            assert "age >= 18"
+            message "Too young"
+        }
+    "#;
+    let schema = compile(src, None).expect("Should compile");
+    let rule = schema.rules.get(&Symbol::from("MinAge")).unwrap();
+    assert_eq!(rule.on_event.as_str(), "Employee:update");
 }
