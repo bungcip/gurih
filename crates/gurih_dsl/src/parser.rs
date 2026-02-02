@@ -840,28 +840,6 @@ fn parse_transition_body(
                                     span: eff.span().into(),
                                 });
                             }
-                            // HR Domain Extension: suspend_payroll
-                            // Maps `suspend_payroll <bool>` to `update is_payroll_active <!bool>`
-                            "suspend_payroll" => {
-                                let suspend = get_arg_bool(eff, 0)?;
-                                let value = if suspend { "false" } else { "true" };
-                                effects.push(TransitionEffectDef::UpdateField {
-                                    field: "is_payroll_active".to_string(),
-                                    value: value.to_string(),
-                                    span: eff.span().into(),
-                                });
-                            }
-                            // HR Domain Extension: update_rank_eligibility
-                            // Maps `update_rank_eligibility <bool>` to `update rank_eligible <bool>`
-                            "update_rank_eligibility" => {
-                                let eligible = get_arg_bool(eff, 0)?;
-                                let value = if eligible { "true" } else { "false" };
-                                effects.push(TransitionEffectDef::UpdateField {
-                                    field: "rank_eligible".to_string(),
-                                    value: value.to_string(),
-                                    span: eff.span().into(),
-                                });
-                            }
                             "post_journal" => {
                                 let rule = get_arg_string(eff, 0, src)?;
                                 effects.push(TransitionEffectDef::Custom {

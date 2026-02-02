@@ -1,10 +1,10 @@
 // FIXME: Broken due to plugin refactoring. Move to gurih_plugins.
-/*
+
 use gurih_dsl::compiler::compile;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::{DataStore, MemoryDataStore};
-use gurih_runtime::hr_plugin::HrPlugin;
+use gurih_plugins::hr::HrPlugin;
 use serde_json::json;
 use std::sync::Arc;
 
@@ -72,4 +72,3 @@ async fn test_hr_plugin_custom_effects() {
     let emp = engine.read("Employee", &id).await.unwrap().unwrap();
     assert_eq!(emp.get("rank_eligible").unwrap(), true);
 }
-*/
