@@ -1,4 +1,3 @@
-// FIXME: Broken due to plugin refactoring. Move to gurih_plugins.
 
 use gurih_dsl::compiler::compile;
 use gurih_plugins::hr::HrPlugin;

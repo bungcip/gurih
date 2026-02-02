@@ -601,16 +601,8 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
         let mut lines = vec![];
         for line in &pr_def.lines {
-            let debit = if let Some(d) = &line.debit_expr {
-                Some(convert_expr(d))
-            } else {
-                None
-            };
-            let credit = if let Some(c) = &line.credit_expr {
-                Some(convert_expr(c))
-            } else {
-                None
-            };
+            let debit = line.debit_expr.as_ref().map(convert_expr);
+            let credit = line.credit_expr.as_ref().map(convert_expr);
 
             lines.push(gurih_ir::PostingLineSchema {
                 account: Symbol::from(line.account.as_str()),

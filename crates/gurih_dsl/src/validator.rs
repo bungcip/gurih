@@ -66,20 +66,18 @@ impl<'a> Validator<'a> {
                     }
 
                     for effect in &transition.effects {
-                        match effect {
-                            ast::TransitionEffectDef::UpdateField { field, span, .. } => {
-                                if !fields.contains(field) {
-                                    return Err(CompileError::ValidationError {
-                                        src: self.src.to_string(),
-                                        span: *span,
-                                        message: format!(
-                                            "Effect target field '{}' not found in entity '{}'",
-                                            field, workflow.entity
-                                        ),
-                                    });
-                                }
+                        #[allow(clippy::collapsible_if)]
+                        if let ast::TransitionEffectDef::UpdateField { field, span, .. } = effect {
+                            if !fields.contains(field) {
+                                return Err(CompileError::ValidationError {
+                                    src: self.src.to_string(),
+                                    span: *span,
+                                    message: format!(
+                                        "Effect target field '{}' not found in entity '{}'",
+                                        field, workflow.entity
+                                    ),
+                                });
                             }
-                            _ => {}
                         }
                     }
                 }

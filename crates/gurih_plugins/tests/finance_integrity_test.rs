@@ -1,5 +1,3 @@
-// FIXME: Broken due to plugin refactoring. Move to gurih_plugins.
-/*
 use gurih_dsl::compile;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
@@ -113,4 +111,3 @@ async fn test_allow_account_delete_unused() {
     let res = engine.delete("Account", &acc_id, &ctx).await;
     assert!(res.is_ok(), "Should allow deleting unused account");
 }
-*/

@@ -2,7 +2,7 @@ use crate::context::RuntimeContext;
 use crate::datastore::DataStore;
 use hmac::Hmac;
 use pbkdf2::pbkdf2;
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};

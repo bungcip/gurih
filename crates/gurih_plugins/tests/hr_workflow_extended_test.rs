@@ -1,10 +1,8 @@
-// FIXME: Broken due to plugin refactoring. Move to gurih_plugins.
-/*
 use gurih_dsl::compiler::compile;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::{DataStore, MemoryDataStore};
-use gurih_runtime::hr_plugin::HrPlugin;
+use gurih_plugins::hr::HrPlugin;
 use serde_json::json;
 use std::sync::Arc;
 
@@ -78,4 +76,3 @@ async fn test_effective_date_and_rank_eligibility() {
     // last_promotion_date updated by 'update' effect
     assert_eq!(emp.get("last_promotion_date").unwrap(), "2024-01-01");
 }
-*/

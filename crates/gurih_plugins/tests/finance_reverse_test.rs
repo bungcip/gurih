@@ -1,11 +1,9 @@
-// FIXME: Broken due to plugin refactoring. Move to gurih_plugins.
-/*
 use gurih_ir::{ActionLogic, ActionStep, ActionStepType, EntitySchema, FieldSchema, FieldType, Schema, Symbol};
 use gurih_runtime::action::ActionEngine;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::{DataStore, MemoryDataStore};
-use gurih_runtime::plugins::FinancePlugin;
+use gurih_plugins::finance::FinancePlugin;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -283,4 +281,3 @@ async fn test_finance_reverse_journal() {
         "Should find a line with Debit 100, Credit 0 (Reversal of JL2)"
     );
 }
-*/
