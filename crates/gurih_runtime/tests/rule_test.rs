@@ -18,13 +18,13 @@ async fn test_rule_enforcement() {
     }
 
     rule "MinAge" {
-        on "Person:create"
+        on:create "Person"
         assert "age(birth_date) >= 18"
         message "Person must be at least 18 years old"
     }
 
     rule "MinAgeUpdate" {
-        on "Person:update"
+        on:update "Person"
         assert "age(birth_date) >= 18"
         message "Person must be at least 18 years old updated"
     }
@@ -91,7 +91,7 @@ async fn test_rule_self_and_old() {
     }
 
     rule "AmountIncrease" {
-        on "Wallet:update"
+        on:update "Wallet"
         assert "self.amount > old.amount"
         message "Amount must increase"
     }

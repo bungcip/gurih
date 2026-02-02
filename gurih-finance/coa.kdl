@@ -100,7 +100,7 @@ page "AccountForm" {
 }
 
 rule "PreventInUseAccountDelete" {
-    on "Account:delete"
+    on:delete "Account"
     assert "exists(\"JournalLine\", \"account\", self.id) == false"
     message "Cannot delete account that has journal entries."
 }
