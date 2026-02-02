@@ -12,8 +12,10 @@ fn test_employee_status_desugaring() {
             field "sk_pns" type="String"
         }
 
-        employee_status "CPNS" for="Pegawai" field="status_pegawai" {
-            can_transition_to "PNS" {
+        workflow "PegawaiStatusWorkflow" for="Pegawai" field="status_pegawai" {
+            state "CPNS"
+            state "PNS"
+            transition "CPNS_to_PNS" from="CPNS" to="PNS" {
                 requires {
                     min_years_of_service 1 from="tmt_cpns"
                     min_age 18 from="tanggal_lahir"
