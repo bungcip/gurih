@@ -24,14 +24,14 @@ fn test_employee_status_compilation() {
         }
 
         effects {
-          update "is_payroll_active" "false"
+          suspend_payroll "true"
           notify "unit_kepegawaian"
         }
       }
 
       transition "cuti_to_aktif" from="cuti" to="aktif" {
         effects {
-           update "is_payroll_active" "true"
+           suspend_payroll "false"
         }
       }
     }
@@ -93,11 +93,14 @@ fn test_employee_status_compilation() {
     }));
 
     // Check effects
-    // update "is_payroll_active" "false"
+    // suspend_payroll true -> Custom("suspend_payroll", ["true"])
     assert!(
         t1.effects
             .iter()
-            .any(|e| matches!(e, TransitionEffect::UpdateField { field, value } if field == &Symbol::from("is_payroll_active") && value == "false"))
+            .any(|e| matches!(e, TransitionEffect::Custom { name, args }
+                if name == &Symbol::from("suspend_payroll")
+                && matches!(args.first(), Some(Expression::StringLiteral(s)) if s == "true")
+            ))
     );
     assert!(
         t1.effects
@@ -113,11 +116,14 @@ fn test_employee_status_compilation() {
     assert!(cuti_to_aktif.is_some());
     let t2 = cuti_to_aktif.unwrap();
 
-    // update "is_payroll_active" "true"
+    // suspend_payroll false -> Custom("suspend_payroll", ["false"])
     assert!(
         t2.effects
             .iter()
-            .any(|e| matches!(e, TransitionEffect::UpdateField { field, value } if field == &Symbol::from("is_payroll_active") && value == "true"))
+            .any(|e| matches!(e, TransitionEffect::Custom { name, args }
+                if name == &Symbol::from("suspend_payroll")
+                && matches!(args.first(), Some(Expression::StringLiteral(s)) if s == "false")
+            ))
     );
 }
 
