@@ -1176,10 +1176,12 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "gurih_dsl",
  "gurih_ir",
  "gurih_runtime",
  "serde",
  "serde_json",
+ "tokio",
  "uuid",
 ]
 

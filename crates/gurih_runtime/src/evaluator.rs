@@ -241,7 +241,8 @@ async fn eval_function(
             }
         }
         "exists" => {
-            if args.len() < 1 || (args.len() - 1) % 2 != 0 {
+            #[allow(clippy::manual_is_multiple_of)]
+            if args.is_empty() || (args.len() - 1) % 2 != 0 {
                 return Err(RuntimeError::EvaluationError(
                     "exists() requires entity name and pairs of key/value arguments".into(),
                 ));

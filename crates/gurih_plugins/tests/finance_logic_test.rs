@@ -1,7 +1,5 @@
-// FIXME: Broken due to plugin refactoring. Move to gurih_plugins.
-/*
 use gurih_ir::{Schema, StateSchema, Symbol, Transition, TransitionPrecondition, WorkflowSchema};
-use gurih_runtime::plugins::FinancePlugin;
+use gurih_plugins::finance::FinancePlugin;
 use gurih_runtime::workflow::WorkflowEngine;
 use serde_json::json;
 use std::collections::HashMap;
@@ -77,4 +75,3 @@ async fn test_balanced_transaction() {
         .await;
     assert!(res.is_err(), "Unbalanced transaction should fail");
 }
-*/

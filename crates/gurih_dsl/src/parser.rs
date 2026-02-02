@@ -672,7 +672,7 @@ fn parse_transition_body(
                         match req.name().value() {
                             "document" => {
                                 let doc_name = get_arg_string(req, 0, src)?;
-                                let span = req.entries().get(0).map(|e| e.span().offset()).unwrap_or(req.span().offset());
+                                let span = req.entries().first().map(|e| e.span().offset()).unwrap_or(req.span().offset());
                                 let expr_str = format!("is_set({})", doc_name);
                                 let expr = parse_expression(&expr_str, span)?;
                                 preconditions.push(TransitionPreconditionDef::Assertion {
@@ -902,7 +902,7 @@ fn parse_rule(node: &KdlNode, src: &str) -> Result<RuleDef, CompileError> {
                 "on" => on_event = get_arg_string(child, 0, src)?,
                 "assert" => {
                     let s = get_arg_string(child, 0, src)?;
-                    let offset = child.entries().get(0).map(|e| e.span().offset()).unwrap_or(child.span().offset());
+                    let offset = child.entries().first().map(|e| e.span().offset()).unwrap_or(child.span().offset());
                     assertion = Some(parse_expression(&s, offset)?);
                 }
                 "message" => message = get_arg_string(child, 0, src)?,
@@ -938,12 +938,12 @@ fn parse_posting_rule(node: &KdlNode, src: &str) -> Result<PostingRuleDef, Compi
             match child.name().value() {
                 "description" => {
                      let s = get_arg_string(child, 0, src)?;
-                     let offset = child.entries().get(0).map(|e| e.span().offset()).unwrap_or(child.span().offset());
+                     let offset = child.entries().first().map(|e| e.span().offset()).unwrap_or(child.span().offset());
                      description_expr = Some(parse_expression(&s, offset)?);
                 }
                 "date" => {
                      let s = get_arg_string(child, 0, src)?;
-                     let offset = child.entries().get(0).map(|e| e.span().offset()).unwrap_or(child.span().offset());
+                     let offset = child.entries().first().map(|e| e.span().offset()).unwrap_or(child.span().offset());
                      date_expr = Some(parse_expression(&s, offset)?);
                 }
                 "entry" | "line" => lines.push(parse_posting_line(child, src)?),
@@ -984,12 +984,12 @@ fn parse_posting_line(node: &KdlNode, src: &str) -> Result<PostingLineDef, Compi
                 "account" => account = get_arg_string(child, 0, src)?,
                 "debit" => {
                     let s = get_arg_string(child, 0, src)?;
-                    let offset = child.entries().get(0).map(|e| e.span().offset()).unwrap_or(child.span().offset());
+                    let offset = child.entries().first().map(|e| e.span().offset()).unwrap_or(child.span().offset());
                     debit_expr = Some(parse_expression(&s, offset)?);
                 }
                 "credit" => {
                     let s = get_arg_string(child, 0, src)?;
-                    let offset = child.entries().get(0).map(|e| e.span().offset()).unwrap_or(child.span().offset());
+                    let offset = child.entries().first().map(|e| e.span().offset()).unwrap_or(child.span().offset());
                     credit_expr = Some(parse_expression(&s, offset)?);
                 }
                 _ => {}
@@ -1035,7 +1035,7 @@ fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
                 "join" => joins.push(parse_query_join(child, src)?),
                 "filter" => {
                     let s = get_arg_string(child, 0, src)?;
-                    let offset = child.entries().get(0).map(|e| e.span().offset()).unwrap_or(child.span().offset());
+                    let offset = child.entries().first().map(|e| e.span().offset()).unwrap_or(child.span().offset());
                     filters.push(parse_expression(&s, offset)?);
                 }
                 "group_by" => group_by.push(get_arg_string(child, 0, src)?),

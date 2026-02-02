@@ -1,5 +1,3 @@
-// FIXME: Broken due to plugin refactoring. Move to gurih_plugins.
-/*
 use async_trait::async_trait;
 use gurih_ir::{
     Expression, QuerySchema, QuerySelection, QueryType, Schema, StateSchema, Symbol, Transition,
@@ -259,4 +257,3 @@ fn test_query_group_by() {
     let QueryPlan::ExecuteSql { sql, .. } = &plan.plans[0];
     assert!(sql.contains("GROUP BY [f]"));
 }
-*/

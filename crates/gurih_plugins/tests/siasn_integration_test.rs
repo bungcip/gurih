@@ -1,24 +1,23 @@
-// FIXME: Broken due to plugin refactoring. Move to gurih_plugins.
-/*
 use gurih_dsl::compiler::compile;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::{DataStore, MemoryDataStore};
-use gurih_runtime::hr_plugin::HrPlugin;
+use gurih_plugins::hr::HrPlugin;
 use serde_json::json;
 use std::sync::Arc;
 
 #[tokio::test]
 async fn test_siasn_integration_workflow() {
     // 1. Locate and compile the Siasn App Schema
-    let crate_dir = std::env::current_dir().unwrap();
-    // Assuming running from crates/gurih_runtime or root.
-    // If running from root, path is gurih-siasn. If from crate, ../../gurih-siasn
-    let base_path = if crate_dir.ends_with("gurih_runtime") {
-        crate_dir.parent().unwrap().parent().unwrap().join("gurih-siasn")
-    } else {
-        crate_dir.join("gurih-siasn")
-    };
+    let mut path = std::env::current_dir().unwrap();
+    while !path.join("gurih-siasn").exists() {
+        if let Some(parent) = path.parent() {
+            path = parent.to_path_buf();
+        } else {
+            break;
+        }
+    }
+    let base_path = path.join("gurih-siasn");
 
     let app_kdl_path = base_path.join("app.kdl");
     assert!(
@@ -123,4 +122,3 @@ async fn test_siasn_integration_workflow() {
         "Payroll should be suspended (false)"
     );
 }
-*/

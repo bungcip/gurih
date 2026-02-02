@@ -2,6 +2,13 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn get_npm_cmd() -> &'static str {
+    if std::path::Path::new("web/pnpm-lock.yaml").exists() {
+        #[cfg(windows)]
+        return "pnpm.cmd";
+        #[cfg(not(windows))]
+        return "pnpm";
+    }
+
     #[cfg(windows)]
     let cmd = "npm.cmd";
     #[cfg(not(windows))]
