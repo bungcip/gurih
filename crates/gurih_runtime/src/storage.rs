@@ -15,6 +15,31 @@ pub trait FileDriver: Send + Sync {
     async fn get_url(&self, filename: &str) -> String;
 }
 
+fn validate_filename(filename: &str) -> Result<(), String> {
+    let check_path = Path::new(filename);
+    if check_path.is_absolute() {
+        return Err("Absolute paths are not allowed in storage".to_string());
+    }
+    for component in check_path.components() {
+        if matches!(component, std::path::Component::ParentDir) {
+            return Err("Path traversal '..' is not allowed in storage".to_string());
+        }
+    }
+
+    if let Some(ext) = check_path.extension() {
+        let ext_str = ext.to_string_lossy().to_lowercase();
+        let forbidden = [
+            "php", "php3", "php4", "php5", "phtml", "pl", "py", "cgi", "asp", "aspx", "jsp", "sh",
+            "bash", "exe", "dll", "bat", "cmd", "vbs", "svg", "html", "htm", "shtml", "js", "mjs",
+        ];
+        if forbidden.contains(&ext_str.as_str()) {
+            return Err(format!("File extension not allowed: {}", ext_str));
+        }
+    }
+
+    Ok(())
+}
+
 pub struct LocalFileDriver {
     base_path: String,
     base_url: String,
@@ -33,17 +58,7 @@ impl LocalFileDriver {
 #[async_trait]
 impl FileDriver for LocalFileDriver {
     async fn put(&self, filename: &str, data: Bytes) -> Result<String, String> {
-        // Validation: Prevent path traversal and absolute paths
-        let check_path = Path::new(filename);
-        if check_path.is_absolute() {
-            return Err("Absolute paths are not allowed in storage".to_string());
-        }
-        for component in check_path.components() {
-            if matches!(component, std::path::Component::ParentDir) {
-                return Err("Path traversal '..' is not allowed in storage".to_string());
-            }
-        }
-
+        validate_filename(filename)?;
         let path = Path::new(&self.base_path).join(filename);
         if let Some(parent) = path.parent() {
             tokio::fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
@@ -99,6 +114,7 @@ impl S3FileDriver {
 #[async_trait]
 impl FileDriver for S3FileDriver {
     async fn put(&self, filename: &str, data: Bytes) -> Result<String, String> {
+        validate_filename(filename)?;
         self.bucket
             .put_object(filename, &data)
             .await
