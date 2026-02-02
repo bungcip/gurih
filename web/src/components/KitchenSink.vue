@@ -13,6 +13,7 @@ import StatusBadge from './StatusBadge.vue'
 import Modal from './Modal.vue'
 import Timeline from './Timeline.vue'
 import Steps from './Steps.vue'
+import Breadcrumbs from './Breadcrumbs.vue'
 import MetricCard from './MetricCard.vue'
 import ProgressBar from './ProgressBar.vue'
 import DescriptionList from './DescriptionList.vue'
@@ -257,6 +258,23 @@ const discussionItems = ref([
     { id: 2, author: 'Bob Jones', date: '1 hour ago', content: 'I tried calling but no answer. Left a voicemail.' },
     { id: 3, author: 'Charlie Day', date: 'Just now', content: 'They just emailed back. Updating the ticket status.', avatar: 'CD' }
 ])
+
+const breadcrumbsItems = [
+    { label: 'Home', href: '/', icon: 'dashboard' },
+    { label: 'HR', href: '/hr', icon: 'users' },
+    { label: 'Employees', href: '/hr/employees' },
+    { label: 'Budi Santoso', current: true }
+]
+const breadcrumbsSimple = [
+    { label: 'Home', href: '/' },
+    { label: 'Finance', href: '/finance' },
+    { label: 'Invoices', current: true }
+]
+
+function onNavigate(item) {
+    triggerToast('info')
+    console.log('Navigate to:', item.href)
+}
 
 const progressValue = ref(65)
 
@@ -596,6 +614,29 @@ function onDiscussionSubmit(text) {
                     <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Empty State</h3>
                     <Timeline :items="[]" emptyText="No activity logs found." />
                 </div>
+            </div>
+        </section>
+
+        <!-- Breadcrumbs -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Breadcrumbs</h2>
+            <div class="space-y-6">
+                 <div>
+                    <h3 class="text-sm font-medium text-text-muted mb-2 uppercase tracking-wider">Standard Path</h3>
+                    <Breadcrumbs :items="breadcrumbsSimple" @navigate="onNavigate" />
+                 </div>
+                 <div>
+                    <h3 class="text-sm font-medium text-text-muted mb-2 uppercase tracking-wider">With Icons</h3>
+                    <Breadcrumbs :items="breadcrumbsItems" @navigate="onNavigate" />
+                 </div>
+                 <div>
+                    <h3 class="text-sm font-medium text-text-muted mb-2 uppercase tracking-wider">Custom Separator</h3>
+                    <Breadcrumbs :items="breadcrumbsSimple" separator=">" @navigate="onNavigate" />
+                 </div>
+                  <div>
+                    <h3 class="text-sm font-medium text-text-muted mb-2 uppercase tracking-wider">Loading State</h3>
+                    <Breadcrumbs loading />
+                 </div>
             </div>
         </section>
 
