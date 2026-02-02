@@ -85,20 +85,24 @@ def main():
 
     generate_text_screenshot(dsl_content, "docs/images/finance-dsl-example.png", "gurih-finance/journal.kdl")
 
-    # 3. SIASN Project Structure
+    # 3. Finance Integration Example
+    integration_content = read_file_content("gurih-finance/integration.kdl")
+    generate_text_screenshot(integration_content, "docs/images/finance-integration.png", "gurih-finance/integration.kdl")
+
+    # 4. SIASN Project Structure
     siasn_tree = get_tree("gurih-siasn")
     generate_text_screenshot(siasn_tree, "docs/images/siasn-project-structure.png", "Project Structure")
 
-    # 4. SIASN DSL Example (Employee Status)
+    # 5. SIASN DSL Example (Workflow)
     workflow_content = read_file_content("gurih-siasn/workflow.kdl")
 
-    # Extract employee_status block
+    # Extract workflow block
     lines = workflow_content.splitlines()
     status_lines = []
     in_status = False
     brace_count = 0
     for line in lines:
-        if "employee_status \"CPNS\"" in line:
+        if "workflow \"PegawaiStatusWorkflow\"" in line:
             in_status = True
 
         if in_status:
