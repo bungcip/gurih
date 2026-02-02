@@ -24,11 +24,11 @@ impl Plugin for FinancePlugin {
         name: &str,
         args: &[Expression],
         entity_data: &Value,
-        _schema: &Schema,
+        schema: &Schema,
         datastore: Option<&Arc<dyn DataStore>>,
     ) -> Result<(), RuntimeError> {
         match name {
-            "balanced_transaction" => check_balanced_transaction(entity_data),
+            "balanced_transaction" => check_balanced_transaction(entity_data, schema, datastore).await,
             "period_open" => check_period_open(args, entity_data, datastore).await,
             _ => Ok(()),
         }
@@ -68,51 +68,82 @@ impl Plugin for FinancePlugin {
     }
 }
 
-fn check_balanced_transaction(entity_data: &Value) -> Result<(), RuntimeError> {
+async fn check_balanced_transaction(
+    entity_data: &Value,
+    schema: &Schema,
+    datastore: Option<&Arc<dyn DataStore>>,
+) -> Result<(), RuntimeError> {
+    let mut total_debit = 0.0;
+    let mut total_credit = 0.0;
+    let mut found_lines_in_payload = false;
+
+    let parse_money = |v: Option<&Value>| -> f64 {
+        v.and_then(|val| val.as_str())
+            .unwrap_or("0")
+            .parse::<f64>()
+            .unwrap_or(0.0)
+            + v.and_then(|val| val.as_f64()).unwrap_or(0.0)
+    };
+
+    // 1. Try to find lines in the payload
     if let Some(obj) = entity_data.as_object() {
         for (_key, val) in obj {
             if let Some(lines) = val.as_array() {
-                let mut total_debit = 0.0;
-                let mut total_credit = 0.0;
-                let mut is_journal_line = false;
-
                 for line in lines {
                     if let Some(line_obj) = line.as_object()
                         && (line_obj.contains_key("debit") || line_obj.contains_key("credit"))
                     {
-                        is_journal_line = true;
-                        let debit = line_obj
-                            .get("debit")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("0")
-                            .parse::<f64>()
-                            .unwrap_or(0.0)
-                            + line_obj.get("debit").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                        let credit = line_obj
-                            .get("credit")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("0")
-                            .parse::<f64>()
-                            .unwrap_or(0.0)
-                            + line_obj.get("credit").and_then(|v| v.as_f64()).unwrap_or(0.0);
-
-                        total_debit += debit;
-                        total_credit += credit;
-                    }
-                }
-
-                if is_journal_line {
-                    let diff = (total_debit - total_credit).abs();
-                    if diff > 0.01 {
-                        return Err(RuntimeError::ValidationError(format!(
-                            "Transaction not balanced: Debit {}, Credit {} (Diff {})",
-                            total_debit, total_credit, diff
-                        )));
+                        found_lines_in_payload = true;
+                        total_debit += parse_money(line_obj.get("debit"));
+                        total_credit += parse_money(line_obj.get("credit"));
                     }
                 }
             }
         }
     }
+
+    // 2. If not in payload, fetch from Datastore
+    if !found_lines_in_payload {
+        if let Some(ds) = datastore {
+            if let Some(id) = entity_data.get("id").and_then(|v| v.as_str()) {
+                // Determine table name for JournalLine
+                let table_name = schema
+                    .entities
+                    .get(&Symbol::from("JournalLine"))
+                    .map(|e| e.table_name.as_str())
+                    .unwrap_or("journal_line"); // Default guess if not in schema
+
+                let mut filters = HashMap::new();
+                filters.insert("journal_entry".to_string(), id.to_string());
+
+                let lines = ds
+                    .find(table_name, filters)
+                    .await
+                    .map_err(RuntimeError::WorkflowError)?;
+
+                for line in lines {
+                    if let Some(line_obj) = line.as_object() {
+                        total_debit += parse_money(line_obj.get("debit"));
+                        total_credit += parse_money(line_obj.get("credit"));
+                    }
+                }
+            }
+        }
+        // If datastore is None, we assume maybe it's a unit test without DB,
+        // or we can't verify. Secure default: if we can't verify, we should probably pass
+        // if strictly no lines found? Or fail?
+        // Existing behavior was "pass if no lines found".
+        // Now at least we try DB.
+    }
+
+    let diff = (total_debit - total_credit).abs();
+    if diff > 0.01 {
+        return Err(RuntimeError::ValidationError(format!(
+            "Transaction not balanced: Debit {:.2}, Credit {:.2} (Diff {:.2})",
+            total_debit, total_credit, diff
+        )));
+    }
+
     Ok(())
 }
 
