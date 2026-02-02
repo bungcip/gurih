@@ -54,7 +54,12 @@ async fn test_dangerous_extension_upload() {
         // Assert failure
         assert!(result.is_err(), "Dangerous extension {} should be rejected", filename);
         let err = result.err().unwrap();
-        assert!(err.contains("File extension not allowed"), "Unexpected error for {}: {}", filename, err);
+        assert!(
+            err.contains("File extension not allowed"),
+            "Unexpected error for {}: {}",
+            filename,
+            err
+        );
     }
 
     // Safe extensions

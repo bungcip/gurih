@@ -548,13 +548,8 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
         let joins: Result<Vec<QueryJoin>, CompileError> = query_def.joins.iter().map(convert_query_join).collect();
 
-        let filters: Result<Vec<gurih_ir::Expression>, CompileError> = query_def
-            .filters
-            .iter()
-            .map(|expr| {
-                Ok(convert_expr(expr))
-            })
-            .collect();
+        let filters: Result<Vec<gurih_ir::Expression>, CompileError> =
+            query_def.filters.iter().map(|expr| Ok(convert_expr(expr))).collect();
 
         ir_queries.insert(
             query_def.name.as_str().into(),
