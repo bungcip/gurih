@@ -150,3 +150,88 @@ async fn test_missing_precondition_field() {
     assert!(err.to_string().contains("Evaluation Error"));
     // We can't check for field name in error msg because it's a value error now
 }
+
+#[tokio::test]
+async fn test_workflow_effects() {
+    use gurih_ir::{EntitySchema, FieldSchema, FieldType, TransitionEffect};
+
+    let mut schema = Schema::default();
+    let entity_name = Symbol::from("Invoice");
+    let initial_state = Symbol::from("Unpaid");
+    let state_paid = Symbol::from("Paid");
+    let is_paid_field = Symbol::from("is_paid");
+
+    // Define Entity with boolean field
+    let entity = EntitySchema {
+        name: entity_name.clone(),
+        table_name: Symbol::from("invoices"),
+        fields: vec![FieldSchema {
+            name: is_paid_field.clone(),
+            field_type: FieldType::Boolean,
+            required: false,
+            unique: false,
+            default: None,
+            references: None,
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        }],
+        relationships: vec![],
+        options: Default::default(),
+        seeds: None,
+    };
+    schema.entities.insert(entity_name.clone(), entity);
+
+    // Define Workflow with effects
+    let workflow = WorkflowSchema {
+        name: Symbol::from("InvoiceWorkflow"),
+        entity: entity_name.clone(),
+        field: Symbol::from("status"),
+        initial_state: initial_state.clone(),
+        states: vec![
+            StateSchema {
+                name: initial_state.clone(),
+                immutable: false,
+            },
+            StateSchema {
+                name: state_paid.clone(),
+                immutable: true,
+            },
+        ],
+        transitions: vec![Transition {
+            name: Symbol::from("Pay"),
+            from: initial_state.clone(),
+            to: state_paid.clone(),
+            required_permission: None,
+            preconditions: vec![],
+            effects: vec![
+                TransitionEffect::Notify(Symbol::from("user@example.com")),
+                TransitionEffect::UpdateField {
+                    field: is_paid_field.clone(),
+                    value: "true".to_string(),
+                },
+            ],
+        }],
+    };
+    schema.workflows.insert(workflow.name.clone(), workflow);
+
+    let engine = WorkflowEngine::new();
+    let entity_data = serde_json::json!({});
+
+    let (updates, notifications, postings) = engine
+        .apply_effects(&schema, "Invoice", "Unpaid", "Paid", &entity_data)
+        .await;
+
+    // Check Notifications
+    assert_eq!(notifications.len(), 1);
+    assert_eq!(notifications[0], "user@example.com");
+
+    // Check Updates (specifically boolean conversion)
+    let updates_obj = updates.as_object().unwrap();
+    assert!(updates_obj.contains_key("is_paid"));
+    assert_eq!(updates_obj["is_paid"], Value::Bool(true));
+
+    // Postings should be empty
+    assert!(postings.is_empty());
+}
