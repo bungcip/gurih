@@ -15,3 +15,7 @@
 ## 2025-05-24 - Vue 3 Attribute Inheritance in Wrappers
 **Learning:** Custom input wrappers (like `CurrencyInput.vue`) often default to `inheritAttrs: true`, applying `required`, `name`, and `aria-label` to the root `div` instead of the `input`. This breaks form validation and accessibility.
 **Action:** Use `defineOptions({ inheritAttrs: false })` and bind `$attrs` to the inner native control (`<input v-bind="$attrs" />`) for all form components wrapping native inputs.
+
+## 2025-05-24 - Button Icon Consistency
+**Learning:** Components often define props (like `icon`) that are partially implemented or ignored in favor of slots, leading to confusing APIs and broken UI when developers trust the prop types.
+**Action:** Ensure "convenience props" (like `icon`, `label`) are fully functional and backed by the appropriate sub-components. Support standard variations (like `iconPosition`) to reduce the need for custom slot boilerplate.
