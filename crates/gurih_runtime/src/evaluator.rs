@@ -15,9 +15,9 @@ pub async fn evaluate(
         Expression::Field(name) => {
             let key = name.as_str();
             if key.contains('.') {
-                let parts: Vec<&str> = key.split('.').collect();
+                // OPTIMIZATION: Iterate directly over split iterator to avoid Vec allocation
                 let mut current = context;
-                for part in parts {
+                for part in key.split('.') {
                     match current {
                         Value::Object(map) => {
                             if let Some(val) = map.get(part) {
