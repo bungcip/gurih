@@ -23,6 +23,7 @@ import Drawer from './Drawer.vue'
 import TreeView from './TreeView.vue'
 import DiscussionPanel from './DiscussionPanel.vue'
 import EmptyState from './EmptyState.vue'
+import Pagination from './Pagination.vue'
 import { inject } from 'vue'
 
 const isDarkMode = ref(false)
@@ -103,6 +104,9 @@ const tabItems = [
     { label: 'Security' },
     { label: 'Notifications', badge: 12 }
 ]
+
+const page1 = ref(1)
+const page2 = ref(1)
 
 const timelineItems = [
   {
@@ -501,6 +505,38 @@ function onDiscussionSubmit(text) {
                 <div v-if="activeTab === 0">Account Settings Content</div>
                 <div v-if="activeTab === 1">Password Change Content</div>
                 <div v-if="activeTab === 2">Notification Preferences Content</div>
+            </div>
+        </section>
+
+        <!-- Pagination -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Pagination</h2>
+            <div class="space-y-6">
+                 <div>
+                    <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Standard</h3>
+                    <Pagination
+                        v-model="page1"
+                        :total="250"
+                        :perPage="10"
+                    />
+                 </div>
+                 <div>
+                    <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Compact (No Details)</h3>
+                    <Pagination
+                        v-model="page2"
+                        :total="50"
+                        :perPage="10"
+                        :showDetails="false"
+                    />
+                 </div>
+                 <div>
+                    <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Loading State</h3>
+                    <Pagination
+                        :modelValue="1"
+                        :total="100"
+                        loading
+                    />
+                 </div>
             </div>
         </section>
 
