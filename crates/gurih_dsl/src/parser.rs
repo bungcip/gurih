@@ -17,7 +17,6 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
         layouts: vec![],
         modules: vec![],
         entities: vec![],
-        tables: vec![],
         enums: vec![],
         serial_generators: vec![],
         workflows: vec![],
@@ -33,7 +32,6 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
         accounts: vec![],
         rules: vec![],
         posting_rules: vec![],
-        employee_statuses: vec![],
     };
 
     for node in doc.nodes() {
@@ -69,7 +67,6 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
                     ast.layouts.extend(included_ast.layouts);
                     ast.modules.extend(included_ast.modules);
                     ast.entities.extend(included_ast.entities);
-                    ast.tables.extend(included_ast.tables);
                     ast.enums.extend(included_ast.enums);
                     ast.serial_generators.extend(included_ast.serial_generators);
                     ast.workflows.extend(included_ast.workflows);
@@ -97,7 +94,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
             "layout" => ast.layouts.push(parse_layout(node, src)?),
             "module" => ast.modules.push(parse_module(node, src)?),
             "entity" => ast.entities.push(parse_entity(node, src)?),
-            "table" => ast.tables.push(parse_table(node, src)?),
+            // "table" match removed - merged into entity or removed
             "enum" => ast.enums.push(parse_enum(node, src)?),
             "serial_generator" => ast.serial_generators.push(parse_serial_generator(node, src)?),
             "workflow" => ast.workflows.push(parse_workflow(node, src)?),
@@ -112,7 +109,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
             "account" => ast.accounts.push(parse_account(node, src)?),
             "rule" => ast.rules.push(parse_rule(node, src)?),
             "posting_rule" => ast.posting_rules.push(parse_posting_rule(node, src)?),
-            "employee_status" => ast.employee_statuses.push(parse_employee_status(node, src)?),
+            "employee_status" => ast.workflows.push(parse_employee_status_as_workflow(node, src)?),
             _ => {
                 return Err(CompileError::ParseError {
                     src: src.to_string(),
@@ -196,48 +193,70 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
     })
 }
 
-fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef, CompileError> {
+fn parse_employee_status_as_workflow(node: &KdlNode, src: &str) -> Result<WorkflowDef, CompileError> {
     let status = get_arg_string(node, 0, src)?;
     let entity = get_prop_string(node, "for", src)
         .or_else(|_| get_prop_string(node, "entity", src))
         .unwrap_or_else(|_| "Pegawai".to_string());
 
     let mut transitions = vec![];
+    let mut states = vec![];
+
+    // The status itself is a state
+    states.push(StateDef {
+        name: status.clone(),
+        initial: false, // Default to false, logic elsewhere can determine initial
+        immutable: false,
+        span: node.span().into(),
+    });
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             if child.name().value() == "can_transition_to" {
-                transitions.push(parse_status_transition(child, src)?);
+                let target = get_arg_string(child, 0, src)?;
+                let permission = get_prop_string(child, "permission", src).ok();
+
+                let (preconditions, effects) = if let Some(grandkids) = child.children() {
+                    parse_transition_body(grandkids, src)?
+                } else {
+                    (vec![], vec![])
+                };
+
+                let transition_name = format!("{}_to_{}", status, target);
+
+                transitions.push(TransitionDef {
+                    name: transition_name,
+                    from: status.clone(),
+                    to: target.clone(),
+                    permission,
+                    preconditions,
+                    effects,
+                    span: child.span().into(),
+                });
+
+                // Also collect the target state if not already collected
+                if !states.iter().any(|s| s.name == target) {
+                    states.push(StateDef {
+                        name: target.clone(),
+                        initial: false,
+                        immutable: false,
+                        span: child.span().into(),
+                    });
+                }
             }
         }
     }
 
-    Ok(EmployeeStatusDef {
-        status,
+    Ok(WorkflowDef {
+        name: format!("{}StatusWorkflow", entity), // Construct a consistent name
         entity,
+        field: "status".to_string(),
+        states,
         transitions,
         span: node.span().into(),
     })
 }
 
-fn parse_status_transition(node: &KdlNode, src: &str) -> Result<StatusTransitionDef, CompileError> {
-    let target = get_arg_string(node, 0, src)?;
-    let permission = get_prop_string(node, "permission", src).ok();
-
-    let (preconditions, effects) = if let Some(children) = node.children() {
-        parse_transition_body(children, src)?
-    } else {
-        (vec![], vec![])
-    };
-
-    Ok(StatusTransitionDef {
-        target,
-        permission,
-        preconditions,
-        effects,
-        span: node.span().into(),
-    })
-}
 
 fn parse_step_type(s: &str, _span: SourceSpan, _src: &str) -> Result<ActionStepType, CompileError> {
     match s {
@@ -489,55 +508,6 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
     })
 }
 
-fn parse_table(node: &KdlNode, src: &str) -> Result<TableDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
-    let mut columns = vec![];
-
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            if child.name().value() == "column" {
-                columns.push(parse_column(child, src)?);
-            }
-        }
-    }
-
-    Ok(TableDef {
-        name,
-        columns,
-        span: node.span().into(),
-    })
-}
-
-fn parse_column(node: &KdlNode, src: &str) -> Result<ColumnDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
-    let type_name = get_prop_string(node, "type", src)?;
-    let primary = get_prop_bool(node, "primary").unwrap_or(false);
-    let unique = get_prop_bool(node, "unique").unwrap_or(false);
-
-    let mut props = std::collections::HashMap::new();
-    for entry in node.entries() {
-        if let Some(key) = entry.name() {
-            let k = key.value();
-            if !k.is_empty() && k != "type" && k != "primary" && k != "unique" {
-                if let Some(s) = entry.value().as_string() {
-                    props.insert(k.to_string(), s.to_string());
-                } else if let Some(i) = entry.value().as_integer() {
-                    props.insert(k.to_string(), i.to_string());
-                }
-            }
-        }
-    }
-
-    Ok(ColumnDef {
-        name,
-        type_name,
-        props,
-        primary,
-        unique,
-        span: node.span().into(),
-    })
-}
-
 fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
     let name = get_arg_string(node, 0, src).unwrap_or_else(|_| "unknown".to_string());
     let type_str = get_prop_string(node, "type", src).unwrap_or_else(|_| "String".to_string());
@@ -715,85 +685,38 @@ fn parse_transition_body(
                 if let Some(req_children) = child.children() {
                     for req in req_children.nodes() {
                         match req.name().value() {
-                            "document" => {
-                                let doc_name = get_arg_string(req, 0, src)?;
-                                let span = req
+                            "assert" => {
+                                let s = get_arg_string(req, 0, src)?;
+                                let offset = req
                                     .entries()
                                     .first()
                                     .map(|e| e.span().offset())
                                     .unwrap_or(req.span().offset());
-                                let expr_str = format!("is_set({})", doc_name);
-                                let expr = parse_expression(&expr_str, span)?;
+                                let expr = parse_expression(&s, offset)?;
                                 preconditions.push(TransitionPreconditionDef::Assertion {
                                     expression: expr,
                                     span: req.span().into(),
                                 });
-                            }
-                            "min_years_of_service" => {
-                                let years = get_arg_int(req, 0, src)? as u32;
-                                let from_field = get_prop_string(req, "from", src)
-                                    .ok()
-                                    .unwrap_or_else(|| "join_date".to_string());
-                                let span = req.span().offset(); // using node span as approx for generated expr
-                                let expr_str = format!("years_of_service({}) >= {}", from_field, years);
-                                let expr = parse_expression(&expr_str, span)?;
-                                preconditions.push(TransitionPreconditionDef::Assertion {
-                                    expression: expr,
-                                    span: req.span().into(),
-                                });
-                            }
-                            "min_age" => {
-                                let age = get_arg_int(req, 0, src)? as u32;
-                                let birth_date_field = get_prop_string(req, "from", src)
-                                    .ok()
-                                    .unwrap_or_else(|| "birth_date".to_string());
-                                let span = req.span().offset();
-                                let expr_str = format!("age({}) >= {}", birth_date_field, age);
-                                let expr = parse_expression(&expr_str, span)?;
-                                preconditions.push(TransitionPreconditionDef::Assertion {
-                                    expression: expr,
-                                    span: req.span().into(),
-                                });
-                            }
-                            "valid_effective_date" => {
-                                let field = get_arg_string(req, 0, src)?;
-                                let span = req.span().offset();
-                                let expr_str = format!("valid_date({})", field);
-                                let expr = parse_expression(&expr_str, span)?;
-                                preconditions.push(TransitionPreconditionDef::Assertion {
-                                    expression: expr,
-                                    span: req.span().into(),
-                                });
-                            }
-                            "balanced_transaction" => {
-                                let enabled = get_arg_bool(req, 0)?;
-                                if enabled {
-                                    preconditions.push(TransitionPreconditionDef::Custom {
-                                        name: "balanced_transaction".to_string(),
-                                        args: vec![],
-                                        span: req.span().into(),
-                                    });
-                                }
-                            }
-                            "period_open" => {
-                                let enabled = get_arg_bool(req, 0).unwrap_or(true);
-                                let entity = get_prop_string(req, "entity", src).ok();
-                                if enabled {
-                                    let mut args = vec![];
-                                    if let Some(e) = entity {
-                                        args.push(e);
-                                    }
-                                    preconditions.push(TransitionPreconditionDef::Custom {
-                                        name: "period_open".to_string(),
-                                        args,
-                                        span: req.span().into(),
-                                    });
-                                }
                             }
                             custom_req => {
                                 let mut args = vec![];
+                                // Positional arguments
                                 for entry in req.entries() {
                                     if entry.name().is_none() {
+                                        if let Some(val) = entry.value().as_string() {
+                                            args.push(val.to_string());
+                                        } else if let Some(val) = entry.value().as_bool() {
+                                            args.push(val.to_string());
+                                        } else if let Some(val) = entry.value().as_integer() {
+                                            args.push(val.to_string());
+                                        } else if let Some(val) = entry.value().as_float() {
+                                            args.push(val.to_string());
+                                        }
+                                    } else {
+                                        // Named properties - fallback to pushing values as args
+                                        // or if we decide to handle properties, we need AST support.
+                                        // For now, to support legacy "entity=..." without AST change,
+                                        // we push the value.
                                         if let Some(val) = entry.value().as_string() {
                                             args.push(val.to_string());
                                         } else if let Some(val) = entry.value().as_bool() {
@@ -832,14 +755,6 @@ fn parse_transition_body(
                                 effects.push(TransitionEffectDef::UpdateField {
                                     field,
                                     value,
-                                    span: eff.span().into(),
-                                });
-                            }
-                            "post_journal" => {
-                                let rule = get_arg_string(eff, 0, src)?;
-                                effects.push(TransitionEffectDef::Custom {
-                                    name: "post_journal".to_string(),
-                                    args: vec![rule],
                                     span: eff.span().into(),
                                 });
                             }

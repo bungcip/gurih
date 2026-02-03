@@ -17,9 +17,9 @@ fn test_employee_status_desugaring() {
             state "PNS"
             transition "CPNS_to_PNS" from="CPNS" to="PNS" {
                 requires {
-                    min_years_of_service 1 from="tmt_cpns"
-                    min_age 18 from="tanggal_lahir"
-                    document "sk_pns"
+                    assert "years_of_service(tmt_cpns) >= 1"
+                    assert "age(tanggal_lahir) >= 18"
+                    assert "is_set(sk_pns)"
                 }
             }
         }

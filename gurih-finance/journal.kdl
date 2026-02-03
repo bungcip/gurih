@@ -48,7 +48,7 @@ workflow "JournalWorkflow" for="JournalEntry" field="status" {
         to "Posted"
         requires {
             balanced_transaction #true
-            period_open entity="AccountingPeriod"
+            period_open "AccountingPeriod"
         }
         effects {
             // Immutable once posted

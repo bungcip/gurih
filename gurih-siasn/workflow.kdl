@@ -11,9 +11,9 @@ workflow "PegawaiStatusWorkflow" for="Pegawai" field="status_pegawai" {
 
     transition "CPNS_to_PNS" from="CPNS" to="PNS" {
         requires {
-             min_years_of_service 1 from="tmt_cpns"
-             valid_effective_date "tmt_pns"
-             document "sk_pns"
+             assert "years_of_service(tmt_cpns) >= 1"
+             assert "valid_date(tmt_pns)"
+             assert "is_set(sk_pns)"
         }
         effects {
              update_rank_eligibility "true"
@@ -23,7 +23,7 @@ workflow "PegawaiStatusWorkflow" for="Pegawai" field="status_pegawai" {
 
     transition "PNS_to_Pensiun" from="PNS" to="Pensiun" {
         requires {
-             min_age 58 from="tanggal_lahir"
+             assert "age(tanggal_lahir) >= 58"
         }
         effects {
              suspend_payroll "true"
@@ -33,7 +33,7 @@ workflow "PegawaiStatusWorkflow" for="Pegawai" field="status_pegawai" {
 
     transition "PNS_to_Cuti" from="PNS" to="Cuti" {
         requires {
-            document "surat_cuti"
+            assert "is_set(surat_cuti)"
         }
         effects {
             suspend_payroll "true"
@@ -42,7 +42,7 @@ workflow "PegawaiStatusWorkflow" for="Pegawai" field="status_pegawai" {
 
     transition "PNS_to_TugasBelajar" from="PNS" to="TugasBelajar" {
         requires {
-            document "sk_tugas_belajar"
+            assert "is_set(sk_tugas_belajar)"
         }
         effects {
             notify "unit_pengembangan"
@@ -51,7 +51,7 @@ workflow "PegawaiStatusWorkflow" for="Pegawai" field="status_pegawai" {
 
     transition "PNS_to_Nonaktif" from="PNS" to="Nonaktif" {
         requires {
-            document "sk_pemberhentian"
+            assert "is_set(sk_pemberhentian)"
         }
         effects {
             suspend_payroll "true"
@@ -61,8 +61,8 @@ workflow "PegawaiStatusWorkflow" for="Pegawai" field="status_pegawai" {
 
     transition "PNS_to_Pindah" from="PNS" to="Pindah" {
         requires {
-            document "sk_lolos_butuh"
-            min_years_of_service 2 from="tmt_cpns"
+            assert "is_set(sk_lolos_butuh)"
+            assert "years_of_service(tmt_cpns) >= 2"
         }
         effects {
             suspend_payroll "true"

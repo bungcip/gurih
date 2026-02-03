@@ -18,8 +18,8 @@ async fn test_hr_workflow_rules() {
 
         transition "pns_to_cuti" from="pns" to="cuti" {
             requires {
-                document "surat_cuti"
-                min_years_of_service 1 from="tmt_cpns"
+                assert "is_set(surat_cuti)"
+                assert "years_of_service(tmt_cpns) >= 1"
             }
             effects {
                 update "is_payroll_active" "false"
@@ -139,7 +139,7 @@ async fn test_retirement_min_age() {
 
         transition "retire" from="active" to="retired" {
             requires {
-                min_age 58 from="birth_date"
+                assert "age(birth_date) >= 58"
             }
             effects {
                 update "is_payroll_active" "false"

@@ -17,7 +17,7 @@ async fn test_effective_date_and_rank_eligibility() {
 
         transition "promote" from="Assistant" to="Associate" {
             requires {
-                valid_effective_date "tmt_promotion"
+                assert "valid_date(tmt_promotion)"
             }
             effects {
                 update "rank_eligible" "true"

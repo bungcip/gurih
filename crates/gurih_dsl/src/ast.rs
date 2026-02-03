@@ -14,7 +14,6 @@ pub struct Ast {
     pub layouts: Vec<LayoutDef>,
     pub modules: Vec<ModuleDef>,
     pub entities: Vec<EntityDef>,
-    pub tables: Vec<TableDef>,
     pub enums: Vec<EnumDef>,
     pub serial_generators: Vec<SerialGeneratorDef>,
     pub workflows: Vec<WorkflowDef>,
@@ -29,24 +28,6 @@ pub struct Ast {
     pub accounts: Vec<AccountDef>,
     pub rules: Vec<RuleDef>,
     pub posting_rules: Vec<PostingRuleDef>,
-    pub employee_statuses: Vec<EmployeeStatusDef>,
-}
-
-#[derive(Debug, Clone)]
-pub struct EmployeeStatusDef {
-    pub status: String,
-    pub entity: String,
-    pub transitions: Vec<StatusTransitionDef>,
-    pub span: SourceSpan,
-}
-
-#[derive(Debug, Clone)]
-pub struct StatusTransitionDef {
-    pub target: String,
-    pub permission: Option<String>,
-    pub preconditions: Vec<TransitionPreconditionDef>,
-    pub effects: Vec<TransitionEffectDef>,
-    pub span: SourceSpan,
 }
 
 #[derive(Debug, Clone)]
@@ -177,23 +158,6 @@ pub struct FieldDef {
     pub storage: Option<String>,
     pub resize: Option<String>,
     pub filetype: Option<String>,
-    pub span: SourceSpan,
-}
-
-#[derive(Debug, Clone)]
-pub struct TableDef {
-    pub name: String,
-    pub columns: Vec<ColumnDef>,
-    pub span: SourceSpan,
-}
-
-#[derive(Debug, Clone)]
-pub struct ColumnDef {
-    pub name: String,
-    pub type_name: String, // Keeping as String for raw SQL types unless we want to enumerate them
-    pub props: std::collections::HashMap<String, String>,
-    pub primary: bool,
-    pub unique: bool,
     pub span: SourceSpan,
 }
 

@@ -213,167 +213,50 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         }
     }
 
-    // 3. Process Tables
-    for table_def in &ast_root.tables {
-        let columns = table_def
-            .columns
-            .iter()
-            .map(|c| ColumnSchema {
-                name: c.name.as_str().into(),
-                type_name: parse_column_type(&c.type_name),
-                props: c.props.clone(),
-                primary: c.primary,
-                unique: c.unique,
-            })
-            .collect();
+    // 3. Process Tables - REMOVED (TableDef removed)
+    // ir_tables will be populated in step 17
 
-        ir_tables.insert(
-            table_def.name.as_str().into(),
-            TableSchema {
-                name: table_def.name.as_str().into(),
-                columns,
-            },
-        );
-    }
-
-    // 4. Process Workflows
+    // 4. Process Workflows (with merging logic)
     for wf_def in &ast_root.workflows {
         let transitions: Result<Vec<Transition>, CompileError> =
             wf_def.transitions.iter().map(convert_transition).collect();
+        let transitions = transitions?;
 
-        ir_workflows.insert(
-            wf_def.name.as_str().into(),
-            WorkflowSchema {
-                name: wf_def.name.as_str().into(),
+        let wf_name = Symbol::from(wf_def.name.as_str());
+
+        // Check if workflow already exists (for merging)
+        let workflow = ir_workflows.entry(wf_name.clone()).or_insert_with(|| {
+             WorkflowSchema {
+                name: wf_name,
                 entity: wf_def.entity.as_str().into(),
                 field: wf_def.field.as_str().into(),
-                initial_state: wf_def
-                    .states
-                    .iter()
-                    .find(|s| s.initial)
-                    .map(|s| s.name.as_str().into())
-                    .unwrap_or_else(|| Symbol::from("")),
-                states: wf_def
-                    .states
-                    .iter()
-                    .map(|s| StateSchema {
-                        name: Symbol::from(s.name.as_str()),
-                        immutable: s.immutable,
-                    })
-                    .collect(),
-                transitions: transitions?,
-            },
-        );
-    }
+                initial_state: Symbol::from(""), // Will be updated
+                states: vec![],
+                transitions: vec![],
+             }
+        });
 
-    // 4.5. Process Employee Statuses (Merge into Workflows)
-    for status_def in &ast_root.employee_statuses {
-        // Find existing workflow for this entity
-        let entity_sym = Symbol::from(status_def.entity.as_str());
-        let workflow_key = ir_workflows
-            .iter()
-            .find(|(_, w)| w.entity == entity_sym)
-            .map(|(k, _)| k.clone());
-
-        let workflow = if let Some(key) = workflow_key {
-            ir_workflows.get_mut(&key).unwrap()
-        } else {
-            // Create new workflow
-            let wf_name_str = format!("{}StatusWorkflow", status_def.entity);
-            let wf_name = Symbol::from(wf_name_str.as_str());
-            ir_workflows.insert(
-                wf_name.clone(),
-                WorkflowSchema {
-                    name: wf_name.clone(),
-                    entity: entity_sym.clone(),
-                    field: Symbol::from("status"), // Default field
-                    initial_state: Symbol::from(""),
-                    states: vec![],
-                    transitions: vec![],
-                },
-            );
-            ir_workflows.get_mut(&wf_name).unwrap()
-        };
-
-        // Ensure state exists
-        let status_sym = Symbol::from(status_def.status.as_str());
-        if !workflow.states.iter().any(|s| s.name == status_sym) {
-            workflow.states.push(StateSchema {
-                name: status_sym.clone(),
-                immutable: false,
-            });
-        }
-
-        if workflow.initial_state == Symbol::from("") {
-            workflow.initial_state = status_sym.clone();
-        }
-
-        // Process transitions
-        for t_def in &status_def.transitions {
-            let target_sym = Symbol::from(t_def.target.as_str());
-
-            // Ensure target state exists
-            if !workflow.states.iter().any(|s| s.name == target_sym) {
+        // Merge States
+        for s in &wf_def.states {
+            let s_sym = Symbol::from(s.name.as_str());
+            if !workflow.states.iter().any(|existing| existing.name == s_sym) {
                 workflow.states.push(StateSchema {
-                    name: target_sym.clone(),
-                    immutable: false,
+                    name: s_sym.clone(),
+                    immutable: s.immutable,
                 });
             }
-
-            let mut preconditions = vec![];
-            for p in &t_def.preconditions {
-                match p {
-                    ast::TransitionPreconditionDef::Assertion { expression, .. } => {
-                        preconditions.push(TransitionPrecondition::Assertion(convert_expr(expression)));
-                    }
-                    ast::TransitionPreconditionDef::Custom { name, args, .. } => {
-                        let expr_args = args
-                            .iter()
-                            .map(|s| gurih_ir::Expression::StringLiteral(s.clone()))
-                            .collect();
-                        preconditions.push(TransitionPrecondition::Custom {
-                            name: Symbol::from(name.as_str()),
-                            args: expr_args,
-                        });
-                    }
-                }
+            // Update initial state logic
+            // If explicit initial in current def, it wins.
+            if s.initial {
+                workflow.initial_state = s_sym.clone();
+            } else if workflow.initial_state == Symbol::from("") {
+                 // If not set yet, take the first state encountered (often the status itself in employee_status)
+                 workflow.initial_state = s_sym.clone();
             }
-
-            let mut effects = vec![];
-            for e in &t_def.effects {
-                match e {
-                    ast::TransitionEffectDef::Custom { name, args, .. } => {
-                        let expr_args = args
-                            .iter()
-                            .map(|s| gurih_ir::Expression::StringLiteral(s.clone()))
-                            .collect();
-                        effects.push(TransitionEffect::Custom {
-                            name: Symbol::from(name.as_str()),
-                            args: expr_args,
-                        });
-                    }
-                    ast::TransitionEffectDef::Notify { target, .. } => {
-                        effects.push(TransitionEffect::Notify(Symbol::from(target.as_str())));
-                    }
-                    ast::TransitionEffectDef::UpdateField { field, value, .. } => {
-                        effects.push(TransitionEffect::UpdateField {
-                            field: Symbol::from(field.as_str()),
-                            value: value.clone(),
-                        });
-                    }
-                }
-            }
-
-            let trans_name = format!("{}_to_{}", status_def.status, t_def.target);
-            workflow.transitions.push(Transition {
-                name: Symbol::from(trans_name.as_str()),
-                from: status_sym.clone(),
-                to: target_sym.clone(),
-                required_permission: t_def.permission.as_ref().map(|p| Symbol::from(p.as_str())),
-                preconditions,
-                effects,
-            });
         }
+
+        // Merge Transitions
+        workflow.transitions.extend(transitions);
     }
 
     // 5. Process Layouts

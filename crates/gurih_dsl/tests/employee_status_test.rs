@@ -4,11 +4,19 @@ use gurih_ir::{Symbol, TransitionPrecondition, TransitionEffect};
 #[test]
 fn test_employee_status_compilation() {
     let src = r#"
+        entity "Pegawai" {
+            field:pk id
+            field:enum status "Status"
+            field:date "join_date"
+            field:string "sk_pns"
+            field:string "surat_cuti"
+        }
+
         employee_status "CPNS" for="Pegawai" {
             can_transition_to "PNS" {
                 requires {
-                    min_years_of_service 1
-                    document "sk_pns"
+                    assert "years_of_service(join_date) >= 1"
+                    assert "is_set(sk_pns)"
                 }
                 effects {
                     update_rank_eligibility "true"
@@ -20,7 +28,7 @@ fn test_employee_status_compilation() {
         employee_status "PNS" for="Pegawai" {
             can_transition_to "Cuti" {
                 requires {
-                    document "surat_cuti"
+                    assert "is_set(surat_cuti)"
                 }
             }
         }
