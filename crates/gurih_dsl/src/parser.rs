@@ -33,6 +33,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
         accounts: vec![],
         rules: vec![],
         posting_rules: vec![],
+        employee_statuses: vec![],
     };
 
     for node in doc.nodes() {
@@ -111,6 +112,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
             "account" => ast.accounts.push(parse_account(node, src)?),
             "rule" => ast.rules.push(parse_rule(node, src)?),
             "posting_rule" => ast.posting_rules.push(parse_posting_rule(node, src)?),
+            "employee_status" => ast.employee_statuses.push(parse_employee_status(node, src)?),
             _ => {
                 return Err(CompileError::ParseError {
                     src: src.to_string(),
@@ -190,6 +192,49 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
         name,
         params,
         steps,
+        span: node.span().into(),
+    })
+}
+
+fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef, CompileError> {
+    let status = get_arg_string(node, 0, src)?;
+    let entity = get_prop_string(node, "for", src)
+        .or_else(|_| get_prop_string(node, "entity", src))
+        .unwrap_or_else(|_| "Pegawai".to_string());
+
+    let mut transitions = vec![];
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            if child.name().value() == "can_transition_to" {
+                transitions.push(parse_status_transition(child, src)?);
+            }
+        }
+    }
+
+    Ok(EmployeeStatusDef {
+        status,
+        entity,
+        transitions,
+        span: node.span().into(),
+    })
+}
+
+fn parse_status_transition(node: &KdlNode, src: &str) -> Result<StatusTransitionDef, CompileError> {
+    let target = get_arg_string(node, 0, src)?;
+    let permission = get_prop_string(node, "permission", src).ok();
+
+    let (preconditions, effects) = if let Some(children) = node.children() {
+        parse_transition_body(children, src)?
+    } else {
+        (vec![], vec![])
+    };
+
+    Ok(StatusTransitionDef {
+        target,
+        permission,
+        preconditions,
+        effects,
         span: node.span().into(),
     })
 }
