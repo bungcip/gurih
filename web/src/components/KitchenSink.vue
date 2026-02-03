@@ -6,6 +6,7 @@ import DatePicker from './DatePicker.vue'
 import RadioButton from './RadioButton.vue'
 import Switch from './Switch.vue'
 import Tabs from './Tabs.vue'
+import Accordion from './Accordion.vue'
 import Password from './Password.vue'
 import FileUpload from './FileUpload.vue'
 import CurrencyInput from './CurrencyInput.vue'
@@ -104,6 +105,14 @@ const tabItems = [
     { label: 'Security' },
     { label: 'Notifications', badge: 12 }
 ]
+
+const accordionItems = [
+    { title: 'General Settings', content: 'Configure general system preferences.', icon: 'settings' },
+    { title: 'User Permissions', content: 'Manage user roles and access rights.', icon: 'users' },
+    { title: 'Advanced Configuration', content: 'Technical settings for administrators.', icon: 'dashboard', disabled: true }
+]
+const accordionOpenIndex = ref(0)
+const accordionMultiOpen = ref([0, 1])
 
 const page1 = ref(1)
 const page2 = ref(1)
@@ -505,6 +514,52 @@ function onDiscussionSubmit(text) {
                 <div v-if="activeTab === 0">Account Settings Content</div>
                 <div v-if="activeTab === 1">Password Change Content</div>
                 <div v-if="activeTab === 2">Notification Preferences Content</div>
+            </div>
+        </section>
+
+        <!-- Accordion -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Accordion</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Standard Single Open -->
+                <div>
+                     <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Standard (Single Open)</h3>
+                     <Accordion
+                        v-model="accordionOpenIndex"
+                        :items="accordionItems"
+                     >
+                        <template #item-1="{ item }">
+                            <div class="space-y-2">
+                                <p>{{ item.content }}</p>
+                                <Button size="sm" variant="outline">Manage Roles</Button>
+                            </div>
+                        </template>
+                     </Accordion>
+                     <div class="mt-2 text-xs text-text-muted">Active Index: {{ accordionOpenIndex }}</div>
+                </div>
+
+                <!-- Multi Open -->
+                <div>
+                     <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Multiple Open</h3>
+                     <Accordion
+                        v-model="accordionMultiOpen"
+                        :items="accordionItems"
+                        multiple
+                     />
+                     <div class="mt-2 text-xs text-text-muted">Active Indices: {{ accordionMultiOpen }}</div>
+                </div>
+
+                 <!-- Loading & Empty -->
+                <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div>
+                        <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Loading State</h3>
+                        <Accordion loading :items="[]" />
+                     </div>
+                     <div>
+                        <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Empty State</h3>
+                        <Accordion :items="[]" />
+                     </div>
+                </div>
             </div>
         </section>
 
