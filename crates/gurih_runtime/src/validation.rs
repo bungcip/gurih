@@ -24,6 +24,7 @@ pub fn validate_type(val: &Value, field_type: &FieldType) -> bool {
         | FieldType::File
         | FieldType::Code
         | FieldType::Custom(_)
+        | FieldType::Uuid
         | FieldType::Relation => val.is_string() || val.is_null(),
         FieldType::Integer => val.is_i64() || val.is_null(),
         FieldType::Float => val.is_f64() || val.is_null(),

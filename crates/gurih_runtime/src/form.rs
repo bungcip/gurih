@@ -177,6 +177,7 @@ impl FormEngine {
             gurih_ir::FieldType::Enum(_) => "Select".to_string(),
             gurih_ir::FieldType::Relation => "RelationPicker".to_string(),
             gurih_ir::FieldType::Code => "CodeEditor".to_string(),
+            gurih_ir::FieldType::Uuid => "TextInput".to_string(),
             gurih_ir::FieldType::Custom(_) => "TextInput".to_string(),
         }
     }

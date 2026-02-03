@@ -278,6 +278,7 @@ pub enum FieldType {
     File,
     Relation,
     Boolean,
+    Uuid,
     // AST-only or unresolved types
     Code,
     Custom(String),

@@ -755,6 +755,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     | FieldType::Relation
                     | FieldType::Code
                     | FieldType::Custom(_) => "String",
+                    FieldType::Uuid => "Uuid",
                     FieldType::Integer => "Integer",
                     FieldType::Float => "Float",
                     FieldType::Date => "Date",

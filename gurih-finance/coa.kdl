@@ -19,6 +19,7 @@ entity "Account" {
     field:enum "normal_balance" "NormalBalance"
     field:boolean "is_active" default="true"
     field:boolean "is_group" default="false"
+    field:boolean "requires_party" default="false"
 
     // Using self-referencing relationship for hierarchy
     belongs_to "parent" entity="Account"
