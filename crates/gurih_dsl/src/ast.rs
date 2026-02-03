@@ -29,6 +29,24 @@ pub struct Ast {
     pub accounts: Vec<AccountDef>,
     pub rules: Vec<RuleDef>,
     pub posting_rules: Vec<PostingRuleDef>,
+    pub employee_statuses: Vec<EmployeeStatusDef>,
+}
+
+#[derive(Debug, Clone)]
+pub struct EmployeeStatusDef {
+    pub status: String,
+    pub entity: String,
+    pub transitions: Vec<StatusTransitionDef>,
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone)]
+pub struct StatusTransitionDef {
+    pub target: String,
+    pub permission: Option<String>,
+    pub preconditions: Vec<TransitionPreconditionDef>,
+    pub effects: Vec<TransitionEffectDef>,
+    pub span: SourceSpan,
 }
 
 #[derive(Debug, Clone)]
