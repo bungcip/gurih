@@ -235,3 +235,51 @@ async fn test_workflow_effects() {
     // Postings should be empty
     assert!(postings.is_empty());
 }
+
+#[tokio::test]
+async fn test_workflow_assertion_type_error() {
+    use gurih_ir::{Expression, TransitionPrecondition};
+
+    let mut schema = Schema::default();
+    let entity_name = Symbol::from("Task");
+    let initial_state = Symbol::from("Todo");
+    let state_done = Symbol::from("Done");
+
+    let workflow = WorkflowSchema {
+        name: Symbol::from("TaskWorkflow"),
+        entity: entity_name,
+        field: Symbol::from("status"),
+        initial_state,
+        states: vec![
+            StateSchema {
+                name: initial_state,
+                immutable: false,
+            },
+            StateSchema {
+                name: state_done,
+                immutable: false,
+            },
+        ],
+        transitions: vec![Transition {
+            name: Symbol::from("Finish"),
+            from: initial_state,
+            to: state_done,
+            required_permission: None,
+            preconditions: vec![TransitionPrecondition::Assertion(Expression::Literal(1.0))], // Not a boolean
+            effects: vec![],
+        }],
+    };
+
+    schema.workflows.insert(workflow.name, workflow);
+
+    let engine = WorkflowEngine::new();
+    let empty_data = serde_json::json!({});
+
+    let result = engine
+        .validate_transition(&schema, None, "Task", "Todo", "Done", &empty_data)
+        .await;
+
+    assert!(result.is_err());
+    let err = result.err().unwrap();
+    assert_eq!(err.to_string(), "Workflow Error: Assertion expression must evaluate to boolean");
+}
