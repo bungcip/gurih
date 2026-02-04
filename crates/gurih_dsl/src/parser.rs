@@ -202,6 +202,8 @@ fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef,
         .or_else(|_| get_prop_string(node, "entity", src))
         .unwrap_or_else(|_| "Pegawai".to_string());
 
+    let field = get_prop_string(node, "field", src).ok();
+
     let mut transitions = vec![];
 
     if let Some(children) = node.children() {
@@ -215,6 +217,7 @@ fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef,
     Ok(EmployeeStatusDef {
         status,
         entity,
+        field,
         transitions,
         span: node.span().into(),
     })

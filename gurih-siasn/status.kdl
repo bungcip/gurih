@@ -1,7 +1,7 @@
 // Employee Status Definitions for GurihSiASN
 // This file defines the transitions, preconditions, and effects for employee status changes.
 
-employee_status "CPNS" for="Pegawai" {
+employee_status "CPNS" for="Pegawai" field="status_pegawai" {
     can_transition_to "PNS" {
         requires {
             min_years_of_service 1 from="tmt_cpns"
@@ -15,7 +15,7 @@ employee_status "CPNS" for="Pegawai" {
     }
 }
 
-employee_status "PNS" for="Pegawai" {
+employee_status "PNS" for="Pegawai" field="status_pegawai" {
     can_transition_to "Cuti" {
         requires {
             document "surat_cuti"
@@ -45,7 +45,7 @@ employee_status "PNS" for="Pegawai" {
     }
 }
 
-employee_status "Cuti" for="Pegawai" {
+employee_status "Cuti" for="Pegawai" field="status_pegawai" {
     can_transition_to "PNS" {
         effects {
             suspend_payroll "false"
@@ -53,7 +53,7 @@ employee_status "Cuti" for="Pegawai" {
     }
 }
 
-employee_status "TugasBelajar" for="Pegawai" {
+employee_status "TugasBelajar" for="Pegawai" field="status_pegawai" {
     can_transition_to "PNS" {
         effects {
             notify "unit_kepegawaian"

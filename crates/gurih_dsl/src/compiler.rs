@@ -275,6 +275,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             .find(|(_, w)| w.entity == entity_sym)
             .map(|(k, _)| k.clone());
 
+        let field_name = status_def.field.clone().unwrap_or_else(|| "status".to_string());
+        let field_sym = Symbol::from(field_name.as_str());
+
         let workflow = if let Some(key) = workflow_key {
             ir_workflows.get_mut(&key).unwrap()
         } else {
@@ -286,7 +289,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 WorkflowSchema {
                     name: wf_name.clone(),
                     entity: entity_sym.clone(),
-                    field: Symbol::from("status"), // Default field
+                    field: field_sym,
                     initial_state: Symbol::from(""),
                     states: vec![],
                     transitions: vec![],
