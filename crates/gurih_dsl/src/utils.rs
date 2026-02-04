@@ -1,5 +1,6 @@
 use crate::errors::CompileError;
 use kdl::KdlNode;
+pub use gurih_ir::utils::{capitalize, to_title_case};
 
 pub fn get_arg_string(node: &KdlNode, index: usize, src: &str) -> Result<String, CompileError> {
     node.entry(index)
@@ -83,23 +84,3 @@ pub fn get_arg_int(node: &KdlNode, index: usize, src: &str) -> Result<i64, Compi
         })
 }
 
-pub fn to_title_case(s: &str) -> String {
-    s.split('_')
-        .map(|word| {
-            let mut chars = word.chars();
-            match chars.next() {
-                None => String::new(),
-                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-pub fn capitalize(s: &str) -> String {
-    let mut chars = s.chars();
-    match chars.next() {
-        None => String::new(),
-        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-    }
-}

@@ -47,9 +47,31 @@ pub async fn evaluate(
             eval_unary_op(op, val)
         }
         Expression::BinaryOp { left, op, right } => {
-            let l = Box::pin(evaluate(left, context, schema, datastore)).await?;
-            let r = Box::pin(evaluate(right, context, schema, datastore)).await?;
-            eval_binary_op(op, l, r)
+            match op {
+                BinaryOperator::And => {
+                    let l = Box::pin(evaluate(left, context, schema, datastore)).await?;
+                    if !as_bool(&l)? {
+                        return Ok(Value::Bool(false));
+                    }
+                    let r = Box::pin(evaluate(right, context, schema, datastore)).await?;
+                    let r_bool = as_bool(&r)?;
+                    Ok(Value::Bool(r_bool))
+                }
+                BinaryOperator::Or => {
+                    let l = Box::pin(evaluate(left, context, schema, datastore)).await?;
+                    if as_bool(&l)? {
+                        return Ok(Value::Bool(true));
+                    }
+                    let r = Box::pin(evaluate(right, context, schema, datastore)).await?;
+                    let r_bool = as_bool(&r)?;
+                    Ok(Value::Bool(r_bool))
+                }
+                _ => {
+                    let l = Box::pin(evaluate(left, context, schema, datastore)).await?;
+                    let r = Box::pin(evaluate(right, context, schema, datastore)).await?;
+                    eval_binary_op(op, l, r)
+                }
+            }
         }
         Expression::FunctionCall { name, args } => {
             let mut eval_args = Vec::new();
@@ -432,5 +454,47 @@ mod tests {
         let expr = Expression::Field(Symbol::from("user.profile.age.bad"));
         let res = evaluate(&expr, &ctx, None, None).await.unwrap();
         assert_eq!(res, Value::Null);
+    }
+
+    #[tokio::test]
+    async fn test_short_circuit_and() {
+        // false && (1 / 0)
+        // If strict, (1/0) causes error. If short-circuit, returns false.
+        let expr = Expression::BinaryOp {
+            left: Box::new(Expression::BoolLiteral(false)),
+            op: BinaryOperator::And,
+            right: Box::new(Expression::BinaryOp {
+                left: Box::new(Expression::Literal(1.0)),
+                op: BinaryOperator::Div,
+                right: Box::new(Expression::Literal(0.0)),
+            }),
+        };
+        let ctx = json!({});
+        let res = evaluate(&expr, &ctx, None, None).await;
+
+        // Assert successful evaluation (short-circuit)
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), json!(false));
+    }
+
+    #[tokio::test]
+    async fn test_short_circuit_or() {
+        // true || (1 / 0)
+        // If strict, (1/0) causes error. If short-circuit, returns true.
+        let expr = Expression::BinaryOp {
+            left: Box::new(Expression::BoolLiteral(true)),
+            op: BinaryOperator::Or,
+            right: Box::new(Expression::BinaryOp {
+                left: Box::new(Expression::Literal(1.0)),
+                op: BinaryOperator::Div,
+                right: Box::new(Expression::Literal(0.0)),
+            }),
+        };
+        let ctx = json!({});
+        let res = evaluate(&expr, &ctx, None, None).await;
+
+        // Assert successful evaluation (short-circuit)
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), json!(true));
     }
 }
