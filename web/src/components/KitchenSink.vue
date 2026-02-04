@@ -500,6 +500,7 @@ function onDiscussionSubmit(text) {
                         <Switch v-model="switchValue" label="Toggle me" />
                         <Switch :modelValue="true" label="Always On" />
                         <Switch :modelValue="false" label="Always Off" />
+                        <Switch :modelValue="false" label="Disabled Switch Example" disabled />
                     </div>
                     <div class="mt-1 text-xs text-text-muted">Switch State: {{ switchValue }}</div>
                 </div>
