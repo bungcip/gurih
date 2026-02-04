@@ -131,13 +131,13 @@ impl DataStore for MemoryDataStore {
                 .values()
                 .filter(|record| {
                     for (k, v) in &filters {
-                        let val_str = match record.get(k) {
-                            Some(Value::String(s)) => s.clone(),
-                            Some(Value::Number(n)) => n.to_string(),
-                            Some(Value::Bool(b)) => b.to_string(),
-                            _ => return false,
+                        let match_result = match record.get(k) {
+                            Some(Value::String(s)) => s == v,
+                            Some(Value::Number(n)) => n.to_string() == v.as_str(),
+                            Some(Value::Bool(b)) => b.to_string() == v.as_str(),
+                            _ => false,
                         };
-                        if val_str != *v {
+                        if !match_result {
                             return false;
                         }
                     }
@@ -158,13 +158,13 @@ impl DataStore for MemoryDataStore {
                 .values()
                 .filter(|record| {
                     for (k, v) in &filters {
-                        let val_str = match record.get(k) {
-                            Some(Value::String(s)) => s.clone(),
-                            Some(Value::Number(n)) => n.to_string(),
-                            Some(Value::Bool(b)) => b.to_string(),
-                            _ => return false,
+                        let match_result = match record.get(k) {
+                            Some(Value::String(s)) => s == v,
+                            Some(Value::Number(n)) => n.to_string() == v.as_str(),
+                            Some(Value::Bool(b)) => b.to_string() == v.as_str(),
+                            _ => false,
                         };
-                        if val_str != *v {
+                        if !match_result {
                             return false;
                         }
                     }
