@@ -14,3 +14,8 @@
 **Vulnerability:** The file storage driver accepted any file extension, including `.php`, `.exe`, and `.html`, allowing potential Remote Code Execution or Stored XSS if the storage directory is web-accessible.
 **Learning:** `LocalFileDriver` blindly trusted the filename provided by the caller (derived from user input), assuming upstream validation that didn't exist.
 **Prevention:** Implemented a mandatory `validate_filename` check in the `FileDriver` trait implementations that enforces a blocklist of dangerous extensions (e.g., `php`, `sh`, `exe`, `svg`) and path traversal checks.
+
+## 2024-05-26 - [HIGH] Timing Attack in Password Verification
+**Vulnerability:** `verify_password` returned early if the stored hash format was invalid (e.g., legacy or corrupted), allowing attackers to potentially enumerate users or identify account migration status by measuring response time.
+**Learning:** Convenience checks (like checking string prefix/format) can introduce side channels if they bypass expensive operations.
+**Prevention:** Always perform the expensive cryptographic operation (PBKDF2/Argon2) regardless of input validity to ensure constant-time execution. Use dummy salts/hashes if necessary.

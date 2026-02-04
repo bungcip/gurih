@@ -30,7 +30,6 @@ impl Plugin for FinancePlugin {
     ) -> Result<(), RuntimeError> {
         match name {
             "balanced_transaction" => check_balanced_transaction(entity_data, schema, datastore).await,
-            "period_open" => check_period_open(args, entity_data, datastore).await,
             "valid_parties" => check_valid_parties(entity_data, schema, datastore).await,
             "period_open" => check_period_open(args, entity_data, schema, datastore).await,
             _ => Ok(()),
