@@ -609,6 +609,7 @@ fn parse_field_type_str(s: &str) -> FieldType {
         "datetime" | "timestamp" => FieldType::Timestamp,
         "string" => FieldType::String,
         "text" => FieldType::Text,
+        "uuid" => FieldType::Uuid,
         "image" | "photo" => FieldType::Image,
         "file" => FieldType::File,
         "relation" => FieldType::Relation,

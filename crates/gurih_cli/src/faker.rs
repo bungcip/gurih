@@ -11,6 +11,7 @@ use rand::Rng;
 use rand::prelude::IndexedRandom;
 use serde_json::{Map, Value};
 use std::collections::{HashMap, VecDeque};
+use uuid::Uuid;
 
 pub struct FakerEngine;
 
@@ -274,6 +275,7 @@ impl FakerEngine {
                     .map(|_| rand::rng().sample(rand::distr::Alphanumeric) as char)
                     .collect::<String>(),
             ),
+            FieldType::Uuid => Value::String(Uuid::new_v4().to_string()),
             FieldType::Custom(_) => Value::Null,
         }
     }

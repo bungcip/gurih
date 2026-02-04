@@ -29,6 +29,8 @@ impl Plugin for FinancePlugin {
     ) -> Result<(), RuntimeError> {
         match name {
             "balanced_transaction" => check_balanced_transaction(entity_data, schema, datastore).await,
+            "period_open" => check_period_open(args, entity_data, datastore).await,
+            "valid_parties" => check_valid_parties(entity_data, schema, datastore).await,
             "period_open" => check_period_open(args, entity_data, schema, datastore).await,
             _ => Ok(()),
         }
@@ -142,6 +144,128 @@ async fn check_balanced_transaction(
             "Transaction not balanced: Debit {:.2}, Credit {:.2} (Diff {:.2})",
             total_debit, total_credit, diff
         )));
+    }
+
+    Ok(())
+}
+
+async fn check_valid_parties(
+    entity_data: &Value,
+    schema: &Schema,
+    datastore: Option<&Arc<dyn DataStore>>,
+) -> Result<(), RuntimeError> {
+    let ds = datastore.ok_or_else(|| {
+        RuntimeError::WorkflowError("Datastore not available for party validation".to_string())
+    })?;
+
+    // 1. Collect lines from payload or DB
+    let mut lines_to_check = Vec::new();
+    let mut found_lines_in_payload = false;
+
+    if let Some(obj) = entity_data.as_object() {
+        for (_key, val) in obj {
+            if let Some(lines) = val.as_array() {
+                for line in lines {
+                    if let Some(line_obj) = line.as_object()
+                        && (line_obj.contains_key("debit") || line_obj.contains_key("credit"))
+                    {
+                        found_lines_in_payload = true;
+                        lines_to_check.push(line.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    if !found_lines_in_payload {
+        if let Some(id) = entity_data.get("id").and_then(|v| v.as_str()) {
+            let table_name = schema
+                .entities
+                .get(&Symbol::from("JournalLine"))
+                .map(|e| e.table_name.as_str())
+                .unwrap_or("journal_line");
+
+            let mut filters = HashMap::new();
+            filters.insert("journal_entry".to_string(), id.to_string());
+
+            let db_lines = ds
+                .find(table_name, filters)
+                .await
+                .map_err(RuntimeError::WorkflowError)?;
+            lines_to_check.extend(db_lines.iter().map(|v| v.as_ref().clone()));
+        }
+    }
+
+    // 2. Validate each line
+    for line in lines_to_check {
+        let account_id = line
+            .get("account")
+            .or_else(|| line.get("account_id")) // Support both forms
+            .and_then(|v| v.as_str())
+            .ok_or(RuntimeError::ValidationError(
+                "Journal line missing account".to_string(),
+            ))?;
+
+        // Fetch Account
+        let account_table = schema
+            .entities
+            .get(&Symbol::from("Account"))
+            .map(|e| e.table_name.as_str())
+            .unwrap_or("account");
+
+        let account = ds
+            .get(account_table, account_id)
+            .await
+            .map_err(RuntimeError::WorkflowError)?
+            .ok_or(RuntimeError::ValidationError(format!(
+                "Account not found: {}",
+                account_id
+            )))?;
+
+        let requires_party = account
+            .get("requires_party")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        let party_type = line.get("party_type").and_then(|v| v.as_str());
+        let party_id = line.get("party_id").and_then(|v| v.as_str());
+
+        if requires_party {
+            if party_type.is_none() || party_id.is_none() {
+                let acc_code = account.get("code").and_then(|v| v.as_str()).unwrap_or("?");
+                let acc_name = account.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+                return Err(RuntimeError::ValidationError(format!(
+                    "Account {} ({}) requires a Party (Customer/Vendor) to be specified.",
+                    acc_code, acc_name
+                )));
+            }
+        }
+
+        // Verify Party Existence if specified
+        if let (Some(pt), Some(pid)) = (party_type, party_id) {
+            // Find entity table name
+            let target_entity = schema.entities.get(&Symbol::from(pt));
+            if let Some(entity_schema) = target_entity {
+                let table = entity_schema.table_name.as_str();
+                let exists = ds
+                    .get(table, pid)
+                    .await
+                    .map_err(RuntimeError::WorkflowError)?
+                    .is_some();
+
+                if !exists {
+                    return Err(RuntimeError::ValidationError(format!(
+                        "Referenced Party {} (Type: {}) does not exist.",
+                        pid, pt
+                    )));
+                }
+            } else {
+                return Err(RuntimeError::ValidationError(format!(
+                    "Unknown Party Type: {}",
+                    pt
+                )));
+            }
+        }
     }
 
     Ok(())
