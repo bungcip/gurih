@@ -16,6 +16,15 @@ pub trait FileDriver: Send + Sync {
 }
 
 fn validate_filename(filename: &str) -> Result<(), String> {
+    if filename.len() > 255 {
+        return Err("Filename is too long (max 255 characters)".to_string());
+    }
+
+    // Check for control characters
+    if filename.chars().any(|c| c.is_control()) {
+        return Err("Filename contains invalid characters".to_string());
+    }
+
     let check_path = Path::new(filename);
     if check_path.is_absolute() {
         return Err("Absolute paths are not allowed in storage".to_string());
@@ -29,8 +38,13 @@ fn validate_filename(filename: &str) -> Result<(), String> {
     if let Some(ext) = check_path.extension() {
         let ext_str = ext.to_string_lossy().to_lowercase();
         let forbidden = [
-            "php", "php3", "php4", "php5", "phtml", "pl", "py", "cgi", "asp", "aspx", "jsp", "sh", "bash", "exe",
-            "dll", "bat", "cmd", "vbs", "svg", "html", "htm", "shtml", "js", "mjs",
+            // PHP
+            "php", "php3", "php4", "php5", "phtml", "phar", "pht", "pgif",
+            // Scripts & Executables
+            "pl", "py", "cgi", "asp", "aspx", "jsp", "jspx", "sh", "bash", "exe",
+            "dll", "bat", "cmd", "vbs", "ps1", "wsf", "scr", "msi", "reg",
+            // Web / Java / Misc
+            "svg", "html", "htm", "shtml", "xht", "xhtml", "js", "mjs", "class", "jar", "swf"
         ];
         if forbidden.contains(&ext_str.as_str()) {
             return Err(format!("File extension not allowed: {}", ext_str));
