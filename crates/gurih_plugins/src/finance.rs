@@ -29,7 +29,7 @@ impl Plugin for FinancePlugin {
     ) -> Result<(), RuntimeError> {
         match name {
             "balanced_transaction" => check_balanced_transaction(entity_data, schema, datastore).await,
-            "period_open" => check_period_open(args, entity_data, datastore).await,
+            "period_open" => check_period_open(args, entity_data, schema, datastore).await,
             _ => Ok(()),
         }
     }
@@ -150,6 +150,7 @@ async fn check_balanced_transaction(
 async fn check_period_open(
     args: &[Expression],
     entity_data: &Value,
+    schema: &Schema,
     datastore: Option<&Arc<dyn DataStore>>,
 ) -> Result<(), RuntimeError> {
     if let Some(ds) = datastore {
@@ -180,13 +181,27 @@ async fn check_period_open(
             }
 
             let table_name = target_entity.to_lowercase();
-            // TODO: Use parameterized query when available in DataStore abstract interface
+
+            let db_type = schema
+                .database
+                .as_ref()
+                .map(|d| d.db_type.clone())
+                .unwrap_or(gurih_ir::DatabaseType::Sqlite);
+
+            let (p1, p2) = if db_type == gurih_ir::DatabaseType::Postgres {
+                ("$1", "$2")
+            } else {
+                ("?", "?")
+            };
+
             let sql = format!(
-                "SELECT id FROM {} WHERE status = 'Open' AND start_date <= '{}' AND end_date >= '{}'",
-                table_name, date_s, date_s
+                "SELECT id FROM {} WHERE status = 'Open' AND start_date <= {} AND end_date >= {}",
+                table_name, p1, p2
             );
 
-            let periods = ds.query(&sql).await.map_err(RuntimeError::WorkflowError)?;
+            let params = vec![Value::String(date_s.to_string()), Value::String(date_s.to_string())];
+
+            let periods = ds.query_with_params(&sql, params).await.map_err(RuntimeError::WorkflowError)?;
             if periods.is_empty() {
                 return Err(RuntimeError::ValidationError(format!(
                     "No open {} found for date {}",
