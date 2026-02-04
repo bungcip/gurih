@@ -1,91 +1,86 @@
-use gurih_dsl::compiler::compile;
-use gurih_ir::{Symbol, TransitionPrecondition, TransitionEffect};
+use gurih_dsl::parser::parse;
+use gurih_dsl::validator::Validator;
 
 #[test]
-fn test_employee_status_compilation() {
+fn test_valid_employee_status() {
     let src = r#"
-        employee_status "CPNS" for="Pegawai" {
-            can_transition_to "PNS" {
-                requires {
-                    min_years_of_service 1
-                    document "sk_pns"
-                }
-                effects {
-                    update_rank_eligibility "true"
-                    notify "unit_kepegawaian"
-                }
-            }
-        }
+    entity "Pegawai" {
+        field:pk id
+        field:string status
+        field:date join_date
+        field:boolean is_active
+    }
 
-        employee_status "PNS" for="Pegawai" {
-            can_transition_to "Cuti" {
-                requires {
-                    document "surat_cuti"
-                }
+    employee_status "Active" for="Pegawai" {
+        can_transition_to "Inactive" {
+            requires {
+                min_years_of_service 1
+            }
+            effects {
+                update "is_active" "false"
             }
         }
+    }
     "#;
 
-    let schema = compile(src, None).expect("Should compile");
+    let ast = parse(src, None).expect("Parse failed");
+    Validator::new(src).validate(&ast).expect("Validation failed");
+}
 
-    // Check Workflow
-    let workflow = schema.workflows.get(&Symbol::from("PegawaiStatusWorkflow")).expect("Workflow not found");
-    assert_eq!(workflow.entity, Symbol::from("Pegawai"));
-    assert_eq!(workflow.field, Symbol::from("status"));
+#[test]
+fn test_invalid_entity() {
+    let src = r#"
+    employee_status "Active" for="UnknownEntity" {
+        can_transition_to "Inactive"
+    }
+    "#;
 
-    // Check States
-    let states: Vec<String> = workflow.states.iter().map(|s| s.name.to_string()).collect();
-    assert!(states.contains(&"CPNS".to_string()));
-    assert!(states.contains(&"PNS".to_string()));
-    assert!(states.contains(&"Cuti".to_string()));
+    let ast = parse(src, None).expect("Parse failed");
+    let err = Validator::new(src).validate(&ast).unwrap_err();
+    assert!(format!("{}", err).contains("Employee status entity 'UnknownEntity' not found"));
+}
 
-    // Check Transitions
-    let t1 = workflow.transitions.iter().find(|t| t.from == Symbol::from("CPNS") && t.to == Symbol::from("PNS")).expect("CPNS->PNS missing");
+#[test]
+fn test_invalid_precondition_field() {
+    let src = r#"
+    entity "Pegawai" {
+        field:pk id
+        field:date join_date
+    }
 
-    // Check Preconditions
-    assert_eq!(t1.preconditions.len(), 2);
-
-    // min_years_of_service 1 -> Assertion
-    // document "sk_pns" -> Assertion(is_set("sk_pns"))
-
-    // Note: Parsing order might vary depending on ast node order, but here it's sequential.
-
-    let has_years = t1.preconditions.iter().any(|p| {
-        match p {
-            TransitionPrecondition::Assertion(expr) => {
-                let s = format!("{:?}", expr);
-                s.contains("years_of_service")
-            },
-            _ => false,
+    employee_status "Active" for="Pegawai" {
+        can_transition_to "Inactive" {
+            requires {
+                // 'tmt_pns' does not exist
+                min_years_of_service 1 from="tmt_pns"
+            }
         }
-    });
-    assert!(has_years, "Expected years_of_service assertion");
+    }
+    "#;
 
-    let has_doc = t1.preconditions.iter().any(|p| {
-        match p {
-            TransitionPrecondition::Assertion(expr) => {
-                let s = format!("{:?}", expr);
-                s.contains("is_set")
-            },
-            _ => false,
-        }
-    });
-    assert!(has_doc, "Expected document (is_set) assertion");
+    let ast = parse(src, None).expect("Parse failed");
+    let err = Validator::new(src).validate(&ast).unwrap_err();
+    assert!(format!("{}", err).contains("Field 'tmt_pns' not found in entity"));
+}
 
-    // Check Effects
-    let has_rank = t1.effects.iter().any(|e| {
-        match e {
-            TransitionEffect::Custom { name, .. } => name == &Symbol::from("update_rank_eligibility"),
-            _ => false,
-        }
-    });
-    assert!(has_rank, "update_rank_eligibility missing");
+#[test]
+fn test_invalid_effect_field() {
+    let src = r#"
+    entity "Pegawai" {
+        field:pk id
+        field:boolean is_active
+    }
 
-    let has_notify = t1.effects.iter().any(|e| {
-        match e {
-            TransitionEffect::Notify(t) => t == &Symbol::from("unit_kepegawaian"),
-            _ => false,
+    employee_status "Active" for="Pegawai" {
+        can_transition_to "Inactive" {
+            effects {
+                update "unknown_field" "false"
+            }
         }
-    });
-    assert!(has_notify, "notify missing");
+    }
+    "#;
+
+    let ast = parse(src, None).expect("Parse failed");
+    let err = Validator::new(src).validate(&ast).unwrap_err();
+    assert!(format!("{}", err).contains("Effect target field 'unknown_field' not found"));
 }

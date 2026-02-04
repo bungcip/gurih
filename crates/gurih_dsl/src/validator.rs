@@ -27,11 +27,11 @@ impl<'a> Validator<'a> {
         self.validate_routes(ast)?;
         self.validate_rules(ast)?;
         self.validate_workflows(ast)?;
+        self.validate_employee_statuses(ast)?;
         Ok(())
     }
 
-    fn validate_workflows(&self, ast: &Ast) -> Result<(), CompileError> {
-        // Build entity field map for validation
+    fn get_entity_fields(&self, ast: &Ast) -> HashMap<String, HashSet<String>> {
         let mut entity_fields: HashMap<String, HashSet<String>> = HashMap::new();
         for entity in &ast.entities {
             let fields: HashSet<String> = entity.fields.iter().map(|f| f.name.clone()).collect();
@@ -43,6 +43,12 @@ impl<'a> Validator<'a> {
                 entity_fields.insert(entity.name.clone(), fields);
             }
         }
+        entity_fields
+    }
+
+    fn validate_workflows(&self, ast: &Ast) -> Result<(), CompileError> {
+        // Build entity field map for validation
+        let entity_fields = self.get_entity_fields(ast);
 
         for workflow in &ast.workflows {
             if let Some(fields) = entity_fields.get(&workflow.entity) {
@@ -86,6 +92,45 @@ impl<'a> Validator<'a> {
                     src: self.src.to_string(),
                     span: workflow.span,
                     message: format!("Workflow target entity '{}' not found", workflow.entity),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_employee_statuses(&self, ast: &Ast) -> Result<(), CompileError> {
+        let entity_fields = self.get_entity_fields(ast);
+
+        for status in &ast.employee_statuses {
+            if let Some(fields) = entity_fields.get(&status.entity) {
+                for transition in &status.transitions {
+                    for precondition in &transition.preconditions {
+                        if let ast::TransitionPreconditionDef::Assertion { expression, span } = precondition {
+                            self.validate_expression_fields(expression, fields, *span)?;
+                        }
+                    }
+
+                    for effect in &transition.effects {
+                        #[allow(clippy::collapsible_if)]
+                        if let ast::TransitionEffectDef::UpdateField { field, value: _, span } = effect {
+                            if !fields.contains(field) {
+                                return Err(CompileError::ValidationError {
+                                    src: self.src.to_string(),
+                                    span: *span,
+                                    message: format!(
+                                        "Effect target field '{}' not found in entity '{}'",
+                                        field, status.entity
+                                    ),
+                                });
+                            }
+                        }
+                    }
+                }
+            } else {
+                return Err(CompileError::ValidationError {
+                    src: self.src.to_string(),
+                    span: status.span,
+                    message: format!("Employee status entity '{}' not found", status.entity),
                 });
             }
         }
