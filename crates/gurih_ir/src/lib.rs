@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 pub use symbol_table::GlobalSymbol as Symbol;
 
+pub mod utils;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Schema {
     pub name: Symbol,
@@ -278,6 +280,7 @@ pub enum FieldType {
     File,
     Relation,
     Boolean,
+    Uuid,
     // AST-only or unresolved types
     Code,
     Custom(String),

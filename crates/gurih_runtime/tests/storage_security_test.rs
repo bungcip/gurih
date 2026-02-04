@@ -72,3 +72,58 @@ async fn test_dangerous_extension_upload() {
 
     let _ = fs::remove_dir_all(&temp_dir);
 }
+
+#[tokio::test]
+async fn test_enhanced_extension_security() {
+    let temp_dir = std::env::temp_dir().join("gurih_test_storage_enhanced");
+    let base_path = temp_dir.join("safe_zone");
+    let _ = fs::remove_dir_all(&temp_dir);
+
+    let driver = LocalFileDriver::new(base_path.to_str().unwrap());
+
+    // Newly blocked extensions
+    let dangerous_files = vec![
+        "exploit.phar", "template.pht", "test.jspx", "app.class", "library.jar",
+        "script.ps1", "setup.msi", "movie.swf", "page.xhtml"
+    ];
+
+    for filename in dangerous_files {
+        let payload = Bytes::from("malicious content");
+        let result = driver.put(filename, payload).await;
+
+        assert!(result.is_err(), "Enhanced dangerous extension {} should be rejected", filename);
+        let err = result.err().unwrap();
+        assert!(
+            err.contains("File extension not allowed"),
+            "Unexpected error for {}: {}",
+            filename,
+            err
+        );
+    }
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[tokio::test]
+async fn test_filename_sanitization() {
+    let temp_dir = std::env::temp_dir().join("gurih_test_storage_sanitization");
+    let base_path = temp_dir.join("safe_zone");
+    let _ = fs::remove_dir_all(&temp_dir);
+
+    let driver = LocalFileDriver::new(base_path.to_str().unwrap());
+    let payload = Bytes::from("content");
+
+    // 1. Test Control Characters
+    let bad_filename = "test\nfile.txt";
+    let result = driver.put(bad_filename, payload.clone()).await;
+    assert!(result.is_err(), "Filename with newline should be rejected");
+    assert_eq!(result.err().unwrap(), "Filename contains invalid characters");
+
+    // 2. Test Max Length
+    let long_filename = "a".repeat(256) + ".txt";
+    let result = driver.put(&long_filename, payload.clone()).await;
+    assert!(result.is_err(), "Filename > 255 chars should be rejected");
+    assert_eq!(result.err().unwrap(), "Filename is too long (max 255 characters)");
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}

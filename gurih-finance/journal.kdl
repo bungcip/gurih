@@ -36,6 +36,10 @@ entity "JournalLine" {
     field:money "debit" default=0
     field:money "credit" default=0
     field:text "memo"
+
+    // Sub-ledger / Party support
+    field:string "party_type" // e.g. "Customer", "Vendor"
+    field:uuid "party_id"
 }
 
 workflow "JournalWorkflow" for="JournalEntry" field="status" {
@@ -49,6 +53,7 @@ workflow "JournalWorkflow" for="JournalEntry" field="status" {
         requires {
             balanced_transaction #true
             period_open entity="AccountingPeriod"
+            valid_parties #true
         }
         effects {
             // Immutable once posted

@@ -11,7 +11,9 @@ It manages the entire lifecycle of civil servants, from onboarding (CPNS) to ret
 - **ASN (Pegawai)**: Views profile, requests leave, submits documents.
 - **Auditor**: Reviews personnel history and compliance.
 
-### Runtime View
+### Runtime View (Dashboard)
+
+The dashboard provides a quick overview of personnel statistics, such as total ASN count and pending leave requests.
 
 ![SIASN Dashboard](images/siasn-dashboard.png)
 
@@ -19,63 +21,89 @@ It manages the entire lifecycle of civil servants, from onboarding (CPNS) to ret
 
 ## 2. DSL Usage in GurihSIASN
 
-GurihSIASN utilizes the standard Gurih Framework `workflow` DSL to model the complex lifecycle of a `Pegawai`.
+GurihSIASN utilizes the standard Gurih Framework DSL to model the complex lifecycle of a `Pegawai` (Employee) and other HR processes.
 
 ### Project Structure
+
+The definition is split into domain-specific files (`kepegawaian.kdl`, `cuti.kdl`) and workflow definitions (`workflow.kdl`), all orchestrated by `app.kdl`.
 
 ![Project Structure](images/siasn-project-structure.png)
 
 ### Employee Lifecycle Workflow
 
-The core logic is defined in `workflow.kdl`. Unlike traditional state machines, this workflow integrates domain-specific HR requirements and effects.
+The core logic is defined in `workflow.kdl`. Unlike traditional state machines, this workflow integrates domain-specific HR requirements and effects using the `workflow` construct.
 
 ![Workflow DSL](images/siasn-dsl-example.png)
 
 **Key Components:**
 - **`workflow "PegawaiStatusWorkflow"`**: Defines the lifecycle for the `Pegawai` entity on the `status_pegawai` field.
 - **`requires`**: Preconditions that must be met before transition.
-  - `min_years_of_service 1`: Checks employment duration.
-  - `document "sk_pns"`: Verifies presence of required documents.
+  - **`min_years_of_service`**: Checks employment duration (e.g., `min_years_of_service 1 from="tmt_cpns"`).
+  - **`document`**: Verifies presence of required documents (e.g., `document "sk_pns"`).
+  - **`min_age`**: Enforces age restrictions (e.g., `min_age 58 from="tanggal_lahir"`).
 - **`effects`**: Side effects triggered upon transition.
-  - `update_rank_eligibility`: Custom effect to flag employee for promotion.
-  - `suspend_payroll`: Custom effect to stop salary payments (e.g., for Unpaid Leave or Retirement).
-  - `notify`: Sends notifications to external systems.
+  - **`update_rank_eligibility`**: Custom effect to flag employee for promotion.
+  - **`suspend_payroll`**: Custom effect to stop salary payments (e.g., for Unpaid Leave or Retirement).
+  - **`notify`**: Sends notifications to external systems (e.g., `notify "taspen"`).
 
-### Domain-Specific Keywords
+### UI Generation (`kepegawaian.kdl`)
 
-The DSL parser supports HR-specific keywords that translate to underlying framework actions:
+The UI for managing employees is also defined via DSL.
 
-| DSL Keyword | Framework Action | Purpose |
-|-------------|------------------|---------|
-| `suspend_payroll "true"` | `UpdateField(is_payroll_active, false)` | Stops payroll for unpaid leave/suspension. |
-| `update_rank_eligibility "true"` | `UpdateField(rank_eligible, true)` | Marks employee as eligible for rank promotion. |
+```kdl
+page "DaftarPegawai" {
+    title "Data Pegawai"
+    datatable for="Pegawai" query="PegawaiQuery" {
+        column "nip" label="NIP"
+        column "nama" label="Nama"
+        column "status_pegawai" label="Status"
+        // ...
+    }
+}
+```
+
+![Pegawai List](images/siasn-pegawai-list.png)
 
 ---
 
 ## 3. System Flow
 
-### Runtime Execution
+### Runtime Execution Example: Retirement (Pensiun)
 
-1. **DSL Loading**: The `app.kdl` and `workflow.kdl` files are loaded.
-2. **Plugin Initialization**: The `HrPlugin` initializes and registers handlers for the custom effects (`suspend_payroll`).
-3. **Transition Request**:
-   - A user requests to move a `Pegawai` from `PNS` to `Pensiun` via the UI or API.
+1.  **Transition Request**:
+    A user requests to move a `Pegawai` from `PNS` to `Pensiun` via the UI or API.
 
-   ![Pegawai List](images/siasn-pegawai-list.png)
+2.  **Validation (DSL Enforced)**:
+    The framework checks the `requires` block in `workflow.kdl`:
+    ```kdl
+    transition "PNS_to_Pensiun" from="PNS" to="Pensiun" {
+        requires {
+             min_age 58 from="tanggal_lahir"
+        }
+        // ...
+    }
+    ```
+    If the employee's age is less than 58, the transition is rejected with a validation error.
 
-4. **Validation**:
-   - Framework checks preconditions (e.g., `min_age 58` defined in `workflow.kdl`).
-   - If `age < 58`, the transition is rejected with a validation error.
-5. **Execution**:
-   - Status updates to `Pensiun`.
-   - `suspend_payroll` effect is executed, setting `is_payroll_active = false` in the database.
-   - `notify "taspen"` sends a message to the pension system.
+3.  **Effect Execution**:
+    Upon successful validation, the effects are executed:
+    ```kdl
+        effects {
+             suspend_payroll "true"
+             notify "taspen"
+        }
+    ```
+    - `suspend_payroll`: Updates the payroll flag in the database (or notifies the Finance module).
+    - `notify`: Sends a message to the external Taspen system.
+
+4.  **State Update**:
+    The `status_pegawai` field is updated to `Pensiun`. Since this state is marked `immutable="true"`, further changes are restricted.
 
 ---
 
 ## 4. Comparison: GurihSIASN vs GurihFinance
 
-While both modules use the Gurih Framework, they differ in their usage patterns.
+While both modules use the Gurih Framework, they differ in their usage patterns, demonstrating the flexibility of the DSL.
 
 | Feature | GurihFinance | GurihSIASN |
 |---------|--------------|------------|
@@ -86,8 +114,8 @@ While both modules use the Gurih Framework, they differ in their usage patterns.
 
 ### Reusable Patterns
 
-Both modules share:
+Both modules share common framework constructs:
 - **`workflow`**: State transitions (used for Journal Status in Finance, Employee Status in SIASN).
 - **`dashboard`**: Widget definitions for UI.
 - **`role`**: RBAC permissions.
-- **`report/query`**: Data extraction logic.
+- **`query`**: Data extraction logic.

@@ -1,3 +1,4 @@
+use gurih_ir::utils::to_title_case;
 use gurih_ir::{Schema, Symbol};
 use serde_json::{Value, json};
 
@@ -177,23 +178,9 @@ impl FormEngine {
             gurih_ir::FieldType::Enum(_) => "Select".to_string(),
             gurih_ir::FieldType::Relation => "RelationPicker".to_string(),
             gurih_ir::FieldType::Code => "CodeEditor".to_string(),
+            gurih_ir::FieldType::Uuid => "TextInput".to_string(),
             gurih_ir::FieldType::Custom(_) => "TextInput".to_string(),
         }
     }
 }
 
-fn to_title_case(s: &str) -> String {
-    s.split('_')
-        .map(|word| {
-            if word.eq_ignore_ascii_case("id") {
-                return "ID".to_string();
-            }
-            let mut chars = word.chars();
-            match chars.next() {
-                None => String::new(),
-                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
-}
