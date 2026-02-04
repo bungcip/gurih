@@ -38,28 +38,37 @@ pub fn hash_password(password: &str) -> String {
 }
 
 pub fn verify_password(password: &str, stored_value: &str) -> bool {
+    let mut valid_format = false;
+    let mut salt = "dummy_salt";
+    let mut stored_hash_str = "";
+
+    // Parse stored value if it matches expected format
     if stored_value.starts_with("v3$") {
         let parts: Vec<&str> = stored_value.split('$').collect();
-        if parts.len() != 3 {
-            return false;
+        if parts.len() == 3 {
+            salt = parts[1];
+            stored_hash_str = parts[2];
+            valid_format = true;
         }
-        let salt = parts[1];
-        let hash_str = parts[2];
-        let iterations = 100_000;
-
-        let mut computed = [0u8; 32];
-        pbkdf2::<Hmac<Sha256>>(password.as_bytes(), salt.as_bytes(), iterations, &mut computed).expect("HMAC error");
-
-        let mut stored_hash_bytes = [0u8; 32];
-        if hex::decode_to_slice(hash_str, &mut stored_hash_bytes).is_err() {
-            return false;
-        }
-
-        // Constant-time comparison
-        return computed.ct_eq(&stored_hash_bytes).into();
     }
 
-    false
+    // Always perform PBKDF2 to prevent timing attacks
+    // If format is invalid, we calculate hash with dummy salt and discard result
+    let iterations = 100_000;
+    let mut computed = [0u8; 32];
+    pbkdf2::<Hmac<Sha256>>(password.as_bytes(), salt.as_bytes(), iterations, &mut computed).expect("HMAC error");
+
+    if !valid_format {
+        return false;
+    }
+
+    let mut stored_hash_bytes = [0u8; 32];
+    if hex::decode_to_slice(stored_hash_str, &mut stored_hash_bytes).is_err() {
+        return false;
+    }
+
+    // Constant-time comparison
+    computed.ct_eq(&stored_hash_bytes).into()
 }
 
 impl AuthEngine {
