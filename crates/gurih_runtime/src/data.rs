@@ -551,10 +551,15 @@ impl DataEngine {
             .get(rule_name)
             .ok_or_else(|| format!("Posting rule '{}' not found", rule_name))?;
 
+        // Prepare Context with "doc"
+        let mut context_map = serde_json::Map::new();
+        context_map.insert("doc".to_string(), source_data.clone());
+        let context = Value::Object(context_map);
+
         // Evaluate Description
         let description = crate::evaluator::evaluate(
             &rule.description_expr,
-            source_data,
+            &context,
             Some(&self.schema),
             Some(&self.datastore),
         )
@@ -566,7 +571,7 @@ impl DataEngine {
 
         // Evaluate Date
         let date_val =
-            crate::evaluator::evaluate(&rule.date_expr, source_data, Some(&self.schema), Some(&self.datastore))
+            crate::evaluator::evaluate(&rule.date_expr, &context, Some(&self.schema), Some(&self.datastore))
                 .await
                 .map_err(|e| format!("Failed to evaluate date: {}", e))?;
 
@@ -579,6 +584,15 @@ impl DataEngine {
             // Resolve Account (Simple Lookup)
             let account_term = line.account.as_str();
 
+            // Try Find by Code
+            let mut filters = HashMap::new();
+            filters.insert("code".to_string(), account_term.to_string());
+
+            // Note: We use the Entity name "Account" to resolve table name internally in find/list
+            // assuming datastore handles entity->table mapping or we pass table name.
+            // DataStore trait takes 'entity' (which is often table name in implementation).
+            // But DataEngine usually resolves it.
+            // Here we should use the schema to get table name.
             let account_table = self
                 .schema
                 .entities
@@ -586,34 +600,14 @@ impl DataEngine {
                 .map(|e| e.table_name.as_str())
                 .unwrap_or("Account");
 
-            let db_type = self
-                .schema
-                .database
-                .as_ref()
-                .map(|d| d.db_type.clone())
-                .unwrap_or(DatabaseType::Sqlite);
+            let mut accounts = self.datastore.find(account_table, filters).await.map_err(|e| e.to_string())?;
 
-            let (p1, p2) = if db_type == DatabaseType::Postgres {
-                ("$1", "$2")
-            } else {
-                ("?", "?")
-            };
-
-            let sql = format!(
-                "SELECT id FROM \"{}\" WHERE code = {} OR name = {} LIMIT 1",
-                account_table, p1, p2
-            );
-
-            let params = vec![
-                Value::String(account_term.to_string()),
-                Value::String(account_term.to_string()),
-            ];
-
-            let accounts = self
-                .datastore
-                .query_with_params(&sql, params)
-                .await
-                .map_err(|e| format!("Account lookup failed: {}", e))?;
+            if accounts.is_empty() {
+                // Try Find by Name
+                let mut filters = HashMap::new();
+                filters.insert("name".to_string(), account_term.to_string());
+                accounts = self.datastore.find(account_table, filters).await.map_err(|e| e.to_string())?;
+            }
 
             let account_id = accounts
                 .first()
@@ -622,33 +616,53 @@ impl DataEngine {
 
             line_obj.insert("account".to_string(), Value::String(account_id.to_string()));
 
+            // Helper to ensure Money fields are strings
+            let to_money_val = |v: Value| -> Value {
+                match v {
+                    Value::Number(n) => Value::String(n.to_string()),
+                    Value::String(s) => Value::String(s),
+                    _ => Value::String("0.00".to_string()),
+                }
+            };
+
             if let Some(debit_expr) = &line.debit_expr {
                 let val =
-                    crate::evaluator::evaluate(debit_expr, source_data, Some(&self.schema), Some(&self.datastore))
+                    crate::evaluator::evaluate(debit_expr, &context, Some(&self.schema), Some(&self.datastore))
                         .await
                         .map_err(|e| format!("Failed to evaluate debit: {}", e))?;
-                line_obj.insert("debit".to_string(), val);
-                line_obj.insert("credit".to_string(), Value::from(0));
+
+                line_obj.insert("debit".to_string(), to_money_val(val));
+                line_obj.insert("credit".to_string(), Value::String("0.00".to_string()));
             } else if let Some(credit_expr) = &line.credit_expr {
                 let val =
-                    crate::evaluator::evaluate(credit_expr, source_data, Some(&self.schema), Some(&self.datastore))
+                    crate::evaluator::evaluate(credit_expr, &context, Some(&self.schema), Some(&self.datastore))
                         .await
                         .map_err(|e| format!("Failed to evaluate credit: {}", e))?;
-                line_obj.insert("credit".to_string(), val);
-                line_obj.insert("debit".to_string(), Value::from(0));
+
+                line_obj.insert("credit".to_string(), to_money_val(val));
+                line_obj.insert("debit".to_string(), Value::String("0.00".to_string()));
             }
 
             journal_lines.push(Value::Object(line_obj));
         }
 
-        // Create JournalEntry
+        // Create JournalEntry Header
         let mut journal = serde_json::Map::new();
         journal.insert("description".to_string(), Value::String(description));
         journal.insert("date".to_string(), Value::String(date_str));
-        journal.insert("lines".to_string(), Value::Array(journal_lines));
         journal.insert("status".to_string(), Value::String("Draft".to_string()));
+        // Note: We DO NOT insert "lines" here anymore.
 
-        self.create("JournalEntry", Value::Object(journal), ctx).await?;
+        let journal_id = self.create("JournalEntry", Value::Object(journal), ctx).await?;
+
+        // Create Journal Lines
+        for mut line_val in journal_lines {
+            if let Some(obj) = line_val.as_object_mut() {
+                obj.insert("journal_entry".to_string(), Value::String(journal_id.clone()));
+            }
+            // Use create() to ensure validation logic runs
+            self.create("JournalLine", line_val, ctx).await?;
+        }
 
         Ok(())
     }

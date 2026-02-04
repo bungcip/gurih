@@ -110,11 +110,29 @@ fn eval_unary_op(op: &UnaryOperator, val: Value) -> Result<Value, RuntimeError> 
 
 fn eval_binary_op(op: &BinaryOperator, left: Value, right: Value) -> Result<Value, RuntimeError> {
     match op {
-        BinaryOperator::Add | BinaryOperator::Sub | BinaryOperator::Mul | BinaryOperator::Div => {
+        BinaryOperator::Add => {
+            // Check for string concatenation if either operand is a string
+            if left.is_string() || right.is_string() {
+                let to_s = |v: Value| match v {
+                    Value::String(s) => s,
+                    Value::Number(n) => n.to_string(),
+                    Value::Bool(b) => b.to_string(),
+                    Value::Null => "".to_string(),
+                    _ => format!("{:?}", v),
+                };
+                return Ok(Value::String(format!("{}{}", to_s(left), to_s(right))));
+            }
+
+            let l = as_f64(&left)?;
+            let r = as_f64(&right)?;
+            Ok(Value::Number(serde_json::Number::from_f64(l + r).ok_or_else(|| {
+                RuntimeError::EvaluationError("Result is not a valid number".into())
+            })?))
+        }
+        BinaryOperator::Sub | BinaryOperator::Mul | BinaryOperator::Div => {
             let l = as_f64(&left)?;
             let r = as_f64(&right)?;
             let res = match op {
-                BinaryOperator::Add => l + r,
                 BinaryOperator::Sub => l - r,
                 BinaryOperator::Mul => l * r,
                 BinaryOperator::Div => {
