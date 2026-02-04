@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use crate::utils::parse_numeric_opt;
 use gurih_ir::{ActionStep, Expression, Schema, Symbol};
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::datastore::DataStore;
@@ -79,14 +80,6 @@ async fn check_balanced_transaction(
     let mut total_credit = 0.0;
     let mut found_lines_in_payload = false;
 
-    let parse_money = |v: Option<&Value>| -> f64 {
-        v.and_then(|val| val.as_str())
-            .unwrap_or("0")
-            .parse::<f64>()
-            .unwrap_or(0.0)
-            + v.and_then(|val| val.as_f64()).unwrap_or(0.0)
-    };
-
     // 1. Try to find lines in the payload
     if let Some(obj) = entity_data.as_object() {
         for (_key, val) in obj {
@@ -96,8 +89,8 @@ async fn check_balanced_transaction(
                         && (line_obj.contains_key("debit") || line_obj.contains_key("credit"))
                     {
                         found_lines_in_payload = true;
-                        total_debit += parse_money(line_obj.get("debit"));
-                        total_credit += parse_money(line_obj.get("credit"));
+                        total_debit += parse_numeric_opt(line_obj.get("debit"));
+                        total_credit += parse_numeric_opt(line_obj.get("credit"));
                     }
                 }
             }
@@ -125,8 +118,8 @@ async fn check_balanced_transaction(
 
                 for line in lines {
                     if let Some(line_obj) = line.as_object() {
-                        total_debit += parse_money(line_obj.get("debit"));
-                        total_credit += parse_money(line_obj.get("credit"));
+                        total_debit += parse_numeric_opt(line_obj.get("debit"));
+                        total_credit += parse_numeric_opt(line_obj.get("credit"));
                     }
                 }
             }
@@ -306,13 +299,12 @@ async fn check_period_open(
 
             let table_name = target_entity.to_lowercase();
 
-            let db_type = schema
-                .database
+            let db_type = schema.database
                 .as_ref()
                 .map(|d| d.db_type.clone())
                 .unwrap_or(gurih_ir::DatabaseType::Sqlite);
 
-            let (p1, p2) = if db_type == gurih_ir::DatabaseType::Postgres {
+            let (p_start, p_end) = if db_type == gurih_ir::DatabaseType::Postgres {
                 ("$1", "$2")
             } else {
                 ("?", "?")
@@ -320,10 +312,13 @@ async fn check_period_open(
 
             let sql = format!(
                 "SELECT id FROM {} WHERE status = 'Open' AND start_date <= {} AND end_date >= {}",
-                table_name, p1, p2
+                table_name, p_start, p_end
             );
 
-            let params = vec![Value::String(date_s.to_string()), Value::String(date_s.to_string())];
+            let params = vec![
+                Value::String(date_s.to_string()),
+                Value::String(date_s.to_string()),
+            ];
 
             let periods = ds.query_with_params(&sql, params).await.map_err(RuntimeError::WorkflowError)?;
             if periods.is_empty() {
@@ -425,18 +420,8 @@ async fn execute_reverse_journal(
             obj.insert("id".to_string(), json!(Uuid::new_v4().to_string()));
             obj.insert("journal_entry".to_string(), json!(new_id));
 
-            let get_val = |v: &serde_json::Value| -> f64 {
-                if let Some(f) = v.as_f64() {
-                    f
-                } else if let Some(s) = v.as_str() {
-                    s.parse().unwrap_or(0.0)
-                } else {
-                    0.0
-                }
-            };
-
-            let debit = obj.get("debit").map(get_val).unwrap_or(0.0);
-            let credit = obj.get("credit").map(get_val).unwrap_or(0.0);
+            let debit = parse_numeric_opt(obj.get("debit"));
+            let credit = parse_numeric_opt(obj.get("credit"));
 
             obj.insert("debit".to_string(), json!(credit.to_string()));
             obj.insert("credit".to_string(), json!(debit.to_string()));
@@ -548,24 +533,8 @@ async fn execute_generate_closing_entry(
 
     for row in results {
         let account_id = row.get("account_id").and_then(|v| v.as_str()).unwrap_or("");
-        let total_debit = row
-            .get("total_debit")
-            .and_then(|v| v.as_f64())
-            .or_else(|| {
-                row.get("total_debit")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.parse().unwrap_or(0.0))
-            })
-            .unwrap_or(0.0);
-        let total_credit = row
-            .get("total_credit")
-            .and_then(|v| v.as_f64())
-            .or_else(|| {
-                row.get("total_credit")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.parse().unwrap_or(0.0))
-            })
-            .unwrap_or(0.0);
+        let total_debit = parse_numeric_opt(row.get("total_debit"));
+        let total_credit = parse_numeric_opt(row.get("total_credit"));
 
         // Round to 2 decimal places to avoid floating point issues
         let net = ((total_debit * 100.0).round() - (total_credit * 100.0).round()) / 100.0;
