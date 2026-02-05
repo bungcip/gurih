@@ -183,6 +183,12 @@ routes {
             route "/:id" to="FormUsulanSLKS"
             route:delete "/:id" action="DeleteUsulanSLKS"
         }
+        group "/tugas-belajar" {
+            route "/" to="DaftarUsulanTugasBelajar"
+            route "/new" to="FormUsulanTugasBelajar"
+            route "/:id" to="FormUsulanTugasBelajar"
+            route:delete "/:id" action="DeleteUsulanTugasBelajar"
+        }
     }
 
     // --- CUTI ROUTES ---
@@ -227,6 +233,7 @@ menu "MainMenu" {
     group "Layanan" icon="calendar" {
         item "Pengajuan Cuti" to="/cuti/pengajuan"
         item "Pengajuan KGB" to="/kgb/pengajuan"
+        item "Usulan Tugas Belajar" to="/kepegawaian/tugas-belajar"
     }
 
     group "Master Data" icon="settings" {
@@ -249,6 +256,8 @@ role "Pegawai" {
     allow "*" "read"
     allow "/cuti/pengajuan/new" "create"
     allow "/cuti/pengajuan/*" "read,write" // Simplified
+    allow "/kepegawaian/tugas-belajar/new" "create"
+    allow "/kepegawaian/tugas-belajar/*" "read,write"
 }
 
 role "OperatorUnor" {
@@ -264,4 +273,5 @@ role "VerifikatorEselon1" {
 role "AdminSDMAO" {
     allow "/kepegawaian/usulan-slks/*" "read,write"
     allow "/kepegawaian/pegawai/*" "read"
+    allow "/kepegawaian/tugas-belajar/*" "read,write"
 }

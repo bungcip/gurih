@@ -20,6 +20,13 @@ enum "StatusPengajuan" {
     Ditolak
 }
 
+enum "JenjangPendidikan" {
+    D3
+    S1
+    S2
+    S3
+}
+
 enum "TingkatHukuman" {
     Ringan
     Sedang
@@ -174,6 +181,20 @@ module "Kepegawaian" {
         field:file "file_pendukung" required=#false
     }
 
+    // --- USULAN TUGAS BELAJAR ---
+    entity "UsulanTugasBelajar" {
+        field:pk id
+        belongs_to "Pegawai"
+        field:string "universitas"
+        field:string "jurusan"
+        field:enum "jenjang" "JenjangPendidikan"
+        field:date "tanggal_mulai"
+        field:string "nomor_surat"
+        field:file "file_surat"
+        field:enum "status" "StatusPengajuan" default="Draft"
+        field:text "keterangan" required=#false
+    }
+
     // --- ACTIONS ---
     action "DeletePegawai" { params "id" step "entity:delete" target="Pegawai" id="param(\"id\")" }
     action "DeleteRiwayatJabatan" { params "id" step "entity:delete" target="RiwayatJabatan" id="param(\"id\")" }
@@ -184,6 +205,7 @@ module "Kepegawaian" {
     action "DeleteRiwayatHukumanDisiplin" { params "id" step "entity:delete" target="RiwayatHukumanDisiplin" id="param(\"id\")" }
     action "DeletePengajuanKGB" { params "id" step "entity:delete" target="PengajuanKGB" id="param(\"id\")" }
     action "DeleteUsulanSLKS" { params "id" step "entity:delete" target="UsulanSLKS" id="param(\"id\")" }
+    action "DeleteUsulanTugasBelajar" { params "id" step "entity:delete" target="UsulanTugasBelajar" id="param(\"id\")" }
 }
 
 // -----------------------------------------------------------------------------
@@ -260,6 +282,15 @@ query:flat "UsulanSLKSQuery" for="UsulanSLKS" {
     select "status"
     join "Pegawai" { select "nama" as="nama_pegawai" }
     join "JenisPenghargaan" { select "nama" as="jenis_penghargaan" }
+}
+
+query:flat "UsulanTugasBelajarQuery" for="UsulanTugasBelajar" {
+    select "id"
+    select "universitas"
+    select "jurusan"
+    select "jenjang"
+    select "status"
+    join "Pegawai" { select "nama" as="nama_pegawai" }
 }
 
 // -----------------------------------------------------------------------------
@@ -516,6 +547,37 @@ page "FormUsulanSLKS" {
             field "jenis_penghargaan"
             field "keterangan"
             field "file_pendukung"
+            field "status" disabled=#true
+        }
+    }
+}
+
+// --- USULAN TUGAS BELAJAR UI ---
+page "DaftarUsulanTugasBelajar" {
+    title "Usulan Tugas Belajar"
+    datatable for="UsulanTugasBelajar" query="UsulanTugasBelajarQuery" {
+        column "nama_pegawai" label="Pegawai"
+        column "universitas" label="Universitas"
+        column "jurusan" label="Jurusan"
+        column "jenjang" label="Jenjang"
+        column "status" label="Status"
+
+        action "Edit" icon="pencil" to="/kepegawaian/tugas-belajar/:id"
+        action "Hapus" icon="trash" variant="danger" to="/kepegawaian/tugas-belajar/:id" method="DELETE"
+    }
+}
+page "FormUsulanTugasBelajar" {
+    title "Form Tugas Belajar"
+    form for="UsulanTugasBelajar" {
+        section "Data Pendidikan" {
+            field "pegawai"
+            field "universitas"
+            field "jurusan"
+            field "jenjang"
+            field "tanggal_mulai"
+            field "nomor_surat"
+            field "file_surat"
+            field "keterangan"
             field "status" disabled=#true
         }
     }
