@@ -19,3 +19,7 @@
 ## 2025-05-24 - Button Icon Consistency
 **Learning:** Components often define props (like `icon`) that are partially implemented or ignored in favor of slots, leading to confusing APIs and broken UI when developers trust the prop types.
 **Action:** Ensure "convenience props" (like `icon`, `label`) are fully functional and backed by the appropriate sub-components. Support standard variations (like `iconPosition`) to reduce the need for custom slot boilerplate.
+
+## 2025-05-24 - Pagination Accessibility
+**Learning:** Pagination controls often lack `aria-current="page"` on the active item, forcing screen reader users to guess their location. Numbered buttons also need explicit labels (e.g., "Go to page 5") rather than just the number.
+**Action:** Use `aria-current="page"` for the active page button. Add descriptive `aria-label` to all page links/buttons. Hide decorative separators (like "...") with `aria-hidden="true"`.

@@ -104,7 +104,7 @@ function setPage(p) {
 
       <div class="flex gap-1 overflow-x-auto max-w-[200px] sm:max-w-none no-scrollbar">
         <template v-for="(p, index) in pages" :key="index">
-            <span v-if="p === '...'" class="px-2 py-1 flex items-center text-text-muted select-none">...</span>
+            <span v-if="p === '...'" class="px-2 py-1 flex items-center text-text-muted select-none" aria-hidden="true">...</span>
             <Button
               v-else
               :variant="p === modelValue ? 'primary' : 'ghost'"
@@ -112,6 +112,8 @@ function setPage(p) {
               :disabled="loading"
               @click="setPage(p)"
               :class="{'min-w-[32px]': true}"
+              :aria-current="p === modelValue ? 'page' : undefined"
+              :aria-label="p === modelValue ? `Page ${p}, current page` : `Go to page ${p}`"
             >
               {{ p }}
             </Button>
