@@ -32,7 +32,9 @@ impl Plugin for HrPlugin {
                 let years = if let Some(Expression::StringLiteral(s)) = args.first() {
                     s.parse::<f64>().unwrap_or(0.0)
                 } else {
-                    return Err(RuntimeError::ValidationError("min_years_of_service requires numeric argument".to_string()));
+                    return Err(RuntimeError::ValidationError(
+                        "min_years_of_service requires numeric argument".to_string(),
+                    ));
                 };
                 let from_field = kwargs.get("from").cloned().unwrap_or_else(|| "join_date".to_string());
 
@@ -48,7 +50,10 @@ impl Plugin for HrPlugin {
 
                 let result = gurih_runtime::evaluator::evaluate(&expr, entity_data, Some(_schema), datastore).await?;
                 if result != Value::Bool(true) {
-                    return Err(RuntimeError::ValidationError(format!("Minimum years of service not met: requires {}", years)));
+                    return Err(RuntimeError::ValidationError(format!(
+                        "Minimum years of service not met: requires {}",
+                        years
+                    )));
                 }
                 Ok(())
             }
@@ -56,7 +61,9 @@ impl Plugin for HrPlugin {
                 let age = if let Some(Expression::StringLiteral(s)) = args.first() {
                     s.parse::<f64>().unwrap_or(0.0)
                 } else {
-                    return Err(RuntimeError::ValidationError("min_age requires numeric argument".to_string()));
+                    return Err(RuntimeError::ValidationError(
+                        "min_age requires numeric argument".to_string(),
+                    ));
                 };
                 let from_field = kwargs.get("from").cloned().unwrap_or_else(|| "birth_date".to_string());
 
@@ -72,7 +79,10 @@ impl Plugin for HrPlugin {
 
                 let result = gurih_runtime::evaluator::evaluate(&expr, entity_data, Some(_schema), datastore).await?;
                 if result != Value::Bool(true) {
-                    return Err(RuntimeError::ValidationError(format!("Minimum age not met: requires {}", age)));
+                    return Err(RuntimeError::ValidationError(format!(
+                        "Minimum age not met: requires {}",
+                        age
+                    )));
                 }
                 Ok(())
             }
@@ -80,7 +90,9 @@ impl Plugin for HrPlugin {
                 let field = if let Some(Expression::StringLiteral(s)) = args.first() {
                     s
                 } else {
-                    return Err(RuntimeError::ValidationError("valid_effective_date requires field name".to_string()));
+                    return Err(RuntimeError::ValidationError(
+                        "valid_effective_date requires field name".to_string(),
+                    ));
                 };
 
                 // valid_date(field)
@@ -91,7 +103,10 @@ impl Plugin for HrPlugin {
 
                 let result = gurih_runtime::evaluator::evaluate(&expr, entity_data, Some(_schema), datastore).await?;
                 if result != Value::Bool(true) {
-                    return Err(RuntimeError::ValidationError(format!("Invalid effective date for field {}", field)));
+                    return Err(RuntimeError::ValidationError(format!(
+                        "Invalid effective date for field {}",
+                        field
+                    )));
                 }
                 Ok(())
             }

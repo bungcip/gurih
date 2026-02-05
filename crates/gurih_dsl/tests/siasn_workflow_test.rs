@@ -34,6 +34,10 @@ fn test_siasn_workflow_parsing() {
     assert!(has_rank_eligibility, "Missing update_rank_eligibility effect");
 
     // Check new workflow
-    let tb_wf = ast.workflows.iter().find(|w| w.name == "UsulanTugasBelajarWorkflow").expect("Missing UsulanTugasBelajarWorkflow");
+    let tb_wf = ast
+        .workflows
+        .iter()
+        .find(|w| w.name == "UsulanTugasBelajarWorkflow")
+        .expect("Missing UsulanTugasBelajarWorkflow");
     assert_eq!(tb_wf.entity, "UsulanTugasBelajar");
 }
