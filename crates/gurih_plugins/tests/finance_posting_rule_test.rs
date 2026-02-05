@@ -5,7 +5,6 @@ use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::{DataStore, MemoryDataStore};
 use serde_json::json;
 use std::sync::Arc;
-use std::collections::HashMap;
 
 #[tokio::test]
 async fn test_posting_rule_execution() {

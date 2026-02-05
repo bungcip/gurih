@@ -6,7 +6,7 @@ use crate::query_engine::{QueryEngine, QueryPlan};
 use crate::traits::DataAccess;
 use crate::workflow::WorkflowEngine;
 use async_trait::async_trait;
-use gurih_ir::{DatabaseType, FieldType, Schema, Symbol};
+use gurih_ir::{FieldType, Schema, Symbol};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
