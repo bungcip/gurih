@@ -112,10 +112,7 @@ impl<'a> Validator<'a> {
                         return Err(CompileError::ValidationError {
                             src: self.src.to_string(),
                             span: *span,
-                            message: format!(
-                                "Effect target field '{}' not found in entity '{}'",
-                                field, entity_name
-                            ),
+                            message: format!("Effect target field '{}' not found in entity '{}'", field, entity_name),
                         });
                     }
                 }
