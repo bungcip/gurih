@@ -339,9 +339,13 @@ async fn start_server(
                 no_auth,
             };
 
-            let mut app = app
-                .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
-                .with_state(state);
+            // Configure CORS: Permissive in Dev/Watch/NoAuth mode, Strict (Same-Origin) in Production
+            if watch_mode || no_auth {
+                println!("⚠️  CORS enabled (Permissive)");
+                app = app.layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any));
+            }
+
+            let mut app = app.with_state(state);
 
             if let Some(service) = static_service {
                 if watch_mode {
@@ -475,15 +479,13 @@ async fn check_auth(
     if state.no_auth {
         return Ok(RuntimeContext::system());
     }
-    #[allow(clippy::collapsible_if)]
-    if let Some(auth_header) = headers.get("Authorization") {
-        if let Ok(auth_str) = auth_header.to_str() {
-            if let Some(token) = auth_str.strip_prefix("Bearer ") {
-                if let Some(ctx) = state.auth_engine.verify_token(token) {
-                    return Ok(ctx);
-                }
-            }
-        }
+    if let Some(ctx) = headers
+        .get("Authorization")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|s| s.strip_prefix("Bearer "))
+        .and_then(|token| state.auth_engine.verify_token(token))
+    {
+        return Ok(ctx);
     }
     Err((
         StatusCode::UNAUTHORIZED,

@@ -70,26 +70,24 @@ impl Plugin for FinancePlugin {
     }
 }
 
-async fn check_balanced_transaction(
+async fn fetch_journal_lines(
     entity_data: &Value,
     schema: &Schema,
     datastore: Option<&Arc<dyn DataStore>>,
-) -> Result<(), RuntimeError> {
-    let mut total_debit = 0.0;
-    let mut total_credit = 0.0;
+) -> Result<Vec<Value>, RuntimeError> {
+    let mut lines = Vec::new();
     let mut found_lines_in_payload = false;
 
     // 1. Try to find lines in the payload
     if let Some(obj) = entity_data.as_object() {
         for (_key, val) in obj {
-            if let Some(lines) = val.as_array() {
-                for line in lines {
+            if let Some(val_lines) = val.as_array() {
+                for line in val_lines {
                     if let Some(line_obj) = line.as_object()
                         && (line_obj.contains_key("debit") || line_obj.contains_key("credit"))
                     {
+                        lines.push(line.clone());
                         found_lines_in_payload = true;
-                        total_debit += parse_numeric_opt(line_obj.get("debit"));
-                        total_credit += parse_numeric_opt(line_obj.get("credit"));
                     }
                 }
             }
@@ -100,34 +98,45 @@ async fn check_balanced_transaction(
     if !found_lines_in_payload {
         if let Some(ds) = datastore {
             if let Some(id) = entity_data.get("id").and_then(|v| v.as_str()) {
-                // Determine table name for JournalLine
                 let table_name = schema
                     .entities
                     .get(&Symbol::from("JournalLine"))
                     .map(|e| e.table_name.as_str())
-                    .unwrap_or("journal_line"); // Default guess if not in schema
+                    .unwrap_or("journal_line");
 
                 let mut filters = HashMap::new();
                 filters.insert("journal_entry".to_string(), id.to_string());
 
-                let lines = ds
+                let db_lines = ds
                     .find(table_name, filters)
                     .await
                     .map_err(RuntimeError::WorkflowError)?;
 
-                for line in lines {
-                    if let Some(line_obj) = line.as_object() {
-                        total_debit += parse_numeric_opt(line_obj.get("debit"));
-                        total_credit += parse_numeric_opt(line_obj.get("credit"));
-                    }
+                for line in db_lines {
+                    lines.push(line.as_ref().clone());
                 }
             }
         }
-        // If datastore is None, we assume maybe it's a unit test without DB,
-        // or we can't verify. Secure default: if we can't verify, we should probably pass
-        // if strictly no lines found? Or fail?
-        // Existing behavior was "pass if no lines found".
-        // Now at least we try DB.
+    }
+
+    Ok(lines)
+}
+
+async fn check_balanced_transaction(
+    entity_data: &Value,
+    schema: &Schema,
+    datastore: Option<&Arc<dyn DataStore>>,
+) -> Result<(), RuntimeError> {
+    let lines = fetch_journal_lines(entity_data, schema, datastore).await?;
+
+    let mut total_debit = 0.0;
+    let mut total_credit = 0.0;
+
+    for line in lines {
+        if let Some(line_obj) = line.as_object() {
+            total_debit += parse_numeric_opt(line_obj.get("debit"));
+            total_credit += parse_numeric_opt(line_obj.get("credit"));
+        }
     }
 
     let diff = (total_debit - total_credit).abs();
@@ -149,43 +158,7 @@ async fn check_valid_parties(
     let ds = datastore
         .ok_or_else(|| RuntimeError::WorkflowError("Datastore not available for party validation".to_string()))?;
 
-    // 1. Collect lines from payload or DB
-    let mut lines_to_check = Vec::new();
-    let mut found_lines_in_payload = false;
-
-    if let Some(obj) = entity_data.as_object() {
-        for (_key, val) in obj {
-            if let Some(lines) = val.as_array() {
-                for line in lines {
-                    if let Some(line_obj) = line.as_object()
-                        && (line_obj.contains_key("debit") || line_obj.contains_key("credit"))
-                    {
-                        found_lines_in_payload = true;
-                        lines_to_check.push(line.clone());
-                    }
-                }
-            }
-        }
-    }
-
-    if !found_lines_in_payload {
-        if let Some(id) = entity_data.get("id").and_then(|v| v.as_str()) {
-            let table_name = schema
-                .entities
-                .get(&Symbol::from("JournalLine"))
-                .map(|e| e.table_name.as_str())
-                .unwrap_or("journal_line");
-
-            let mut filters = HashMap::new();
-            filters.insert("journal_entry".to_string(), id.to_string());
-
-            let db_lines = ds
-                .find(table_name, filters)
-                .await
-                .map_err(RuntimeError::WorkflowError)?;
-            lines_to_check.extend(db_lines.iter().map(|v| v.as_ref().clone()));
-        }
-    }
+    let lines_to_check = fetch_journal_lines(entity_data, schema, Some(ds)).await?;
 
     // 2. Validate each line
     for line in lines_to_check {

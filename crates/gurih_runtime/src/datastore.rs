@@ -41,6 +41,21 @@ impl MemoryDataStore {
             data: Arc::new(Mutex::new(HashMap::new())),
         }
     }
+
+    fn matches_filter(record: &Value, filters: &HashMap<String, String>) -> bool {
+        for (k, v) in filters {
+            let match_result = match record.get(k) {
+                Some(Value::String(s)) => s == v,
+                Some(Value::Number(n)) => n.to_string() == v.as_str(),
+                Some(Value::Bool(b)) => b.to_string() == v.as_str(),
+                _ => false,
+            };
+            if !match_result {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 #[async_trait]

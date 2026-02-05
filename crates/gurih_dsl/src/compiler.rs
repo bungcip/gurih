@@ -310,69 +310,17 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
 
         // Process transitions
         for t_def in &status_def.transitions {
-            let target_sym = Symbol::from(t_def.target.as_str());
+            let transition_ir = convert_transition(t_def)?;
 
-            // Ensure target state exists
-            if !workflow.states.iter().any(|s| s.name == target_sym) {
+            // Ensure to state exists
+            if !workflow.states.iter().any(|s| s.name == transition_ir.to) {
                 workflow.states.push(StateSchema {
-                    name: target_sym.clone(),
+                    name: transition_ir.to.clone(),
                     immutable: false,
                 });
             }
 
-            let mut preconditions = vec![];
-            for p in &t_def.preconditions {
-                match p {
-                    ast::TransitionPreconditionDef::Assertion { expression, .. } => {
-                        preconditions.push(TransitionPrecondition::Assertion(convert_expr(expression)));
-                    }
-                    ast::TransitionPreconditionDef::Custom { name, args, .. } => {
-                        let expr_args = args
-                            .iter()
-                            .map(|s| gurih_ir::Expression::StringLiteral(s.clone()))
-                            .collect();
-                        preconditions.push(TransitionPrecondition::Custom {
-                            name: Symbol::from(name.as_str()),
-                            args: expr_args,
-                        });
-                    }
-                }
-            }
-
-            let mut effects = vec![];
-            for e in &t_def.effects {
-                match e {
-                    ast::TransitionEffectDef::Custom { name, args, .. } => {
-                        let expr_args = args
-                            .iter()
-                            .map(|s| gurih_ir::Expression::StringLiteral(s.clone()))
-                            .collect();
-                        effects.push(TransitionEffect::Custom {
-                            name: Symbol::from(name.as_str()),
-                            args: expr_args,
-                        });
-                    }
-                    ast::TransitionEffectDef::Notify { target, .. } => {
-                        effects.push(TransitionEffect::Notify(Symbol::from(target.as_str())));
-                    }
-                    ast::TransitionEffectDef::UpdateField { field, value, .. } => {
-                        effects.push(TransitionEffect::UpdateField {
-                            field: Symbol::from(field.as_str()),
-                            value: value.clone(),
-                        });
-                    }
-                }
-            }
-
-            let trans_name = format!("{}_to_{}", status_def.status, t_def.target);
-            workflow.transitions.push(Transition {
-                name: Symbol::from(trans_name.as_str()),
-                from: status_sym.clone(),
-                to: target_sym.clone(),
-                required_permission: t_def.permission.as_ref().map(|p| Symbol::from(p.as_str())),
-                preconditions,
-                effects,
-            });
+            workflow.transitions.push(transition_ir);
         }
     }
 

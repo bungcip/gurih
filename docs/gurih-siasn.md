@@ -4,16 +4,16 @@
 
 **GurihSIASN** (Sistem Informasi ASN) is the Human Resources management system for the Indonesian State Civil Apparatus (ASN), built on the Gurih Framework.
 
-It manages the entire lifecycle of civil servants, from onboarding (CPNS) to retirement (Pensiun), including promotions, transfers, and leave management.
+It manages the comprehensive lifecycle of civil servants, from onboarding (CPNS) to retirement (Pensiun), including promotions, transfers, and leave management.
 
 ### Target Audience
-- **Admin**: Manages master data (Jabatan, Golongan) and system configuration.
-- **ASN (Pegawai)**: Views profile, requests leave, submits documents.
+- **Admin**: Manages master data (Golongan, Jabatan, Unor) and oversees system configuration.
+- **ASN (Pegawai)**: Views their profile, submits leave requests, and tracks their career history.
 - **Auditor**: Reviews personnel history and compliance.
 
 ### Runtime View (Dashboard)
 
-The dashboard provides a quick overview of personnel statistics, such as total ASN count and pending leave requests.
+The dashboard provides real-time statistics, leveraging the framework's ability to aggregate data dynamically.
 
 ![SIASN Dashboard](images/siasn-dashboard.png)
 
@@ -25,56 +25,45 @@ GurihSIASN utilizes the standard Gurih Framework DSL to model the complex lifecy
 
 ### Project Structure
 
-The definition is split into domain-specific files (`kepegawaian.kdl`, `cuti.kdl`) and workflow definitions (`workflow.kdl`), all orchestrated by `app.kdl`.
+The definition is organized by domain module (`kepegawaian`, `cuti`, `master`) and orchestrated by `app.kdl`.
 
 ![Project Structure](images/siasn-project-structure.png)
 
+**Key Files:**
+- **`app.kdl`**: The entry point, defining layout, menu, and RBAC roles.
+- **`master.kdl`**: Defines reference data entities like `Golongan`, `Jabatan`, `Unor`.
+- **`workflow.kdl`**: Defines the central state machine for Employee Status.
+- **`kepegawaian.kdl`**: Defines the `Pegawai` entity and its UI (Forms/Lists).
+
 ### Employee Lifecycle Workflow
 
-The core logic is defined in `workflow.kdl`. Unlike traditional state machines, this workflow integrates domain-specific HR requirements and effects using the `workflow` construct.
+The core business logic is defined in `workflow.kdl`. It uses the standard **Workflow** construct to model the ASN lifecycle.
+
+> **Note**: While the framework supports an `employee_status` syntactic sugar, GurihSIASN currently implements its logic using the explicit `workflow` construct for maximum control and clarity.
 
 ![Workflow DSL](images/siasn-dsl-example.png)
 
 **Key Components:**
-- **`workflow "PegawaiStatusWorkflow"`**: Defines the lifecycle for the `Pegawai` entity on the `status_pegawai` field.
-- **`requires`**: Preconditions that must be met before transition.
-  - **`min_years_of_service`**: Checks employment duration (e.g., `min_years_of_service 1 from="tmt_cpns"`).
-  - **`document`**: Verifies presence of required documents (e.g., `document "sk_pns"`).
-  - **`min_age`**: Enforces age restrictions (e.g., `min_age 58 from="tanggal_lahir"`).
-- **`effects`**: Side effects triggered upon transition.
-  - **`update_rank_eligibility`**: Custom effect to flag employee for promotion.
-  - **`suspend_payroll`**: Custom effect to stop salary payments (e.g., for Unpaid Leave or Retirement).
-  - **`notify`**: Sends notifications to external systems (e.g., `notify "taspen"`).
-
-### UI Generation (`kepegawaian.kdl`)
-
-The UI for managing employees is also defined via DSL.
-
-```kdl
-page "DaftarPegawai" {
-    title "Data Pegawai"
-    datatable for="Pegawai" query="PegawaiQuery" {
-        column "nip" label="NIP"
-        column "nama" label="Nama"
-        column "status_pegawai" label="Status"
-        // ...
-    }
-}
-```
-
-![Pegawai List](images/siasn-pegawai-list.png)
+- **`workflow "PegawaiStatusWorkflow"`**: Manages the `status_pegawai` field on the `Pegawai` entity.
+- **`requires`**: Preconditions for transitions.
+  - **`min_years_of_service`**: e.g., `min_years_of_service 1 from="tmt_cpns"`.
+  - **`document`**: e.g., `document "sk_pns"` (requires a file upload/link).
+  - **`min_age`**: e.g., `min_age 58 from="tanggal_lahir"`.
+- **`effects`**: Automated actions upon transition.
+  - **`suspend_payroll "true"`**: Automatically flags the employee for payroll suspension (integrated via plugins).
+  - **`notify`**: Sends notifications to external systems (e.g., Taspen, BKN).
 
 ---
 
 ## 3. System Flow
 
-### Runtime Execution Example: Retirement (Pensiun)
+### Example: Retirement Process (Pensiun)
 
 1.  **Transition Request**:
-    A user requests to move a `Pegawai` from `PNS` to `Pensiun` via the UI or API.
+    A personnel officer initiates the "Pensiun" transition for an employee who is currently "PNS".
 
 2.  **Validation (DSL Enforced)**:
-    The framework checks the `requires` block in `workflow.kdl`:
+    The runtime engine evaluates the `requires` block in `workflow.kdl`:
     ```kdl
     transition "PNS_to_Pensiun" from="PNS" to="Pensiun" {
         requires {
@@ -83,39 +72,56 @@ page "DaftarPegawai" {
         // ...
     }
     ```
-    If the employee's age is less than 58, the transition is rejected with a validation error.
+    If the employee is 57 years old, the transition is **blocked** immediately.
 
 3.  **Effect Execution**:
-    Upon successful validation, the effects are executed:
+    If valid, the system executes the defined effects:
     ```kdl
         effects {
              suspend_payroll "true"
              notify "taspen"
         }
     ```
-    - `suspend_payroll`: Updates the payroll flag in the database (or notifies the Finance module).
-    - `notify`: Sends a message to the external Taspen system.
+    - **`suspend_payroll`**: A custom effect handled by `HrPlugin` to update the payroll eligibility flag.
+    - **`notify "taspen"`**: Triggers an integration event to the pension fund system.
 
 4.  **State Update**:
-    The `status_pegawai` field is updated to `Pensiun`. Since this state is marked `immutable="true"`, further changes are restricted.
+    The employee's status becomes `Pensiun`. This state is marked `immutable="true"`, preventing further status changes or edits to the record.
+
+### UI Generation
+
+The UI for managing employees is defined in `kepegawaian.kdl`.
+
+![Pegawai List](images/siasn-pegawai-list.png)
+
+```kdl
+page "DaftarPegawai" {
+    title "Master Data Pegawai"
+    datatable for="Pegawai" {
+        column "nip" label="NIP"
+        column "nama" label="Nama"
+        // ...
+    }
+}
+```
 
 ---
 
 ## 4. Comparison: GurihSIASN vs GurihFinance
 
-While both modules use the Gurih Framework, they differ in their usage patterns, demonstrating the flexibility of the DSL.
+While both modules are built on the same framework, they demonstrate different architectural patterns.
 
 | Feature | GurihFinance | GurihSIASN |
 |---------|--------------|------------|
 | **Core Entity** | `JournalEntry` (Immutable Ledger) | `Pegawai` (Mutable State Machine) |
-| **Logic Focus** | Mathematical balance, integrity | Workflow rules, time-based eligibility |
-| **DSL Style** | `rule`, `posting_rule` (declarative mapping) | `workflow` with custom effects (lifecycle definition) |
-| **Validation** | `balanced_transaction` (strict equality) | `min_years_of_service`, `document` (policy checks) |
+| **Logic Focus** | Mathematical balance (`debit == credit`) | Time-based eligibility & Workflow rules |
+| **Primary DSL** | `posting_rule` (declarative mapping) | `workflow` (state transitions) |
+| **Validation** | Strict integrity (`balanced_transaction`) | Policy-based (`min_age`, `document`) |
+| **State** | Linear (Draft -> Posted) | Cyclic/Complex (CPNS -> PNS -> Cuti -> PNS ...) |
 
 ### Reusable Patterns
 
-Both modules share common framework constructs:
-- **`workflow`**: State transitions (used for Journal Status in Finance, Employee Status in SIASN).
-- **`dashboard`**: Widget definitions for UI.
-- **`role`**: RBAC permissions.
-- **`query`**: Data extraction logic.
+Both modules share common framework capabilities:
+- **RBAC**: `role "Admin"`, `role "Pegawai"` defined in DSL.
+- **Dashboards**: Widget-based analytics defined in `.kdl`.
+- **Data Tables**: Auto-generated CRUD views.

@@ -36,16 +36,7 @@ pub struct Ast {
 pub struct EmployeeStatusDef {
     pub status: String,
     pub entity: String,
-    pub transitions: Vec<StatusTransitionDef>,
-    pub span: SourceSpan,
-}
-
-#[derive(Debug, Clone)]
-pub struct StatusTransitionDef {
-    pub target: String,
-    pub permission: Option<String>,
-    pub preconditions: Vec<TransitionPreconditionDef>,
-    pub effects: Vec<TransitionEffectDef>,
+    pub transitions: Vec<TransitionDef>,
     pub span: SourceSpan,
 }
 
