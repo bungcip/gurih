@@ -4,6 +4,7 @@ use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::{DataStore, MemoryDataStore};
 use serde_json::json;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[tokio::test]
@@ -75,22 +76,35 @@ async fn test_posting_rule_execution() {
 
     // 2. Setup Runtime
     let datastore: Arc<dyn DataStore> = Arc::new(MemoryDataStore::new());
-    let engine = DataEngine::new(schema_arc.clone(), datastore.clone())
-        .with_plugins(vec![Box::new(FinancePlugin)]);
+    let engine = DataEngine::new(schema_arc.clone(), datastore.clone()).with_plugins(vec![Box::new(FinancePlugin)]);
     let ctx = RuntimeContext::system();
 
     // 3. Create Accounts
-    engine.create("Account", json!({
-        "code": "101",
-        "name": "Accounts Receivable",
-        "type": "Asset"
-    }), &ctx).await.expect("Failed to create AR account");
+    engine
+        .create(
+            "Account",
+            json!({
+                "code": "101",
+                "name": "Accounts Receivable",
+                "type": "Asset"
+            }),
+            &ctx,
+        )
+        .await
+        .expect("Failed to create AR account");
 
-    engine.create("Account", json!({
-        "code": "401",
-        "name": "Sales Revenue",
-        "type": "Revenue"
-    }), &ctx).await.expect("Failed to create Revenue account");
+    engine
+        .create(
+            "Account",
+            json!({
+                "code": "401",
+                "name": "Sales Revenue",
+                "type": "Revenue"
+            }),
+            &ctx,
+        )
+        .await
+        .expect("Failed to create Revenue account");
 
     // 4. Create Invoice
     let invoice_data = json!({
@@ -98,7 +112,10 @@ async fn test_posting_rule_execution() {
         "date": "2024-01-01",
         "total_amount": "1000.00"
     });
-    let invoice_id = engine.create("Invoice", invoice_data, &ctx).await.expect("Failed to create Invoice");
+    let invoice_id = engine
+        .create("Invoice", invoice_data, &ctx)
+        .await
+        .expect("Failed to create Invoice");
 
     // 5. Trigger Workflow (Post)
     let update_data = json!({
@@ -106,10 +123,16 @@ async fn test_posting_rule_execution() {
     });
 
     // This should trigger the posting rule
-    engine.update("Invoice", &invoice_id, update_data, &ctx).await.expect("Failed to post Invoice");
+    engine
+        .update("Invoice", &invoice_id, update_data, &ctx)
+        .await
+        .expect("Failed to post Invoice");
 
     // 6. Verify Journal Entry
-    let journals = engine.list("JournalEntry", None, None, None).await.expect("Failed to list journals");
+    let journals = engine
+        .list("JournalEntry", None, None, None)
+        .await
+        .expect("Failed to list journals");
     assert_eq!(journals.len(), 1, "Should create exactly 1 journal entry");
 
     let journal = journals[0].clone();
@@ -117,24 +140,33 @@ async fn test_posting_rule_execution() {
     assert_eq!(journal.get("date").unwrap(), "2024-01-01");
 
     // 7. Verify Journal Lines (in DB)
-    let lines = engine.list("JournalLine", None, None, None).await.expect("Failed to list journal lines");
+    let lines = engine
+        .list("JournalLine", None, None, None)
+        .await
+        .expect("Failed to list journal lines");
     assert_eq!(lines.len(), 2, "Should create exactly 2 journal lines");
 
     // Check line details
-    let debit_line = lines.iter().find(|l| {
-        let d_str = l.get("debit").and_then(|v| v.as_str()).unwrap_or("0");
-        let d = d_str.parse::<f64>().unwrap_or(0.0);
-        d > 0.0
-    }).expect("Should have a debit line");
+    let debit_line = lines
+        .iter()
+        .find(|l| {
+            let d_str = l.get("debit").and_then(|v| v.as_str()).unwrap_or("0");
+            let d = d_str.parse::<f64>().unwrap_or(0.0);
+            d > 0.0
+        })
+        .expect("Should have a debit line");
 
     // We expect "1000.00" because it comes from the Invoice exactly as string
     assert_eq!(debit_line.get("debit").unwrap(), "1000.00");
 
-    let credit_line = lines.iter().find(|l| {
-        let c_str = l.get("credit").and_then(|v| v.as_str()).unwrap_or("0");
-        let c = c_str.parse::<f64>().unwrap_or(0.0);
-        c > 0.0
-    }).expect("Should have a credit line");
+    let credit_line = lines
+        .iter()
+        .find(|l| {
+            let c_str = l.get("credit").and_then(|v| v.as_str()).unwrap_or("0");
+            let c = c_str.parse::<f64>().unwrap_or(0.0);
+            c > 0.0
+        })
+        .expect("Should have a credit line");
 
     assert_eq!(credit_line.get("credit").unwrap(), "1000.00");
 

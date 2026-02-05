@@ -46,33 +46,31 @@ pub async fn evaluate(
             let val = Box::pin(evaluate(expr, context, schema, datastore)).await?;
             eval_unary_op(op, val)
         }
-        Expression::BinaryOp { left, op, right } => {
-            match op {
-                BinaryOperator::And => {
-                    let l = Box::pin(evaluate(left, context, schema, datastore)).await?;
-                    if !as_bool(&l)? {
-                        return Ok(Value::Bool(false));
-                    }
-                    let r = Box::pin(evaluate(right, context, schema, datastore)).await?;
-                    let r_bool = as_bool(&r)?;
-                    Ok(Value::Bool(r_bool))
+        Expression::BinaryOp { left, op, right } => match op {
+            BinaryOperator::And => {
+                let l = Box::pin(evaluate(left, context, schema, datastore)).await?;
+                if !as_bool(&l)? {
+                    return Ok(Value::Bool(false));
                 }
-                BinaryOperator::Or => {
-                    let l = Box::pin(evaluate(left, context, schema, datastore)).await?;
-                    if as_bool(&l)? {
-                        return Ok(Value::Bool(true));
-                    }
-                    let r = Box::pin(evaluate(right, context, schema, datastore)).await?;
-                    let r_bool = as_bool(&r)?;
-                    Ok(Value::Bool(r_bool))
-                }
-                _ => {
-                    let l = Box::pin(evaluate(left, context, schema, datastore)).await?;
-                    let r = Box::pin(evaluate(right, context, schema, datastore)).await?;
-                    eval_binary_op(op, l, r)
-                }
+                let r = Box::pin(evaluate(right, context, schema, datastore)).await?;
+                let r_bool = as_bool(&r)?;
+                Ok(Value::Bool(r_bool))
             }
-        }
+            BinaryOperator::Or => {
+                let l = Box::pin(evaluate(left, context, schema, datastore)).await?;
+                if as_bool(&l)? {
+                    return Ok(Value::Bool(true));
+                }
+                let r = Box::pin(evaluate(right, context, schema, datastore)).await?;
+                let r_bool = as_bool(&r)?;
+                Ok(Value::Bool(r_bool))
+            }
+            _ => {
+                let l = Box::pin(evaluate(left, context, schema, datastore)).await?;
+                let r = Box::pin(evaluate(right, context, schema, datastore)).await?;
+                eval_binary_op(op, l, r)
+            }
+        },
         Expression::FunctionCall { name, args } => {
             let mut eval_args = Vec::new();
             for arg in args {
