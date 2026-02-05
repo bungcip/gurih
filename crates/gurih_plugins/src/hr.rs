@@ -34,18 +34,11 @@ impl Plugin for HrPlugin {
                     "pegawai"
                 };
 
-                let pegawai_id = entity_data
-                    .get(field_name)
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| {
-                        RuntimeError::ValidationError(format!(
-                            "Field '{}' is missing or not a string",
-                            field_name
-                        ))
-                    })?;
+                let pegawai_id = entity_data.get(field_name).and_then(|v| v.as_str()).ok_or_else(|| {
+                    RuntimeError::ValidationError(format!("Field '{}' is missing or not a string", field_name))
+                })?;
 
-                let ds = datastore
-                    .ok_or_else(|| RuntimeError::InternalError("Datastore not available".to_string()))?;
+                let ds = datastore.ok_or_else(|| RuntimeError::InternalError("Datastore not available".to_string()))?;
 
                 // Resolve table name from schema
                 let table_name = _schema
@@ -73,10 +66,8 @@ impl Plugin for HrPlugin {
                 let tmt_golongan_str = pegawai.get("tmt_golongan").and_then(|v: &Value| v.as_str());
                 let tmt_kgb_str = pegawai.get("tmt_kgb").and_then(|v: &Value| v.as_str());
 
-                let tmt_golongan = tmt_golongan_str
-                    .and_then(|s| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
-                let tmt_kgb =
-                    tmt_kgb_str.and_then(|s| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+                let tmt_golongan = tmt_golongan_str.and_then(|s| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+                let tmt_kgb = tmt_kgb_str.and_then(|s| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
 
                 // Logic: 2 years from the LATEST of KP or KGB
                 let last_date: NaiveDate = match (tmt_golongan, tmt_kgb) {
@@ -92,19 +83,17 @@ impl Plugin for HrPlugin {
                     (None, None) => {
                         return Err(RuntimeError::ValidationError(
                             "Pegawai belum memiliki TMT Golongan atau TMT KGB".to_string(),
-                        ))
+                        ));
                     }
                 };
 
                 let now = Local::now().date_naive();
 
                 // Simple 2 year check
-                let next_eligible_date = last_date
-                    .with_year(last_date.year() + 2)
-                    .unwrap_or_else(|| {
-                        // Handle leap year case (Feb 29 -> Feb 28)
-                        NaiveDate::from_ymd_opt(last_date.year() + 2, 2, 28).unwrap()
-                    });
+                let next_eligible_date = last_date.with_year(last_date.year() + 2).unwrap_or_else(|| {
+                    // Handle leap year case (Feb 29 -> Feb 28)
+                    NaiveDate::from_ymd_opt(last_date.year() + 2, 2, 28).unwrap()
+                });
 
                 if now < next_eligible_date {
                     return Err(RuntimeError::ValidationError(format!(
