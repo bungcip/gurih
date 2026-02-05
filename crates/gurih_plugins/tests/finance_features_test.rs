@@ -194,6 +194,7 @@ async fn test_period_open_configured() {
     let pre = TransitionPrecondition::Custom {
         name: Symbol::from("period_open"),
         args: vec![Expression::StringLiteral("MyPeriod".to_string())],
+        kwargs: HashMap::new(),
     };
     let data = json!({ "date": "2024-01-01" });
 

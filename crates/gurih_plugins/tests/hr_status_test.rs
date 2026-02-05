@@ -172,5 +172,6 @@ async fn test_employee_status_transition_fail_precondition() {
     assert!(
         format!("{}", err).contains("Transition condition not met")
             || format!("{}", err).contains("Invalid transition")
+            || format!("{}", err).contains("Minimum years of service not met")
     );
 }

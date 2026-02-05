@@ -22,11 +22,79 @@ impl Plugin for HrPlugin {
         &self,
         name: &str,
         args: &[Expression],
+        kwargs: &HashMap<String, String>,
         entity_data: &Value,
         _schema: &Schema,
         datastore: Option<&Arc<dyn DataStore>>,
     ) -> Result<(), RuntimeError> {
         match name {
+            "min_years_of_service" => {
+                let years = if let Some(Expression::StringLiteral(s)) = args.first() {
+                    s.parse::<f64>().unwrap_or(0.0)
+                } else {
+                    return Err(RuntimeError::ValidationError("min_years_of_service requires numeric argument".to_string()));
+                };
+                let from_field = kwargs.get("from").cloned().unwrap_or_else(|| "join_date".to_string());
+
+                // years_of_service(from_field) >= years
+                let expr = Expression::BinaryOp {
+                    left: Box::new(Expression::FunctionCall {
+                        name: Symbol::from("years_of_service"),
+                        args: vec![Expression::Field(Symbol::from(from_field))],
+                    }),
+                    op: gurih_ir::BinaryOperator::Gte,
+                    right: Box::new(Expression::Literal(years)),
+                };
+
+                let result = gurih_runtime::evaluator::evaluate(&expr, entity_data, Some(_schema), datastore).await?;
+                if result != Value::Bool(true) {
+                    return Err(RuntimeError::ValidationError(format!("Minimum years of service not met: requires {}", years)));
+                }
+                Ok(())
+            }
+            "min_age" => {
+                let age = if let Some(Expression::StringLiteral(s)) = args.first() {
+                    s.parse::<f64>().unwrap_or(0.0)
+                } else {
+                    return Err(RuntimeError::ValidationError("min_age requires numeric argument".to_string()));
+                };
+                let from_field = kwargs.get("from").cloned().unwrap_or_else(|| "birth_date".to_string());
+
+                // age(from_field) >= age
+                let expr = Expression::BinaryOp {
+                    left: Box::new(Expression::FunctionCall {
+                        name: Symbol::from("age"),
+                        args: vec![Expression::Field(Symbol::from(from_field))],
+                    }),
+                    op: gurih_ir::BinaryOperator::Gte,
+                    right: Box::new(Expression::Literal(age)),
+                };
+
+                let result = gurih_runtime::evaluator::evaluate(&expr, entity_data, Some(_schema), datastore).await?;
+                if result != Value::Bool(true) {
+                    return Err(RuntimeError::ValidationError(format!("Minimum age not met: requires {}", age)));
+                }
+                Ok(())
+            }
+            "valid_effective_date" => {
+                let field = if let Some(Expression::StringLiteral(s)) = args.first() {
+                    s
+                } else {
+                    return Err(RuntimeError::ValidationError("valid_effective_date requires field name".to_string()));
+                };
+
+                // valid_date(field)
+                let expr = Expression::FunctionCall {
+                    name: Symbol::from("valid_date"),
+                    args: vec![Expression::Field(Symbol::from(field))],
+                };
+
+                let result = gurih_runtime::evaluator::evaluate(&expr, entity_data, Some(_schema), datastore).await?;
+                if result != Value::Bool(true) {
+                    return Err(RuntimeError::ValidationError(format!("Invalid effective date for field {}", field)));
+                }
+                Ok(())
+            }
             "check_kgb_eligibility" => {
                 let field_name = if let Some(Expression::StringLiteral(s)) = args.first() {
                     s.as_str()
@@ -192,6 +260,7 @@ impl Plugin for HrPlugin {
         &self,
         name: &str,
         args: &[Expression],
+        _kwargs: &HashMap<String, String>,
         _schema: &Schema,
         _entity_name: &str,
         _entity_data: &Value,

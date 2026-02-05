@@ -734,85 +734,34 @@ fn parse_transition_body(
                                     span: req.span().into(),
                                 });
                             }
-                            "min_years_of_service" => {
-                                let years = get_arg_int(req, 0, src)? as u32;
-                                let from_field = get_prop_string(req, "from", src)
-                                    .ok()
-                                    .unwrap_or_else(|| "join_date".to_string());
-                                let span = req.span().offset(); // using node span as approx for generated expr
-                                let expr_str = format!("years_of_service({}) >= {}", from_field, years);
-                                let expr = parse_expression(&expr_str, span)?;
-                                preconditions.push(TransitionPreconditionDef::Assertion {
-                                    expression: expr,
-                                    span: req.span().into(),
-                                });
-                            }
-                            "min_age" => {
-                                let age = get_arg_int(req, 0, src)? as u32;
-                                let birth_date_field = get_prop_string(req, "from", src)
-                                    .ok()
-                                    .unwrap_or_else(|| "birth_date".to_string());
-                                let span = req.span().offset();
-                                let expr_str = format!("age({}) >= {}", birth_date_field, age);
-                                let expr = parse_expression(&expr_str, span)?;
-                                preconditions.push(TransitionPreconditionDef::Assertion {
-                                    expression: expr,
-                                    span: req.span().into(),
-                                });
-                            }
-                            "valid_effective_date" => {
-                                let field = get_arg_string(req, 0, src)?;
-                                let span = req.span().offset();
-                                let expr_str = format!("valid_date({})", field);
-                                let expr = parse_expression(&expr_str, span)?;
-                                preconditions.push(TransitionPreconditionDef::Assertion {
-                                    expression: expr,
-                                    span: req.span().into(),
-                                });
-                            }
-                            "balanced_transaction" => {
-                                let enabled = get_arg_bool(req, 0)?;
-                                if enabled {
-                                    preconditions.push(TransitionPreconditionDef::Custom {
-                                        name: "balanced_transaction".to_string(),
-                                        args: vec![],
-                                        span: req.span().into(),
-                                    });
-                                }
-                            }
-                            "period_open" => {
-                                let enabled = get_arg_bool(req, 0).unwrap_or(true);
-                                let entity = get_prop_string(req, "entity", src).ok();
-                                if enabled {
-                                    let mut args = vec![];
-                                    if let Some(e) = entity {
-                                        args.push(e);
-                                    }
-                                    preconditions.push(TransitionPreconditionDef::Custom {
-                                        name: "period_open".to_string(),
-                                        args,
-                                        span: req.span().into(),
-                                    });
-                                }
-                            }
                             custom_req => {
                                 let mut args = vec![];
+                                let mut kwargs = HashMap::new();
                                 for entry in req.entries() {
-                                    if entry.name().is_none() {
+                                    if let Some(key) = entry.name() {
                                         if let Some(val) = entry.value().as_string() {
-                                            args.push(val.to_string());
+                                            kwargs.insert(key.value().to_string(), val.to_string());
                                         } else if let Some(val) = entry.value().as_bool() {
-                                            args.push(val.to_string());
+                                            kwargs.insert(key.value().to_string(), val.to_string());
                                         } else if let Some(val) = entry.value().as_integer() {
-                                            args.push(val.to_string());
+                                            kwargs.insert(key.value().to_string(), val.to_string());
                                         } else if let Some(val) = entry.value().as_float() {
-                                            args.push(val.to_string());
+                                            kwargs.insert(key.value().to_string(), val.to_string());
                                         }
+                                    } else if let Some(val) = entry.value().as_string() {
+                                        args.push(val.to_string());
+                                    } else if let Some(val) = entry.value().as_bool() {
+                                        args.push(val.to_string());
+                                    } else if let Some(val) = entry.value().as_integer() {
+                                        args.push(val.to_string());
+                                    } else if let Some(val) = entry.value().as_float() {
+                                        args.push(val.to_string());
                                     }
                                 }
                                 preconditions.push(TransitionPreconditionDef::Custom {
                                     name: custom_req.to_string(),
                                     args,
+                                    kwargs,
                                     span: req.span().into(),
                                 });
                             }
@@ -840,32 +789,34 @@ fn parse_transition_body(
                                     span: eff.span().into(),
                                 });
                             }
-                            "post_journal" => {
-                                let rule = get_arg_string(eff, 0, src)?;
-                                effects.push(TransitionEffectDef::Custom {
-                                    name: "post_journal".to_string(),
-                                    args: vec![rule],
-                                    span: eff.span().into(),
-                                });
-                            }
                             custom_eff => {
                                 let mut args = vec![];
+                                let mut kwargs = HashMap::new();
                                 for entry in eff.entries() {
-                                    if entry.name().is_none() {
+                                    if let Some(key) = entry.name() {
                                         if let Some(val) = entry.value().as_string() {
-                                            args.push(val.to_string());
+                                            kwargs.insert(key.value().to_string(), val.to_string());
                                         } else if let Some(val) = entry.value().as_bool() {
-                                            args.push(val.to_string());
+                                            kwargs.insert(key.value().to_string(), val.to_string());
                                         } else if let Some(val) = entry.value().as_integer() {
-                                            args.push(val.to_string());
+                                            kwargs.insert(key.value().to_string(), val.to_string());
                                         } else if let Some(val) = entry.value().as_float() {
-                                            args.push(val.to_string());
+                                            kwargs.insert(key.value().to_string(), val.to_string());
                                         }
+                                    } else if let Some(val) = entry.value().as_string() {
+                                        args.push(val.to_string());
+                                    } else if let Some(val) = entry.value().as_bool() {
+                                        args.push(val.to_string());
+                                    } else if let Some(val) = entry.value().as_integer() {
+                                        args.push(val.to_string());
+                                    } else if let Some(val) = entry.value().as_float() {
+                                        args.push(val.to_string());
                                     }
                                 }
                                 effects.push(TransitionEffectDef::Custom {
                                     name: custom_eff.to_string(),
                                     args,
+                                    kwargs,
                                     span: eff.span().into(),
                                 });
                             }

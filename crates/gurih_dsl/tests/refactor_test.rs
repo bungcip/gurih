@@ -50,18 +50,28 @@ fn test_employee_status_desugaring() {
     let mut found_doc = false;
 
     for pre in &transition.preconditions {
-        if let TransitionPrecondition::Assertion(expr) = pre {
-            // We can't easily stringify generic Expression, but we can inspect structure
-            // Or assume the string representation from compiler debug
-            let dbg = format!("{:?}", expr);
-            if dbg.contains("years_of_service") && dbg.contains("tmt_cpns") {
-                found_service = true;
+        match pre {
+            TransitionPrecondition::Assertion(expr) => {
+                let dbg = format!("{:?}", expr);
+                if dbg.contains("is_set") && dbg.contains("sk_pns") {
+                    found_doc = true;
+                }
             }
-            if dbg.contains("age") && dbg.contains("tanggal_lahir") {
-                found_age = true;
-            }
-            if dbg.contains("is_set") && dbg.contains("sk_pns") {
-                found_doc = true;
+            TransitionPrecondition::Custom { name, kwargs, .. } => {
+                if name.as_str() == "min_years_of_service" {
+                    if let Some(field) = kwargs.get("from") {
+                        if field == "tmt_cpns" {
+                            found_service = true;
+                        }
+                    }
+                }
+                if name.as_str() == "min_age" {
+                    if let Some(field) = kwargs.get("from") {
+                        if field == "tanggal_lahir" {
+                            found_age = true;
+                        }
+                    }
+                }
             }
         }
     }

@@ -117,7 +117,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 ast::TransitionPreconditionDef::Assertion { expression, span: _ } => {
                     preconditions.push(TransitionPrecondition::Assertion(convert_expr(expression)));
                 }
-                ast::TransitionPreconditionDef::Custom { name, args, .. } => {
+                ast::TransitionPreconditionDef::Custom { name, args, kwargs, .. } => {
                     let expr_args = args
                         .iter()
                         .map(|s| gurih_ir::Expression::StringLiteral(s.clone()))
@@ -125,6 +125,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     preconditions.push(TransitionPrecondition::Custom {
                         name: Symbol::from(name.as_str()),
                         args: expr_args,
+                        kwargs: kwargs.clone(),
                     });
                 }
             }
@@ -140,7 +141,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 .effects
                 .iter()
                 .map(|e| match e {
-                    ast::TransitionEffectDef::Custom { name, args, .. } => {
+                    ast::TransitionEffectDef::Custom { name, args, kwargs, .. } => {
                         let expr_args = args
                             .iter()
                             .map(|s| gurih_ir::Expression::StringLiteral(s.clone()))
@@ -148,6 +149,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                         TransitionEffect::Custom {
                             name: Symbol::from(name.as_str()),
                             args: expr_args,
+                            kwargs: kwargs.clone(),
                         }
                     }
                     ast::TransitionEffectDef::Notify { target, .. } => {

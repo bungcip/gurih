@@ -56,7 +56,10 @@ async fn test_effective_date_and_rank_eligibility() {
     });
     let res = engine.update("Employee", &id, invalid_date_update, &ctx).await;
     assert!(res.is_err());
-    assert!(res.unwrap_err().contains("Transition condition not met"));
+    let err_msg = res.unwrap_err();
+    assert!(
+        err_msg.contains("Transition condition not met") || err_msg.contains("Invalid effective date for field")
+    );
 
     // 3. Attempt transition with valid date
     let valid_update = json!({

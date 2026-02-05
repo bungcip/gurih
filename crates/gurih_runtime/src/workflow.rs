@@ -93,24 +93,12 @@ impl WorkflowEngine {
                     }
                 }
             }
-            TransitionPrecondition::Custom { name, args } => {
+            TransitionPrecondition::Custom { name, args, kwargs } => {
                 for plugin in &self.plugins {
-                    // We call check_precondition on all plugins.
-                    // The contract is: if plugin recognizes it, checks it.
-                    // If it passes or unknown, returns Ok. If fails, returns Err.
-                    // We assume that if ANY plugin fails, the whole thing fails.
-                    // But we also need to know if at least one plugin recognized it?
-                    // The current trait returns Result<(), Error>. This implies "Pass or Ignore".
-                    // If a plugin ignores it (Ok), and no plugin handles it, should we fail?
-                    // For now, let's assume plugins handle what they know. If unknown, we ignore (maybe it's a client-side rule?)
-                    // Or we should warn "Unknown rule".
-                    // Let's stick to simple "Try all plugins, fail if any errors".
                     plugin
-                        .check_precondition(name.as_str(), args, entity_data, schema, datastore)
+                        .check_precondition(name.as_str(), args, kwargs, entity_data, schema, datastore)
                         .await?;
                 }
-                // If not handled by any plugin, strictly speaking we should probably allow it (maybe implemented elsewhere or future)
-                // or fail.
             }
         }
         Ok(())
@@ -158,10 +146,10 @@ impl WorkflowEngine {
 
                         updates.insert(field.to_string(), json_val);
                     }
-                    TransitionEffect::Custom { name, args } => {
+                    TransitionEffect::Custom { name, args, kwargs } => {
                         for plugin in &self.plugins {
                             if let Ok((p_updates, p_notifications, p_postings)) = plugin
-                                .apply_effect(name.as_str(), args, schema, entity_name, entity_data)
+                                .apply_effect(name.as_str(), args, kwargs, schema, entity_name, entity_data)
                                 .await
                             {
                                 // Merge results
