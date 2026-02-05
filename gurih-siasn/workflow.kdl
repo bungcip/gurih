@@ -82,3 +82,22 @@ workflow "PegawaiStatusWorkflow" for="Pegawai" field="status_pegawai" {
         }
     }
 }
+
+workflow "KGBWorkflow" for="PengajuanKGB" field="status" {
+    state "Draft" initial="true"
+    state "Diajukan"
+    state "Disetujui"
+    state "Ditolak"
+
+    transition "Draft_to_Diajukan" from="Draft" to="Diajukan" {
+        requires {
+             check_kgb_eligibility "pegawai"
+        }
+    }
+
+    transition "Diajukan_to_Disetujui" from="Diajukan" to="Disetujui" {
+    }
+
+    transition "Diajukan_to_Ditolak" from="Diajukan" to="Ditolak" {
+    }
+}

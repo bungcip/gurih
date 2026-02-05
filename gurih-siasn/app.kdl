@@ -183,6 +183,16 @@ routes {
             route:delete "/:id" action="DeletePengajuanCuti"
         }
     }
+
+    // --- KGB ROUTES ---
+    group "/kgb" layout="MainLayout" {
+        group "/pengajuan" {
+            route "/" to="DaftarPengajuanKGB"
+            route "/new" to="FormPengajuanKGB"
+            route "/:id" to="FormPengajuanKGB"
+            route:delete "/:id" action="DeletePengajuanKGB"
+        }
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -202,6 +212,7 @@ menu "MainMenu" {
 
     group "Layanan" icon="calendar" {
         item "Pengajuan Cuti" to="/cuti/pengajuan"
+        item "Pengajuan KGB" to="/kgb/pengajuan"
     }
 
     group "Master Data" icon="settings" {

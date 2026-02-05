@@ -13,6 +13,13 @@ enum "StatusPegawai" {
     Pindah
 }
 
+enum "StatusPengajuan" {
+    Draft
+    Diajukan
+    Disetujui
+    Ditolak
+}
+
 // -----------------------------------------------------------------------------
 // MODULE: KEPEGAWAIAN
 // -----------------------------------------------------------------------------
@@ -33,6 +40,8 @@ module "Kepegawaian" {
 
         field:date "tmt_cpns" required=#false
         field:date "tmt_pns" required=#false
+        field:date "tmt_golongan" required=#false
+        field:date "tmt_kgb" required=#false
         field:boolean "rank_eligible" default="false"
         field:boolean "is_payroll_active" default="true"
 
@@ -111,6 +120,18 @@ module "Kepegawaian" {
         field:string "predikat" // e.g. Sangat Baik, Baik
     }
 
+    // --- PENGAJUAN KGB ---
+    entity "PengajuanKGB" {
+        field:pk id
+        belongs_to "Pegawai"
+        field:date "tmt_kgb_baru"
+        field:integer "masa_kerja_golongan_tahun"
+        field:integer "masa_kerja_golongan_bulan"
+        field:money "gaji_pokok_baru"
+        field:enum "status" "StatusPengajuan" default="Draft"
+        field:file "sk_kgb" required=#false
+    }
+
     // --- ACTIONS ---
     action "DeletePegawai" { params "id" step "entity:delete" target="Pegawai" id="param(\"id\")" }
     action "DeleteRiwayatJabatan" { params "id" step "entity:delete" target="RiwayatJabatan" id="param(\"id\")" }
@@ -118,6 +139,7 @@ module "Kepegawaian" {
     action "DeleteRiwayatPenghargaan" { params "id" step "entity:delete" target="RiwayatPenghargaan" id="param(\"id\")" }
     action "DeleteRiwayatSertifikasi" { params "id" step "entity:delete" target="RiwayatSertifikasi" id="param(\"id\")" }
     action "DeleteRiwayatSKP" { params "id" step "entity:delete" target="RiwayatSKP" id="param(\"id\")" }
+    action "DeletePengajuanKGB" { params "id" step "entity:delete" target="PengajuanKGB" id="param(\"id\")" }
 }
 
 // -----------------------------------------------------------------------------
@@ -173,6 +195,12 @@ query:flat "RiwayatSKPQuery" for="RiwayatSKP" {
     join "Pegawai" { select "nama" as="nama_pegawai" }
 }
 
+query:flat "PengajuanKGBQuery" for="PengajuanKGB" {
+    select "id"
+    select "tmt_kgb_baru"
+    select "status"
+    join "Pegawai" { select "nama" as="nama_pegawai" }
+}
 
 // -----------------------------------------------------------------------------
 // UI PAGES: KEPEGAWAIAN
@@ -345,6 +373,34 @@ page "FormRiwayatSKP" {
             field "tahun"
             field "nilai"
             field "predikat"
+        }
+    }
+}
+
+// --- KGB UI ---
+page "DaftarPengajuanKGB" {
+    title "Pengajuan KGB"
+    datatable for="PengajuanKGB" query="PengajuanKGBQuery" {
+        column "nama_pegawai" label="Pegawai"
+        column "tmt_kgb_baru" label="TMT Baru"
+        column "status" label="Status"
+
+        action "Edit" icon="pencil" to="/kgb/pengajuan/:id"
+        action "Hapus" icon="trash" variant="danger" to="/kgb/pengajuan/:id" method="DELETE"
+    }
+}
+page "FormPengajuanKGB" {
+    title "Form Pengajuan KGB"
+    form for="PengajuanKGB" {
+        section "Data Pengajuan" {
+            field "pegawai"
+            field "tmt_kgb_baru"
+            field "masa_kerja_golongan_tahun"
+            field "masa_kerja_golongan_bulan"
+            field "gaji_pokok_baru"
+            field "sk_kgb"
+            // Status is handled by workflow, usually read-only or hidden in form
+            field "status" disabled=#true
         }
     }
 }
