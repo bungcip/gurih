@@ -25,6 +25,7 @@ import TreeView from './TreeView.vue'
 import DiscussionPanel from './DiscussionPanel.vue'
 import EmptyState from './EmptyState.vue'
 import Pagination from './Pagination.vue'
+import Avatar from './Avatar.vue'
 import { inject } from 'vue'
 
 const isDarkMode = ref(false)
@@ -331,6 +332,68 @@ function onDiscussionSubmit(text) {
                 <Button variant="danger" icon="lucide:trash-2" iconPosition="right">Delete</Button>
                 <Button variant="secondary" icon="lucide:users">View Users</Button>
                 <Button variant="ghost-primary" icon="lucide:calendar">Pick Date</Button>
+            </div>
+        </section>
+
+        <!-- Avatars -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Avatars</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Sizes -->
+                <div class="space-y-4">
+                    <h3 class="text-sm font-medium text-text-muted uppercase tracking-wider">Sizes & Types</h3>
+                    <div class="flex flex-wrap items-center gap-4">
+                        <Avatar size="xs" initials="XS" />
+                        <Avatar size="sm" initials="SM" />
+                        <Avatar size="md" initials="MD" />
+                        <Avatar size="lg" initials="LG" />
+                        <Avatar size="xl" initials="XL" />
+                    </div>
+                     <div class="flex flex-wrap items-center gap-4">
+                        <Avatar size="md" src="https://i.pravatar.cc/150?u=1" />
+                        <Avatar size="md" initials="JD" variant="primary" />
+                        <Avatar size="md" icon="user" variant="gray" />
+                        <Avatar size="md" icon="users" variant="info" />
+                    </div>
+                </div>
+
+                <!-- Status & Shapes -->
+                <div class="space-y-4">
+                     <h3 class="text-sm font-medium text-text-muted uppercase tracking-wider">Status & Shapes</h3>
+                     <div class="flex flex-wrap items-center gap-4">
+                        <Avatar initials="ON" status="online" variant="success" />
+                        <Avatar initials="OF" status="offline" variant="gray" />
+                        <Avatar initials="BU" status="busy" variant="danger" />
+                        <Avatar initials="AW" status="away" variant="warning" />
+                     </div>
+                      <div class="flex flex-wrap items-center gap-4">
+                        <Avatar shape="square" initials="SQ" variant="primary" />
+                        <Avatar shape="rounded" initials="RD" variant="warning" />
+                        <Avatar shape="square" src="https://i.pravatar.cc/150?u=3" status="online" />
+                     </div>
+                </div>
+
+                <!-- Loading -->
+                <div class="space-y-4">
+                    <h3 class="text-sm font-medium text-text-muted uppercase tracking-wider">Loading State</h3>
+                     <div class="flex flex-wrap items-center gap-4">
+                        <Avatar loading size="sm" />
+                        <Avatar loading size="md" />
+                        <Avatar loading size="lg" />
+                     </div>
+                </div>
+
+                <!-- Group Simulation -->
+                <div class="space-y-4">
+                     <h3 class="text-sm font-medium text-text-muted uppercase tracking-wider">Group Simulation</h3>
+                     <div class="flex items-center -space-x-3 hover:space-x-1 transition-all">
+                        <Avatar src="https://i.pravatar.cc/150?u=4" class="ring-2 ring-white dark:ring-gray-800" />
+                        <Avatar initials="JD" variant="primary" class="ring-2 ring-white dark:ring-gray-800" />
+                        <Avatar initials="AK" variant="success" class="ring-2 ring-white dark:ring-gray-800" />
+                        <Avatar icon="plus" variant="gray" class="ring-2 ring-white dark:ring-gray-800 text-xs" />
+                     </div>
+                </div>
             </div>
         </section>
 
