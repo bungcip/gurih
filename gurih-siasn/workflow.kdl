@@ -101,3 +101,34 @@ workflow "KGBWorkflow" for="PengajuanKGB" field="status" {
     transition "Diajukan_to_Ditolak" from="Diajukan" to="Ditolak" {
     }
 }
+
+workflow "UsulanSLKSWorkflow" for="UsulanSLKS" field="status" {
+    state "Draft" initial="true"
+    state "Diajukan"
+    state "Terverifikasi"
+    state "Disetujui"
+    state "Ditolak"
+
+    transition "Submit" from="Draft" to="Diajukan" {
+        allowed_roles "OperatorUnor"
+        requires {
+             is_set "file_pendukung"
+        }
+    }
+
+    transition "Verify" from="Diajukan" to="Terverifikasi" {
+        allowed_roles "VerifikatorEselon1"
+    }
+
+    transition "RejectByVerifier" from="Diajukan" to="Ditolak" {
+        allowed_roles "VerifikatorEselon1"
+    }
+
+    transition "Approve" from="Terverifikasi" to="Disetujui" {
+        allowed_roles "AdminSDMAO"
+    }
+
+    transition "RejectByAdmin" from="Terverifikasi" to="Ditolak" {
+        allowed_roles "AdminSDMAO"
+    }
+}
