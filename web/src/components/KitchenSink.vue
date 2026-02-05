@@ -26,6 +26,7 @@ import DiscussionPanel from './DiscussionPanel.vue'
 import EmptyState from './EmptyState.vue'
 import Pagination from './Pagination.vue'
 import Avatar from './Avatar.vue'
+import FilterBar from './FilterBar.vue'
 import { inject } from 'vue'
 
 const isDarkMode = ref(false)
@@ -117,6 +118,18 @@ const accordionMultiOpen = ref([0, 1])
 
 const page1 = ref(1)
 const page2 = ref(1)
+
+const kitchenSinkFilters = [
+  { key: 'search', label: 'Search', type: 'text', placeholder: 'Search transactions...' },
+  { key: 'status', label: 'Status', type: 'select', options: [
+      { label: 'Pending', value: 'pending' },
+      { label: 'Completed', value: 'completed' },
+      { label: 'Failed', value: 'failed' }
+  ]},
+  { key: 'date', label: 'Transaction Date', type: 'date' },
+  { key: 'verified', label: 'Verified Only', type: 'boolean' }
+]
+const kitchenSinkFilterValues = ref({})
 
 const timelineItems = [
   {
@@ -434,6 +447,33 @@ function onDiscussionSubmit(text) {
                      <CurrencyInput v-model="amountValue" label="Currency Input (New)" />
                      <div class="mt-1 text-xs text-text-muted">Raw Numeric Value: {{ amountValue }}</div>
                 </div>
+            </div>
+        </section>
+
+        <!-- Data Filtering -->
+        <section class="card p-6 space-y-4">
+            <h2 class="text-xl font-semibold">Data Filtering</h2>
+            <div class="space-y-6">
+                 <div>
+                    <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Standard Filter Bar</h3>
+                    <FilterBar
+                        :filters="kitchenSinkFilters"
+                        v-model="kitchenSinkFilterValues"
+                    />
+                    <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 font-mono text-xs">
+                        <span class="text-text-muted">// Active Filters:</span><br>
+                        {{ kitchenSinkFilterValues }}
+                    </div>
+                 </div>
+
+                 <div>
+                    <h3 class="text-sm font-medium text-text-muted mb-4 uppercase tracking-wider">Loading State</h3>
+                    <FilterBar
+                        :filters="kitchenSinkFilters"
+                        v-model="kitchenSinkFilterValues"
+                        loading
+                    />
+                 </div>
             </div>
         </section>
 
