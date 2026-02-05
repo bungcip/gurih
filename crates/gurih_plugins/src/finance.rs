@@ -258,7 +258,16 @@ async fn check_period_open(
                 )));
             }
 
-            let table_name = target_entity.to_lowercase();
+            let table_name = schema
+                .entities
+                .get(&Symbol::from(target_entity))
+                .map(|e| e.table_name.as_str())
+                .ok_or_else(|| {
+                    RuntimeError::WorkflowError(format!(
+                        "Entity '{}' not defined in schema for period check",
+                        target_entity
+                    ))
+                })?;
 
             let db_type = schema
                 .database
@@ -434,9 +443,16 @@ async fn execute_generate_closing_entry(
     let mut filters = HashMap::new();
     filters.insert("name".to_string(), "Retained Earnings".to_string());
 
+    let account_table = data_access
+        .get_schema()
+        .entities
+        .get(&Symbol::from("Account"))
+        .map(|e| e.table_name.as_str())
+        .unwrap_or("account");
+
     let accounts = data_access
         .datastore()
-        .find("Account", filters)
+        .find(account_table, filters)
         .await
         .map_err(RuntimeError::WorkflowError)?;
     let retained_earnings_id = accounts
@@ -460,6 +476,23 @@ async fn execute_generate_closing_entry(
         ("?", "?")
     };
 
+    let schema = data_access.get_schema();
+    let journal_line_table = schema
+        .entities
+        .get(&Symbol::from("JournalLine"))
+        .map(|e| e.table_name.as_str())
+        .unwrap_or("journal_line");
+    let journal_entry_table = schema
+        .entities
+        .get(&Symbol::from("JournalEntry"))
+        .map(|e| e.table_name.as_str())
+        .unwrap_or("journal_entry");
+    let account_table = schema
+        .entities
+        .get(&Symbol::from("Account"))
+        .map(|e| e.table_name.as_str())
+        .unwrap_or("account");
+
     let sql = format!(
         r#"
         SELECT
@@ -467,16 +500,16 @@ async fn execute_generate_closing_entry(
             SUM(jl.debit) as total_debit,
             SUM(jl.credit) as total_credit,
             a.type as account_type
-        FROM journal_line jl
-        JOIN journal_entry je ON jl.journal_entry = je.id
-        JOIN account a ON jl.account = a.id
+        FROM {} jl
+        JOIN {} je ON jl.journal_entry = je.id
+        JOIN {} a ON jl.account = a.id
         WHERE je.status = 'Posted'
           AND je.date >= {}
           AND je.date <= {}
           AND (a.type = 'Revenue' OR a.type = 'Expense')
         GROUP BY jl.account, a.type
     "#,
-        p_start, p_end
+        journal_line_table, journal_entry_table, account_table, p_start, p_end
     );
 
     let params_vec = vec![
