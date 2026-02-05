@@ -87,7 +87,7 @@ async fn test_hr_workflow_rules() {
     assert!(res.is_err());
     let err_msg = res.unwrap_err();
     println!("Error 2: {}", err_msg);
-    assert!(err_msg.contains("Transition condition not met"));
+    assert!(err_msg.contains("Minimum years of service not met"));
 
     // 5. Update join date to 2 years ago
     let old_join = (now.date_naive() - chrono::Duration::days(365 * 2))
@@ -181,7 +181,7 @@ async fn test_retirement_min_age() {
     });
     let res = engine.update("Employee", &id, update_data.clone(), &ctx).await;
     assert!(res.is_err());
-    assert!(res.unwrap_err().contains("Transition condition not met"));
+    assert!(res.unwrap_err().contains("Minimum age not met"));
 
     // 2. Update to 60 years old (Old enough)
     let birth_date_old = (now.date_naive() - chrono::Duration::days(365 * 60))

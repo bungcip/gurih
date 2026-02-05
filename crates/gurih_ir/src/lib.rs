@@ -317,14 +317,14 @@ pub struct Transition {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransitionPrecondition {
     Assertion(Expression),
-    Custom { name: Symbol, args: Vec<Expression> },
+    Custom { name: Symbol, args: Vec<Expression>, kwargs: HashMap<String, String> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransitionEffect {
     Notify(Symbol),
     UpdateField { field: Symbol, value: String },
-    Custom { name: Symbol, args: Vec<Expression> },
+    Custom { name: Symbol, args: Vec<Expression>, kwargs: HashMap<String, String> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

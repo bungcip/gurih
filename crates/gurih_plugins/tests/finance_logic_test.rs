@@ -17,6 +17,7 @@ async fn test_balanced_transaction() {
         preconditions: vec![TransitionPrecondition::Custom {
             name: Symbol::from("balanced_transaction"),
             args: vec![],
+            kwargs: HashMap::new(),
         }],
         effects: vec![],
     }];

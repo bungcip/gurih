@@ -234,6 +234,7 @@ pub enum TransitionPreconditionDef {
     Custom {
         name: String,
         args: Vec<String>,
+        kwargs: std::collections::HashMap<String, String>,
         span: SourceSpan,
     },
 }
@@ -252,6 +253,7 @@ pub enum TransitionEffectDef {
     Custom {
         name: String,
         args: Vec<String>,
+        kwargs: std::collections::HashMap<String, String>,
         span: SourceSpan,
     },
 }

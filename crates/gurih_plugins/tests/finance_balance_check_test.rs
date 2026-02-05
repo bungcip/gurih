@@ -147,6 +147,7 @@ fn create_test_schema() -> Schema {
             preconditions: vec![TransitionPrecondition::Custom {
                 name: Symbol::from("balanced_transaction"),
                 args: vec![],
+                kwargs: HashMap::new(),
             }],
             effects: vec![],
         }],

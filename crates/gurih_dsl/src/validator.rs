@@ -51,26 +51,13 @@ impl<'a> Validator<'a> {
         let entity_fields = self.get_entity_fields(ast);
 
         for workflow in &ast.workflows {
-            if let Some(fields) = entity_fields.get(&workflow.entity) {
-                // Check field exists (status field)
-                if !fields.contains(&workflow.field) {
-                    return Err(CompileError::ValidationError {
-                        src: self.src.to_string(),
-                        span: workflow.span,
-                        message: format!(
-                            "Workflow target field '{}' not found in entity '{}'",
-                            workflow.field, workflow.entity
-                        ),
-                    });
-                }
-                self.validate_transitions(&workflow.transitions, fields, &workflow.entity)?;
-            } else {
-                return Err(CompileError::ValidationError {
-                    src: self.src.to_string(),
-                    span: workflow.span,
-                    message: format!("Workflow target entity '{}' not found", workflow.entity),
-                });
-            }
+            self.validate_entity_transitions_context(
+                &workflow.entity,
+                &workflow.transitions,
+                &entity_fields,
+                workflow.span,
+                Some(&workflow.field),
+            )?;
         }
         Ok(())
     }
@@ -79,15 +66,45 @@ impl<'a> Validator<'a> {
         let entity_fields = self.get_entity_fields(ast);
 
         for status in &ast.employee_statuses {
-            if let Some(fields) = entity_fields.get(&status.entity) {
-                self.validate_transitions(&status.transitions, fields, &status.entity)?;
-            } else {
-                return Err(CompileError::ValidationError {
-                    src: self.src.to_string(),
-                    span: status.span,
-                    message: format!("Employee status entity '{}' not found", status.entity),
-                });
+            self.validate_entity_transitions_context(
+                &status.entity,
+                &status.transitions,
+                &entity_fields,
+                status.span,
+                None,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn validate_entity_transitions_context(
+        &self,
+        entity_name: &str,
+        transitions: &[ast::TransitionDef],
+        entity_fields: &HashMap<String, HashSet<String>>,
+        span: SourceSpan,
+        required_field: Option<&str>,
+    ) -> Result<(), CompileError> {
+        if let Some(fields) = entity_fields.get(entity_name) {
+            if let Some(field) = required_field {
+                if !fields.contains(field) {
+                    return Err(CompileError::ValidationError {
+                        src: self.src.to_string(),
+                        span,
+                        message: format!(
+                            "Target field '{}' not found in entity '{}'",
+                            field, entity_name
+                        ),
+                    });
+                }
             }
+            self.validate_transitions(transitions, fields, entity_name)?;
+        } else {
+            return Err(CompileError::ValidationError {
+                src: self.src.to_string(),
+                span,
+                message: format!("Entity '{}' not found", entity_name),
+            });
         }
         Ok(())
     }

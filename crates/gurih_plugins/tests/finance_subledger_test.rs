@@ -288,10 +288,12 @@ fn create_subledger_schema() -> Schema {
                 TransitionPrecondition::Custom {
                     name: Symbol::from("balanced_transaction"),
                     args: vec![],
+                    kwargs: HashMap::new(),
                 },
                 TransitionPrecondition::Custom {
                     name: Symbol::from("valid_parties"),
                     args: vec![],
+                    kwargs: HashMap::new(),
                 },
             ],
             effects: vec![],
