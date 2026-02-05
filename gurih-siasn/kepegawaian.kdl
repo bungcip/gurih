@@ -20,6 +20,23 @@ enum "StatusPengajuan" {
     Ditolak
 }
 
+enum "TingkatHukuman" {
+    Ringan
+    Sedang
+    Berat
+}
+
+enum "JenisHukuman" {
+    TeguranLisan
+    TeguranTertulis
+    PernyataanTidakPuas
+    PenundaanKenaikanGajiBerkala
+    PenurunanPangkat
+    PembebasanJabatan
+    PemberhentianDenganHormat
+    PemberhentianTidakDenganHormat
+}
+
 // -----------------------------------------------------------------------------
 // MODULE: KEPEGAWAIAN
 // -----------------------------------------------------------------------------
@@ -64,6 +81,7 @@ module "Kepegawaian" {
         has_many "riwayat_penghargaan" "RiwayatPenghargaan"
         has_many "riwayat_sertifikasi" "RiwayatSertifikasi"
         has_many "riwayat_skp" "RiwayatSKP"
+        has_many "riwayat_hukuman_disiplin" "RiwayatHukumanDisiplin"
 
         // For Cuti module
         has_many "pengajuan_cuti" "PengajuanCuti"
@@ -120,6 +138,20 @@ module "Kepegawaian" {
         field:string "predikat" // e.g. Sangat Baik, Baik
     }
 
+    // --- RIWAYAT HUKUMAN DISIPLIN ---
+    entity "RiwayatHukumanDisiplin" {
+        field:pk id
+        belongs_to "Pegawai"
+        field:enum "tingkat_hukuman" "TingkatHukuman"
+        field:enum "jenis_hukuman" "JenisHukuman"
+        field:string "nomor_sk"
+        field:date "tanggal_sk"
+        field:date "tmt_hukuman"
+        field:date "tmt_akhir_hukuman" required=#false
+        field:text "keterangan" required=#false
+        field:file "dokumen_sk" required=#false
+    }
+
     // --- PENGAJUAN KGB ---
     entity "PengajuanKGB" {
         field:pk id
@@ -149,6 +181,7 @@ module "Kepegawaian" {
     action "DeleteRiwayatPenghargaan" { params "id" step "entity:delete" target="RiwayatPenghargaan" id="param(\"id\")" }
     action "DeleteRiwayatSertifikasi" { params "id" step "entity:delete" target="RiwayatSertifikasi" id="param(\"id\")" }
     action "DeleteRiwayatSKP" { params "id" step "entity:delete" target="RiwayatSKP" id="param(\"id\")" }
+    action "DeleteRiwayatHukumanDisiplin" { params "id" step "entity:delete" target="RiwayatHukumanDisiplin" id="param(\"id\")" }
     action "DeletePengajuanKGB" { params "id" step "entity:delete" target="PengajuanKGB" id="param(\"id\")" }
     action "DeleteUsulanSLKS" { params "id" step "entity:delete" target="UsulanSLKS" id="param(\"id\")" }
 }
@@ -203,6 +236,15 @@ query:flat "RiwayatSKPQuery" for="RiwayatSKP" {
     select "tahun"
     select "nilai"
     select "predikat"
+    join "Pegawai" { select "nama" as="nama_pegawai" }
+}
+
+query:flat "RiwayatHukumanDisiplinQuery" for="RiwayatHukumanDisiplin" {
+    select "id"
+    select "tingkat_hukuman"
+    select "jenis_hukuman"
+    select "nomor_sk"
+    select "tmt_hukuman"
     join "Pegawai" { select "nama" as="nama_pegawai" }
 }
 
@@ -391,6 +433,37 @@ page "FormRiwayatSKP" {
             field "tahun"
             field "nilai"
             field "predikat"
+        }
+    }
+}
+
+page "DaftarRiwayatHukumanDisiplin" {
+    title "Riwayat Hukuman Disiplin"
+    datatable for="RiwayatHukumanDisiplin" query="RiwayatHukumanDisiplinQuery" {
+        column "nama_pegawai" label="Pegawai"
+        column "tingkat_hukuman" label="Tingkat"
+        column "jenis_hukuman" label="Jenis"
+        column "nomor_sk" label="Nomor SK"
+        column "tmt_hukuman" label="TMT Hukuman"
+
+        action "Edit" icon="pencil" to="/kepegawaian/riwayat-hukuman-disiplin/:id"
+        action "Hapus" icon="trash" variant="danger" to="/kepegawaian/riwayat-hukuman-disiplin/:id" method="DELETE"
+    }
+}
+
+page "FormRiwayatHukumanDisiplin" {
+    title "Form Hukuman Disiplin"
+    form for="RiwayatHukumanDisiplin" {
+        section "Data Hukuman" {
+            field "pegawai"
+            field "tingkat_hukuman"
+            field "jenis_hukuman"
+            field "nomor_sk"
+            field "tanggal_sk"
+            field "tmt_hukuman"
+            field "tmt_akhir_hukuman"
+            field "keterangan"
+            field "dokumen_sk"
         }
     }
 }
