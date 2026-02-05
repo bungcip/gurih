@@ -171,6 +171,12 @@ routes {
             route "/:id" to="FormRiwayatSKP"
             route:delete "/:id" action="DeleteRiwayatSKP"
         }
+        group "/usulan-slks" {
+            route "/" to="DaftarUsulanSLKS"
+            route "/new" to="FormUsulanSLKS"
+            route "/:id" to="FormUsulanSLKS"
+            route:delete "/:id" action="DeleteUsulanSLKS"
+        }
     }
 
     // --- CUTI ROUTES ---
@@ -208,6 +214,7 @@ menu "MainMenu" {
         item "Riwayat Penghargaan" to="/kepegawaian/riwayat-penghargaan"
         item "Riwayat Sertifikasi" to="/kepegawaian/riwayat-sertifikasi"
         item "Riwayat SKP" to="/kepegawaian/riwayat-skp"
+        item "Usulan SLKS" to="/kepegawaian/usulan-slks"
     }
 
     group "Layanan" icon="calendar" {
@@ -235,4 +242,19 @@ role "Pegawai" {
     allow "*" "read"
     allow "/cuti/pengajuan/new" "create"
     allow "/cuti/pengajuan/*" "read,write" // Simplified
+}
+
+role "OperatorUnor" {
+    allow "/kepegawaian/usulan-slks/*" "read,write,create"
+    allow "/kepegawaian/pegawai/*" "read"
+}
+
+role "VerifikatorEselon1" {
+    allow "/kepegawaian/usulan-slks/*" "read,write"
+    allow "/kepegawaian/pegawai/*" "read"
+}
+
+role "AdminSDMAO" {
+    allow "/kepegawaian/usulan-slks/*" "read,write"
+    allow "/kepegawaian/pegawai/*" "read"
 }

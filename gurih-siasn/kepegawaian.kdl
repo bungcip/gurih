@@ -132,6 +132,16 @@ module "Kepegawaian" {
         field:file "sk_kgb" required=#false
     }
 
+    // --- USULAN SLKS ---
+    entity "UsulanSLKS" {
+        field:pk id
+        belongs_to "Pegawai"
+        belongs_to "JenisPenghargaan"
+        field:enum "status" "StatusPengajuan" default="Draft"
+        field:text "keterangan" required=#false
+        field:file "file_pendukung" required=#false
+    }
+
     // --- ACTIONS ---
     action "DeletePegawai" { params "id" step "entity:delete" target="Pegawai" id="param(\"id\")" }
     action "DeleteRiwayatJabatan" { params "id" step "entity:delete" target="RiwayatJabatan" id="param(\"id\")" }
@@ -140,6 +150,7 @@ module "Kepegawaian" {
     action "DeleteRiwayatSertifikasi" { params "id" step "entity:delete" target="RiwayatSertifikasi" id="param(\"id\")" }
     action "DeleteRiwayatSKP" { params "id" step "entity:delete" target="RiwayatSKP" id="param(\"id\")" }
     action "DeletePengajuanKGB" { params "id" step "entity:delete" target="PengajuanKGB" id="param(\"id\")" }
+    action "DeleteUsulanSLKS" { params "id" step "entity:delete" target="UsulanSLKS" id="param(\"id\")" }
 }
 
 // -----------------------------------------------------------------------------
@@ -200,6 +211,13 @@ query:flat "PengajuanKGBQuery" for="PengajuanKGB" {
     select "tmt_kgb_baru"
     select "status"
     join "Pegawai" { select "nama" as="nama_pegawai" }
+}
+
+query:flat "UsulanSLKSQuery" for="UsulanSLKS" {
+    select "id"
+    select "status"
+    join "Pegawai" { select "nama" as="nama_pegawai" }
+    join "JenisPenghargaan" { select "nama" as="jenis_penghargaan" }
 }
 
 // -----------------------------------------------------------------------------
@@ -400,6 +418,31 @@ page "FormPengajuanKGB" {
             field "gaji_pokok_baru"
             field "sk_kgb"
             // Status is handled by workflow, usually read-only or hidden in form
+            field "status" disabled=#true
+        }
+    }
+}
+
+// --- USULAN SLKS UI ---
+page "DaftarUsulanSLKS" {
+    title "Usulan SLKS"
+    datatable for="UsulanSLKS" query="UsulanSLKSQuery" {
+        column "nama_pegawai" label="Pegawai"
+        column "jenis_penghargaan" label="Penghargaan"
+        column "status" label="Status"
+
+        action "Edit" icon="pencil" to="/kepegawaian/usulan-slks/:id"
+        action "Hapus" icon="trash" variant="danger" to="/kepegawaian/usulan-slks/:id" method="DELETE"
+    }
+}
+page "FormUsulanSLKS" {
+    title "Form Usulan SLKS"
+    form for="UsulanSLKS" {
+        section "Data Usulan" {
+            field "pegawai"
+            field "jenis_penghargaan"
+            field "keterangan"
+            field "file_pendukung"
             field "status" disabled=#true
         }
     }
