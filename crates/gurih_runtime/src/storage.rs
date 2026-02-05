@@ -39,12 +39,10 @@ fn validate_filename(filename: &str) -> Result<(), String> {
         let ext_str = ext.to_string_lossy().to_lowercase();
         let forbidden = [
             // PHP
-            "php", "php3", "php4", "php5", "phtml", "phar", "pht", "pgif",
-            // Scripts & Executables
-            "pl", "py", "cgi", "asp", "aspx", "jsp", "jspx", "sh", "bash", "exe",
-            "dll", "bat", "cmd", "vbs", "ps1", "wsf", "scr", "msi", "reg",
-            // Web / Java / Misc
-            "svg", "html", "htm", "shtml", "xht", "xhtml", "js", "mjs", "class", "jar", "swf"
+            "php", "php3", "php4", "php5", "phtml", "phar", "pht", "pgif", // Scripts & Executables
+            "pl", "py", "cgi", "asp", "aspx", "jsp", "jspx", "sh", "bash", "exe", "dll", "bat", "cmd", "vbs", "ps1",
+            "wsf", "scr", "msi", "reg", // Web / Java / Misc
+            "svg", "html", "htm", "shtml", "xht", "xhtml", "js", "mjs", "class", "jar", "swf",
         ];
         if forbidden.contains(&ext_str.as_str()) {
             return Err(format!("File extension not allowed: {}", ext_str));

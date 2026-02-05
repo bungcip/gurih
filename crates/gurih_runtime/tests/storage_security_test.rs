@@ -83,15 +83,26 @@ async fn test_enhanced_extension_security() {
 
     // Newly blocked extensions
     let dangerous_files = vec![
-        "exploit.phar", "template.pht", "test.jspx", "app.class", "library.jar",
-        "script.ps1", "setup.msi", "movie.swf", "page.xhtml"
+        "exploit.phar",
+        "template.pht",
+        "test.jspx",
+        "app.class",
+        "library.jar",
+        "script.ps1",
+        "setup.msi",
+        "movie.swf",
+        "page.xhtml",
     ];
 
     for filename in dangerous_files {
         let payload = Bytes::from("malicious content");
         let result = driver.put(filename, payload).await;
 
-        assert!(result.is_err(), "Enhanced dangerous extension {} should be rejected", filename);
+        assert!(
+            result.is_err(),
+            "Enhanced dangerous extension {} should be rejected",
+            filename
+        );
         let err = result.err().unwrap();
         assert!(
             err.contains("File extension not allowed"),

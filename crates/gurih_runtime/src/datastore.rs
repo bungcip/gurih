@@ -127,14 +127,42 @@ impl DataStore for MemoryDataStore {
     async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
         let data = self.data.lock().unwrap();
         if let Some(table) = data.get(entity) {
+            // OPTIMIZATION: Pre-process filters to avoid parsing/allocating inside the loop
+            let parsed_filters: Vec<_> = filters
+                .iter()
+                .map(|(k, v)| {
+                    (
+                        k,
+                        v,
+                        v.parse::<i64>().ok(),
+                        v.parse::<f64>().ok(),
+                        v.parse::<bool>().ok(),
+                    )
+                })
+                .collect();
+
             let results: Vec<Arc<Value>> = table
                 .values()
                 .filter(|record| {
-                    for (k, v) in &filters {
-                        let match_result = match record.get(k) {
-                            Some(Value::String(s)) => s == v,
-                            Some(Value::Number(n)) => n.to_string() == v.as_str(),
-                            Some(Value::Bool(b)) => b.to_string() == v.as_str(),
+                    for (k, v, v_i64, v_f64, v_bool) in &parsed_filters {
+                        let match_result = match record.get(*k) {
+                            Some(Value::String(s)) => s == *v,
+                            Some(Value::Number(n)) => {
+                                if let (Some(i), Some(vi)) = (n.as_i64(), v_i64) {
+                                    i == *vi
+                                } else if let (Some(f), Some(vf)) = (n.as_f64(), v_f64) {
+                                    (f - *vf).abs() < f64::EPSILON
+                                } else {
+                                    n.to_string() == **v
+                                }
+                            }
+                            Some(Value::Bool(b)) => {
+                                if let Some(vb) = v_bool {
+                                    *b == *vb
+                                } else {
+                                    false
+                                }
+                            }
                             _ => false,
                         };
                         if !match_result {
@@ -154,14 +182,42 @@ impl DataStore for MemoryDataStore {
     async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String> {
         let data = self.data.lock().unwrap();
         if let Some(table) = data.get(entity) {
+            // OPTIMIZATION: Pre-process filters to avoid parsing/allocating inside the loop
+            let parsed_filters: Vec<_> = filters
+                .iter()
+                .map(|(k, v)| {
+                    (
+                        k,
+                        v,
+                        v.parse::<i64>().ok(),
+                        v.parse::<f64>().ok(),
+                        v.parse::<bool>().ok(),
+                    )
+                })
+                .collect();
+
             let count = table
                 .values()
                 .filter(|record| {
-                    for (k, v) in &filters {
-                        let match_result = match record.get(k) {
-                            Some(Value::String(s)) => s == v,
-                            Some(Value::Number(n)) => n.to_string() == v.as_str(),
-                            Some(Value::Bool(b)) => b.to_string() == v.as_str(),
+                    for (k, v, v_i64, v_f64, v_bool) in &parsed_filters {
+                        let match_result = match record.get(*k) {
+                            Some(Value::String(s)) => s == *v,
+                            Some(Value::Number(n)) => {
+                                if let (Some(i), Some(vi)) = (n.as_i64(), v_i64) {
+                                    i == *vi
+                                } else if let (Some(f), Some(vf)) = (n.as_f64(), v_f64) {
+                                    (f - *vf).abs() < f64::EPSILON
+                                } else {
+                                    n.to_string() == **v
+                                }
+                            }
+                            Some(Value::Bool(b)) => {
+                                if let Some(vb) = v_bool {
+                                    *b == *vb
+                                } else {
+                                    false
+                                }
+                            }
                             _ => false,
                         };
                         if !match_result {

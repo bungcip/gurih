@@ -570,10 +570,9 @@ impl DataEngine {
         .to_string();
 
         // Evaluate Date
-        let date_val =
-            crate::evaluator::evaluate(&rule.date_expr, &context, Some(&self.schema), Some(&self.datastore))
-                .await
-                .map_err(|e| format!("Failed to evaluate date: {}", e))?;
+        let date_val = crate::evaluator::evaluate(&rule.date_expr, &context, Some(&self.schema), Some(&self.datastore))
+            .await
+            .map_err(|e| format!("Failed to evaluate date: {}", e))?;
 
         let date_str = date_val.as_str().unwrap_or("").to_string();
 
@@ -600,13 +599,21 @@ impl DataEngine {
                 .map(|e| e.table_name.as_str())
                 .unwrap_or("Account");
 
-            let mut accounts = self.datastore.find(account_table, filters).await.map_err(|e| e.to_string())?;
+            let mut accounts = self
+                .datastore
+                .find(account_table, filters)
+                .await
+                .map_err(|e| e.to_string())?;
 
             if accounts.is_empty() {
                 // Try Find by Name
                 let mut filters = HashMap::new();
                 filters.insert("name".to_string(), account_term.to_string());
-                accounts = self.datastore.find(account_table, filters).await.map_err(|e| e.to_string())?;
+                accounts = self
+                    .datastore
+                    .find(account_table, filters)
+                    .await
+                    .map_err(|e| e.to_string())?;
             }
 
             let account_id = accounts
@@ -626,18 +633,16 @@ impl DataEngine {
             };
 
             if let Some(debit_expr) = &line.debit_expr {
-                let val =
-                    crate::evaluator::evaluate(debit_expr, &context, Some(&self.schema), Some(&self.datastore))
-                        .await
-                        .map_err(|e| format!("Failed to evaluate debit: {}", e))?;
+                let val = crate::evaluator::evaluate(debit_expr, &context, Some(&self.schema), Some(&self.datastore))
+                    .await
+                    .map_err(|e| format!("Failed to evaluate debit: {}", e))?;
 
                 line_obj.insert("debit".to_string(), to_money_val(val));
                 line_obj.insert("credit".to_string(), Value::String("0.00".to_string()));
             } else if let Some(credit_expr) = &line.credit_expr {
-                let val =
-                    crate::evaluator::evaluate(credit_expr, &context, Some(&self.schema), Some(&self.datastore))
-                        .await
-                        .map_err(|e| format!("Failed to evaluate credit: {}", e))?;
+                let val = crate::evaluator::evaluate(credit_expr, &context, Some(&self.schema), Some(&self.datastore))
+                    .await
+                    .map_err(|e| format!("Failed to evaluate credit: {}", e))?;
 
                 line_obj.insert("credit".to_string(), to_money_val(val));
                 line_obj.insert("debit".to_string(), Value::String("0.00".to_string()));

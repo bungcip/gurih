@@ -281,5 +281,8 @@ async fn test_workflow_assertion_type_error() {
 
     assert!(result.is_err());
     let err = result.err().unwrap();
-    assert_eq!(err.to_string(), "Workflow Error: Assertion expression must evaluate to boolean");
+    assert_eq!(
+        err.to_string(),
+        "Workflow Error: Assertion expression must evaluate to boolean"
+    );
 }

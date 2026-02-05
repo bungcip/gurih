@@ -35,7 +35,11 @@ async fn bench_filter_performance() {
     let start = Instant::now();
     let result_items = datastore.find(entity, filters).await.unwrap();
     let duration = start.elapsed();
-    println!("BENCH_RESULT: Find (matches {}) took: {:?}", result_items.len(), duration);
+    println!(
+        "BENCH_RESULT: Find (matches {}) took: {:?}",
+        result_items.len(),
+        duration
+    );
 
     assert_eq!(result_count, count as i64 / 2);
     assert_eq!(result_items.len(), count as usize / 2);

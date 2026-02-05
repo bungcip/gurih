@@ -309,90 +309,168 @@ async fn test_subledger_validation() {
     let ctx = RuntimeContext::system();
 
     // 1. Create Accounts
-    let ar_account_id = engine.create("Account", json!({
-        "code": "101",
-        "requires_party": true
-    }), &ctx).await.expect("AR Account create failed");
+    let ar_account_id = engine
+        .create(
+            "Account",
+            json!({
+                "code": "101",
+                "requires_party": true
+            }),
+            &ctx,
+        )
+        .await
+        .expect("AR Account create failed");
 
-    let cash_account_id = engine.create("Account", json!({
-        "code": "100",
-        "requires_party": false
-    }), &ctx).await.expect("Cash Account create failed");
+    let cash_account_id = engine
+        .create(
+            "Account",
+            json!({
+                "code": "100",
+                "requires_party": false
+            }),
+            &ctx,
+        )
+        .await
+        .expect("Cash Account create failed");
 
     // 2. Create Customer
-    let customer_id = engine.create("Customer", json!({
-        "name": "Acme Corp"
-    }), &ctx).await.expect("Customer create failed");
+    let customer_id = engine
+        .create(
+            "Customer",
+            json!({
+                "name": "Acme Corp"
+            }),
+            &ctx,
+        )
+        .await
+        .expect("Customer create failed");
 
     // --- CASE 1: Posting to AR without Party (Fail) ---
-    let j1 = engine.create("JournalEntry", json!({ "status": "Draft", "date": "2024-01-01" }), &ctx).await.unwrap();
+    let j1 = engine
+        .create("JournalEntry", json!({ "status": "Draft", "date": "2024-01-01" }), &ctx)
+        .await
+        .unwrap();
 
     // Debit AR (missing party)
-    engine.create("JournalLine", json!({
-        "journal_entry": j1,
-        "account": ar_account_id,
-        "debit": "100",
-        "credit": "0"
-    }), &ctx).await.unwrap();
+    engine
+        .create(
+            "JournalLine",
+            json!({
+                "journal_entry": j1,
+                "account": ar_account_id,
+                "debit": "100",
+                "credit": "0"
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
 
     // Credit Cash
-    engine.create("JournalLine", json!({
-        "journal_entry": j1,
-        "account": cash_account_id,
-        "debit": "0",
-        "credit": "100"
-    }), &ctx).await.unwrap();
+    engine
+        .create(
+            "JournalLine",
+            json!({
+                "journal_entry": j1,
+                "account": cash_account_id,
+                "debit": "0",
+                "credit": "100"
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
 
-    let res = engine.update("JournalEntry", &j1, json!({"status": "Posted"}), &ctx).await;
+    let res = engine
+        .update("JournalEntry", &j1, json!({"status": "Posted"}), &ctx)
+        .await;
     assert!(res.is_err(), "Should fail because AR requires party");
     let err = res.err().unwrap();
     println!("Err1: {}", err);
     assert!(err.contains("requires a Party"));
 
     // --- CASE 2: Posting to AR with Invalid Party (Fail) ---
-    let j2 = engine.create("JournalEntry", json!({ "status": "Draft", "date": "2024-01-01" }), &ctx).await.unwrap();
+    let j2 = engine
+        .create("JournalEntry", json!({ "status": "Draft", "date": "2024-01-01" }), &ctx)
+        .await
+        .unwrap();
 
-    engine.create("JournalLine", json!({
-        "journal_entry": j2,
-        "account": ar_account_id,
-        "debit": "100",
-        "credit": "0",
-        "party_type": "Customer",
-        "party_id": Uuid::new_v4().to_string() // Non-existent
-    }), &ctx).await.unwrap();
+    engine
+        .create(
+            "JournalLine",
+            json!({
+                "journal_entry": j2,
+                "account": ar_account_id,
+                "debit": "100",
+                "credit": "0",
+                "party_type": "Customer",
+                "party_id": Uuid::new_v4().to_string() // Non-existent
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
 
-    engine.create("JournalLine", json!({
-        "journal_entry": j2,
-        "account": cash_account_id,
-        "debit": "0",
-        "credit": "100"
-    }), &ctx).await.unwrap();
+    engine
+        .create(
+            "JournalLine",
+            json!({
+                "journal_entry": j2,
+                "account": cash_account_id,
+                "debit": "0",
+                "credit": "100"
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
 
-    let res = engine.update("JournalEntry", &j2, json!({"status": "Posted"}), &ctx).await;
+    let res = engine
+        .update("JournalEntry", &j2, json!({"status": "Posted"}), &ctx)
+        .await;
     assert!(res.is_err(), "Should fail because Party does not exist");
     let err = res.err().unwrap();
     println!("Err2: {}", err);
     assert!(err.contains("does not exist"));
 
     // --- CASE 3: Posting to AR with Valid Party (Success) ---
-    let j3 = engine.create("JournalEntry", json!({ "status": "Draft", "date": "2024-01-01" }), &ctx).await.unwrap();
+    let j3 = engine
+        .create("JournalEntry", json!({ "status": "Draft", "date": "2024-01-01" }), &ctx)
+        .await
+        .unwrap();
 
-    engine.create("JournalLine", json!({
-        "journal_entry": j3,
-        "account": ar_account_id,
-        "debit": "100",
-        "credit": "0",
-        "party_type": "Customer",
-        "party_id": customer_id
-    }), &ctx).await.unwrap();
+    engine
+        .create(
+            "JournalLine",
+            json!({
+                "journal_entry": j3,
+                "account": ar_account_id,
+                "debit": "100",
+                "credit": "0",
+                "party_type": "Customer",
+                "party_id": customer_id
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
 
-    engine.create("JournalLine", json!({
-        "journal_entry": j3,
-        "account": cash_account_id,
-        "debit": "0",
-        "credit": "100"
-    }), &ctx).await.unwrap();
+    engine
+        .create(
+            "JournalLine",
+            json!({
+                "journal_entry": j3,
+                "account": cash_account_id,
+                "debit": "0",
+                "credit": "100"
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
 
-    let res = engine.update("JournalEntry", &j3, json!({"status": "Posted"}), &ctx).await;
+    let res = engine
+        .update("JournalEntry", &j3, json!({"status": "Posted"}), &ctx)
+        .await;
     assert!(res.is_ok(), "Should pass validation: {:?}", res.err());
 }

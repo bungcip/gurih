@@ -1,6 +1,6 @@
+use crate::utils::parse_numeric_opt;
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use crate::utils::parse_numeric_opt;
 use gurih_ir::{ActionStep, Expression, Schema, Symbol};
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::datastore::DataStore;
@@ -146,9 +146,8 @@ async fn check_valid_parties(
     schema: &Schema,
     datastore: Option<&Arc<dyn DataStore>>,
 ) -> Result<(), RuntimeError> {
-    let ds = datastore.ok_or_else(|| {
-        RuntimeError::WorkflowError("Datastore not available for party validation".to_string())
-    })?;
+    let ds = datastore
+        .ok_or_else(|| RuntimeError::WorkflowError("Datastore not available for party validation".to_string()))?;
 
     // 1. Collect lines from payload or DB
     let mut lines_to_check = Vec::new();
@@ -214,10 +213,7 @@ async fn check_valid_parties(
                 account_id
             )))?;
 
-        let requires_party = account
-            .get("requires_party")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+        let requires_party = account.get("requires_party").and_then(|v| v.as_bool()).unwrap_or(false);
 
         let party_type = line.get("party_type").and_then(|v| v.as_str());
         let party_id = line.get("party_id").and_then(|v| v.as_str());
@@ -239,11 +235,7 @@ async fn check_valid_parties(
             let target_entity = schema.entities.get(&Symbol::from(pt));
             if let Some(entity_schema) = target_entity {
                 let table = entity_schema.table_name.as_str();
-                let exists = ds
-                    .get(table, pid)
-                    .await
-                    .map_err(RuntimeError::WorkflowError)?
-                    .is_some();
+                let exists = ds.get(table, pid).await.map_err(RuntimeError::WorkflowError)?.is_some();
 
                 if !exists {
                     return Err(RuntimeError::ValidationError(format!(
@@ -252,10 +244,7 @@ async fn check_valid_parties(
                     )));
                 }
             } else {
-                return Err(RuntimeError::ValidationError(format!(
-                    "Unknown Party Type: {}",
-                    pt
-                )));
+                return Err(RuntimeError::ValidationError(format!("Unknown Party Type: {}", pt)));
             }
         }
     }
@@ -298,7 +287,8 @@ async fn check_period_open(
 
             let table_name = target_entity.to_lowercase();
 
-            let db_type = schema.database
+            let db_type = schema
+                .database
                 .as_ref()
                 .map(|d| d.db_type.clone())
                 .unwrap_or(gurih_ir::DatabaseType::Sqlite);
@@ -314,12 +304,12 @@ async fn check_period_open(
                 table_name, p_start, p_end
             );
 
-            let params = vec![
-                Value::String(date_s.to_string()),
-                Value::String(date_s.to_string()),
-            ];
+            let params = vec![Value::String(date_s.to_string()), Value::String(date_s.to_string())];
 
-            let periods = ds.query_with_params(&sql, params).await.map_err(RuntimeError::WorkflowError)?;
+            let periods = ds
+                .query_with_params(&sql, params)
+                .await
+                .map_err(RuntimeError::WorkflowError)?;
             if periods.is_empty() {
                 return Err(RuntimeError::ValidationError(format!(
                     "No open {} found for date {}",

@@ -1,6 +1,6 @@
 use crate::errors::CompileError;
-use kdl::KdlNode;
 pub use gurih_ir::utils::{capitalize, to_title_case};
+use kdl::KdlNode;
 
 pub fn get_arg_string(node: &KdlNode, index: usize, src: &str) -> Result<String, CompileError> {
     node.entry(index)
@@ -83,4 +83,3 @@ pub fn get_arg_int(node: &KdlNode, index: usize, src: &str) -> Result<i64, Compi
             message: format!("Missing or invalid int argument at index {}", index),
         })
 }
-
