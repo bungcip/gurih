@@ -1,6 +1,4 @@
-use gurih_ir::{
-    EntitySchema, FieldSchema, FieldType, FormSchema, FormSection, Schema, Symbol,
-};
+use gurih_ir::{EntitySchema, FieldSchema, FieldType, FormSchema, FormSection, Schema, Symbol};
 use gurih_runtime::form::FormEngine;
 use std::collections::HashMap;
 

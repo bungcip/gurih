@@ -220,11 +220,7 @@ fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef,
     })
 }
 
-fn parse_status_transition(
-    node: &KdlNode,
-    src: &str,
-    from_status: &str,
-) -> Result<TransitionDef, CompileError> {
+fn parse_status_transition(node: &KdlNode, src: &str, from_status: &str) -> Result<TransitionDef, CompileError> {
     let target = get_arg_string(node, 0, src)?;
     let permission = get_prop_string(node, "permission", src).ok();
 
