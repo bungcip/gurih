@@ -339,9 +339,13 @@ async fn start_server(
                 no_auth,
             };
 
-            let mut app = app
-                .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
-                .with_state(state);
+            // Configure CORS: Permissive in Dev/Watch/NoAuth mode, Strict (Same-Origin) in Production
+            if watch_mode || no_auth {
+                println!("⚠️  CORS enabled (Permissive)");
+                app = app.layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any));
+            }
+
+            let mut app = app.with_state(state);
 
             if let Some(service) = static_service {
                 if watch_mode {
