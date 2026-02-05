@@ -199,6 +199,20 @@ async fn test_period_open_configured() {
 
     // validate_transition calls check_precondition
     let mut schema = Schema::default();
+
+    // Add "MyPeriod" entity
+    schema.entities.insert(
+        Symbol::from("MyPeriod"),
+        gurih_ir::EntitySchema {
+            name: Symbol::from("MyPeriod"),
+            table_name: Symbol::from("my_period"),
+            fields: vec![],
+            relationships: vec![],
+            options: std::collections::HashMap::new(),
+            seeds: None,
+        },
+    );
+
     let wf = WorkflowSchema {
         name: Symbol::from("WF"),
         entity: Symbol::from("E"),
