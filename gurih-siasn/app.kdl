@@ -171,6 +171,12 @@ routes {
             route "/:id" to="FormRiwayatSKP"
             route:delete "/:id" action="DeleteRiwayatSKP"
         }
+        group "/riwayat-hukuman-disiplin" {
+            route "/" to="DaftarRiwayatHukumanDisiplin"
+            route "/new" to="FormRiwayatHukumanDisiplin"
+            route "/:id" to="FormRiwayatHukumanDisiplin"
+            route:delete "/:id" action="DeleteRiwayatHukumanDisiplin"
+        }
         group "/usulan-slks" {
             route "/" to="DaftarUsulanSLKS"
             route "/new" to="FormUsulanSLKS"
@@ -214,6 +220,7 @@ menu "MainMenu" {
         item "Riwayat Penghargaan" to="/kepegawaian/riwayat-penghargaan"
         item "Riwayat Sertifikasi" to="/kepegawaian/riwayat-sertifikasi"
         item "Riwayat SKP" to="/kepegawaian/riwayat-skp"
+        item "Riwayat Hukuman Disiplin" to="/kepegawaian/riwayat-hukuman-disiplin"
         item "Usulan SLKS" to="/kepegawaian/usulan-slks"
     }
 
