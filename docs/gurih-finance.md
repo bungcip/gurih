@@ -2,42 +2,38 @@
 
 ## 1. Overview
 
-**GurihFinance** is the financial accounting module of the GurihERP suite. It provides a robust, double-entry bookkeeping system designed to be extensible and integrated with other operational modules (such as HR, Procurement, and POS).
+**GurihFinance** is the core financial module of the GurihERP suite, built entirely on the **Gurih Framework**. It serves as the central ledger for all financial transactions, ensuring data integrity, auditability, and compliance with accounting standards.
 
-Built on top of the **Gurih Framework**, it leverages a DSL-driven architecture to define its data models, accounting rules, and reporting structures. This ensures that financial policies are defined declaratively in code (`.kdl` files) rather than hardcoded in the application logic.
+It is designed to be **integration-first**, meaning other modules (Sales, Procurement, HR) do not write directly to the ledger but instead submit transactions via strictly defined **Posting Rules**.
 
-### Key Features
-- **Double-Entry Ledger**: Ensures all transactions are balanced.
-- **Configurable Chart of Accounts**: Hierarchical account structure with support for Assets, Liabilities, Equity, Revenue, and Expenses.
-- **Journal Entry Workflow**: Strict lifecycle management (Draft -> Posted -> Cancelled) with immutability guarantees.
-- **Automated Integration**: API for other modules to post transactions via `posting_rule`.
-- **Flexible Reporting**: DSL-based query engine for Trial Balance, Balance Sheet, and Income Statement.
+### Role in GurihERP
+- **Central Ledger**: All financial impact from other modules aggregates here.
+- **Source of Truth**: The `JournalEntry` entity is the immutable record of financial history.
+- **Compliance Engine**: Enforces rules like balanced transactions and open accounting periods at the framework level.
 
 ---
 
 ## 2. Architecture
 
-GurihFinance follows the standard Gurih Framework architecture, separating the definition (DSL) from the execution (Runtime).
+GurihFinance leverages the **Gurih Framework**'s architecture, separating definition (DSL) from execution (Runtime).
 
-### Structure
+### Project Structure
 
-The module is organized as a collection of KDL files that define the schema and behavior. The main entry point is `gurih.kdl`, which includes other functional definitions.
+The module is defined by a set of `.kdl` files, each focusing on a specific domain aspect.
 
 ![Project Structure](images/finance-project-structure.png)
 
+1.  **DSL Definition (`gurih-finance/*.kdl`)**: Defines entities (`Account`, `JournalEntry`), workflows, and rules.
+2.  **Framework Engine (`gurih_runtime`)**: Loads the DSL, manages the database, and serves the API.
+3.  **Module Logic (`FinancePlugin`)**: A Rust plugin that implements domain-specific constraints (e.g., `balanced_transaction`) and complex actions (e.g., `generate_closing_entry`).
+
 ### Execution Model
 
-1. **DSL Definition**: The schema is defined in `gurih.kdl` and included files (`coa.kdl`, `journal.kdl`, `period.kdl`, `reports.kdl`, `integration.kdl`).
-2. **Compiler**: The `gurih_dsl` crate parses these files into an Intermediate Representation (IR).
-3. **Runtime**: The `gurih_runtime` loads the IR and initializes the database (SQLite/Postgres).
-4. **Plugin Logic**: The `FinancePlugin` (written in Rust) attaches to the runtime to enforce specific logic, such as:
-   - Validating `balanced_transaction` on posting.
-   - Performing period closing calculations (`finance:generate_closing_entry`).
-   - Reversing journals (`finance:reverse_journal`).
-
-### Runtime Output (Dashboard)
-
-When the system runs, it loads the DSL and initializes the database and API endpoints automatically.
+When the application starts:
+1.  **Parser**: The framework reads `gurih.kdl` and included files (`coa.kdl`, `journal.kdl`, etc.).
+2.  **Schema Generation**: It builds an in-memory schema and migrates the database (SQLite/Postgres).
+3.  **Plugin Attachment**: The `FinancePlugin` attaches to hooks for validation and custom effects.
+4.  **UI Generation**: The frontend automatically renders pages and dashboards based on the DSL.
 
 ![Finance Dashboard](images/finance-dashboard.png)
 
@@ -45,91 +41,52 @@ When the system runs, it loads the DSL and initializes the database and API endp
 
 ## 3. GurihFinance DSL
 
-The core of GurihFinance is its DSL definitions.
+The behavior of GurihFinance is dictated by its DSL definitions. Below are the key constructs.
 
 ### Chart of Accounts (`coa.kdl`)
 
-Accounts are defined as entities with specific fields like `code`, `type`, and `normal_balance`. The hierarchy is managed via a self-referencing `parent` field.
-
-```kdl
-enum "AccountType" {
-    Asset
-    Liability
-    Equity
-    Revenue
-    Expense
-}
-
-entity "Account" {
-    field:pk id
-    field:string "code" unique=#true
-    field:string "name"
-    field:enum "type" "AccountType"
-    field:enum "normal_balance" "NormalBalance"
-    field:boolean "is_active" default="true"
-    field:boolean "is_group" default="false"
-
-    // Using self-referencing relationship for hierarchy
-    belongs_to "parent" entity="Account"
-}
-```
-
-**UI Representation:**
-The framework automatically generates the UI for managing accounts based on the entity definition.
+Accounts are the building blocks of the ledger. They are defined as hierarchical entities.
 
 ![Chart of Accounts List](images/finance-coa-list.png)
 
-### Journal Entries (`journal.kdl`)
+**Key DSL Features:**
+- **`belongs_to "parent"`**: Enables a hierarchical Chart of Accounts (e.g., Assets -> Current Assets -> Cash).
+- **`normal_balance`**: Enforces logical validation (e.g., Assets should have Debit balance).
+- **`rule "PreventInUseAccountDelete"`**: Ensures data integrity by preventing deletion of accounts with existing journal entries.
 
-Transactions are recorded as `JournalEntry` records containing multiple `JournalLine` items. The workflow is strictly controlled via DSL.
+### Journal & Workflow (`journal.kdl`)
 
-![Journal Entry DSL](images/finance-dsl-example.png)
+The `JournalEntry` is the heart of the system. Its lifecycle is strictly controlled by a **Workflow**.
 
-**Key Constructs:**
-- **`workflow "JournalWorkflow"`**: Defines the state machine (Draft, Posted, Cancelled).
-- **`requires { balanced_transaction #true }`**: A custom validator enforced by `FinancePlugin` that ensures `sum(debit) == sum(credit)` before the transition to "Posted" is allowed.
-- **`period_open entity="AccountingPeriod"`**: Checks if the transaction date falls within an open accounting period.
-- **`state "Posted" immutable=#true`**: Prevents editing the journal entry once it reaches the "Posted" state.
+![Journal DSL Example](images/finance-dsl-example.png)
+
+**Workflow Rules:**
+- **`balanced_transaction #true`**: A custom precondition checked by `FinancePlugin`. It ensures `Sum(Debit) == Sum(Credit)`.
+- **`period_open entity="AccountingPeriod"`**: Prevents posting into closed or locked periods.
+- **`valid_parties #true`**: Ensures that for Control Accounts (like AR/AP), a valid Customer or Vendor is specified.
+- **`immutable=#true`**: Once in the `Posted` state, the record cannot be modified.
+
+![Journal Entry List](images/finance-journal-list.png)
 
 ### Accounting Periods (`period.kdl`)
 
-Periods manage the financial timeline. The `generate_closing_entry` action is used to close a period, calculating retained earnings.
+Manages the fiscal timeline.
 
-```kdl
-entity "AccountingPeriod" {
-    field:pk id
-    field:string "name" // e.g. "Jan 2024"
-    field:date "start_date"
-    field:date "end_date"
-    field:enum "status" "PeriodStatus" default="Open"
-}
+- **`status`**: Open, Closed, or Locked.
+- **`generate_closing_entry`**: A complex action implemented in Rust that calculates Retained Earnings and creates a closing journal entry for the period.
 
-action "GenerateClosingEntry" {
-    params "id"
-    step "finance:generate_closing_entry" period_id="param(\"id\")"
-}
-```
+### Reports (`reports.kdl`)
 
-### Reporting (`reports.kdl`)
-
-Reports are defined using the `query:flat` construct, which allows joining entities and calculating aggregates.
+Reports are defined using the `query:flat` construct, which allows for performant read-only projections.
 
 ```kdl
 query:flat "TrialBalanceQuery" for="Account" {
     params "start_date" "end_date"
     select "code"
     select "name"
-
-    // Aggregate formulas
     formula "total_debit" "SUM([debit])"
     formula "total_credit" "SUM([credit])"
-
-    join "JournalLine" {
-        select "debit"
-        select "credit"
-        // ...
-    }
-    // ...
+    // ... joins and filters
 }
 ```
 
@@ -137,46 +94,31 @@ query:flat "TrialBalanceQuery" for="Account" {
 
 ## 4. End-to-End Example
 
-### 1. Journal Entry Creation
-A user creates a journal entry via the generated UI or API. It starts in the **Draft** state.
+### Scenario: Recording a Manual Transaction
 
-![Journal Entry List](images/finance-journal-list.png)
-
-### 2. Validation & Posting
-When the user attempts to post the journal, the `post` transition is triggered.
-
-```kdl
-    transition "post" {
-        from "Draft"
-        to "Posted"
-        requires {
-            balanced_transaction #true
-            period_open entity="AccountingPeriod"
-        }
-    }
-```
-
-The system verifies:
-1.  **Balance**: Total Debit equals Total Credit.
-2.  **Period**: The transaction date is in an "Open" period.
-
-If valid, the status changes to **Posted**, and the record becomes immutable.
+1.  **Creation**: A user navigates to "Journal Entries" and clicks "New". They enter the date, description, and lines (Debits/Credits).
+    *   *State*: `Draft`
+2.  **Submission**: The user clicks "Post".
+3.  **Validation**:
+    *   The framework checks `requires { balanced_transaction #true }`.
+    *   If Debits = 100 and Credits = 90, the transition fails with "Transaction not balanced".
+4.  **Success**: If valid, the status updates to `Posted`. The UI now shows the record as Read-Only.
 
 ---
 
 ## 5. Integration Guide
 
-Other modules (like `GurihSIASN` for Payroll or a POS system) integrate with Finance using **Posting Rules**.
+External modules should **never** write to `JournalEntry` tables directly. Instead, they must use **Posting Rules**.
 
 ### Posting Rules (`integration.kdl`)
 
-External modules do not write to `JournalEntry` directly. Instead, they define a `posting_rule` that maps their documents to accounting entries.
+A `posting_rule` defines how a source document (e.g., `Invoice`, `PayrollRun`) maps to the general ledger.
 
 ![Integration DSL](images/finance-integration.png)
 
 **Example: Payroll Integration**
 
-When a `PayrollRun` is approved in the HR module, it triggers the `PayrollPosting` rule:
+When the HR module approves a payroll run, it triggers the `PayrollPosting` rule:
 
 ```kdl
 posting_rule "PayrollPosting" for="PayrollRun" {
@@ -192,16 +134,11 @@ posting_rule "PayrollPosting" for="PayrollRun" {
         account "Tax Payable"
         credit "doc.total_tax"
     }
-
-    entry {
-        account "Cash"
-        credit "doc.total_net_pay"
-    }
+    // ...
 }
 ```
 
-**Workflow:**
-1.  **Trigger**: Logic in the external module (or a manual action) invokes the posting rule.
-2.  **Mapping**: The framework evaluates the expressions (e.g., `doc.total_gross_pay`) against the source document.
-3.  **Creation**: A balanced `JournalEntry` is automatically created and posted.
-4.  **Audit**: The generated journal entry is linked back to the source `PayrollRun` ID for auditability.
+**Benefits:**
+- **Decoupling**: The HR module doesn't need to know about Account IDs or Debits/Credits logic.
+- **Audit Trail**: The resulting Journal Entry is automatically linked to the `PayrollRun` ID.
+- **Consistency**: Posting logic is defined in one place (the DSL), not scattered across codebases.
