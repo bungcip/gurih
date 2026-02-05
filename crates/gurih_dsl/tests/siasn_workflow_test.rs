@@ -7,7 +7,7 @@ fn test_siasn_workflow_parsing() {
     let content = std::fs::read_to_string(path).expect("Failed to read workflow.kdl");
     let ast = parse(&content, None).expect("Failed to parse workflow.kdl");
 
-    assert_eq!(ast.workflows.len(), 3);
+    assert_eq!(ast.workflows.len(), 4);
     let wf = &ast.workflows[0];
     assert_eq!(wf.name, "PegawaiStatusWorkflow");
     assert_eq!(wf.entity, "Pegawai");
@@ -32,4 +32,8 @@ fn test_siasn_workflow_parsing() {
         _ => false,
     });
     assert!(has_rank_eligibility, "Missing update_rank_eligibility effect");
+
+    // Check new workflow
+    let tb_wf = ast.workflows.iter().find(|w| w.name == "UsulanTugasBelajarWorkflow").expect("Missing UsulanTugasBelajarWorkflow");
+    assert_eq!(tb_wf.entity, "UsulanTugasBelajar");
 }

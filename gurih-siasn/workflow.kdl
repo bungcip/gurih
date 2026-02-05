@@ -132,3 +132,24 @@ workflow "UsulanSLKSWorkflow" for="UsulanSLKS" field="status" {
         allowed_roles "AdminSDMAO"
     }
 }
+
+workflow "UsulanTugasBelajarWorkflow" for="UsulanTugasBelajar" field="status" {
+    state "Draft" initial="true"
+    state "Diajukan"
+    state "Disetujui"
+    state "Ditolak"
+
+    transition "Submit" from="Draft" to="Diajukan" {
+        requires {
+             is_set "file_surat"
+        }
+    }
+
+    transition "Approve" from="Diajukan" to="Disetujui" {
+        allowed_roles "AdminSDMAO"
+    }
+
+    transition "Reject" from="Diajukan" to="Ditolak" {
+        allowed_roles "AdminSDMAO"
+    }
+}
