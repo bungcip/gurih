@@ -513,4 +513,35 @@ mod tests {
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), json!(true));
     }
+
+    #[tokio::test]
+    async fn test_eval_valid_date_coverage() {
+        let ctx = json!({
+            "null_field": null
+        });
+
+        // 1. Test argument count mismatch (0 args)
+        let expr = Expression::FunctionCall {
+            name: Symbol::from("valid_date"),
+            args: vec![],
+        };
+        let res = evaluate(&expr, &ctx, None, None).await;
+        assert!(res.is_err());
+
+        // 2. Test Null argument
+        let expr = Expression::FunctionCall {
+            name: Symbol::from("valid_date"),
+            args: vec![Expression::Field(Symbol::from("null_field"))],
+        };
+        let res = evaluate(&expr, &ctx, None, None).await.unwrap();
+        assert_eq!(res, json!(false));
+
+        // 3. Test non-string argument (Bool)
+        let expr = Expression::FunctionCall {
+            name: Symbol::from("valid_date"),
+            args: vec![Expression::BoolLiteral(true)],
+        };
+        let res = evaluate(&expr, &ctx, None, None).await.unwrap();
+        assert_eq!(res, json!(false));
+    }
 }
