@@ -10,10 +10,9 @@ fn get_npm_cmd() -> &'static str {
     }
 
     #[cfg(windows)]
-    let cmd = "npm.cmd";
+    return "npm.cmd";
     #[cfg(not(windows))]
-    let cmd = "npm";
-    cmd
+    return "npm";
 }
 
 pub fn rebuild_frontend() {
