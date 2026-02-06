@@ -454,10 +454,17 @@ fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
                         (name, arg0)
                     };
 
+                    let ownership_str = get_prop_string(child, "type", src).ok();
+                    let ownership = match ownership_str.as_deref() {
+                        Some("composition") => Ownership::Composition,
+                        _ => Ownership::Reference,
+                    };
+
                     relationships.push(RelationshipDef {
                         rel_type,
                         name,
                         target_entity: target,
+                        ownership,
                         span: child.span().into(),
                     });
                 }

@@ -80,6 +80,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     name: r.name.as_str().into(),
                     target_entity: r.target_entity.as_str().into(),
                     rel_type: r.rel_type.clone(),
+                    ownership: r.ownership.clone(),
                 })
                 .collect();
 
