@@ -23,3 +23,6 @@ fake = { workspace = true }
 rand = { workspace = true }
 image = "0.25"
 chrono = { workspace = true }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }

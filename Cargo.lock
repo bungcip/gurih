@@ -1144,6 +1144,7 @@ dependencies = [
  "sqlx",
  "symbol_table",
  "tokio",
+ "tower",
  "tower-http",
  "uuid",
 ]
