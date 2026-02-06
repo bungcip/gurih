@@ -5,6 +5,7 @@ use axum::{
     http::{HeaderMap, Request, StatusCode},
     response::{Html, IntoResponse},
     routing::{MethodFilter, get, on, post},
+    middleware,
 };
 use clap::{Parser, Subcommand};
 use gurih_dsl::{compile, diagnostics::DiagnosticEngine, diagnostics::ErrorFormatter};
@@ -32,6 +33,7 @@ use tower_http::services::ServeDir;
 mod faker;
 mod frontend;
 mod image_processor;
+mod security;
 
 #[derive(Parser)]
 #[command(name = "gurih")]
@@ -344,6 +346,9 @@ async fn start_server(
                 println!("⚠️  CORS enabled (Permissive)");
                 app = app.layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any));
             }
+
+            // Apply Security Headers (Global)
+            app = app.layer(middleware::from_fn(security::security_headers));
 
             let mut app = app.with_state(state);
 
