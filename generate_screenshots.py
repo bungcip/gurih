@@ -1,6 +1,53 @@
 import sys
 from playwright.sync_api import sync_playwright
 import json
+import os
+
+def render_dsl_screenshot(page, file_path, output_path, title):
+    try:
+        with open(file_path, 'r') as f:
+            content = f.read()
+            # Escape HTML characters
+            content = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+        return
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ margin: 0; background: #1e1e1e; font-family: 'Menlo', 'Monaco', 'Courier New', monospace; color: #d4d4d4; display: flex; justify-content: center; align-items: center; height: 100vh; }}
+            .window {{ width: 900px; height: 600px; display: flex; flex-direction: column; background: #1e1e1e; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 6px; overflow: hidden; }}
+            .titlebar {{ background: #3c3c3c; height: 30px; display: flex; align-items: center; justify-content: center; color: #cccccc; font-size: 12px; position: relative; }}
+            .controls {{ position: absolute; left: 10px; display: flex; gap: 6px; }}
+            .dot {{ width: 12px; height: 12px; border-radius: 50%; }}
+            .red {{ background: #ff5f56; }}
+            .yellow {{ background: #ffbd2e; }}
+            .green {{ background: #27c93f; }}
+            .content {{ flex: 1; padding: 20px; overflow: auto; white-space: pre; font-size: 13px; line-height: 1.5; color: #d4d4d4; }}
+            .line-numbers {{ color: #858585; margin-right: 15px; text-align: right; user-select: none; }}
+        </style>
+    </head>
+    <body>
+        <div class="window">
+            <div class="titlebar">
+                <div class="controls">
+                    <div class="dot red"></div>
+                    <div class="dot yellow"></div>
+                    <div class="dot green"></div>
+                </div>
+                {title}
+            </div>
+            <div class="content">{content}</div>
+        </div>
+    </body>
+    </html>
+    """
+    page.set_content(html)
+    page.locator(".window").screenshot(path=output_path)
+    print(f"Captured DSL screenshot: {output_path}")
 
 def get_mocks(module):
     mocks = []
@@ -158,7 +205,7 @@ def run(module):
 
             page.route(mock["url"], create_handler(mock["json"]))
 
-        base_url = "http://localhost:3000"
+        base_url = "http://localhost:5173"
 
         print("Injecting fake user...")
         page.goto(base_url)
@@ -184,10 +231,7 @@ def run(module):
                 page.screenshot(path="docs/images/finance-dashboard.png")
 
                 print("Navigating to Chart of Accounts (Account List)...")
-                # Using generic entity route as App.vue restricts routing
-                # /app/:entity
                 page.goto(f"{base_url}/#/app/Account")
-                # Wait for table
                 page.wait_for_selector("table", timeout=10000)
                 page.wait_for_timeout(1000)
                 page.screenshot(path="docs/images/finance-coa-list.png")
@@ -198,6 +242,9 @@ def run(module):
                 page.wait_for_timeout(1000)
                 page.screenshot(path="docs/images/finance-journal-list.png")
 
+                print("Capturing DSL screenshot for CoA...")
+                render_dsl_screenshot(page, "gurih-finance/coa.kdl", "docs/images/ide_coa.png", "coa.kdl")
+
             elif module == "siasn":
                 print("Capturing SIASN Dashboard...")
                 page.screenshot(path="docs/images/siasn-dashboard.png")
@@ -207,6 +254,9 @@ def run(module):
                 page.wait_for_selector("table", timeout=10000)
                 page.wait_for_timeout(1000)
                 page.screenshot(path="docs/images/siasn-pegawai-list.png")
+
+                print("Capturing DSL screenshot for Status...")
+                render_dsl_screenshot(page, "gurih-siasn/status.kdl", "docs/images/ide_status.png", "status.kdl")
 
         except Exception as e:
             print(f"Error during execution: {e}")
