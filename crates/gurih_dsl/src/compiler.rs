@@ -283,12 +283,14 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             // Create new workflow
             let wf_name_str = format!("{}StatusWorkflow", status_def.entity);
             let wf_name = Symbol::from(wf_name_str.as_str());
+            let field_name = status_def.field.as_deref().unwrap_or("status");
+
             ir_workflows.insert(
                 wf_name.clone(),
                 WorkflowSchema {
                     name: wf_name.clone(),
                     entity: entity_sym.clone(),
-                    field: Symbol::from("status"), // Default field
+                    field: Symbol::from(field_name),
                     initial_state: Symbol::from(""),
                     states: vec![],
                     transitions: vec![],
@@ -296,6 +298,11 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             );
             ir_workflows.get_mut(&wf_name).unwrap()
         };
+
+        // Update workflow field if specified in this block
+        if let Some(field_name) = &status_def.field {
+            workflow.field = Symbol::from(field_name.as_str());
+        }
 
         // Ensure state exists
         let status_sym = Symbol::from(status_def.status.as_str());
@@ -306,7 +313,10 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             });
         }
 
-        if workflow.initial_state == Symbol::from("") {
+        if status_def.initial {
+            workflow.initial_state = status_sym.clone();
+        } else if workflow.initial_state == Symbol::from("") {
+            // Default to first encountered if no initial specified (legacy behavior fallback)
             workflow.initial_state = status_sym.clone();
         }
 

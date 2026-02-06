@@ -7,22 +7,31 @@ fn test_siasn_workflow_parsing() {
     let content = std::fs::read_to_string(path).expect("Failed to read workflow.kdl");
     let ast = parse(&content, None).expect("Failed to parse workflow.kdl");
 
-    assert_eq!(ast.workflows.len(), 4);
-    let wf = &ast.workflows[0];
-    assert_eq!(wf.name, "PegawaiStatusWorkflow");
-    assert_eq!(wf.entity, "Pegawai");
-    assert_eq!(wf.field, "status_pegawai");
+    assert_eq!(ast.workflows.len(), 3);
 
-    // Check initial state
-    let initial_state = wf.states.iter().find(|s| s.initial).expect("No initial state");
-    assert_eq!(initial_state.name, "CPNS");
-
-    // Check transitions
-    let to_pns = wf
-        .transitions
+    // Check new workflow
+    let tb_wf = ast
+        .workflows
         .iter()
-        .find(|t| t.from == "CPNS" && t.to == "PNS")
-        .expect("Missing CPNS->PNS transition");
+        .find(|w| w.name == "UsulanTugasBelajarWorkflow")
+        .expect("Missing UsulanTugasBelajarWorkflow");
+    assert_eq!(tb_wf.entity, "UsulanTugasBelajar");
+}
+
+#[test]
+fn test_siasn_status_parsing() {
+    let path = Path::new("../../gurih-siasn/status.kdl");
+    let content = std::fs::read_to_string(path).expect("Failed to read status.kdl");
+    let ast = parse(&content, None).expect("Failed to parse status.kdl");
+
+    // We expect employee_statuses, not workflows (compiler handles conversion)
+    assert!(!ast.employee_statuses.is_empty());
+
+    let cpns_status = ast.employee_statuses.iter().find(|s| s.status == "CPNS").expect("Missing CPNS status");
+    assert_eq!(cpns_status.entity, "Pegawai");
+    assert_eq!(cpns_status.field, Some("status_pegawai".to_string()));
+
+    let to_pns = cpns_status.transitions.iter().find(|t| t.to == "PNS").expect("Missing -> PNS");
 
     // Check effects
     let has_rank_eligibility = to_pns.effects.iter().any(|e| match e {
@@ -32,12 +41,4 @@ fn test_siasn_workflow_parsing() {
         _ => false,
     });
     assert!(has_rank_eligibility, "Missing update_rank_eligibility effect");
-
-    // Check new workflow
-    let tb_wf = ast
-        .workflows
-        .iter()
-        .find(|w| w.name == "UsulanTugasBelajarWorkflow")
-        .expect("Missing UsulanTugasBelajarWorkflow");
-    assert_eq!(tb_wf.entity, "UsulanTugasBelajar");
 }

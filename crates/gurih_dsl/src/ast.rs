@@ -36,6 +36,8 @@ pub struct Ast {
 pub struct EmployeeStatusDef {
     pub status: String,
     pub entity: String,
+    pub field: Option<String>,
+    pub initial: bool,
     pub transitions: Vec<TransitionDef>,
     pub span: SourceSpan,
 }
