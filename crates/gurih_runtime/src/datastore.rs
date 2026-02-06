@@ -35,26 +35,54 @@ impl Default for MemoryDataStore {
     }
 }
 
+struct CompiledFilter<'a> {
+    key: &'a str,
+    val: &'a str,
+    val_i64: Option<i64>,
+    val_f64: Option<f64>,
+    val_bool: Option<bool>,
+}
+
+impl<'a> CompiledFilter<'a> {
+    fn new(key: &'a str, val: &'a str) -> Self {
+        Self {
+            key,
+            val,
+            val_i64: val.parse::<i64>().ok(),
+            val_f64: val.parse::<f64>().ok(),
+            val_bool: val.parse::<bool>().ok(),
+        }
+    }
+
+    fn matches(&self, record: &Value) -> bool {
+        match record.get(self.key) {
+            Some(Value::String(s)) => s == self.val,
+            Some(Value::Number(n)) => {
+                if let (Some(i), Some(vi)) = (n.as_i64(), self.val_i64) {
+                    i == vi
+                } else if let (Some(f), Some(vf)) = (n.as_f64(), self.val_f64) {
+                    (f - vf).abs() < f64::EPSILON
+                } else {
+                    n.to_string() == self.val
+                }
+            }
+            Some(Value::Bool(b)) => {
+                if let Some(vb) = self.val_bool {
+                    *b == vb
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+
 impl MemoryDataStore {
     pub fn new() -> Self {
         Self {
             data: Arc::new(Mutex::new(HashMap::new())),
         }
-    }
-
-    fn matches_filter(record: &Value, filters: &HashMap<String, String>) -> bool {
-        for (k, v) in filters {
-            let match_result = match record.get(k) {
-                Some(Value::String(s)) => s == v,
-                Some(Value::Number(n)) => n.to_string() == v.as_str(),
-                Some(Value::Bool(b)) => b.to_string() == v.as_str(),
-                _ => false,
-            };
-            if !match_result {
-                return false;
-            }
-        }
-        true
     }
 }
 
@@ -143,44 +171,16 @@ impl DataStore for MemoryDataStore {
         let data = self.data.lock().unwrap();
         if let Some(table) = data.get(entity) {
             // OPTIMIZATION: Pre-process filters to avoid parsing/allocating inside the loop
-            let parsed_filters: Vec<_> = filters
+            let parsed_filters: Vec<CompiledFilter> = filters
                 .iter()
-                .map(|(k, v)| {
-                    (
-                        k,
-                        v,
-                        v.parse::<i64>().ok(),
-                        v.parse::<f64>().ok(),
-                        v.parse::<bool>().ok(),
-                    )
-                })
+                .map(|(k, v)| CompiledFilter::new(k, v))
                 .collect();
 
             let results: Vec<Arc<Value>> = table
                 .values()
                 .filter(|record| {
-                    for (k, v, v_i64, v_f64, v_bool) in &parsed_filters {
-                        let match_result = match record.get(*k) {
-                            Some(Value::String(s)) => s == *v,
-                            Some(Value::Number(n)) => {
-                                if let (Some(i), Some(vi)) = (n.as_i64(), v_i64) {
-                                    i == *vi
-                                } else if let (Some(f), Some(vf)) = (n.as_f64(), v_f64) {
-                                    (f - *vf).abs() < f64::EPSILON
-                                } else {
-                                    n.to_string() == **v
-                                }
-                            }
-                            Some(Value::Bool(b)) => {
-                                if let Some(vb) = v_bool {
-                                    *b == *vb
-                                } else {
-                                    false
-                                }
-                            }
-                            _ => false,
-                        };
-                        if !match_result {
+                    for filter in &parsed_filters {
+                        if !filter.matches(record) {
                             return false;
                         }
                     }
@@ -198,44 +198,16 @@ impl DataStore for MemoryDataStore {
         let data = self.data.lock().unwrap();
         if let Some(table) = data.get(entity) {
             // OPTIMIZATION: Pre-process filters to avoid parsing/allocating inside the loop
-            let parsed_filters: Vec<_> = filters
+            let parsed_filters: Vec<CompiledFilter> = filters
                 .iter()
-                .map(|(k, v)| {
-                    (
-                        k,
-                        v,
-                        v.parse::<i64>().ok(),
-                        v.parse::<f64>().ok(),
-                        v.parse::<bool>().ok(),
-                    )
-                })
+                .map(|(k, v)| CompiledFilter::new(k, v))
                 .collect();
 
             let count = table
                 .values()
                 .filter(|record| {
-                    for (k, v, v_i64, v_f64, v_bool) in &parsed_filters {
-                        let match_result = match record.get(*k) {
-                            Some(Value::String(s)) => s == *v,
-                            Some(Value::Number(n)) => {
-                                if let (Some(i), Some(vi)) = (n.as_i64(), v_i64) {
-                                    i == *vi
-                                } else if let (Some(f), Some(vf)) = (n.as_f64(), v_f64) {
-                                    (f - *vf).abs() < f64::EPSILON
-                                } else {
-                                    n.to_string() == **v
-                                }
-                            }
-                            Some(Value::Bool(b)) => {
-                                if let Some(vb) = v_bool {
-                                    *b == *vb
-                                } else {
-                                    false
-                                }
-                            }
-                            _ => false,
-                        };
-                        if !match_result {
+                    for filter in &parsed_filters {
+                        if !filter.matches(record) {
                             return false;
                         }
                     }
@@ -258,16 +230,17 @@ impl DataStore for MemoryDataStore {
         if let Some(table) = data.get(entity) {
             let mut groups: HashMap<String, i64> = HashMap::new();
 
+            // OPTIMIZATION: Pre-process filters to avoid parsing/allocating inside the loop
+            let parsed_filters: Vec<CompiledFilter> = filters
+                .iter()
+                .map(|(k, v)| CompiledFilter::new(k, v))
+                .collect();
+
             for record in table.values() {
                 // Filter first
                 let mut match_filter = true;
-                for (k, v) in &filters {
-                    if let Some(val) = record.get(k).and_then(|val| val.as_str()) {
-                        if val != v {
-                            match_filter = false;
-                            break;
-                        }
-                    } else {
+                for filter in &parsed_filters {
+                    if !filter.matches(record) {
                         match_filter = false;
                         break;
                     }
