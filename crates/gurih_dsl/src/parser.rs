@@ -84,6 +84,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
                     ast.rules.extend(included_ast.rules);
                     ast.posting_rules.extend(included_ast.posting_rules);
                     ast.queries.extend(included_ast.queries);
+                    ast.employee_statuses.extend(included_ast.employee_statuses);
                 } else {
                     return Err(CompileError::ParseError {
                         src: src.to_string(),
@@ -201,6 +202,8 @@ fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef,
     let entity = get_prop_string(node, "for", src)
         .or_else(|_| get_prop_string(node, "entity", src))
         .unwrap_or_else(|_| "Pegawai".to_string());
+    let field = get_prop_string(node, "field", src).ok();
+    let initial = get_prop_bool(node, "initial").unwrap_or(false);
 
     let mut transitions = vec![];
 
@@ -215,6 +218,8 @@ fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef,
     Ok(EmployeeStatusDef {
         status,
         entity,
+        field,
+        initial,
         transitions,
         span: node.span().into(),
     })

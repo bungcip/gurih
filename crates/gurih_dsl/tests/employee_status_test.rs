@@ -86,3 +86,23 @@ fn test_invalid_effect_field() {
     let err = Validator::new(src).validate(&ast).unwrap_err();
     assert!(format!("{}", err).contains("Effect target field 'unknown_field' not found"));
 }
+
+#[test]
+fn test_employee_status_with_field() {
+    let src = r#"
+    entity "Pegawai" {
+        field:pk id
+        field:string status_pegawai
+    }
+
+    employee_status "Active" for="Pegawai" field="status_pegawai" {
+        can_transition_to "Inactive"
+    }
+    "#;
+
+    let ast = parse(src, None).expect("Parse failed");
+    Validator::new(src).validate(&ast).expect("Validation failed");
+
+    let status_def = &ast.employee_statuses[0];
+    assert_eq!(status_def.field, Some("status_pegawai".to_string()));
+}

@@ -49,6 +49,7 @@ include "master.kdl"
 include "kepegawaian.kdl"
 include "cuti.kdl"
 include "workflow.kdl"
+include "status.kdl"
 
 // -----------------------------------------------------------------------------
 // DASHBOARD
