@@ -23,3 +23,7 @@
 ## 2025-05-24 - Pagination Accessibility
 **Learning:** Pagination controls often lack `aria-current="page"` on the active item, forcing screen reader users to guess their location. Numbered buttons also need explicit labels (e.g., "Go to page 5") rather than just the number.
 **Action:** Use `aria-current="page"` for the active page button. Add descriptive `aria-label` to all page links/buttons. Hide decorative separators (like "...") with `aria-hidden="true"`.
+
+## 2025-05-24 - Custom Triggers for Native Inputs
+**Learning:** Custom UI triggers (like a calendar icon overlay) that hide/replace native input controls must be independently accessible (keyboard, ARIA), as they become the primary interaction point for visual users and potentially screen readers if the native control is obscured.
+**Action:** Ensure custom trigger overlays have `role="button"`, `tabindex="0"`, `aria-label`, and keyboard handlers (`Enter`/`Space`) to replicate the native trigger's functionality.
