@@ -138,6 +138,9 @@ impl DataEngine {
         // Rule Check (Create)
         self.check_rules(entity_name, "create", &data, None).await?;
 
+        // Check Composition Immutability (Prevent creating into locked parent)
+        self.check_composition_immutability(entity_name, &data).await?;
+
         // Workflow: Set initial state if applicable
         if let Some(wf) = self
             .schema
@@ -192,6 +195,59 @@ impl DataEngine {
         }
     }
 
+    async fn check_composition_immutability(&self, entity_name: &str, record: &Value) -> Result<(), String> {
+        let entity_schema = self
+            .schema
+            .entities
+            .get(&Symbol::from(entity_name))
+            .ok_or_else(|| format!("Entity '{}' not defined", entity_name))?;
+
+        for rel in &entity_schema.relationships {
+            if rel.rel_type == gurih_ir::RelationshipType::BelongsTo
+                && rel.ownership == gurih_ir::Ownership::Composition
+            {
+                // Attempt to resolve FK
+                let fk_field = format!("{}_id", rel.name);
+
+                let parent_id = record
+                    .get(&fk_field)
+                    .or_else(|| record.get(rel.name.as_str()))
+                    .and_then(|v| v.as_str());
+
+                if let Some(pid) = parent_id {
+                    let parent_entity_name = rel.target_entity.as_str();
+
+                    // Fetch Parent
+                    if let Some(parent_arc) = self.read(parent_entity_name, pid).await? {
+                        // Check Parent Workflow
+                        let parent_workflow = self
+                            .schema
+                            .workflows
+                            .values()
+                            .find(|w| w.entity == rel.target_entity);
+
+                        if let Some(pwf) = parent_workflow {
+                            let p_state = parent_arc
+                                .get(pwf.field.as_str())
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
+
+                            if let Some(s) = pwf.states.iter().find(|s| s.name == Symbol::from(p_state)) {
+                                if s.immutable {
+                                    return Err(format!(
+                                        "Cannot modify record because parent '{}' is in immutable state '{}'",
+                                        parent_entity_name, p_state
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub async fn update(&self, entity_name: &str, id: &str, data: Value, ctx: &RuntimeContext) -> Result<(), String> {
         let entity_schema = self
             .schema
@@ -218,10 +274,39 @@ impl DataEngine {
             .map(|v| v == "true")
             .unwrap_or(false);
 
+        let has_composition = entity_schema.relationships.iter().any(|r| {
+            r.rel_type == gurih_ir::RelationshipType::BelongsTo
+                && r.ownership == gurih_ir::Ownership::Composition
+        });
+
         let mut current_record_opt: Option<Arc<Value>> = None;
 
-        if workflow.is_some() || has_update_rules || track_changes {
+        if workflow.is_some() || has_update_rules || track_changes || has_composition {
             current_record_opt = self.datastore.get(entity_schema.table_name.as_str(), id).await?;
+        }
+
+        // Check Composition Immutability
+        if has_composition {
+            if let Some(current) = &current_record_opt {
+                // 1. Check Source (Old Parent)
+                self.check_composition_immutability(entity_name, current)
+                    .await?;
+
+                // 2. Check Destination (New Parent)
+                // Merge data to get potential new FK
+                let mut merged = (**current).clone();
+                if let Some(target) = merged.as_object_mut()
+                    && let Some(source) = data.as_object()
+                {
+                    for (k, v) in source {
+                        target.insert(k.clone(), v.clone());
+                    }
+                }
+                self.check_composition_immutability(entity_name, &merged)
+                    .await?;
+            } else {
+                return Err("Record not found for composition validation".to_string());
+            }
         }
 
         // Rule Check (Update)
@@ -397,10 +482,25 @@ impl DataEngine {
             .map(|v| v == "true")
             .unwrap_or(false);
 
+        let has_composition = entity_schema.relationships.iter().any(|r| {
+            r.rel_type == gurih_ir::RelationshipType::BelongsTo
+                && r.ownership == gurih_ir::Ownership::Composition
+        });
+
         let mut current_record_opt: Option<Arc<Value>> = None;
 
-        if workflow.is_some() || has_delete_rules {
+        if workflow.is_some() || has_delete_rules || has_composition {
             current_record_opt = self.read(entity_name, id).await?;
+        }
+
+        // Check Composition Immutability
+        if has_composition {
+            if let Some(current) = &current_record_opt {
+                self.check_composition_immutability(entity_name, current)
+                    .await?;
+            } else {
+                return Err("Record not found for composition validation".to_string());
+            }
         }
 
         if let Some(wf) = workflow {

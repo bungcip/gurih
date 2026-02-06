@@ -1,7 +1,8 @@
 use crate::diagnostics::SourceSpan;
 use crate::expr::Expr;
 pub use gurih_ir::{
-    ActionStepType, DatabaseType, FieldType, QueryType, RelationshipType, RouteVerb, StorageDriver, WidgetType,
+    ActionStepType, DatabaseType, FieldType, Ownership, QueryType, RelationshipType, RouteVerb, StorageDriver,
+    WidgetType,
 };
 
 #[derive(Debug, Clone)]
@@ -195,6 +196,7 @@ pub struct RelationshipDef {
     pub rel_type: RelationshipType,
     pub name: String,
     pub target_entity: String,
+    pub ownership: Ownership,
     pub span: SourceSpan,
 }
 

@@ -230,6 +230,12 @@ pub struct RelationshipSchema {
     pub name: Symbol,
     pub target_entity: Symbol,
     pub rel_type: RelationshipType,
+    #[serde(default = "default_ownership")]
+    pub ownership: Ownership,
+}
+
+fn default_ownership() -> Ownership {
+    Ownership::Reference
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -238,6 +244,13 @@ pub enum RelationshipType {
     BelongsTo,
     HasMany,
     HasOne,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Ownership {
+    Reference,
+    Composition,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
