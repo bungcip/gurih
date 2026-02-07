@@ -233,6 +233,26 @@ impl QueryEngine {
                         }
                     }
                     return "NULL".to_string();
+                } else if name.as_str() == "if" {
+                    if args.len() == 3 {
+                        let cond = Self::expression_to_sql(&args[0], params, db_type, runtime_params);
+                        let true_val = Self::expression_to_sql(&args[1], params, db_type, runtime_params);
+                        let false_val = Self::expression_to_sql(&args[2], params, db_type, runtime_params);
+                        return format!("CASE WHEN {} THEN {} ELSE {} END", cond, true_val, false_val);
+                    } else {
+                        return "NULL".to_string();
+                    }
+                } else if name.as_str() == "running_sum" {
+                    // running_sum(expr, partition_by, order_by)
+                    if args.len() >= 3 {
+                        let expr = Self::expression_to_sql(&args[0], params, db_type, runtime_params);
+                        let partition = Self::expression_to_sql(&args[1], params, db_type, runtime_params);
+                        let order = Self::expression_to_sql(&args[2], params, db_type, runtime_params);
+                        return format!(
+                            "SUM({}) OVER (PARTITION BY {} ORDER BY {} ROWS UNBOUNDED PRECEDING)",
+                            expr, partition, order
+                        );
+                    }
                 }
 
                 let args_sql: Vec<String> = args
@@ -496,5 +516,57 @@ mod tests {
 
         // Verify that user.profile.age is converted to [user].[profile].[age]
         assert!(sql.contains("[user].[profile].[age]"));
+    }
+
+    #[test]
+    fn test_reporting_functions() {
+        let mut schema = Schema::default();
+        let query = QuerySchema {
+            name: "ReportQuery".into(),
+            params: vec![],
+            root_entity: "Account".into(),
+            query_type: QueryType::Flat,
+            selections: vec![QuerySelection {
+                field: "id".into(),
+                alias: None,
+            }],
+            formulas: vec![
+                QueryFormula {
+                    name: "conditional_balance".into(),
+                    expression: Expression::FunctionCall {
+                        name: "if".into(),
+                        args: vec![
+                            Expression::BoolLiteral(true),
+                            Expression::Literal(100.0),
+                            Expression::Literal(0.0),
+                        ],
+                    },
+                },
+                QueryFormula {
+                    name: "running_balance".into(),
+                    expression: Expression::FunctionCall {
+                        name: "running_sum".into(),
+                        args: vec![
+                            Expression::Field("amount".into()),
+                            Expression::Field("account_id".into()),
+                            Expression::Field("date".into()),
+                        ],
+                    },
+                },
+            ],
+            filters: vec![],
+            joins: vec![],
+            group_by: vec![],
+        };
+        schema.queries.insert("ReportQuery".into(), query);
+
+        let runtime_params = std::collections::HashMap::new();
+        let strategy = QueryEngine::plan(&schema, "ReportQuery", &runtime_params).expect("Failed to plan");
+        let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0];
+
+        println!("Report SQL: {}", sql);
+
+        assert!(sql.contains("CASE WHEN TRUE THEN 100 ELSE 0 END AS conditional_balance"));
+        assert!(sql.contains("SUM([amount]) OVER (PARTITION BY [account_id] ORDER BY [date] ROWS UNBOUNDED PRECEDING) AS running_balance"));
     }
 }

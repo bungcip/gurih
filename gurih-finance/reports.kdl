@@ -4,9 +4,16 @@ query:flat "TrialBalanceQuery" for="Account" {
     params "start_date" "end_date"
     select "code"
     select "name"
-    // Formula for balance.
-    formula "total_debit" "SUM([debit])"
-    formula "total_credit" "SUM([credit])"
+
+    // Opening Balance (Before Start Date)
+    formula "opening_balance" "SUM(if([journal_entry.date] < param(\"start_date\"), [debit] - [credit], 0))"
+
+    // Period Movement
+    formula "period_debit" "SUM(if([journal_entry.date] >= param(\"start_date\") && [journal_entry.date] <= param(\"end_date\"), [debit], 0))"
+    formula "period_credit" "SUM(if([journal_entry.date] >= param(\"start_date\") && [journal_entry.date] <= param(\"end_date\"), [credit], 0))"
+
+    // Closing Balance (End Date)
+    formula "closing_balance" "SUM(if([journal_entry.date] <= param(\"end_date\"), [debit] - [credit], 0))"
 
     join "JournalLine" {
         select "debit"
@@ -17,8 +24,6 @@ query:flat "TrialBalanceQuery" for="Account" {
         }
     }
 
-    filter "param(\"start_date\") <= [journal_entry.date]"
-    filter "[journal_entry.date] <= param(\"end_date\")"
     filter "[journal_entry.status] == \"Posted\""
 
     group_by "id"
@@ -31,8 +36,10 @@ page "TrialBalanceReport" {
     datatable query="TrialBalanceQuery" {
         column "code"
         column "name"
-        column "total_debit"
-        column "total_credit"
+        column "opening_balance"
+        column "period_debit"
+        column "period_credit"
+        column "closing_balance"
     }
 }
 
@@ -41,6 +48,39 @@ page "BalanceSheetReport" {
     datatable query="TrialBalanceQuery" { // reusing for simplicity
         column "code"
         column "name"
+    }
+}
+
+// General Ledger
+
+query:flat "LedgerQuery" for="JournalLine" {
+    params "account_id"
+    select "journal_entry.date" as "date"
+    select "journal_entry.description" as "description"
+    select "debit"
+    select "credit"
+
+    // Running Balance: SUM(debit - credit) OVER (PARTITION BY account ORDER BY date)
+    formula "balance" "running_sum([debit] - [credit], [account], [journal_entry.date])"
+
+    join "JournalEntry" {
+        // Filter only
+    }
+
+    filter "[account] == param(\"account_id\")"
+    filter "[journal_entry.status] == \"Posted\""
+
+    // No group_by, detailed list
+}
+
+page "LedgerReport" {
+    title "General Ledger"
+    datatable query="LedgerQuery" {
+        column "date"
+        column "description"
+        column "debit"
+        column "credit"
+        column "balance"
     }
 }
 
