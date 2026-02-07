@@ -35,28 +35,28 @@ impl Default for MemoryDataStore {
     }
 }
 
-struct CompiledFilter<'a> {
-    key: &'a str,
-    val: &'a str,
+struct CompiledFilter {
+    key: String,
+    val: String,
     val_i64: Option<i64>,
     val_f64: Option<f64>,
     val_bool: Option<bool>,
 }
 
-impl<'a> CompiledFilter<'a> {
-    fn new(key: &'a str, val: &'a str) -> Self {
+impl CompiledFilter {
+    fn new(key: String, val: String) -> Self {
         Self {
-            key,
-            val,
             val_i64: val.parse::<i64>().ok(),
             val_f64: val.parse::<f64>().ok(),
             val_bool: val.parse::<bool>().ok(),
+            key,
+            val,
         }
     }
 
     fn matches(&self, record: &Value) -> bool {
-        match record.get(self.key) {
-            Some(Value::String(s)) => s == self.val,
+        match record.get(&self.key) {
+            Some(Value::String(s)) => s == &self.val,
             Some(Value::Number(n)) => {
                 if let (Some(i), Some(vi)) = (n.as_i64(), self.val_i64) {
                     i == vi
@@ -83,6 +83,15 @@ impl MemoryDataStore {
         Self {
             data: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    fn matches_filters(record: &Value, filters: &[CompiledFilter]) -> bool {
+        for filter in filters {
+            if !filter.matches(record) {
+                return false;
+            }
+        }
+        true
     }
 }
 
@@ -172,20 +181,13 @@ impl DataStore for MemoryDataStore {
         if let Some(table) = data.get(entity) {
             // OPTIMIZATION: Pre-process filters to avoid parsing/allocating inside the loop
             let parsed_filters: Vec<CompiledFilter> = filters
-                .iter()
+                .into_iter()
                 .map(|(k, v)| CompiledFilter::new(k, v))
                 .collect();
 
             let results: Vec<Arc<Value>> = table
                 .values()
-                .filter(|record| {
-                    for filter in &parsed_filters {
-                        if !filter.matches(record) {
-                            return false;
-                        }
-                    }
-                    true
-                })
+                .filter(|record| Self::matches_filters(record, &parsed_filters))
                 .cloned()
                 .collect();
             Ok(results)
@@ -199,20 +201,13 @@ impl DataStore for MemoryDataStore {
         if let Some(table) = data.get(entity) {
             // OPTIMIZATION: Pre-process filters to avoid parsing/allocating inside the loop
             let parsed_filters: Vec<CompiledFilter> = filters
-                .iter()
+                .into_iter()
                 .map(|(k, v)| CompiledFilter::new(k, v))
                 .collect();
 
             let count = table
                 .values()
-                .filter(|record| {
-                    for filter in &parsed_filters {
-                        if !filter.matches(record) {
-                            return false;
-                        }
-                    }
-                    true
-                })
+                .filter(|record| Self::matches_filters(record, &parsed_filters))
                 .count();
             Ok(count as i64)
         } else {
@@ -232,20 +227,13 @@ impl DataStore for MemoryDataStore {
 
             // OPTIMIZATION: Pre-process filters to avoid parsing/allocating inside the loop
             let parsed_filters: Vec<CompiledFilter> = filters
-                .iter()
+                .into_iter()
                 .map(|(k, v)| CompiledFilter::new(k, v))
                 .collect();
 
             for record in table.values() {
                 // Filter first
-                let mut match_filter = true;
-                for filter in &parsed_filters {
-                    if !filter.matches(record) {
-                        match_filter = false;
-                        break;
-                    }
-                }
-                if !match_filter {
+                if !Self::matches_filters(record, &parsed_filters) {
                     continue;
                 }
 

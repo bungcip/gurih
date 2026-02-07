@@ -21,3 +21,18 @@ pub fn capitalize(s: &str) -> String {
         Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
     }
 }
+
+pub fn to_snake_case(s: &str) -> String {
+    let mut result = String::new();
+    for (i, c) in s.char_indices() {
+        if c.is_uppercase() {
+            if i > 0 {
+                result.push('_');
+            }
+            result.push(c.to_ascii_lowercase());
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
