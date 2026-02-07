@@ -2,6 +2,7 @@ use crate::ast;
 use crate::errors::CompileError;
 use crate::parser::parse;
 use crate::validator::Validator;
+use gurih_ir::utils::to_snake_case;
 use gurih_ir::Symbol;
 use gurih_ir::{
     ActionSchema, ColumnSchema, ColumnType, DashboardSchema, DatabaseSchema, DatatableColumnSchema, DatatableSchema,
@@ -876,17 +877,3 @@ fn parse_field_type(
     }
 }
 
-fn to_snake_case(s: &str) -> String {
-    let mut result = String::new();
-    for (i, c) in s.char_indices() {
-        if c.is_uppercase() {
-            if i > 0 {
-                result.push('_');
-            }
-            result.push(c.to_ascii_lowercase());
-        } else {
-            result.push(c);
-        }
-    }
-    result
-}

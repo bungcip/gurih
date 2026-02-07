@@ -37,7 +37,7 @@ pub fn hash_password(password: &str) -> String {
     format!("v3${}${}", salt, hash_hex)
 }
 
-pub fn verify_password(password: &str, stored_value: &str) -> bool {
+fn verify_password(password: &str, stored_value: &str) -> bool {
     let mut valid_format = false;
     let mut salt = "dummy_salt";
     let mut stored_hash_str = "";

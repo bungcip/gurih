@@ -36,35 +36,9 @@ impl FormEngine {
                 let mut ui_fields = vec![];
                 for field_name in &section.fields {
                     let ui_field = if let Some(field_def) = entity.fields.iter().find(|f| &f.name == field_name) {
-                        let mut field_json = json!({
-                            "name": field_def.name,
-                            "label": to_title_case(&field_def.name.to_string()),
-                            "widget": self.map_field_type_to_widget(&field_def.field_type),
-                            "required": field_def.required
-                        });
-
-                        if let gurih_ir::FieldType::Enum(variants) = &field_def.field_type {
-                            field_json["options"] = json!(
-                                variants
-                                    .iter()
-                                    .map(|v| {
-                                        json!({
-                                            "label": v,
-                                            "value": v
-                                        })
-                                    })
-                                    .collect::<Vec<_>>()
-                            );
-                        }
-
-                        field_json
+                        self.create_field_widget(field_def)
                     } else if let Some(rel_def) = entity.relationships.iter().find(|r| &r.name == field_name) {
-                        json!({
-                            "name": format!("{}_id", rel_def.name.to_string().to_lowercase()),
-                            "label": to_title_case(&rel_def.name.to_string()),
-                            "widget": "RelationPicker",
-                            "required": false // Default for relation
-                        })
+                        self.create_relation_widget(rel_def)
                     } else {
                         return Err(format!("Field {} not found in entity {}", field_name, form.entity));
                     };
@@ -103,40 +77,13 @@ impl FormEngine {
             if field_def.name == Symbol::from("id") {
                 continue;
             }
-
-            let mut field_json = json!({
-                "name": field_def.name,
-                "label": to_title_case(field_def.name.as_str()),
-                "widget": self.map_field_type_to_widget(&field_def.field_type),
-                "required": field_def.required
-            });
-
-            if let gurih_ir::FieldType::Enum(variants) = &field_def.field_type {
-                field_json["options"] = json!(
-                    variants
-                        .iter()
-                        .map(|v| {
-                            json!({
-                                "label": v,
-                                "value": v
-                            })
-                        })
-                        .collect::<Vec<_>>()
-                );
-            }
-
-            ui_fields.push(field_json);
+            ui_fields.push(self.create_field_widget(field_def));
         }
 
         // Add relationship fields
         for rel in &entity.relationships {
             if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
-                ui_fields.push(json!({
-                    "name": format!("{}_id", rel.name.to_string().to_lowercase()),
-                    "label": to_title_case(&rel.name.to_string()),
-                    "widget": "RelationPicker",
-                    "required": false
-                }));
+                ui_fields.push(self.create_relation_widget(rel));
             }
         }
 
@@ -150,6 +97,39 @@ impl FormEngine {
             "entity": entity_name,
             "layout": ui_sections
         }))
+    }
+
+    fn create_field_widget(&self, field_def: &gurih_ir::FieldSchema) -> Value {
+        let mut field_json = json!({
+            "name": field_def.name,
+            "label": to_title_case(field_def.name.as_str()),
+            "widget": self.map_field_type_to_widget(&field_def.field_type),
+            "required": field_def.required
+        });
+
+        if let gurih_ir::FieldType::Enum(variants) = &field_def.field_type {
+            field_json["options"] = json!(
+                variants
+                    .iter()
+                    .map(|v| {
+                        json!({
+                            "label": v,
+                            "value": v
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            );
+        }
+        field_json
+    }
+
+    fn create_relation_widget(&self, rel_def: &gurih_ir::RelationshipSchema) -> Value {
+        json!({
+            "name": format!("{}_id", rel_def.name.to_string().to_lowercase()),
+            "label": to_title_case(&rel_def.name.to_string()),
+            "widget": "RelationPicker",
+            "required": false
+        })
     }
 
     fn map_field_type_to_widget(&self, field_type: &gurih_ir::FieldType) -> String {

@@ -1,6 +1,7 @@
 use crate::datastore::DataStore;
 use crate::errors::RuntimeError;
 use chrono::{Datelike, NaiveDate, Utc};
+use gurih_ir::utils::to_snake_case;
 use gurih_ir::{BinaryOperator, Expression, Schema, Symbol, UnaryOperator};
 use serde_json::Value;
 use std::sync::Arc;
@@ -358,20 +359,6 @@ fn as_str(v: &Value) -> Result<&str, RuntimeError> {
     }
 }
 
-fn to_snake_case(s: &str) -> String {
-    let mut result = String::new();
-    for (i, c) in s.char_indices() {
-        if c.is_uppercase() {
-            if i > 0 {
-                result.push('_');
-            }
-            result.push(c.to_ascii_lowercase());
-        } else {
-            result.push(c);
-        }
-    }
-    result
-}
 
 #[cfg(test)]
 mod tests {
