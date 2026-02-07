@@ -66,10 +66,15 @@ function showPicker() {
         >
         <!-- Icon Wrapper: Opaque background to cover native icon, clickable to trigger picker -->
         <div 
-            class="absolute inset-y-0 right-0 flex items-center pr-3 z-10 cursor-pointer text-text-muted hover:text-text-main"
+            class="absolute inset-y-0 right-0 flex items-center pr-3 z-10 cursor-pointer text-text-muted hover:text-text-main focus:outline-none focus:ring-2 focus:ring-blue-500"
             :class="{'bg-[--color-background] cursor-not-allowed': $attrs.disabled, 'bg-[--color-surface]': !$attrs.disabled}"
             style="margin: 1px; border-top-right-radius: 7px; border-bottom-right-radius: 7px; padding-left: 0.5rem;"
             @click="showPicker"
+            role="button"
+            aria-label="Choose date"
+            :tabindex="$attrs.disabled ? -1 : 0"
+            @keydown.enter.prevent="showPicker"
+            @keydown.space.prevent="showPicker"
         >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
