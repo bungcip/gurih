@@ -25,6 +25,12 @@ pub async fn security_headers(req: Request<Body>, next: Next) -> Response {
         "Referrer-Policy",
         HeaderValue::from_static("strict-origin-when-cross-origin"),
     );
+    // Sentinel: Add Content-Security-Policy to mitigate XSS and injection attacks.
+    // We allow 'unsafe-inline' for scripts/styles to support Vue runtime and dev mode injection without complex build steps.
+    headers.insert(
+        "Content-Security-Policy",
+        HeaderValue::from_static("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self'; frame-ancestors 'self';"),
+    );
 
     response
 }
@@ -54,5 +60,9 @@ mod tests {
         assert_eq!(headers.get("X-Frame-Options").unwrap(), "SAMEORIGIN");
         assert_eq!(headers.get("X-XSS-Protection").unwrap(), "1; mode=block");
         assert_eq!(headers.get("Referrer-Policy").unwrap(), "strict-origin-when-cross-origin");
+        assert!(headers.get("Content-Security-Policy").is_some());
+        let csp = headers.get("Content-Security-Policy").unwrap().to_str().unwrap();
+        assert!(csp.contains("default-src 'self'"));
+        assert!(csp.contains("script-src 'self' 'unsafe-inline'"));
     }
 }
