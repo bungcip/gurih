@@ -1,33 +1,45 @@
 # GurihSIASN Documentation
 
+GurihSIASN is the Human Resources module of the GurihERP suite, specifically tailored for the Indonesian Civil Servant (ASN) system.
+
 ## 1. Overview
 
-**GurihSIASN** is a specialized module for managing the Indonesian Civil Service (ASN - Aparatur Sipil Negara) lifecycle. It is built on top of the Gurih Framework but introduces domain-specific constructs tailored for public sector HR management.
+**GurihSIASN** manages the entire lifecycle of an employee (Pegawai), from recruitment (CPNS) to retirement (Pensiun).
 
-### Target Audience
-*   **ASN**: For self-service (Cuti, Data updates).
-*   **Admin/Verifikator**: For validating submissions (Kenaikan Pangkat, KGB).
-*   **Auditors**: For compliance checks.
-
-### Why DSL?
-HR regulations in the public sector change frequently (e.g., changes in retirement age or leave policies). Hardcoding these rules would make the system rigid. Using a DSL allows regulators or functional analysts to update policy parameters (like `min_years_of_service`) in configuration files without engineering intervention.
-
----
+*   **Users**: ASN employees, HR administrators, and auditors.
+*   **Philosophy**: Uses a flexible workflow engine to accommodate complex and frequently changing government regulations (Perka BKN).
+*   **DSL-Driven**: Policies are defined in `.kdl` files, allowing rapid updates without recompiling the core application.
 
 ## 2. DSL Usage in GurihSIASN
 
-GurihSIASN heavily utilizes the `employee_status` DSL construct, which is a specialized state machine wrapper designed for HR lifecycles.
+Unlike a standard CRUD application, GurihSIASN relies heavily on state machine definitions.
 
-### 2.1 Employee Status Lifecycle (`status.kdl`)
+### Project Structure
 
-This file defines the allowable transitions for an employee's career path (CPNS -> PNS -> Pensiun).
+```text
+gurih-siasn/
+├── app.kdl          # Application layout, menus, roles
+├── cuti.kdl         # Leave management
+├── kepegawaian.kdl  # Employee data definitions
+├── master.kdl       # Master data (Golongan, Jabatan)
+├── status.kdl       # Employee status transitions
+└── workflow.kdl     # Approval workflows (KGB, SLKS)
+```
 
-**Key Features:**
-*   **Preconditions**: `min_years_of_service`, `document`.
-*   **Effects**: `suspend_payroll`, `notify`.
+![SIASN Dashboard](images/siasn-dashboard.png)
+*Figure 1: SIASN Dashboard showing employee statistics.*
+
+### 2.1. Employee Status (`status.kdl`)
+
+The core of the system is the `employee_status` block, which defines the legal status of an employee.
+
+**Key Concepts:**
+*   **Transitions**: Allowable state changes (e.g., `CPNS` -> `PNS`).
+*   **Preconditions**: Requirements that must be met before transition (e.g., `min_years_of_service`).
+*   **Effects**: Side effects of the transition (e.g., `suspend_payroll`).
 
 ```kdl
-// Example: CPNS to PNS Transition
+// Example from status.kdl
 employee_status "CPNS" for="Pegawai" field="status_pegawai" initial=#true {
     can_transition_to "PNS" {
         requires {
@@ -43,18 +55,19 @@ employee_status "CPNS" for="Pegawai" field="status_pegawai" initial=#true {
 }
 ```
 
-![DSL Editor](images/ide_status.png)
+![Status DSL](images/ide_status.png)
+*Figure 2: Employee Status definition in the DSL editor.*
 
-### 2.2 Workflows (`workflow.kdl`)
+### 2.2. Workflows (`workflow.kdl`)
 
-Standard workflows are used for transactional documents like Leave Requests (`Cuti`) or Periodic Salary Increases (`KGB`).
+Standard approval workflows for requests like Leave (Cuti) or Salary Increases (KGB).
 
 ```kdl
+// Example from workflow.kdl
 workflow "KGBWorkflow" for="PengajuanKGB" field="status" {
     state "Draft" initial="true"
     state "Diajukan"
-    state "Disetujui"
-    state "Ditolak"
+    // ...
 
     transition "Draft_to_Diajukan" from="Draft" to="Diajukan" {
         requires {
@@ -64,59 +77,29 @@ workflow "KGBWorkflow" for="PengajuanKGB" field="status" {
 }
 ```
 
-### 2.3 Entity Definitions (`kepegawaian.kdl`)
-
-Defines the complex data model of an ASN, including history tables (`Riwayat`).
-
-```kdl
-entity "Pegawai" {
-    field:pk id
-    field:string "nip" unique=#true
-    field:name "nama"
-
-    // Enum-driven status
-    field:enum "status_pegawai" "StatusPegawai"
-
-    // One-to-Many Relationships (Histories)
-    has_many "riwayat_jabatan" "RiwayatJabatan"
-    has_many "riwayat_unor" "RiwayatUnor"
-}
-```
-
-![Pegawai List](images/siasn-pegawai-list.png)
-
----
-
 ## 3. System Flow
 
-How a DSL definition translates to runtime behavior:
+The system enforces rules at runtime:
 
-1.  **Definition**: An analyst updates `status.kdl` to require "2 years" instead of "1 year" for a transition.
-2.  **Parsing**: On restart (or hot-reload), the `gurih_dsl` parser reads the new rule.
-3.  **Framework**: The `WorkflowEngine` updates the state graph for the `Pegawai` entity.
-4.  **Runtime**: When a user tries to click "Promote to PNS", the `check_precondition` logic in `HrPlugin` evaluates the new rule against the employee's data.
+1.  **Request**: An employee initiates a status change (e.g., submits SK PNS).
+2.  **Validation**: The framework evaluates preconditions defined in the DSL.
+    *   `min_years_of_service 1` checks the `tmt_cpns` field against the current date.
+    *   `document "sk_pns"` ensures the file is uploaded.
+3.  **Transition**: If valid, the state updates to `PNS`.
+4.  **Effects**: The `update_rank_eligibility` effect is triggered, updating the employee's profile.
 
-![SIASN Dashboard](images/siasn-dashboard.png)
-
----
+![Pegawai List](images/siasn-pegawai-list.png)
+*Figure 3: Employee list reflecting current status.*
 
 ## 4. Comparison: GurihSIASN vs GurihFinance
 
-While both modules run on the same core, they utilize different patterns suitable for their domains.
+While both modules use the Gurih Framework, their DSL usage differs:
 
 | Feature | GurihFinance | GurihSIASN |
 | :--- | :--- | :--- |
-| **Primary Domain** | Accounting & Ledger | HR & Lifecycle |
-| **Core Entity** | `Account`, `JournalEntry` | `Pegawai` |
-| **State Management** | `workflow` (Transaction status) | `employee_status` (Lifecycle) + `workflow` |
-| **Logic** | **Posting Rules** (Immutable ledger) | **Policy Rules** (Eligibility checks) |
-| **DSL Specifics** | `posting_rule`, `query:flat` | `employee_status`, `check_kgb_eligibility` |
-| **Immutability** | Strict (Posted Journals cannot change) | Flexible (History tables track changes) |
+| **Focus** | Transactional integrity, double-entry accounting | Lifecycle management, regulatory compliance |
+| **Workflows** | Simple (Draft -> Posted), immutable end state | Complex, multi-stage approvals, reversible states |
+| **Validation** | Mathematical (Debits == Credits) | Policy-based (Years of Service, Document existence) |
+| **DSL Patterns** | `account`, `journal`, `posting_rule` | `employee_status`, `workflow`, `can_transition_to` |
 
-### Reusable Patterns
-Both modules share:
-*   **Entity/Field definitions**: Same syntax for defining data structures.
-*   **UI Generation**: `page`, `form`, and `datatable` constructs work identically.
-*   **Role-Based Access**: Permission system is unified in `app.kdl` and `gurih.kdl`.
-
-This consistency allows developers to switch between modules without learning a new "language", only a new "dialect".
+Future module developers should note that the framework supports both strict transactional models and flexible workflow models.
