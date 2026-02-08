@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch, onMounted, computed, inject } from 'vue'
+import { request } from '../api.js'
 import ConfirmModal from './ConfirmModal.vue'
 import DataTable from './DataTable.vue'
 import Button from './Button.vue'
@@ -30,19 +31,10 @@ const rowActions = computed(() => {
     })
 })
 
-const API_BASE = 'http://localhost:3000/api'
-
-function getAuthHeaders() {
-    return currentUser.value && currentUser.value.token ? {
-        'Authorization': `Bearer ${currentUser.value.token}`
-    } : {}
-}
 
 async function fetchConfig() {
     try {
-        const res = await fetch(`${API_BASE}/ui/page/${props.entity}`, {
-            headers: getAuthHeaders()
-        })
+        const res = await request(`/ui/page/${props.entity}`)
         const json = await res.json()
         if (json.error) {
             console.error("Config error:", json.error)
@@ -59,9 +51,7 @@ async function fetchData() {
     if (!config.value || !config.value.entity) return
     loading.value = true
     try {
-        const res = await fetch(`${API_BASE}/${config.value.entity}`, {
-            headers: getAuthHeaders()
-        })
+        const res = await request(`/${config.value.entity}`)
         data.value = await res.json()
     } catch (e) {
         console.error("Failed to fetch data", e)
@@ -108,7 +98,7 @@ async function handleCustomAction(action, row) {
                 }
                 return;
             }
-            
+
             await executeAction(action, url, row);
             return;
         }
@@ -117,11 +107,11 @@ async function handleCustomAction(action, row) {
             emit('create')
             return
         }
-        
+
         // Emit edit if it looks like a resource edit
         if (url.includes(row?.id) && (action.label.toLowerCase() === 'edit' || url.endsWith('/edit'))) {
-             emit('edit', row.id)
-             return
+            emit('edit', row.id)
+            return
         }
 
         // Default: Navigation
@@ -146,26 +136,21 @@ function closeModal() {
 }
 
 async function executeAction(action, url, row) {
-     try {
-        const headers = {
-            'Content-Type': 'application/json',
-            ...getAuthHeaders()
-        }
-        const res = await fetch(url.startsWith('http') ? url : `${API_BASE.replace('/api', '')}${url}`, { 
+    try {
+        const res = await request(url, {
             method: action.method.toUpperCase(),
-            headers,
-            body: JSON.stringify(row || {}) 
+            body: JSON.stringify(row || {})
         });
-        
+
         if (res.ok) {
             const json = await res.json().catch(() => ({}));
-            
-            if(json.message) {
-                showToast(json.message, 'success'); 
+
+            if (json.message) {
+                showToast(json.message, 'success');
             } else {
-                 showToast(`${action.label} successful`, 'success');
+                showToast(`${action.label} successful`, 'success');
             }
-            fetchData(); 
+            fetchData();
         } else {
             const err = await res.json().catch(() => ({}));
             showToast("Action failed: " + (err.error || res.statusText), 'error');
@@ -193,7 +178,7 @@ onMounted(() => {
                 <div class="text-sm">Loading records...</div>
             </div>
         </div>
-        
+
         <div v-else-if="config" class="flex-1 flex flex-col min-h-0">
             <!-- Dashboard Layout (Grid) -->
             <template v-if="config.layout === 'Grid'">
@@ -204,20 +189,18 @@ onMounted(() => {
             <template v-else>
                 <div class="card overflow-hidden bg-[--color-surface] flex-1 flex flex-col min-h-0">
                     <!-- Page Header -->
-                    <div class="p-6 px-8 border-b border-border bg-[--color-surface] flex justify-between items-center shrink-0">
+                    <div
+                        class="p-6 px-8 border-b border-border bg-[--color-surface] flex justify-between items-center shrink-0">
                         <div>
-                            <div class="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1">{{ props.entity }}</div>
+                            <div class="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1">{{
+                                props.entity }}</div>
                             <h2 class="text-xl font-bold text-text-main">{{ config.title || config.name }}</h2>
                         </div>
                         <!-- Page Actions -->
                         <div v-if="pageActions.length > 0" class="flex gap-3">
-                            <Button
-                                v-for="action in pageActions"
-                                :key="action.label"
+                            <Button v-for="action in pageActions" :key="action.label"
                                 @click="handleCustomAction(action)"
-                                :variant="action.variant === 'danger' ? 'danger' : 'primary'"
-                                :icon="action.icon"
-                            >
+                                :variant="action.variant === 'danger' ? 'danger' : 'primary'" :icon="action.icon">
                                 {{ action.label }}
                             </Button>
                         </div>
@@ -226,25 +209,14 @@ onMounted(() => {
                     <div class="flex-1 overflow-auto bg-[--color-surface]">
                         <!-- Table View -->
                         <template v-if="config.layout === 'TableView'">
-                            <DataTable
-                                :columns="config.columns"
-                                :data="data"
-                                :actions="rowActions"
-                                @action="handleCustomAction"
-                            />
+                            <DataTable :columns="config.columns" :data="data" :actions="rowActions"
+                                @action="handleCustomAction" />
                         </template>
                     </div>
                 </div>
             </template>
         </div>
     </div>
-    <ConfirmModal 
-        :is-open="modalState.isOpen"
-        :title="modalState.title"
-        :message="modalState.message"
-        variant="danger"
-        confirm-text="Delete"
-        @confirm="confirmAction"
-        @cancel="closeModal"
-    />
+    <ConfirmModal :is-open="modalState.isOpen" :title="modalState.title" :message="modalState.message" variant="danger"
+        confirm-text="Delete" @confirm="confirmAction" @cancel="closeModal" />
 </template>

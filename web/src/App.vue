@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, provide } from 'vue'
+import { request } from './api.js'
 import DynamicPage from './components/DynamicPage.vue'
 import DynamicForm from './components/DynamicForm.vue'
 import ToastNotification from './components/ToastNotification.vue'
@@ -14,10 +15,23 @@ const editId = ref(null)
 const currentUser = ref(null)
 const dashboardSchema = ref(null)
 
-// Cache control
 const menuCacheKey = ref(null)
 const dashboardCacheKey = ref(null)
 let isFetching = false
+
+// Theme State
+const isDark = ref(false)
+
+function toggleTheme() {
+    isDark.value = !isDark.value
+    if (isDark.value) {
+        document.documentElement.classList.add('dark')
+        localStorage.setItem('theme', 'dark')
+    } else {
+        document.documentElement.classList.remove('dark')
+        localStorage.setItem('theme', 'light')
+    }
+}
 
 // Toast State
 const toasts = ref([])
@@ -25,7 +39,7 @@ const toasts = ref([])
 function showToast(message, type = 'success') {
     const id = Date.now()
     toasts.value.push({ id, message, type })
-    
+
     // Auto remove after 3 seconds
     setTimeout(() => {
         toasts.value = toasts.value.filter(t => t.id !== id)
@@ -40,25 +54,21 @@ provide('showToast', showToast)
 provide('removeToast', removeToast)
 provide('currentUser', currentUser)
 
-const API_BASE = 'http://localhost:3000/api'
-
 async function fetchMenu() {
     // Prevent concurrent requests
     if (isFetching) return
     isFetching = true
 
     try {
-        const headers = currentUser.value && currentUser.value.token ? {
-            'Authorization': `Bearer ${currentUser.value.token}`
-        } : {}
+        const headers = {}
 
         // Add ETag from cache if available
         if (menuCacheKey.value) {
             headers['If-None-Match'] = menuCacheKey.value
         }
 
-        const res = await fetch(`${API_BASE}/ui/portal`, { headers })
-        
+        const res = await request('/ui/portal', { headers })
+
         // Handle 304 Not Modified
         if (res.status === 304) {
             // Content hasn't changed, use cached data
@@ -73,15 +83,15 @@ async function fetchMenu() {
         }
 
         menu.value = await res.json()
-        
+
         // Also fetch dashboard schema with caching
-        const dashHeaders = { ...headers }
+        const dashHeaders = {}
         if (dashboardCacheKey.value) {
             dashHeaders['If-None-Match'] = dashboardCacheKey.value
         }
 
-        const dashRes = await fetch(`${API_BASE}/ui/dashboard/HRDashboard`, { headers: dashHeaders })
-        
+        const dashRes = await request('/ui/dashboard/HRDashboard', { headers: dashHeaders })
+
         if (dashRes.status !== 304) {
             const dashEtag = dashRes.headers.get('ETag')
             if (dashEtag) {
@@ -90,7 +100,9 @@ async function fetchMenu() {
             dashboardSchema.value = await dashRes.json()
         }
     } catch (e) {
-        console.error("Failed to fetch menu or dashboard", e)
+        if (e.message !== 'Unauthorized') {
+            console.error("Failed to fetch menu or dashboard", e)
+        }
     } finally {
         isFetching = false
     }
@@ -186,105 +198,118 @@ onMounted(() => {
     fetchMenu()
     syncHashToState()
     window.addEventListener('hashchange', syncHashToState)
+
+    // Initialize theme
+    const savedTheme = localStorage.getItem('theme')
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+
+    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+        isDark.value = true
+        document.documentElement.classList.add('dark')
+    } else {
+        isDark.value = false
+        document.documentElement.classList.remove('dark')
+    }
 })
 </script>
 
 <template>
-  <Login v-if="!currentUser" @login-success="handleLoginSuccess" />
+    <Login v-if="!currentUser" @login-success="handleLoginSuccess" />
 
-  <div v-else class="flex h-screen w-full bg-background overflow-hidden">
-    <!-- Sidebar -->
-    <aside class="w-64 bg-surface border-r border-border flex-col hidden md:flex">
-        <div class="p-6 text-xl font-bold text-text-main flex items-center gap-2">
-            <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm">G</div>
-            GurihERP
-        </div>
-        <nav class="flex-1 overflow-y-auto px-4 py-2 space-y-6">
-            <div>
-                <a href="#/kitchen-sink" class="block w-full text-left px-3 py-2 text-text-muted hover:text-primary text-xs uppercase font-bold">Kitchen Sink</a>
+    <div v-else class="flex h-screen w-full bg-background overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-surface border-r border-border flex-col hidden md:flex">
+            <div class="p-6 text-xl font-bold text-text-main flex items-center gap-2">
+                <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm">G</div>
+                GurihERP
             </div>
-            <div v-for="module in menu" :key="module.label">
-                <div class="px-3 text-[10px] font-bold uppercase tracking-wider text-text-muted mb-2">{{ module.label }}</div>
-                <div class="space-y-1">
-                    <div v-for="item in module.items" :key="item.entity">
-                        <button 
-                            @click="navigateTo(item.entity)"
-                            class="w-full sidebar-item"
-                            :class="{'active': currentEntity === item.entity}"
-                        >
-                            {{ item.label }}
-                        </button>
+            <nav class="flex-1 overflow-y-auto px-4 py-2 space-y-6">
+                <div>
+                    <a href="#/kitchen-sink"
+                        class="block w-full text-left px-3 py-2 text-text-muted hover:text-primary text-xs uppercase font-bold">Kitchen
+                        Sink</a>
+                </div>
+                <div v-for="module in menu" :key="module.label">
+                    <div class="px-3 text-[10px] font-bold uppercase tracking-wider text-text-muted mb-2">{{
+                        module.label }}</div>
+                    <div class="space-y-1">
+                        <div v-for="item in module.items" :key="item.entity">
+                            <button @click="navigateTo(item.entity)" class="w-full sidebar-item"
+                                :class="{ 'active': currentEntity === item.entity }">
+                                {{ item.label }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <header class="h-16 bg-surface border-b border-border flex items-center justify-between px-8 shrink-0">
+                <div class="flex items-center gap-4">
+                    <h1 v-if="currentEntity" class="text-lg font-semibold text-text-main">{{ currentEntity }}</h1>
+                    <h1 v-else class="text-lg font-semibold text-text-main">Dashboard</h1>
+                </div>
+                <div class="flex items-center gap-3">
+                    <!-- Theme Toggle -->
+                    <button @click="toggleTheme"
+                        class="p-2 text-text-muted hover:text-text-main transition-colors rounded-lg hover:bg-background mr-2"
+                        :title="isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
+                        <span v-if="isDark" class="text-xl">☀️</span>
+                        <span v-else class="text-xl">🌙</span>
+                    </button>
+
+                    <button v-if="viewMode === 'list' && currentEntity" @click="onAction('create')"
+                        class="btn-primary flex items-center gap-2 text-sm">
+                        <span class="text-lg leading-none">+</span> New
+                    </button>
+                    <button v-if="viewMode !== 'list'" @click="onAction('cancel')"
+                        class="px-4 py-2 text-sm text-text-muted hover:text-text-main transition">
+                        Back to List
+                    </button>
+                    <button @click="handleLogout"
+                        class="px-4 py-2 text-sm text-text-muted hover:text-text-main transition border-l border-border ml-2">
+                        Logout
+                    </button>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-8">
+                <div v-if="!currentEntity && viewMode === 'home'" class="max-w-6xl mx-auto">
+                    <Dashboard v-if="dashboardSchema" :schema="dashboardSchema" />
+                    <div v-else class="flex items-center justify-center p-20 animate-pulse">
+                        <div class="text-text-muted italic">Loading dashboard...</div>
+                    </div>
+                </div>
+
+                <div v-else-if="!currentEntity && viewMode !== 'kitchen-sink'" class="max-w-6xl mx-auto">
+                    <div class="card p-12 text-center">
+                        <h2 class="text-2xl font-bold mb-2">Welcome to GurihERP</h2>
+                        <p class="text-text-muted">Select a module from the sidebar to manage your business data.</p>
+                    </div>
+                </div>
+
+                <div v-else class="max-w-6xl mx-auto h-full flex flex-col">
+                    <div v-if="viewMode === 'kitchen-sink'" class="flex-1 overflow-y-auto">
+                        <KitchenSink />
+                    </div>
+
+                    <div v-if="viewMode === 'list'" class="flex-1 overflow-hidden flex flex-col">
+                        <DynamicPage :entity="currentEntity" @edit="(id) => onAction('edit', id)"
+                            @create="onAction('create')" />
+                    </div>
+
+                    <div v-if="viewMode === 'create' || viewMode === 'edit'" class="flex-1 overflow-y-auto pb-8">
+                        <DynamicForm :entity="currentEntity" :id="editId" @saved="onAction('saved')"
+                            @cancel="onAction('cancel')" />
                     </div>
                 </div>
             </div>
-        </nav>
-    </aside>
+        </main>
 
-    <!-- Main Content -->
-    <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header class="h-16 bg-surface border-b border-border flex items-center justify-between px-8 shrink-0">
-             <div class="flex items-center gap-4">
-                 <h1 v-if="currentEntity" class="text-lg font-semibold text-text-main">{{ currentEntity }}</h1>
-                 <h1 v-else class="text-lg font-semibold text-text-main">Dashboard</h1>
-             </div>
-             <div class="flex items-center gap-3">
-                 <button v-if="viewMode === 'list' && currentEntity" @click="onAction('create')" class="btn-primary flex items-center gap-2 text-sm">
-                    <span class="text-lg leading-none">+</span> New
-                </button>
-                <button v-if="viewMode !== 'list'" @click="onAction('cancel')" class="px-4 py-2 text-sm text-text-muted hover:text-text-main transition">
-                    Back to List
-                </button>
-                <button @click="handleLogout" class="px-4 py-2 text-sm text-text-muted hover:text-text-main transition border-l border-border ml-2">
-                     Logout
-                </button>
-             </div>
-        </header>
+    </div>
 
-        <div class="flex-1 overflow-y-auto p-8">
-            <div v-if="!currentEntity && viewMode === 'home'" class="max-w-6xl mx-auto">
-                <Dashboard v-if="dashboardSchema" :schema="dashboardSchema" />
-                <div v-else class="flex items-center justify-center p-20 animate-pulse">
-                    <div class="text-text-muted italic">Loading dashboard...</div>
-                </div>
-            </div>
-
-            <div v-else-if="!currentEntity && viewMode !== 'kitchen-sink'" class="max-w-6xl mx-auto">
-                <div class="card p-12 text-center">
-                    <h2 class="text-2xl font-bold mb-2">Welcome to GurihERP</h2>
-                    <p class="text-text-muted">Select a module from the sidebar to manage your business data.</p>
-                </div>
-            </div>
-
-            <div v-else class="max-w-6xl mx-auto h-full flex flex-col">
-                <div v-if="viewMode === 'kitchen-sink'" class="flex-1 overflow-y-auto">
-                    <KitchenSink />
-                </div>
-
-                <div v-if="viewMode === 'list'" class="flex-1 overflow-hidden flex flex-col">
-                    <DynamicPage 
-                        :entity="currentEntity" 
-                        @edit="(id) => onAction('edit', id)" 
-                        @create="onAction('create')"
-                    />
-                </div>
-                
-                <div v-if="viewMode === 'create' || viewMode === 'edit'" class="flex-1 overflow-y-auto pb-8">
-                    <DynamicForm 
-                        :entity="currentEntity" 
-                        :id="editId" 
-                        @saved="onAction('saved')"
-                        @cancel="onAction('cancel')"
-                    />
-                </div>
-            </div>
-        </div>
-    </main>
-    
-  </div>
-
-  <!-- Toast Notification -->
-  <ToastNotification
-      :toasts="toasts"
-      @remove="removeToast"
-  />
+    <!-- Toast Notification -->
+    <ToastNotification :toasts="toasts" @remove="removeToast" />
 </template>

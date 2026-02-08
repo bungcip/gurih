@@ -1,3 +1,4 @@
+use crate::auth::hash_password;
 use crate::store::DbPool;
 use gurih_ir::{ColumnType, DatabaseType, EntitySchema, FieldType, Schema, Symbol, TableSchema};
 use sha2::{Digest, Sha256};
@@ -120,6 +121,13 @@ impl SchemaManager {
                                 query = query.bind(v.to_string());
                             }
                         }
+                        Some(FieldType::Password) => {
+                            if !v.starts_with("v3$") {
+                                query = query.bind(hash_password(v));
+                            } else {
+                                query = query.bind(v.to_string());
+                            }
+                        }
                         _ => {
                             query = query.bind(v.to_string());
                         }
@@ -154,6 +162,13 @@ impl SchemaManager {
                         Some(FieldType::Float) => {
                             let f = v.parse::<f64>().unwrap_or(0.0);
                             query = query.bind(f);
+                        }
+                        Some(FieldType::Password) => {
+                            if !v.starts_with("v3$") {
+                                query = query.bind(hash_password(v));
+                            } else {
+                                query = query.bind(v.to_string());
+                            }
                         }
                         _ => {
                             query = query.bind(v.to_string());

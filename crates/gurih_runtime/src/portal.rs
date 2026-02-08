@@ -110,27 +110,19 @@ impl PortalEngine {
     }
 
     fn resolve_entity_from_path(schema: &Schema, path: &str) -> Option<String> {
-        let mut target = None;
-        // Direct match in routes
-        if let Some(r) = schema.routes.get(path) {
-            if r.action != Symbol::from("") {
-                target = Some(r.action.as_str().to_string());
-            } else {
-                // If it's a group, check child "/"
-                for child in &r.children {
-                    if child.path == "/" && child.action != Symbol::from("") {
-                        target = Some(child.action.as_str().to_string());
-                        break;
-                    }
+        let parts: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+
+        // 1. Try to find path in routes tree
+        for route in schema.routes.values() {
+            if let Some(target_action) = Self::walk_route(route, &parts) {
+                if target_action != Symbol::from("") {
+                    let res = Self::resolve_entity_from_target(schema, target_action.as_str());
+                    return Some(res);
                 }
             }
         }
 
-        if let Some(t) = target {
-            return Some(Self::resolve_entity_from_target(schema, &t));
-        }
-
-        // Fallback: search strings in path
+        // 2. Fallback: search strings in path
         for page_name in schema.pages.keys() {
             let path_lower = path.to_lowercase();
             if path_lower.contains(&page_name.as_str().to_lowercase()) {
@@ -141,6 +133,53 @@ impl PortalEngine {
         for entity_name in schema.entities.keys() {
             if path.to_lowercase().contains(&entity_name.as_str().to_lowercase()) {
                 return Some(entity_name.as_str().to_string());
+            }
+        }
+
+        None
+    }
+
+    fn walk_route(route: &gurih_ir::RouteSchema, segments: &[&str]) -> Option<Symbol> {
+        if segments.is_empty() {
+            return None;
+        }
+
+        let current_segment = segments[0];
+        let current_path = route.path.trim_start_matches('/');
+
+        // If current route matches the first segment
+        if current_path == current_segment || (route.path == "/" && current_segment == "") {
+            let remaining = &segments[1..];
+            if remaining.is_empty() {
+                // If we've consumed all segments, return this route's action
+                // or check if there's a child with path "/" that has an action
+                if route.action != Symbol::from("") {
+                    return Some(route.action);
+                }
+                for child in &route.children {
+                    if child.path == "/" && child.action != Symbol::from("") {
+                        return Some(child.action);
+                    }
+                }
+                return Some(Symbol::from(""));
+            }
+
+            // Otherwise, try to find match in children
+            for child in &route.children {
+                if let Some(res) = Self::walk_route(child, remaining) {
+                    if res != Symbol::from("") || remaining.len() == 1 {
+                        return Some(res);
+                    }
+                }
+            }
+        } else if route.path == "/" {
+            // Root group might match the same segment if it's just a prefix "/"
+            for child in &route.children {
+                if let Some(res) = Self::walk_route(child, segments) {
+                    if res != Symbol::from("") {
+                        return Some(res);
+                    }
+                }
             }
         }
 

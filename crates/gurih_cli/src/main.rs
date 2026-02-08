@@ -23,9 +23,9 @@ use gurih_runtime::portal::PortalEngine;
 use notify::{RecursiveMode, Watcher};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -724,7 +724,7 @@ async fn get_portal(State(state): State<AppState>, headers: HeaderMap) -> impl I
             // Content has changed or first request, return with ETag
             let mut response_headers = HeaderMap::new();
             response_headers.insert("ETag", etag.parse().unwrap());
-            response_headers.insert("Cache-Control", "max-age=3600".parse().unwrap());
+            response_headers.insert("Cache-Control", "no-store, no-cache, must-revalidate".parse().unwrap());
             (StatusCode::OK, response_headers, Json(nav)).into_response()
         }
         Err(e) => (

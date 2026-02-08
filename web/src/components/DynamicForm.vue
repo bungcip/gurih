@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch, onMounted, inject } from 'vue'
+import { request } from '../api.js'
 import Button from './Button.vue'
 import SelectInput from './SelectInput.vue'
 import DatePicker from './DatePicker.vue'
@@ -19,45 +20,36 @@ const formData = ref({})
 const loading = ref(false)
 const saving = ref(false)
 
-const API_BASE = 'http://localhost:3000/api'
-
 // Relation Options Cache
 const relationOptions = ref({})
 const errors = ref([])
 
 const activeTab = ref(0)
 
-function getAuthHeaders() {
-    return currentUser.value && currentUser.value.token ? {
-        'Authorization': `Bearer ${currentUser.value.token}`
-    } : {}
-}
 
 async function fetchSchema() {
     try {
-        const res = await fetch(`${API_BASE}/ui/form/${props.entity}`, {
-            headers: getAuthHeaders()
-        })
+        const res = await request(`/ui/form/${props.entity}`)
         schema.value = await res.json()
         activeTab.value = 0
-        
+
         // Initialize fetch for relation fields
         const targetsMap = new Map() // target -> [fieldNames]
 
-        for(const section of schema.value.layout) {
-             for(const field of section.fields) {
-                 if(field.widget === 'RelationPicker') {
-                     if(field.name.endsWith("_id")) {
-                         let target = field.name.replace("_id", "")
-                         target = target.charAt(0).toUpperCase() + target.slice(1)
+        for (const section of schema.value.layout) {
+            for (const field of section.fields) {
+                if (field.widget === 'RelationPicker') {
+                    if (field.name.endsWith("_id")) {
+                        let target = field.name.replace("_id", "")
+                        target = target.charAt(0).toUpperCase() + target.slice(1)
 
-                         if (!targetsMap.has(target)) {
-                             targetsMap.set(target, [])
-                         }
-                         targetsMap.get(target).push(field.name)
-                     }
-                 }
-             }
+                        if (!targetsMap.has(target)) {
+                            targetsMap.set(target, [])
+                        }
+                        targetsMap.get(target).push(field.name)
+                    }
+                }
+            }
         }
 
         await Promise.all(Array.from(targetsMap.entries()).map(([target, fields]) =>
@@ -70,21 +62,19 @@ async function fetchSchema() {
 
 async function fetchRelations(targetEntity, fieldNames) {
     try {
-        const res = await fetch(`${API_BASE}/${targetEntity}`, {
-            headers: getAuthHeaders()
-        })
-        if(res.ok) {
+        const res = await request(`/${targetEntity}`)
+        if (res.ok) {
             const list = await res.json()
             const options = list.map(item => ({
-                 value: item.id,
-                 label: item.name || item.title || item.id 
-             }))
+                value: item.id,
+                label: item.name || item.title || item.id
+            }))
 
-             for(const fieldName of fieldNames) {
-                 relationOptions.value[fieldName] = options
-             }
+            for (const fieldName of fieldNames) {
+                relationOptions.value[fieldName] = options
+            }
         }
-    } catch(e) {
+    } catch (e) {
         errors.value.push(`Could not fetch relation for ${targetEntity}`)
     }
 }
@@ -96,9 +86,7 @@ async function fetchData() {
     }
     loading.value = true
     try {
-        const res = await fetch(`${API_BASE}/${props.entity}/${props.id}`, {
-            headers: getAuthHeaders()
-        })
+        const res = await request(`/${props.entity}/${props.id}`)
         formData.value = await res.json()
     } catch (e) {
         console.error("Failed to fetch data", e)
@@ -109,18 +97,13 @@ async function fetchData() {
 
 async function save() {
     const isEdit = !!props.id
-    const url = isEdit ? `${API_BASE}/${props.entity}/${props.id}` : `${API_BASE}/${props.entity}`
+    const url = isEdit ? `/${props.entity}/${props.id}` : `/${props.entity}`
     const method = isEdit ? 'PUT' : 'POST'
 
     saving.value = true
     try {
-        const headers = {
-            'Content-Type': 'application/json',
-            ...getAuthHeaders()
-        }
-        const res = await fetch(url, {
+        const res = await request(url, {
             method,
-            headers,
             body: JSON.stringify(formData.value)
         })
         if (res.ok) {
@@ -155,134 +138,96 @@ onMounted(() => {
 <template>
     <div class="h-full flex flex-col">
         <div v-if="!schema || loading" class="card p-12 text-center text-text-muted">Loading Form...</div>
-        
+
         <form v-else @submit.prevent="save" class="flex-1 flex flex-col gap-6 overflow-hidden">
             <!-- Header Card with Integrated Tabs -->
             <div class="card p-0 flex-1 flex flex-col overflow-hidden">
                 <div class="p-6 pb-0 border-b border-gray-100 dark:border-gray-700">
                     <div class="flex items-center gap-4 mb-6">
-                         <h2 class="text-xl font-bold text-text-main">{{ schema.name }} Form</h2>
+                        <h2 class="text-xl font-bold text-text-main">{{ schema.name }} Form</h2>
                     </div>
 
                     <div v-if="errors.length" class="mb-6 space-y-2">
-                         <Alert v-for="(error, i) in errors" :key="i" variant="danger" :title="error" closable @close="errors.splice(i, 1)" />
+                        <Alert v-for="(error, i) in errors" :key="i" variant="danger" :title="error" closable
+                            @close="errors.splice(i, 1)" />
                     </div>
 
                     <!-- Tabs -->
-                    <Tabs 
-                        v-model="activeTab" 
-                        :items="schema.layout" 
-                    />
+                    <Tabs v-model="activeTab" :items="schema.layout" />
                 </div>
-            
+
                 <!-- Content Area -->
                 <div class="flex-1 overflow-y-auto min-h-0 bg-[--color-surface] p-6 relative z-0">
                     <div v-for="(section, index) in schema.layout" :key="section.title">
-                        <div v-if="activeTab === index" class="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        
-                        <!-- Section Content -->
-                        <div>
-                        
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-                            <div v-for="field in section.fields" :key="field.name">
-                                <label :for="field.name" class="block text-[13px] font-medium text-text-muted mb-2">
-                                    {{ field.label }} 
-                                    <span v-if="field.required" class="text-red-500">*</span>
-                                </label>
-                                
-                                <div v-if="field.widget === 'TextInput'">
-                                    <input
-                                        :id="field.name"
-                                        v-model="formData[field.name]"
-                                        type="text"
-                                        class="input-field"
-                                        :required="field.required"
-                                    >
-                                </div>
-                                
-                                <div v-if="field.widget === 'NumberInput'">
-                                    <input
-                                        :id="field.name"
-                                        v-model.number="formData[field.name]"
-                                        type="number"
-                                        class="input-field"
-                                        :required="field.required"
-                                    >
-                                </div>
+                        <div v-if="activeTab === index"
+                            class="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
 
-                                <div v-if="field.widget === 'TextArea'">
-                                    <textarea
-                                        :id="field.name"
-                                        v-model="formData[field.name]"
-                                        class="input-field min-h-[120px] resize-y"
-                                        :required="field.required"
-                                    ></textarea>
-                                </div>
+                            <!-- Section Content -->
+                            <div>
 
-                                <div v-if="field.widget === 'DatePicker'">
-                                    <DatePicker
-                                        :id="field.name"
-                                        v-model="formData[field.name]"
-                                        :required="field.required"
-                                    />
-                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+                                    <div v-for="field in section.fields" :key="field.name">
+                                        <label :for="field.name"
+                                            class="block text-[13px] font-medium text-text-muted mb-2">
+                                            {{ field.label }}
+                                            <span v-if="field.required" class="text-red-500">*</span>
+                                        </label>
 
-                                <div v-if="field.widget === 'DateTimePicker'">
-                                    <input
-                                        :id="field.name"
-                                        v-model="formData[field.name]"
-                                        type="datetime-local"
-                                        class="input-field"
-                                        :required="field.required"
-                                    >
-                                </div>
+                                        <div v-if="field.widget === 'TextInput'">
+                                            <input :id="field.name" v-model="formData[field.name]" type="text"
+                                                class="input-field" :required="field.required">
+                                        </div>
 
-                                <div v-if="field.widget === 'CurrencyInput'">
-                                    <CurrencyInput 
-                                        :id="field.name"
-                                        v-model="formData[field.name]" 
-                                        :label="null"
-                                        :prefix="field.prefix || 'Rp'"
-                                        :decimals="field.decimals ?? 0"
-                                        :required="field.required"
-                                    />
-                                </div>
+                                        <div v-if="field.widget === 'NumberInput'">
+                                            <input :id="field.name" v-model.number="formData[field.name]" type="number"
+                                                class="input-field" :required="field.required">
+                                        </div>
 
-                                <div v-if="field.widget === 'FileUpload'">
-                                    <FileUpload 
-                                        :id="field.name"
-                                        v-model="formData[field.name]" 
-                                        :label="null"
-                                        :required="field.required"
-                                        :accept="field.accept"
-                                        :multiple="field.multiple"
-                                    />
-                                </div>
+                                        <div v-if="field.widget === 'TextArea'">
+                                            <textarea :id="field.name" v-model="formData[field.name]"
+                                                class="input-field min-h-[120px] resize-y"
+                                                :required="field.required"></textarea>
+                                        </div>
 
-                                <div v-if="field.widget === 'Checkbox'" class="flex items-center h-10">
-                                    <Switch 
-                                        :id="field.name"
-                                        v-model="formData[field.name]" 
-                                        label="Enabled"
-                                    />
-                                </div>
-                                
-                                <div v-if="field.widget === 'RelationPicker' || field.widget === 'Select'">
-                                    <SelectInput 
-                                        :id="field.name"
-                                        v-model="formData[field.name]" 
-                                        :options="field.options || relationOptions[field.name] || []"
-                                        :placeholder="'Select ' + field.label + '...'"
-                                        :required="field.required"
-                                    />
+                                        <div v-if="field.widget === 'DatePicker'">
+                                            <DatePicker :id="field.name" v-model="formData[field.name]"
+                                                :required="field.required" />
+                                        </div>
+
+                                        <div v-if="field.widget === 'DateTimePicker'">
+                                            <input :id="field.name" v-model="formData[field.name]" type="datetime-local"
+                                                class="input-field" :required="field.required">
+                                        </div>
+
+                                        <div v-if="field.widget === 'CurrencyInput'">
+                                            <CurrencyInput :id="field.name" v-model="formData[field.name]" :label="null"
+                                                :prefix="field.prefix || 'Rp'" :decimals="field.decimals ?? 0"
+                                                :required="field.required" />
+                                        </div>
+
+                                        <div v-if="field.widget === 'FileUpload'">
+                                            <FileUpload :id="field.name" v-model="formData[field.name]" :label="null"
+                                                :required="field.required" :accept="field.accept"
+                                                :multiple="field.multiple" />
+                                        </div>
+
+                                        <div v-if="field.widget === 'Checkbox'" class="flex items-center h-10">
+                                            <Switch :id="field.name" v-model="formData[field.name]" label="Enabled" />
+                                        </div>
+
+                                        <div v-if="field.widget === 'RelationPicker' || field.widget === 'Select'">
+                                            <SelectInput :id="field.name" v-model="formData[field.name]"
+                                                :options="field.options || relationOptions[field.name] || []"
+                                                :placeholder="'Select ' + field.label + '...'"
+                                                :required="field.required" />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            </div>
-        </div>
 
 
             <!-- Sticky Footer -->
