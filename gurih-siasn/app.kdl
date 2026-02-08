@@ -45,6 +45,7 @@ layout "MainLayout" {
 // -----------------------------------------------------------------------------
 // INCLUDES
 // -----------------------------------------------------------------------------
+include "user.kdl"
 include "master.kdl"
 include "kepegawaian.kdl"
 include "cuti.kdl"

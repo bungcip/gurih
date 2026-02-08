@@ -1,5 +1,5 @@
 module "Auth" {
-    entity "User" {
+    entity:user "User" {
         field:pk id
         field:string "username" unique=#true
         field:password "password"

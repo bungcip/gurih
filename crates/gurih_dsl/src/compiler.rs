@@ -13,11 +13,50 @@ use gurih_ir::{
 };
 use std::collections::HashMap;
 
+fn validate_user_entity(ast_root: &ast::Ast, src: &str) -> Result<(), CompileError> {
+    let mut user_entity_count = 0;
+
+    // Check root-level entities
+    for entity in &ast_root.entities {
+        if entity.options.is_user_entity {
+            user_entity_count += 1;
+        }
+    }
+
+    // Check module-level entities
+    for module in &ast_root.modules {
+        for entity in &module.entities {
+            if entity.options.is_user_entity {
+                user_entity_count += 1;
+            }
+        }
+    }
+
+    if user_entity_count > 1 {
+        return Err(CompileError::ValidationError {
+            src: src.to_string(),
+            span: (0, 0).into(),
+            message: format!(
+                "Only one entity:user is allowed in the application. Found {} user entities.",
+                user_entity_count
+            ),
+        });
+    }
+
+    Ok(())
+}
+
 pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema, CompileError> {
     let ast_root = parse(src, base_path)?;
 
     // Run Validation
     Validator::new(src).validate(&ast_root)?;
+
+    // Validate that only one entity:user exists
+    validate_user_entity(&ast_root, src)?;
+
+    // Validate that only one entity:user exists
+    validate_user_entity(&ast_root, src)?;
 
     let mut ir_entities: HashMap<Symbol, EntitySchema> = HashMap::new();
     let mut ir_tables: HashMap<Symbol, TableSchema> = HashMap::new();
@@ -94,6 +133,9 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             }
             if entity_def.options.is_single {
                 options.insert("is_single".to_string(), "true".to_string());
+            }
+            if entity_def.options.is_user_entity {
+                options.insert("is_user_entity".to_string(), "true".to_string());
             }
 
             let table_name = to_snake_case(entity_def.name.as_str());

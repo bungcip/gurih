@@ -97,7 +97,8 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
             "icons" => ast.icons.extend(parse_icons(node, src)?),
             "layout" => ast.layouts.push(parse_layout(node, src)?),
             "module" => ast.modules.push(parse_module(node, src)?),
-            "entity" => ast.entities.push(parse_entity(node, src)?),
+            "entity" => ast.entities.push(parse_entity(node, src, false)?),
+            "entity:user" => ast.entities.push(parse_entity(node, src, true)?),
             "table" => ast.tables.push(parse_table(node, src)?),
             "enum" => ast.enums.push(parse_enum(node, src)?),
             "serial_generator" => ast.serial_generators.push(parse_serial_generator(node, src)?),
@@ -368,7 +369,8 @@ fn parse_module(node: &KdlNode, src: &str) -> Result<ModuleDef, CompileError> {
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
-                "entity" => entities.push(parse_entity(child, src)?),
+                "entity" => entities.push(parse_entity(child, src, false)?),
+                "entity:user" => entities.push(parse_entity(child, src, true)?),
                 "action" => actions.push(parse_action_logic(child, src)?),
                 _ => {}
             }
@@ -384,12 +386,14 @@ fn parse_module(node: &KdlNode, src: &str) -> Result<ModuleDef, CompileError> {
     })
 }
 
-fn parse_entity(node: &KdlNode, src: &str) -> Result<EntityDef, CompileError> {
+fn parse_entity(node: &KdlNode, src: &str, is_user_entity: bool) -> Result<EntityDef, CompileError> {
     let name = get_arg_string(node, 0, src)?;
     let mut fields = vec![];
     let mut relationships = vec![];
     let mut options = EntityOptions::default();
     let mut seeds = vec![];
+
+    options.is_user_entity = is_user_entity;
 
     if let Some(children) = node.children() {
         for child in children.nodes() {

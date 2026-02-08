@@ -157,6 +157,7 @@ pub struct EntityOptions {
     pub is_submittable: bool,
     pub track_changes: bool,
     pub is_single: bool,
+    pub is_user_entity: bool,
 }
 
 #[derive(Debug, Clone)]
