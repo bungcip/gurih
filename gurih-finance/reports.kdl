@@ -6,14 +6,14 @@ query:flat "TrialBalanceQuery" for="Account" {
     select "name"
 
     // Opening Balance (Before Start Date)
-    formula "opening_balance" "SUM(if([journal_entry.date] < param(\"start_date\"), [debit] - [credit], 0))"
+    formula "opening_balance" "SUM(if([journal_entry.date] < param('start_date'), [debit] - [credit], 0))"
 
     // Period Movement
-    formula "period_debit" "SUM(if([journal_entry.date] >= param(\"start_date\") && [journal_entry.date] <= param(\"end_date\"), [debit], 0))"
-    formula "period_credit" "SUM(if([journal_entry.date] >= param(\"start_date\") && [journal_entry.date] <= param(\"end_date\"), [credit], 0))"
+    formula "period_debit" "SUM(if([journal_entry.date] >= param('start_date') && [journal_entry.date] <= param('end_date'), [debit], 0))"
+    formula "period_credit" "SUM(if([journal_entry.date] >= param('start_date') && [journal_entry.date] <= param('end_date'), [credit], 0))"
 
     // Closing Balance (End Date)
-    formula "closing_balance" "SUM(if([journal_entry.date] <= param(\"end_date\"), [debit] - [credit], 0))"
+    formula "closing_balance" "SUM(if([journal_entry.date] <= param('end_date'), [debit] - [credit], 0))"
 
     join "JournalLine" {
         select "debit"
@@ -24,7 +24,7 @@ query:flat "TrialBalanceQuery" for="Account" {
         }
     }
 
-    filter "[journal_entry.status] == \"Posted\""
+    filter "[journal_entry.status] == 'Posted'"
 
     group_by "id"
     group_by "code"
@@ -67,8 +67,8 @@ query:flat "LedgerQuery" for="JournalLine" {
         // Filter only
     }
 
-    filter "[account] == param(\"account_id\")"
-    filter "[journal_entry.status] == \"Posted\""
+    filter "[account] == param('account_id')"
+    filter "[journal_entry.status] == 'Posted'"
 
     // No group_by, detailed list
 }
