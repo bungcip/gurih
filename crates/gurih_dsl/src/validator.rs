@@ -277,18 +277,21 @@ impl<'a> Validator<'a> {
         }
     }
 
-    fn check_duplicate(
+    fn check_duplicate<F>(
         &self,
         names: &mut HashMap<String, SourceSpan>,
         name: &str,
         span: SourceSpan,
-        message: String,
-    ) -> Result<(), CompileError> {
+        message_fn: F,
+    ) -> Result<(), CompileError>
+    where
+        F: FnOnce() -> String,
+    {
         if names.contains_key(name) {
             return Err(CompileError::ValidationError {
                 src: self.src.to_string(),
                 span,
-                message,
+                message: message_fn(),
             });
         }
         names.insert(name.to_string(), span);
@@ -304,7 +307,7 @@ impl<'a> Validator<'a> {
                     &mut entity_names,
                     &entity.name,
                     entity.span,
-                    format!("Duplicate entity name: {}", entity.name),
+                    || format!("Duplicate entity name: {}", entity.name),
                 )?;
                 self.validate_entity(entity)?;
             }
@@ -315,7 +318,7 @@ impl<'a> Validator<'a> {
                 &mut entity_names,
                 &entity.name,
                 entity.span,
-                format!("Duplicate entity name: {}", entity.name),
+                || format!("Duplicate entity name: {}", entity.name),
             )?;
             self.validate_entity(entity)?;
         }
@@ -336,7 +339,7 @@ impl<'a> Validator<'a> {
                 &mut field_names,
                 &field.name,
                 field.span,
-                format!("Duplicate field name '{}' in entity '{}'", field.name, entity.name),
+                || format!("Duplicate field name '{}' in entity '{}'", field.name, entity.name),
             )?;
 
             // Note: We are checking raw AST types here.
