@@ -62,6 +62,8 @@ impl CompiledFilter {
                     i == vi
                 } else if let (Some(f), Some(vf)) = (n.as_f64(), self.val_f64) {
                     (f - vf).abs() < f64::EPSILON
+                } else if self.val_i64.is_none() && self.val_f64.is_none() && (n.is_i64() || n.is_f64()) {
+                    false
                 } else {
                     n.to_string() == self.val
                 }
@@ -132,11 +134,11 @@ impl DataStore for MemoryDataStore {
             // Merge existing with new record
             let mut new_record = (**existing).clone();
 
-            if let Some(target) = new_record.as_object_mut()
-                && let Some(source) = record.as_object()
-            {
-                for (k, v) in source {
-                    target.insert(k.clone(), v.clone());
+            if let Some(target) = new_record.as_object_mut() {
+                if let Value::Object(source) = record {
+                    for (k, v) in source {
+                        target.insert(k, v);
+                    }
                 }
             }
 
@@ -238,12 +240,16 @@ impl DataStore for MemoryDataStore {
                 }
 
                 // Group
-                let group_key = record
+                let group_key_ref = record
                     .get(group_by)
                     .and_then(|v| v.as_str())
-                    .unwrap_or("Unknown")
-                    .to_string();
-                *groups.entry(group_key).or_insert(0) += 1;
+                    .unwrap_or("Unknown");
+
+                if let Some(count) = groups.get_mut(group_key_ref) {
+                    *count += 1;
+                } else {
+                    groups.insert(group_key_ref.to_string(), 1);
+                }
             }
 
             Ok(groups.into_iter().collect())
