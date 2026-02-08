@@ -43,4 +43,14 @@ async fn bench_filter_performance() {
 
     assert_eq!(result_count, count as i64 / 2);
     assert_eq!(result_items.len(), count as usize / 2);
+
+    // Benchmark bad type filter (Number vs String)
+    let mut bad_filters = HashMap::new();
+    bad_filters.insert("value".to_string(), "NOT_A_NUMBER".to_string());
+
+    let start = Instant::now();
+    let result_bad = datastore.count(entity, bad_filters).await.unwrap();
+    let duration = start.elapsed();
+    println!("BENCH_RESULT: Bad Type Filter took: {:?}", duration);
+    assert_eq!(result_bad, 0);
 }
