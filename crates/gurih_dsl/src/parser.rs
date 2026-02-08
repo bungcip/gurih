@@ -109,7 +109,7 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
             "menu" => ast.menus.push(parse_menu(node, src)?),
             "print" => ast.prints.push(parse_print(node, src)?),
             "role" | "permission" => ast.permissions.push(parse_permission(node, src)?),
-            "query" | "query:nested" | "query:flat" => ast.queries.push(parse_query(node, src)?),
+            "query" | "query:nested" | "query:flat" | "query:hierarchy" => ast.queries.push(parse_query(node, src)?),
             "account" => ast.accounts.push(parse_account(node, src)?),
             "rule" => ast.rules.push(parse_rule(node, src)?),
             "posting_rule" => ast.posting_rules.push(parse_posting_rule(node, src)?),
@@ -1055,8 +1055,11 @@ fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
 
     let query_type = match node.name().value() {
         "query:flat" => QueryType::Flat,
+        "query:hierarchy" => QueryType::Hierarchy,
         _ => QueryType::Nested,
     };
+
+    let mut hierarchy = None;
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
@@ -1081,6 +1084,7 @@ fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
                     filters.push(parse_expression(&s, offset)?);
                 }
                 "group_by" => group_by.push(get_arg_string(child, 0, src)?),
+                "hierarchy" => hierarchy = Some(parse_hierarchy(child, src)?),
                 _ => {}
             }
         }
@@ -1096,6 +1100,26 @@ fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
         filters,
         joins,
         group_by,
+        hierarchy,
+        span: node.span().into(),
+    })
+}
+
+fn parse_hierarchy(node: &KdlNode, src: &str) -> Result<HierarchyDef, CompileError> {
+    let parent_field = get_prop_string(node, "parent", src)?;
+    let mut rollup_fields = vec![];
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            if child.name().value() == "rollup" {
+                rollup_fields.push(get_arg_string(child, 0, src)?);
+            }
+        }
+    }
+
+    Ok(HierarchyDef {
+        parent_field,
+        rollup_fields,
         span: node.span().into(),
     })
 }

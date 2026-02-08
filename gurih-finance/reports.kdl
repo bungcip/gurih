@@ -1,9 +1,17 @@
 // Reporting queries
 
-query:flat "TrialBalanceQuery" for="Account" {
+query:hierarchy "TrialBalanceQuery" for="Account" {
     params "start_date" "end_date"
     select "code"
     select "name"
+    select "parent"
+
+    hierarchy parent="parent" {
+        rollup "opening_balance"
+        rollup "period_debit"
+        rollup "period_credit"
+        rollup "closing_balance"
+    }
 
     // Opening Balance (Before Start Date)
     formula "opening_balance" "SUM(if([journal_entry.date] < param(\"start_date\"), [debit] - [credit], 0))"
@@ -29,6 +37,7 @@ query:flat "TrialBalanceQuery" for="Account" {
     group_by "id"
     group_by "code"
     group_by "name"
+    group_by "parent"
 }
 
 page "TrialBalanceReport" {
