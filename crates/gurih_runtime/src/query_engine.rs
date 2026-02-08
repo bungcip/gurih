@@ -4,7 +4,16 @@ use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum QueryPlan {
-    ExecuteSql { sql: String, params: Vec<Value> },
+    ExecuteSql {
+        sql: String,
+        params: Vec<Value>,
+    },
+    ExecuteHierarchy {
+        sql: String,
+        params: Vec<Value>,
+        parent_field: String,
+        rollup_fields: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -107,9 +116,24 @@ impl QueryEngine {
         .trim()
         .to_string();
 
-        Ok(QueryExecutionStrategy {
-            plans: vec![QueryPlan::ExecuteSql { sql, params }],
-        })
+        if query.query_type == gurih_ir::QueryType::Hierarchy {
+            let h = query
+                .hierarchy
+                .as_ref()
+                .ok_or("Hierarchy definition missing for query:hierarchy")?;
+            Ok(QueryExecutionStrategy {
+                plans: vec![QueryPlan::ExecuteHierarchy {
+                    sql,
+                    params,
+                    parent_field: h.parent_field.to_string(),
+                    rollup_fields: h.rollup_fields.iter().map(|s| s.to_string()).collect(),
+                }],
+            })
+        } else {
+            Ok(QueryExecutionStrategy {
+                plans: vec![QueryPlan::ExecuteSql { sql, params }],
+            })
+        }
     }
 
     fn process_joins(
@@ -365,6 +389,7 @@ mod tests {
                     joins: vec![],
                 }],
             }],
+            hierarchy: None,
         };
 
         schema.queries.insert("ActiveCourseQuery".into(), query);
@@ -373,7 +398,11 @@ mod tests {
         let strategy = QueryEngine::plan(&schema, "ActiveCourseQuery", &runtime_params).expect("Failed to plan");
 
         assert_eq!(strategy.plans.len(), 1);
-        let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0];
+        let sql = if let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0] {
+            sql
+        } else {
+            panic!("Expected ExecuteSql");
+        };
         println!("Generated SQL: {}", sql);
         assert!(sql.contains("SELECT course_entity.title"));
         assert!(sql.contains("SUM([duration]) AS total_duration"));
@@ -427,12 +456,17 @@ mod tests {
                 formulas: vec![],
                 joins: vec![],
             }],
+            hierarchy: None,
         };
         schema.queries.insert("BookQuery".into(), query);
 
         let runtime_params = std::collections::HashMap::new();
         let strategy = QueryEngine::plan(&schema, "BookQuery", &runtime_params).expect("Failed to plan");
-        let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0];
+        let sql = if let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0] {
+            sql
+        } else {
+            panic!("Expected ExecuteSql");
+        };
         println!("Flat SQL: {}", sql);
 
         assert!(sql.contains("SELECT book_entity.title, book_entity.price"));
@@ -465,6 +499,7 @@ mod tests {
             }],
             joins: vec![],
             group_by: vec![],
+            hierarchy: None,
         };
         schema.queries.insert("ParamQuery".into(), query);
 
@@ -472,7 +507,11 @@ mod tests {
         runtime_params.insert("min_price".to_string(), Value::from(100));
 
         let strategy = QueryEngine::plan(&schema, "ParamQuery", &runtime_params).expect("Failed to plan");
-        let QueryPlan::ExecuteSql { sql, params } = &strategy.plans[0];
+        let (sql, params) = if let QueryPlan::ExecuteSql { sql, params } = &strategy.plans[0] {
+            (sql, params)
+        } else {
+            panic!("Expected ExecuteSql");
+        };
 
         println!("SQL: {}", sql);
         println!("Params: {:?}", params);
@@ -505,12 +544,17 @@ mod tests {
             }],
             joins: vec![],
             group_by: vec![],
+            hierarchy: None,
         };
         schema.queries.insert("NestedQuery".into(), query);
 
         let runtime_params = std::collections::HashMap::new();
         let strategy = QueryEngine::plan(&schema, "NestedQuery", &runtime_params).expect("Failed to plan");
-        let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0];
+        let sql = if let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0] {
+            sql
+        } else {
+            panic!("Expected ExecuteSql");
+        };
 
         println!("Nested SQL: {}", sql);
 
@@ -557,12 +601,17 @@ mod tests {
             filters: vec![],
             joins: vec![],
             group_by: vec![],
+            hierarchy: None,
         };
         schema.queries.insert("ReportQuery".into(), query);
 
         let runtime_params = std::collections::HashMap::new();
         let strategy = QueryEngine::plan(&schema, "ReportQuery", &runtime_params).expect("Failed to plan");
-        let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0];
+        let sql = if let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0] {
+            sql
+        } else {
+            panic!("Expected ExecuteSql");
+        };
 
         println!("Report SQL: {}", sql);
 

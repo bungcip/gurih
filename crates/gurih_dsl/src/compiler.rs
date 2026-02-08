@@ -642,6 +642,10 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 filters: filters?,
                 joins: joins?,
                 group_by: query_def.group_by.iter().map(|s| Symbol::from(s.as_str())).collect(),
+                hierarchy: query_def.hierarchy.as_ref().map(|h| gurih_ir::HierarchySchema {
+                    parent_field: Symbol::from(h.parent_field.as_str()),
+                    rollup_fields: h.rollup_fields.iter().map(|s| Symbol::from(s.as_str())).collect(),
+                }),
             },
         );
     }

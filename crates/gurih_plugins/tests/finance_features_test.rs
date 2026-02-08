@@ -264,11 +264,16 @@ fn test_query_group_by() {
             filters: vec![],
             joins: vec![],
             group_by: vec![Symbol::from("f")],
+            hierarchy: None,
         },
     );
 
     let runtime_params = std::collections::HashMap::new();
     let plan = QueryEngine::plan(&schema, "Q", &runtime_params).unwrap();
-    let QueryPlan::ExecuteSql { sql, .. } = &plan.plans[0];
+    let sql = if let QueryPlan::ExecuteSql { sql, .. } = &plan.plans[0] {
+        sql
+    } else {
+        panic!("Expected ExecuteSql");
+    };
     assert!(sql.contains("GROUP BY [f]"));
 }

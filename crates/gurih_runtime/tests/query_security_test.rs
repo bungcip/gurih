@@ -35,13 +35,17 @@ fn test_sql_injection_reproduction() {
         }],
         formulas: vec![],
         joins: vec![],
+        hierarchy: None,
     };
 
     schema.queries.insert("InjectionQuery".into(), query);
 
     let runtime_params = std::collections::HashMap::new();
     let strategy = QueryEngine::plan(&schema, "InjectionQuery", &runtime_params).expect("Failed to plan");
-    let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0];
+    let (sql, params) = match &strategy.plans[0] {
+        QueryPlan::ExecuteSql { sql, params } => (sql, params),
+        _ => panic!("Expected ExecuteSql plan"),
+    };
 
     println!("Generated SQL: {}", sql);
 
@@ -55,9 +59,14 @@ fn test_sql_injection_reproduction() {
         !sql.contains("' OR '1'='1'"),
         "SQL Injection vulnerability fix verification: payload should NOT be in SQL string"
     );
-    assert!(sql.contains("?"), "SQL should use placeholders for string literals");
+    assert!(
+        sql.contains("?"),
+        "SQL should use placeholders for string literals"
+    );
 
-    let QueryPlan::ExecuteSql { sql: _, params } = &strategy.plans[0];
     assert_eq!(params.len(), 1);
-    assert_eq!(params[0], serde_json::Value::String(malicious_input.to_string()));
+    assert_eq!(
+        params[0],
+        serde_json::Value::String(malicious_input.to_string())
+    );
 }

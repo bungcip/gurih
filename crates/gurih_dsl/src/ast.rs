@@ -310,6 +310,14 @@ pub struct QueryDef {
     pub filters: Vec<Expr>,
     pub joins: Vec<QueryJoinDef>,
     pub group_by: Vec<String>,
+    pub hierarchy: Option<HierarchyDef>,
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone)]
+pub struct HierarchyDef {
+    pub parent_field: String,
+    pub rollup_fields: Vec<String>,
     pub span: SourceSpan,
 }
 

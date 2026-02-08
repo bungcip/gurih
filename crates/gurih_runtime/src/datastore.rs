@@ -341,8 +341,14 @@ pub async fn init_datastore(schema: Arc<Schema>, base_path: Option<&Path>) -> Re
                 format!("sqlite://{}", db_path)
             };
 
-            let p = SqlitePoolOptions::new()
-                .max_connections(5)
+            let mut opts = SqlitePoolOptions::new();
+            if url.contains(":memory:") {
+                opts = opts.max_connections(1);
+            } else {
+                opts = opts.max_connections(5);
+            }
+
+            let p = opts
                 .connect(&url)
                 .await
                 .map_err(|e| format!("Failed to connect to SQLite DB at {}: {}", url, e))?;

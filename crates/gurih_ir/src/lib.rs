@@ -77,12 +77,20 @@ pub struct QuerySchema {
     pub filters: Vec<Expression>,
     pub joins: Vec<QueryJoin>,
     pub group_by: Vec<Symbol>,
+    pub hierarchy: Option<HierarchySchema>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HierarchySchema {
+    pub parent_field: Symbol,
+    pub rollup_fields: Vec<Symbol>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum QueryType {
     Nested,
     Flat,
+    Hierarchy,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

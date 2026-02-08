@@ -620,23 +620,245 @@ impl DataEngine {
             }
 
             let strategy = QueryEngine::plan(&self.schema, entity, &runtime_params)?;
-            if let Some(QueryPlan::ExecuteSql { mut sql, params }) = strategy.plans.first().cloned() {
-                if let Some(l) = limit {
-                    sql.push_str(&format!(" LIMIT {}", l));
+            match strategy.plans.first().cloned() {
+                Some(QueryPlan::ExecuteSql { mut sql, params }) => {
+                    if let Some(l) = limit {
+                        sql.push_str(&format!(" LIMIT {}", l));
+                    }
+                    if let Some(o) = offset {
+                        sql.push_str(&format!(" OFFSET {}", o));
+                    }
+                    return self.datastore.query_with_params(&sql, params).await;
                 }
-                if let Some(o) = offset {
-                    sql.push_str(&format!(" OFFSET {}", o));
+                Some(QueryPlan::ExecuteHierarchy {
+                    sql,
+                    params,
+                    parent_field,
+                    rollup_fields,
+                }) => {
+                    // 1. Fetch all records (flat)
+                    let records = self
+                        .datastore
+                        .query_with_params(&sql, params)
+                        .await
+                        .map_err(|e| e.to_string())?;
+
+                    // 2. Build Tree Maps
+                    let mut records_map: std::collections::HashMap<String, Arc<Value>> =
+                        std::collections::HashMap::new();
+                    let mut children_map: std::collections::HashMap<String, Vec<String>> =
+                        std::collections::HashMap::new();
+                    let mut roots: Vec<String> = Vec::new();
+
+                    for record in &records {
+                        if let Some(obj) = record.as_object() {
+                            if let Some(id) = obj.get("id").and_then(|v| v.as_str()) {
+                                records_map.insert(id.to_string(), record.clone());
+
+                                let parent_id = obj
+                                    .get(&parent_field)
+                                    .and_then(|v| v.as_str())
+                                    .map(|s| s.to_string());
+
+                                if let Some(pid) = parent_id {
+                                    if !pid.is_empty() {
+                                        children_map.entry(pid).or_default().push(id.to_string());
+                                    } else {
+                                        roots.push(id.to_string());
+                                    }
+                                } else {
+                                    roots.push(id.to_string());
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. Recursive Rollup & Flatten
+                    return self.build_hierarchy(
+                        &roots,
+                        &records_map,
+                        &children_map,
+                        &rollup_fields,
+                        limit,
+                        offset,
+                    );
                 }
-                return self.datastore.query_with_params(&sql, params).await;
+                None => return Err("Query engine failed to produce SQL plan".to_string()),
             }
-            return Err("Query engine failed to produce SQL plan".to_string());
         }
 
         if let Some(schema) = self.schema.entities.get(&Symbol::from(entity)) {
-            self.datastore.list(schema.table_name.as_str(), limit, offset).await
+            self.datastore
+                .list(schema.table_name.as_str(), limit, offset)
+                .await
         } else {
             Err(format!("Entity or Query '{}' not defined", entity))
         }
+    }
+
+    fn build_hierarchy(
+        &self,
+        roots: &[String],
+        records_map: &std::collections::HashMap<String, Arc<Value>>,
+        children_map: &std::collections::HashMap<String, Vec<String>>,
+        rollup_fields: &[String],
+        limit: Option<usize>,
+        offset: Option<usize>,
+    ) -> Result<Vec<Arc<Value>>, String> {
+        let mut result = Vec::new();
+
+        // 1. Compute rollups (Post-order) -> returns Map<ID, RollupValues>
+        let mut rollups_cache = std::collections::HashMap::new();
+        let mut visited = std::collections::HashSet::new();
+
+        for root in roots {
+            self.compute_rollups(
+                root,
+                records_map,
+                children_map,
+                rollup_fields,
+                &mut rollups_cache,
+                &mut visited,
+            )?;
+        }
+
+        // 2. Flatten (Pre-order)
+        visited.clear();
+        for root in roots {
+            self.flatten_hierarchy(
+                root,
+                0,
+                records_map,
+                children_map,
+                &rollups_cache,
+                &mut result,
+                &mut visited,
+            )?;
+        }
+
+        // 3. Pagination
+        let start = offset.unwrap_or(0);
+        if start >= result.len() {
+            return Ok(vec![]);
+        }
+        let end = limit.map(|l| start + l).unwrap_or(result.len());
+        let end = std::cmp::min(end, result.len());
+
+        Ok(result[start..end].to_vec())
+    }
+
+    fn compute_rollups(
+        &self,
+        id: &str,
+        records_map: &std::collections::HashMap<String, Arc<Value>>,
+        children_map: &std::collections::HashMap<String, Vec<String>>,
+        rollup_fields: &[String],
+        cache: &mut std::collections::HashMap<String, serde_json::Map<String, Value>>,
+        visited: &mut std::collections::HashSet<String>,
+    ) -> Result<serde_json::Map<String, Value>, String> {
+        if visited.contains(id) {
+            return Err(format!("Cycle detected in hierarchy at id: {}", id));
+        }
+        visited.insert(id.to_string());
+
+        if let Some(res) = cache.get(id) {
+            visited.remove(id);
+            return Ok(res.clone());
+        }
+
+        let record = records_map.get(id).ok_or("Record not found")?;
+        let obj = record.as_object().cloned().unwrap_or_default();
+
+        let mut current_rollup = serde_json::Map::new();
+        let parse_f64 = |v: &Value| match v {
+            Value::Number(n) => n.as_f64().unwrap_or(0.0),
+            Value::String(s) => s.parse().unwrap_or(0.0),
+            _ => 0.0,
+        };
+
+        for field in rollup_fields {
+            let val = obj.get(field).map(parse_f64).unwrap_or(0.0);
+            current_rollup.insert(field.clone(), Value::from(val));
+        }
+
+        if let Some(children) = children_map.get(id) {
+            for child in children {
+                let child_vals = self.compute_rollups(
+                    child,
+                    records_map,
+                    children_map,
+                    rollup_fields,
+                    cache,
+                    visited,
+                )?;
+                for field in rollup_fields {
+                    let cur = current_rollup
+                        .get(field)
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0);
+                    let child = child_vals
+                        .get(field)
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0);
+                    current_rollup.insert(field.clone(), Value::from(cur + child));
+                }
+            }
+        }
+
+        cache.insert(id.to_string(), current_rollup.clone());
+        visited.remove(id);
+        Ok(current_rollup)
+    }
+
+    fn flatten_hierarchy(
+        &self,
+        id: &str,
+        level: usize,
+        records_map: &std::collections::HashMap<String, Arc<Value>>,
+        children_map: &std::collections::HashMap<String, Vec<String>>,
+        rollups_cache: &std::collections::HashMap<String, serde_json::Map<String, Value>>,
+        result: &mut Vec<Arc<Value>>,
+        visited: &mut std::collections::HashSet<String>,
+    ) -> Result<(), String> {
+        if visited.contains(id) {
+            return Err(format!("Cycle detected in hierarchy at id: {}", id));
+        }
+        visited.insert(id.to_string());
+
+        let record = records_map.get(id).ok_or("Record not found")?;
+        let mut obj = record.as_object().cloned().unwrap_or_default();
+
+        // Apply rollups
+        if let Some(rollup) = rollups_cache.get(id) {
+            for (k, v) in rollup {
+                obj.insert(k.clone(), v.clone());
+            }
+        }
+
+        let children = children_map.get(id);
+        let is_leaf = children.is_none() || children.unwrap().is_empty();
+
+        obj.insert("_level".to_string(), Value::from(level));
+        obj.insert("_is_leaf".to_string(), Value::Bool(is_leaf));
+        obj.insert("_has_children".to_string(), Value::Bool(!is_leaf));
+
+        result.push(Arc::new(Value::Object(obj)));
+
+        if let Some(kids) = children {
+            for kid in kids {
+                self.flatten_hierarchy(
+                    kid,
+                    level + 1,
+                    records_map,
+                    children_map,
+                    rollups_cache,
+                    result,
+                    visited,
+                )?;
+            }
+        }
+        visited.remove(id);
+        Ok(())
     }
 
     async fn execute_posting_rule(
