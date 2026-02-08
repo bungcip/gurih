@@ -60,7 +60,7 @@ impl ActionEngine {
         let resolve_arg = |val: &str| -> String {
             if val.starts_with("param(") && val.ends_with(")") {
                 let key = &val[6..val.len() - 1];
-                let cleaned_key = key.trim_matches('"');
+                let cleaned_key = key.trim_matches(|c| c == '"' || c == '\'');
                 params.get(cleaned_key).cloned().unwrap_or(val.to_string())
             } else {
                 val.to_string()

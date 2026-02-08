@@ -36,7 +36,7 @@ page "PeriodForm" {
 
 action "GenerateClosingEntry" {
     params "id"
-    step "finance:generate_closing_entry" period_id="param(\"id\")"
+    step "finance:generate_closing_entry" period_id="param('id')"
 }
 
 routes {

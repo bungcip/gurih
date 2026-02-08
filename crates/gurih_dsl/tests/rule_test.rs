@@ -113,3 +113,46 @@ fn test_compile_rule_new_syntax() {
     let rule = schema.rules.get(&Symbol::from("MinAge")).unwrap();
     assert_eq!(rule.on_event.as_str(), "Employee:update");
 }
+#[test]
+fn test_compile_rule_exists_with_double_quotes() {
+    let src = r#"
+        rule "PreventInUseAccountDelete" {
+            on:delete "Account"
+            assert "exists(\"JournalLine\", \"account\", self.id) == false"
+            message "Cannot delete account that has journal entries."
+        }
+    "#;
+    let schema = compile(src, None).expect("Should compile");
+    let rule = schema.rules.get(&Symbol::from("PreventInUseAccountDelete")).unwrap();
+    assert_eq!(rule.on_event.as_str(), "Account:delete");
+    assert_eq!(rule.message, "Cannot delete account that has journal entries.");
+    // The assertion should be a comparison with == false
+    match &rule.assertion {
+        Expression::BinaryOp { op, .. } => {
+            assert!(matches!(op, BinaryOperator::Eq));
+        }
+        _ => panic!("Expected BinaryOp with == operator"),
+    }
+}
+
+#[test]
+fn test_compile_rule_exists_with_single_quotes() {
+    let src = r#"
+        rule "PreventInUseAccountDelete" {
+            on:delete "Account"
+            assert "exists('JournalLine', 'account', self.id) == false"
+            message "Cannot delete account that has journal entries."
+        }
+    "#;
+    let schema = compile(src, None).expect("Should compile");
+    let rule = schema.rules.get(&Symbol::from("PreventInUseAccountDelete")).unwrap();
+    assert_eq!(rule.on_event.as_str(), "Account:delete");
+    assert_eq!(rule.message, "Cannot delete account that has journal entries.");
+    // The assertion should be a comparison with == false
+    match &rule.assertion {
+        Expression::BinaryOp { op, .. } => {
+            assert!(matches!(op, BinaryOperator::Eq));
+        }
+        _ => panic!("Expected BinaryOp with == operator"),
+    }
+}

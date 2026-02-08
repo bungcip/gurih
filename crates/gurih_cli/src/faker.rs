@@ -327,14 +327,14 @@ mod tests {
 
         // Verify Department count
         let count_dept = datastore
-            .count("Department", std::collections::HashMap::new())
+            .count("department", std::collections::HashMap::new())
             .await
             .unwrap();
         assert_eq!(count_dept, 10);
 
         // Verify Employee count
         let count_emp = datastore
-            .count("Employee", std::collections::HashMap::new())
+            .count("employee", std::collections::HashMap::new())
             .await
             .unwrap();
         assert_eq!(count_emp, 10);
@@ -343,7 +343,7 @@ mod tests {
         // FakerEngine handles implicit belongs_to by adding {rel_name}_id field.
         // We need to guess the relationship name. Usually "department" if target is "Department".
 
-        let employees = datastore.list("Employee", None, None).await.unwrap();
+        let employees = datastore.list("employee", None, None).await.unwrap();
         // Debug print keys to see what was inserted
         if let Some(first) = employees.first() {
             println!("Employee keys: {:?}", first.as_object().unwrap().keys());
@@ -359,7 +359,7 @@ mod tests {
                 let dept_id = val.as_str().unwrap();
 
                 // Check if dept exists
-                let dept = datastore.get("Department", dept_id).await.unwrap();
+                let dept = datastore.get("department", dept_id).await.unwrap();
                 assert!(dept.is_some(), "Referenced Department should exist for key {}", key);
             } else {
                 panic!(

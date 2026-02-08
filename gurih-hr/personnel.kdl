@@ -27,6 +27,6 @@ module "Personnel" {
 
     action "DeleteEmployee" {
         params "id"
-        step "entity:delete" target="Employee" id="param(\"id\")"
+        step "entity:delete" target="Employee" id="param('id')"
     }
 }

@@ -68,7 +68,7 @@ workflow "JournalWorkflow" for="JournalEntry" field="status" {
 
 action "ReverseJournal" {
     params "id"
-    step "finance:reverse_journal" target="JournalEntry" id="param(\"id\")"
+    step "finance:reverse_journal" target="JournalEntry" id="param('id')"
 }
 
 routes {
@@ -121,13 +121,13 @@ rule "PositiveCredit" {
 
 rule "LeafAccountOnly" {
     on:create "JournalLine"
-    assert "lookup_field(\"Account\", account, \"is_group\") == false"
+    assert "lookup_field('Account', account, 'is_group') == false"
     message "Cannot post to a group account"
 }
 
 rule "LeafAccountOnlyUpdate" {
     on:update "JournalLine"
-    assert "lookup_field(\"Account\", account, \"is_group\") == false"
+    assert "lookup_field('Account', account, 'is_group') == false"
     message "Cannot post to a group account"
 }
 

@@ -27,11 +27,11 @@ module "Organization" {
 
     action "DeletePosition" {
         params "id"
-        step "entity:delete" target="Position" id="param(\"id\")"
+        step "entity:delete" target="Position" id="param('id')"
     }
 
     action "DeleteDepartment" {
         params "id"
-        step "entity:delete" target="Department" id="param(\"id\")"
+        step "entity:delete" target="Department" id="param('id')"
     }
 }
