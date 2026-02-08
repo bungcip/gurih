@@ -312,14 +312,18 @@ pub async fn init_datastore(schema: Arc<Schema>, base_path: Option<&Path>) -> Re
                 // Ensure parent directory exists
                 if let Some(parent) = full_path.parent()
                     && !parent.as_os_str().is_empty()
-                    && !parent.exists()
+                    && !tokio::fs::try_exists(parent).await.unwrap_or(false)
                 {
-                    std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                    tokio::fs::create_dir_all(parent)
+                        .await
+                        .map_err(|e| e.to_string())?;
                 }
 
                 // Explicitly create file if not exists
-                if !full_path.exists() {
-                    std::fs::File::create(&full_path).map_err(|e| e.to_string())?;
+                if !tokio::fs::try_exists(&full_path).await.unwrap_or(false) {
+                    tokio::fs::File::create(&full_path)
+                        .await
+                        .map_err(|e| e.to_string())?;
                 }
 
                 db_path = full_path.to_string_lossy().to_string();
