@@ -24,6 +24,8 @@ use notify::{RecursiveMode, Watcher};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -696,10 +698,35 @@ async fn upload_handler(
 
 // UI Handlers
 
-async fn get_portal(State(state): State<AppState>) -> impl IntoResponse {
+async fn get_portal(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
     let engine = PortalEngine::new();
     match engine.generate_navigation(state.data_engine.get_schema()) {
-        Ok(nav) => (StatusCode::OK, Json(nav)).into_response(),
+        Ok(nav) => {
+            // Generate ETag based on the content
+            let json_str = serde_json::to_string(&nav).unwrap_or_default();
+            let mut hasher = DefaultHasher::new();
+            json_str.hash(&mut hasher);
+            let hash = hasher.finish();
+            let etag = format!("\"{}\"", hash.to_string());
+
+            // Check if client has the same ETag
+            if let Some(if_none_match) = headers.get("If-None-Match") {
+                if let Ok(client_etag) = if_none_match.to_str() {
+                    if client_etag == etag {
+                        // Content hasn't changed, return 304 Not Modified
+                        let mut response_headers = HeaderMap::new();
+                        response_headers.insert("ETag", etag.parse().unwrap());
+                        return (StatusCode::NOT_MODIFIED, response_headers).into_response();
+                    }
+                }
+            }
+
+            // Content has changed or first request, return with ETag
+            let mut response_headers = HeaderMap::new();
+            response_headers.insert("ETag", etag.parse().unwrap());
+            response_headers.insert("Cache-Control", "max-age=3600".parse().unwrap());
+            (StatusCode::OK, response_headers, Json(nav)).into_response()
+        }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e })),
@@ -749,7 +776,32 @@ async fn get_dashboard_data(
         )
         .await
     {
-        Ok(config) => (StatusCode::OK, Json(config)).into_response(),
+        Ok(config) => {
+            // Generate ETag based on the content
+            let json_str = serde_json::to_string(&config).unwrap_or_default();
+            let mut hasher = DefaultHasher::new();
+            json_str.hash(&mut hasher);
+            let hash = hasher.finish();
+            let etag = format!("\"{}\"", hash.to_string());
+
+            // Check if client has the same ETag
+            if let Some(if_none_match) = headers.get("If-None-Match") {
+                if let Ok(client_etag) = if_none_match.to_str() {
+                    if client_etag == etag {
+                        // Content hasn't changed, return 304 Not Modified
+                        let mut response_headers = HeaderMap::new();
+                        response_headers.insert("ETag", etag.parse().unwrap());
+                        return (StatusCode::NOT_MODIFIED, response_headers).into_response();
+                    }
+                }
+            }
+
+            // Content has changed or first request, return with ETag
+            let mut response_headers = HeaderMap::new();
+            response_headers.insert("ETag", etag.parse().unwrap());
+            response_headers.insert("Cache-Control", "max-age=3600".parse().unwrap());
+            (StatusCode::OK, response_headers, Json(config)).into_response()
+        }
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
 }

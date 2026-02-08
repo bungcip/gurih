@@ -14,6 +14,11 @@ const editId = ref(null)
 const currentUser = ref(null)
 const dashboardSchema = ref(null)
 
+// Cache control
+const menuCacheKey = ref(null)
+const dashboardCacheKey = ref(null)
+let isFetching = false
+
 // Toast State
 const toasts = ref([])
 
@@ -38,19 +43,56 @@ provide('currentUser', currentUser)
 const API_BASE = 'http://localhost:3000/api'
 
 async function fetchMenu() {
+    // Prevent concurrent requests
+    if (isFetching) return
+    isFetching = true
+
     try {
         const headers = currentUser.value && currentUser.value.token ? {
             'Authorization': `Bearer ${currentUser.value.token}`
         } : {}
 
+        // Add ETag from cache if available
+        if (menuCacheKey.value) {
+            headers['If-None-Match'] = menuCacheKey.value
+        }
+
         const res = await fetch(`${API_BASE}/ui/portal`, { headers })
+        
+        // Handle 304 Not Modified
+        if (res.status === 304) {
+            // Content hasn't changed, use cached data
+            isFetching = false
+            return
+        }
+
+        // Store ETag for next request
+        const etag = res.headers.get('ETag')
+        if (etag) {
+            menuCacheKey.value = etag
+        }
+
         menu.value = await res.json()
         
-        // Also fetch dashboard schema
-        const dashRes = await fetch(`${API_BASE}/ui/dashboard/HRDashboard`, { headers })
-        dashboardSchema.value = await dashRes.json()
+        // Also fetch dashboard schema with caching
+        const dashHeaders = { ...headers }
+        if (dashboardCacheKey.value) {
+            dashHeaders['If-None-Match'] = dashboardCacheKey.value
+        }
+
+        const dashRes = await fetch(`${API_BASE}/ui/dashboard/HRDashboard`, { headers: dashHeaders })
+        
+        if (dashRes.status !== 304) {
+            const dashEtag = dashRes.headers.get('ETag')
+            if (dashEtag) {
+                dashboardCacheKey.value = dashEtag
+            }
+            dashboardSchema.value = await dashRes.json()
+        }
     } catch (e) {
         console.error("Failed to fetch menu or dashboard", e)
+    } finally {
+        isFetching = false
     }
 }
 
@@ -152,7 +194,7 @@ onMounted(() => {
 
   <div v-else class="flex h-screen w-full bg-background overflow-hidden">
     <!-- Sidebar -->
-    <aside class="w-64 bg-surface border-r border-border flex flex-col hidden md:flex">
+    <aside class="w-64 bg-surface border-r border-border flex-col hidden md:flex">
         <div class="p-6 text-xl font-bold text-text-main flex items-center gap-2">
             <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm">G</div>
             GurihERP
