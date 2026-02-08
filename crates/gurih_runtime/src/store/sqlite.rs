@@ -64,10 +64,14 @@ impl SqliteDataStore {
 impl DataStore for SqliteDataStore {
     async fn insert(&self, entity: &str, record: Value) -> Result<String, String> {
         validate_identifier(entity)?;
-        let obj = record.as_object().ok_or("Record must be object")?;
+        let mut obj = record.as_object().ok_or("Record must be object")?.clone();
+
+        // Generate ID if missing
+        if !obj.contains_key("id") {
+            obj.insert("id".to_string(), Value::String(uuid::Uuid::new_v4().to_string()));
+        }
 
         // Estimate capacity to reduce reallocations
-        // A rough guess: each field adds ~10-20 chars for column name + overhead, and 2-3 chars for value placeholder
         let estimated_cols = obj.len() * 16;
         let estimated_vals = obj.len() * 3;
 

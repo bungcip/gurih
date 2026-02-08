@@ -17,8 +17,11 @@ export async function request(path, options = {}) {
 
     // Set default headers
     const headers = {
-        'Content-Type': 'application/json',
         ...options.headers
+    }
+
+    if (!(options.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json'
     }
 
     if (token) {

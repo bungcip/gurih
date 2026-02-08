@@ -81,7 +81,12 @@ const modalState = ref({
 async function handleCustomAction(action, row) {
     if (action.to) {
         let url = action.to;
-        if (row && row.id) {
+        if (url.includes(':id')) {
+            if (!row || !row.id) {
+                if (showToast) showToast('Record ID missing. Action cannot be performed.', 'error')
+                console.error('Cannot navigate: row ID is missing for action', action.label)
+                return
+            }
             url = url.replace(':id', row.id);
         }
 

@@ -95,6 +95,56 @@ async function fetchData() {
     }
 }
 
+async function uploadFiles() {
+    const updatedData = { ...formData.value }
+    const uploadTasks = []
+
+    for (const section of schema.value.layout) {
+        for (const field of section.fields) {
+            if (field.widget === 'FileUpload') {
+                const val = formData.value[field.name]
+                if (!val) continue
+
+                const processFile = async (file) => {
+                    if (!(file instanceof File)) return file
+
+                    const formDataObj = new FormData()
+                    formDataObj.append('file', file)
+
+                    const res = await request(`/upload/${props.entity}/${field.name}`, {
+                        method: 'POST',
+                        body: formDataObj
+                    })
+
+                    if (res.ok) {
+                        const data = await res.json()
+                        return data.url
+                    } else {
+                        throw new Error(`Failed to upload ${field.name}`)
+                    }
+                }
+
+                if (Array.isArray(val)) {
+                    const task = Promise.all(val.map(processFile)).then(urls => {
+                        updatedData[field.name] = urls
+                    })
+                    uploadTasks.push(task)
+                } else if (val instanceof File) {
+                    const task = processFile(val).then(url => {
+                        updatedData[field.name] = url
+                    })
+                    uploadTasks.push(task)
+                }
+            }
+        }
+    }
+
+    if (uploadTasks.length > 0) {
+        await Promise.all(uploadTasks)
+        formData.value = updatedData
+    }
+}
+
 async function save() {
     const isEdit = !!props.id
     const url = isEdit ? `/${props.entity}/${props.id}` : `/${props.entity}`
@@ -102,6 +152,9 @@ async function save() {
 
     saving.value = true
     try {
+        // Upload any pending files first
+        await uploadFiles()
+
         const res = await request(url, {
             method,
             body: JSON.stringify(formData.value)
@@ -114,7 +167,7 @@ async function save() {
             showToast("Error: " + JSON.stringify(err), 'error')
         }
     } catch (e) {
-        showToast("Failed to save", 'error')
+        showToast("Error: " + e.message, 'error')
     } finally {
         saving.value = false
     }
