@@ -359,7 +359,6 @@ fn as_str(v: &Value) -> Result<&str, RuntimeError> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

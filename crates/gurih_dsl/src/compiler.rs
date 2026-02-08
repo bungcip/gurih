@@ -2,8 +2,8 @@ use crate::ast;
 use crate::errors::CompileError;
 use crate::parser::parse;
 use crate::validator::Validator;
-use gurih_ir::utils::to_snake_case;
 use gurih_ir::Symbol;
+use gurih_ir::utils::to_snake_case;
 use gurih_ir::{
     ActionSchema, ColumnSchema, ColumnType, DashboardSchema, DatabaseSchema, DatatableColumnSchema, DatatableSchema,
     EntitySchema, FieldSchema, FieldType, FormSchema, FormSection, LayoutSchema, MenuItemSchema, MenuSchema,
@@ -277,7 +277,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         let workflow_key = ir_workflows
             .iter()
             .find(|(_, w)| w.entity == entity_sym)
-            .map(|(k, _)| k.clone());
+            .map(|(k, _)| *k);
 
         let workflow = if let Some(key) = workflow_key {
             ir_workflows.get_mut(&key).unwrap()
@@ -288,10 +288,10 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             let field_name = status_def.field.as_deref().unwrap_or("status");
 
             ir_workflows.insert(
-                wf_name.clone(),
+                wf_name,
                 WorkflowSchema {
-                    name: wf_name.clone(),
-                    entity: entity_sym.clone(),
+                    name: wf_name,
+                    entity: entity_sym,
                     field: Symbol::from(field_name),
                     initial_state: Symbol::from(""),
                     states: vec![],
@@ -310,16 +310,16 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         let status_sym = Symbol::from(status_def.status.as_str());
         if !workflow.states.iter().any(|s| s.name == status_sym) {
             workflow.states.push(StateSchema {
-                name: status_sym.clone(),
+                name: status_sym,
                 immutable: false,
             });
         }
 
         if status_def.initial {
-            workflow.initial_state = status_sym.clone();
+            workflow.initial_state = status_sym;
         } else if workflow.initial_state == Symbol::from("") {
             // Default to first encountered if no initial specified (legacy behavior fallback)
-            workflow.initial_state = status_sym.clone();
+            workflow.initial_state = status_sym;
         }
 
         // Process transitions
@@ -329,7 +329,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             // Ensure to state exists
             if !workflow.states.iter().any(|s| s.name == transition_ir.to) {
                 workflow.states.push(StateSchema {
-                    name: transition_ir.to.clone(),
+                    name: transition_ir.to,
                     immutable: false,
                 });
             }
@@ -880,4 +880,3 @@ fn parse_field_type(
         other => Ok(other.clone()),
     }
 }
-

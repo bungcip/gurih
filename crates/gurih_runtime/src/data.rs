@@ -18,6 +18,12 @@ pub struct DataEngine {
     workflow: WorkflowEngine,
 }
 
+struct HierarchyContext<'a> {
+    records_map: &'a std::collections::HashMap<String, Arc<Value>>,
+    children_map: &'a std::collections::HashMap<String, Vec<String>>,
+    rollups_cache: &'a std::collections::HashMap<String, serde_json::Map<String, Value>>,
+}
+
 #[async_trait]
 impl DataAccess for DataEngine {
     fn get_schema(&self) -> &Schema {
@@ -220,11 +226,7 @@ impl DataEngine {
                     // Fetch Parent
                     if let Some(parent_arc) = self.read(parent_entity_name, pid).await? {
                         // Check Parent Workflow
-                        let parent_workflow = self
-                            .schema
-                            .workflows
-                            .values()
-                            .find(|w| w.entity == rel.target_entity);
+                        let parent_workflow = self.schema.workflows.values().find(|w| w.entity == rel.target_entity);
 
                         if let Some(pwf) = parent_workflow {
                             let p_state = parent_arc
@@ -232,14 +234,12 @@ impl DataEngine {
                                 .and_then(|v| v.as_str())
                                 .unwrap_or("");
 
-                            if let Some(s) = pwf.states.iter().find(|s| s.name == Symbol::from(p_state)) {
-                                if s.immutable {
+                                if pwf.states.iter().any(|s| s.name == Symbol::from(p_state) && s.immutable) {
                                     return Err(format!(
                                         "Cannot modify record because parent '{}' is in immutable state '{}'",
                                         parent_entity_name, p_state
                                     ));
                                 }
-                            }
                         }
                     }
                 }
@@ -275,8 +275,7 @@ impl DataEngine {
             .unwrap_or(false);
 
         let has_composition = entity_schema.relationships.iter().any(|r| {
-            r.rel_type == gurih_ir::RelationshipType::BelongsTo
-                && r.ownership == gurih_ir::Ownership::Composition
+            r.rel_type == gurih_ir::RelationshipType::BelongsTo && r.ownership == gurih_ir::Ownership::Composition
         });
 
         let mut current_record_opt: Option<Arc<Value>> = None;
@@ -289,8 +288,7 @@ impl DataEngine {
         if has_composition {
             if let Some(current) = &current_record_opt {
                 // 1. Check Source (Old Parent)
-                self.check_composition_immutability(entity_name, current)
-                    .await?;
+                self.check_composition_immutability(entity_name, current).await?;
 
                 // 2. Check Destination (New Parent)
                 // Merge data to get potential new FK
@@ -302,8 +300,7 @@ impl DataEngine {
                         target.insert(k.clone(), v.clone());
                     }
                 }
-                self.check_composition_immutability(entity_name, &merged)
-                    .await?;
+                self.check_composition_immutability(entity_name, &merged).await?;
             } else {
                 return Err("Record not found for composition validation".to_string());
             }
@@ -483,8 +480,7 @@ impl DataEngine {
             .unwrap_or(false);
 
         let has_composition = entity_schema.relationships.iter().any(|r| {
-            r.rel_type == gurih_ir::RelationshipType::BelongsTo
-                && r.ownership == gurih_ir::Ownership::Composition
+            r.rel_type == gurih_ir::RelationshipType::BelongsTo && r.ownership == gurih_ir::Ownership::Composition
         });
 
         let mut current_record_opt: Option<Arc<Value>> = None;
@@ -496,8 +492,7 @@ impl DataEngine {
         // Check Composition Immutability
         if has_composition {
             if let Some(current) = &current_record_opt {
-                self.check_composition_immutability(entity_name, current)
-                    .await?;
+                self.check_composition_immutability(entity_name, current).await?;
             } else {
                 return Err("Record not found for composition validation".to_string());
             }
@@ -651,46 +646,32 @@ impl DataEngine {
                     let mut roots: Vec<String> = Vec::new();
 
                     for record in &records {
-                        if let Some(obj) = record.as_object() {
-                            if let Some(id) = obj.get("id").and_then(|v| v.as_str()) {
-                                records_map.insert(id.to_string(), record.clone());
+                        if let Some(obj) = record.as_object() && let Some(id) = obj.get("id").and_then(|v| v.as_str()) {
+                            records_map.insert(id.to_string(), record.clone());
 
-                                let parent_id = obj
-                                    .get(&parent_field)
-                                    .and_then(|v| v.as_str())
-                                    .map(|s| s.to_string());
+                            let parent_id = obj.get(&parent_field).and_then(|v| v.as_str()).map(|s| s.to_string());
 
-                                if let Some(pid) = parent_id {
-                                    if !pid.is_empty() {
-                                        children_map.entry(pid).or_default().push(id.to_string());
-                                    } else {
-                                        roots.push(id.to_string());
-                                    }
+                            if let Some(pid) = parent_id {
+                                if !pid.is_empty() {
+                                    children_map.entry(pid).or_default().push(id.to_string());
                                 } else {
                                     roots.push(id.to_string());
                                 }
+                            } else {
+                                roots.push(id.to_string());
                             }
                         }
                     }
 
                     // 3. Recursive Rollup & Flatten
-                    return self.build_hierarchy(
-                        &roots,
-                        &records_map,
-                        &children_map,
-                        &rollup_fields,
-                        limit,
-                        offset,
-                    );
+                    return self.build_hierarchy(&roots, &records_map, &children_map, &rollup_fields, limit, offset);
                 }
                 None => return Err("Query engine failed to produce SQL plan".to_string()),
             }
         }
 
         if let Some(schema) = self.schema.entities.get(&Symbol::from(entity)) {
-            self.datastore
-                .list(schema.table_name.as_str(), limit, offset)
-                .await
+            self.datastore.list(schema.table_name.as_str(), limit, offset).await
         } else {
             Err(format!("Entity or Query '{}' not defined", entity))
         }
@@ -725,15 +706,14 @@ impl DataEngine {
         // 2. Flatten (Pre-order)
         visited.clear();
         for root in roots {
-            self.flatten_hierarchy(
-                root,
-                0,
+            // group maps into a small context to reduce function arguments
+            let ctx = HierarchyContext {
                 records_map,
                 children_map,
-                &rollups_cache,
-                &mut result,
-                &mut visited,
-            )?;
+                rollups_cache: &rollups_cache,
+            };
+
+            self.flatten_hierarchy(root, 0, &ctx, &mut result, &mut visited)?;
         }
 
         // 3. Pagination
@@ -783,23 +763,11 @@ impl DataEngine {
 
         if let Some(children) = children_map.get(id) {
             for child in children {
-                let child_vals = self.compute_rollups(
-                    child,
-                    records_map,
-                    children_map,
-                    rollup_fields,
-                    cache,
-                    visited,
-                )?;
+                let child_vals =
+                    self.compute_rollups(child, records_map, children_map, rollup_fields, cache, visited)?;
                 for field in rollup_fields {
-                    let cur = current_rollup
-                        .get(field)
-                        .and_then(|v| v.as_f64())
-                        .unwrap_or(0.0);
-                    let child = child_vals
-                        .get(field)
-                        .and_then(|v| v.as_f64())
-                        .unwrap_or(0.0);
+                    let cur = current_rollup.get(field).and_then(|v| v.as_f64()).unwrap_or(0.0);
+                    let child = child_vals.get(field).and_then(|v| v.as_f64()).unwrap_or(0.0);
                     current_rollup.insert(field.clone(), Value::from(cur + child));
                 }
             }
@@ -810,13 +778,13 @@ impl DataEngine {
         Ok(current_rollup)
     }
 
+    
+
     fn flatten_hierarchy(
         &self,
         id: &str,
         level: usize,
-        records_map: &std::collections::HashMap<String, Arc<Value>>,
-        children_map: &std::collections::HashMap<String, Vec<String>>,
-        rollups_cache: &std::collections::HashMap<String, serde_json::Map<String, Value>>,
+        ctx: &HierarchyContext,
         result: &mut Vec<Arc<Value>>,
         visited: &mut std::collections::HashSet<String>,
     ) -> Result<(), String> {
@@ -825,17 +793,17 @@ impl DataEngine {
         }
         visited.insert(id.to_string());
 
-        let record = records_map.get(id).ok_or("Record not found")?;
+        let record = ctx.records_map.get(id).ok_or("Record not found")?;
         let mut obj = record.as_object().cloned().unwrap_or_default();
 
         // Apply rollups
-        if let Some(rollup) = rollups_cache.get(id) {
+        if let Some(rollup) = ctx.rollups_cache.get(id) {
             for (k, v) in rollup {
                 obj.insert(k.clone(), v.clone());
             }
         }
 
-        let children = children_map.get(id);
+        let children = ctx.children_map.get(id);
         let is_leaf = children.is_none() || children.unwrap().is_empty();
 
         obj.insert("_level".to_string(), Value::from(level));
@@ -846,15 +814,7 @@ impl DataEngine {
 
         if let Some(kids) = children {
             for kid in kids {
-                self.flatten_hierarchy(
-                    kid,
-                    level + 1,
-                    records_map,
-                    children_map,
-                    rollups_cache,
-                    result,
-                    visited,
-                )?;
+                self.flatten_hierarchy(kid, level + 1, ctx, result, visited)?;
             }
         }
         visited.remove(id);

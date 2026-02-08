@@ -37,7 +37,7 @@ fn test_invalid_entity() {
 
     let ast = parse(src, None).expect("Parse failed");
     let err = Validator::new(src).validate(&ast).unwrap_err();
-    assert!(format!("{}", err).contains("Entity 'UnknownEntity' not found"));
+    assert!(err.to_string().contains("Entity 'UnknownEntity' not found"));
 }
 
 #[test]
@@ -84,7 +84,7 @@ fn test_invalid_effect_field() {
 
     let ast = parse(src, None).expect("Parse failed");
     let err = Validator::new(src).validate(&ast).unwrap_err();
-    assert!(format!("{}", err).contains("Effect target field 'unknown_field' not found"));
+    assert!(err.to_string().contains("Effect target field 'unknown_field' not found"));
 }
 
 #[test]

@@ -134,11 +134,9 @@ impl DataStore for MemoryDataStore {
             // Merge existing with new record
             let mut new_record = (**existing).clone();
 
-            if let Some(target) = new_record.as_object_mut() {
-                if let Value::Object(source) = record {
-                    for (k, v) in source {
-                        target.insert(k, v);
-                    }
+            if let Some(target) = new_record.as_object_mut() && let Value::Object(source) = record {
+                for (k, v) in source {
+                    target.insert(k, v);
                 }
             }
 
@@ -182,10 +180,8 @@ impl DataStore for MemoryDataStore {
         let data = self.data.lock().unwrap();
         if let Some(table) = data.get(entity) {
             // OPTIMIZATION: Pre-process filters to avoid parsing/allocating inside the loop
-            let parsed_filters: Vec<CompiledFilter> = filters
-                .into_iter()
-                .map(|(k, v)| CompiledFilter::new(k, v))
-                .collect();
+            let parsed_filters: Vec<CompiledFilter> =
+                filters.into_iter().map(|(k, v)| CompiledFilter::new(k, v)).collect();
 
             let results: Vec<Arc<Value>> = table
                 .values()
@@ -202,10 +198,8 @@ impl DataStore for MemoryDataStore {
         let data = self.data.lock().unwrap();
         if let Some(table) = data.get(entity) {
             // OPTIMIZATION: Pre-process filters to avoid parsing/allocating inside the loop
-            let parsed_filters: Vec<CompiledFilter> = filters
-                .into_iter()
-                .map(|(k, v)| CompiledFilter::new(k, v))
-                .collect();
+            let parsed_filters: Vec<CompiledFilter> =
+                filters.into_iter().map(|(k, v)| CompiledFilter::new(k, v)).collect();
 
             let count = table
                 .values()
@@ -228,10 +222,8 @@ impl DataStore for MemoryDataStore {
             let mut groups: HashMap<String, i64> = HashMap::new();
 
             // OPTIMIZATION: Pre-process filters to avoid parsing/allocating inside the loop
-            let parsed_filters: Vec<CompiledFilter> = filters
-                .into_iter()
-                .map(|(k, v)| CompiledFilter::new(k, v))
-                .collect();
+            let parsed_filters: Vec<CompiledFilter> =
+                filters.into_iter().map(|(k, v)| CompiledFilter::new(k, v)).collect();
 
             for record in table.values() {
                 // Filter first
@@ -240,10 +232,7 @@ impl DataStore for MemoryDataStore {
                 }
 
                 // Group
-                let group_key_ref = record
-                    .get(group_by)
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Unknown");
+                let group_key_ref = record.get(group_by).and_then(|v| v.as_str()).unwrap_or("Unknown");
 
                 if let Some(count) = groups.get_mut(group_key_ref) {
                     *count += 1;
@@ -320,16 +309,12 @@ pub async fn init_datastore(schema: Arc<Schema>, base_path: Option<&Path>) -> Re
                     && !parent.as_os_str().is_empty()
                     && !tokio::fs::try_exists(parent).await.unwrap_or(false)
                 {
-                    tokio::fs::create_dir_all(parent)
-                        .await
-                        .map_err(|e| e.to_string())?;
+                    tokio::fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
                 }
 
                 // Explicitly create file if not exists
                 if !tokio::fs::try_exists(&full_path).await.unwrap_or(false) {
-                    tokio::fs::File::create(&full_path)
-                        .await
-                        .map_err(|e| e.to_string())?;
+                    tokio::fs::File::create(&full_path).await.map_err(|e| e.to_string())?;
                 }
 
                 db_path = full_path.to_string_lossy().to_string();

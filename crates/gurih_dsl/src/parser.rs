@@ -919,8 +919,7 @@ fn parse_rule(node: &KdlNode, src: &str) -> Result<RuleDef, CompileError> {
             if child_name == "assert" {
                 let s = get_arg_string(child, 0, src)?;
                 let offset = child
-                    .entries()
-                    .get(0)
+                    .entries().first()
                     .map(|e| e.span().offset())
                     .unwrap_or(child.span().offset());
                 assertion = Some(parse_expression(&s, offset)?);

@@ -1,6 +1,6 @@
 use axum::{
     body::Body,
-    http::{Request, HeaderValue},
+    http::{HeaderValue, Request},
     middleware::Next,
     response::Response,
 };
@@ -9,18 +9,9 @@ pub async fn security_headers(req: Request<Body>, next: Next) -> Response {
     let mut response = next.run(req).await;
     let headers = response.headers_mut();
 
-    headers.insert(
-        "X-Content-Type-Options",
-        HeaderValue::from_static("nosniff"),
-    );
-    headers.insert(
-        "X-Frame-Options",
-        HeaderValue::from_static("SAMEORIGIN"),
-    );
-    headers.insert(
-        "X-XSS-Protection",
-        HeaderValue::from_static("1; mode=block"),
-    );
+    headers.insert("X-Content-Type-Options", HeaderValue::from_static("nosniff"));
+    headers.insert("X-Frame-Options", HeaderValue::from_static("SAMEORIGIN"));
+    headers.insert("X-XSS-Protection", HeaderValue::from_static("1; mode=block"));
     headers.insert(
         "Referrer-Policy",
         HeaderValue::from_static("strict-origin-when-cross-origin"),
@@ -38,9 +29,9 @@ pub async fn security_headers(req: Request<Body>, next: Next) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{Router, routing::get, middleware};
-    use tower::util::ServiceExt;
     use axum::http::StatusCode;
+    use axum::{Router, middleware, routing::get};
+    use tower::util::ServiceExt;
 
     #[tokio::test]
     async fn test_security_headers_presence() {
@@ -59,7 +50,10 @@ mod tests {
         assert_eq!(headers.get("X-Content-Type-Options").unwrap(), "nosniff");
         assert_eq!(headers.get("X-Frame-Options").unwrap(), "SAMEORIGIN");
         assert_eq!(headers.get("X-XSS-Protection").unwrap(), "1; mode=block");
-        assert_eq!(headers.get("Referrer-Policy").unwrap(), "strict-origin-when-cross-origin");
+        assert_eq!(
+            headers.get("Referrer-Policy").unwrap(),
+            "strict-origin-when-cross-origin"
+        );
         assert!(headers.get("Content-Security-Policy").is_some());
         let csp = headers.get("Content-Security-Policy").unwrap().to_str().unwrap();
         assert!(csp.contains("default-src 'self'"));

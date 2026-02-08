@@ -4,7 +4,6 @@ use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::{DataStore, MemoryDataStore};
 use serde_json::json;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 #[tokio::test]

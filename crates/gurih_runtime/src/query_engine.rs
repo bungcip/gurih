@@ -616,6 +616,8 @@ mod tests {
         println!("Report SQL: {}", sql);
 
         assert!(sql.contains("CASE WHEN TRUE THEN 100 ELSE 0 END AS conditional_balance"));
-        assert!(sql.contains("SUM([amount]) OVER (PARTITION BY [account_id] ORDER BY [date] ROWS UNBOUNDED PRECEDING) AS running_balance"));
+        assert!(sql.contains(
+            "SUM([amount]) OVER (PARTITION BY [account_id] ORDER BY [date] ROWS UNBOUNDED PRECEDING) AS running_balance"
+        ));
     }
 }

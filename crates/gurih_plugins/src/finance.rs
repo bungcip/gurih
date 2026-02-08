@@ -47,10 +47,8 @@ impl Plugin for FinancePlugin {
         _entity_name: &str,
         _entity_data: &Value,
     ) -> Result<(Value, Vec<String>, Vec<Symbol>), RuntimeError> {
-        if name == "post_journal" {
-            if let Some(Expression::StringLiteral(rule)) = args.first() {
-                return Ok((Value::Null, vec![], vec![Symbol::from(rule.as_str())]));
-            }
+        if name == "post_journal" && let Some(Expression::StringLiteral(rule)) = args.first() {
+            return Ok((Value::Null, vec![], vec![Symbol::from(rule.as_str())]));
         }
         Ok((Value::Null, vec![], vec![]))
     }
@@ -98,27 +96,23 @@ async fn fetch_journal_lines(
     }
 
     // 2. If not in payload, fetch from Datastore
-    if !found_lines_in_payload {
-        if let Some(ds) = datastore {
-            if let Some(id) = entity_data.get("id").and_then(|v| v.as_str()) {
-                let table_name = schema
-                    .entities
-                    .get(&Symbol::from("JournalLine"))
-                    .map(|e| e.table_name.as_str())
-                    .unwrap_or("journal_line");
+    if !found_lines_in_payload && let Some(ds) = datastore && let Some(id) = entity_data.get("id").and_then(|v| v.as_str()) {
+        let table_name = schema
+            .entities
+            .get(&Symbol::from("JournalLine"))
+            .map(|e| e.table_name.as_str())
+            .unwrap_or("journal_line");
 
-                let mut filters = HashMap::new();
-                filters.insert("journal_entry".to_string(), id.to_string());
+        let mut filters = HashMap::new();
+        filters.insert("journal_entry".to_string(), id.to_string());
 
-                let db_lines = ds
-                    .find(table_name, filters)
-                    .await
-                    .map_err(RuntimeError::WorkflowError)?;
+        let db_lines = ds
+            .find(table_name, filters)
+            .await
+            .map_err(RuntimeError::WorkflowError)?;
 
-                for line in db_lines {
-                    lines.push(line.as_ref().clone());
-                }
-            }
+        for line in db_lines {
+            lines.push(line.as_ref().clone());
         }
     }
 
@@ -194,15 +188,13 @@ async fn check_valid_parties(
         let party_type = line.get("party_type").and_then(|v| v.as_str());
         let party_id = line.get("party_id").and_then(|v| v.as_str());
 
-        if requires_party {
-            if party_type.is_none() || party_id.is_none() {
-                let acc_code = account.get("code").and_then(|v| v.as_str()).unwrap_or("?");
-                let acc_name = account.get("name").and_then(|v| v.as_str()).unwrap_or("?");
-                return Err(RuntimeError::ValidationError(format!(
-                    "Account {} ({}) requires a Party (Customer/Vendor) to be specified.",
-                    acc_code, acc_name
-                )));
-            }
+        if requires_party && (party_type.is_none() || party_id.is_none()) {
+            let acc_code = account.get("code").and_then(|v| v.as_str()).unwrap_or("?");
+            let acc_name = account.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+            return Err(RuntimeError::ValidationError(format!(
+                "Account {} ({}) requires a Party (Customer/Vendor) to be specified.",
+                acc_code, acc_name
+            )));
         }
 
         // Verify Party Existence if specified

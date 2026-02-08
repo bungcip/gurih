@@ -1,6 +1,6 @@
 use gurih_ir::{
-    ColumnSchema, ColumnType, DatabaseSchema, DatabaseType, EntitySchema, FieldSchema, FieldType,
-    HierarchySchema, QuerySchema, QueryType, Schema, Symbol, TableSchema,
+    ColumnSchema, ColumnType, DatabaseSchema, DatabaseType, EntitySchema, FieldSchema, FieldType, HierarchySchema,
+    QuerySchema, QueryType, Schema, Symbol, TableSchema,
 };
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::init_datastore;
@@ -10,13 +10,13 @@ use std::sync::Arc;
 
 #[tokio::test]
 async fn test_hierarchy_query_rollup() {
-    let mut schema = Schema::default();
-
-    // 0. Configure Database (SQLite Memory)
-    schema.database = Some(DatabaseSchema {
-        db_type: DatabaseType::Sqlite,
-        url: "sqlite::memory:".to_string(),
-    });
+    let mut schema = Schema {
+        database: Some(DatabaseSchema {
+            db_type: DatabaseType::Sqlite,
+            url: "sqlite::memory:".to_string(),
+        }),
+        ..Default::default()
+    };
 
     // 1. Define Entity "Account"
     schema.entities.insert(
@@ -182,10 +182,7 @@ async fn test_hierarchy_query_rollup() {
         .unwrap();
 
     // 4. Execute Query
-    let result = engine
-        .list("HierarchyQuery", None, None, None)
-        .await
-        .unwrap();
+    let result = engine.list("HierarchyQuery", None, None, None).await.unwrap();
 
     // 5. Verify
     assert_eq!(result.len(), 4);

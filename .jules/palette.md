@@ -1,11 +1,29 @@
-## 2025-02-21 - Metric Card Accessibility
-**Learning:** Dashboard metric cards often use text characters like '↑' or '↓' for trends. Screen readers announce these literally (e.g., "Up Arrow"), lacking context.
-**Action:** Replace text symbols with decorative icons (`aria-hidden="true"`) and provide explicit `sr-only` text (e.g., "Trending up") for context.
+# Palette's Journal
 
-## 2025-05-23 - Modal Accessibility & Interaction
-**Learning:** Confirmation modals often lack keyboard support (Escape to close) and semantic roles (`alertdialog`), making them traps for keyboard users and confusing for screen readers.
-**Action:** Always add `keydown` listener for Escape, use `Teleport` for correct DOM placement, and ensure `role="alertdialog"` with `aria-labelledby`/`aria-describedby` are present.
+## 2025-02-12 - Generic Modals & ARIA
+**Learning:** Generic container components like Modals often miss base ARIA roles (`dialog`, `alertdialog`) and `aria-modal="true"`. Developers focus on the "isOpen" logic but forget the semantic role.
+**Action:** Always verify `Modal.vue` or similar wrapper components for `role="dialog"` and ensure they have a labelling mechanism (like `aria-labelledby` linked to a title). Use `useId` for robust ID generation.
 
-## 2025-05-24 - Invisible Focus Trap in Data Tables
-**Learning:** Actions hidden with `opacity-0` and revealed only on hover created a focus trap. Keyboard users could tab to the buttons but couldn't see them, leaving them lost in "invisible space".
-**Action:** Use `group-focus-within:opacity-100` alongside hover states to ensure container visibility when any child element receives focus.
+## 2025-05-23 - Custom Select Keyboard Navigation
+**Learning:** Custom select components (`role="combobox"`) often lack keyboard navigation (Arrow keys), relying only on mouse or Tab, which breaks the expected "native-like" experience and accessibility.
+**Action:** Ensure all custom dropdowns implement `ArrowDown` (open/next), `ArrowUp` (prev), `Enter` (select), and `Escape` (close), with proper focus management (`trigger.focus()` on close).
+
+## 2025-05-24 - Semantic Steppers
+**Learning:** Stepper components are often built with `div`s, losing semantic meaning (list order) and accessibility (keyboard nav, current step).
+**Action:** Use `<ol>` and `<li>` for ordered steps. Ensure clickable steps have `tabindex="0"`, `focus` styles, and keyboard handlers (`Enter`/`Space`). Use `aria-current="step"` for the active step.
+
+## 2025-05-24 - Vue 3 Attribute Inheritance in Wrappers
+**Learning:** Custom input wrappers (like `CurrencyInput.vue`) often default to `inheritAttrs: true`, applying `required`, `name`, and `aria-label` to the root `div` instead of the `input`. This breaks form validation and accessibility.
+**Action:** Use `defineOptions({ inheritAttrs: false })` and bind `$attrs` to the inner native control (`<input v-bind="$attrs" />`) for all form components wrapping native inputs.
+
+## 2025-05-24 - Button Icon Consistency
+**Learning:** Components often define props (like `icon`) that are partially implemented or ignored in favor of slots, leading to confusing APIs and broken UI when developers trust the prop types.
+**Action:** Ensure "convenience props" (like `icon`, `label`) are fully functional and backed by the appropriate sub-components. Support standard variations (like `iconPosition`) to reduce the need for custom slot boilerplate.
+
+## 2025-05-24 - Pagination Accessibility
+**Learning:** Pagination controls often lack `aria-current="page"` on the active item, forcing screen reader users to guess their location. Numbered buttons also need explicit labels (e.g., "Go to page 5") rather than just the number.
+**Action:** Use `aria-current="page"` for the active page button. Add descriptive `aria-label` to all page links/buttons. Hide decorative separators (like "...") with `aria-hidden="true"`.
+
+## 2025-05-24 - Custom Triggers for Native Inputs
+**Learning:** Custom UI triggers (like a calendar icon overlay) that hide/replace native input controls must be independently accessible (keyboard, ARIA), as they become the primary interaction point for visual users and potentially screen readers if the native control is obscured.
+**Action:** Ensure custom trigger overlays have `role="button"`, `tabindex="0"`, `aria-label`, and keyboard handlers (`Enter`/`Space`) to replicate the native trigger's functionality.

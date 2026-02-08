@@ -170,8 +170,8 @@ async fn test_employee_status_transition_fail_precondition() {
     assert!(result.is_err());
     let err = result.unwrap_err();
     assert!(
-        format!("{}", err).contains("Transition condition not met")
-            || format!("{}", err).contains("Invalid transition")
-            || format!("{}", err).contains("Minimum years of service not met")
+        err.to_string().contains("Transition condition not met")
+            || err.to_string().contains("Invalid transition")
+            || err.to_string().contains("Minimum years of service not met")
     );
 }

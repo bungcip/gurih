@@ -163,10 +163,10 @@ async fn test_workflow_effects() {
 
     // Define Entity with boolean field
     let entity = EntitySchema {
-        name: entity_name.clone(),
+        name: entity_name,
         table_name: Symbol::from("invoices"),
         fields: vec![FieldSchema {
-            name: is_paid_field.clone(),
+            name: is_paid_field,
             field_type: FieldType::Boolean,
             required: false,
             unique: false,
@@ -181,40 +181,40 @@ async fn test_workflow_effects() {
         options: Default::default(),
         seeds: None,
     };
-    schema.entities.insert(entity_name.clone(), entity);
+    schema.entities.insert(entity_name, entity);
 
     // Define Workflow with effects
     let workflow = WorkflowSchema {
         name: Symbol::from("InvoiceWorkflow"),
-        entity: entity_name.clone(),
+        entity: entity_name,
         field: Symbol::from("status"),
-        initial_state: initial_state.clone(),
+        initial_state,
         states: vec![
             StateSchema {
-                name: initial_state.clone(),
+                name: initial_state,
                 immutable: false,
             },
             StateSchema {
-                name: state_paid.clone(),
+                name: state_paid,
                 immutable: true,
             },
         ],
         transitions: vec![Transition {
             name: Symbol::from("Pay"),
-            from: initial_state.clone(),
-            to: state_paid.clone(),
+            from: initial_state,
+            to: state_paid,
             required_permission: None,
             preconditions: vec![],
             effects: vec![
                 TransitionEffect::Notify(Symbol::from("user@example.com")),
                 TransitionEffect::UpdateField {
-                    field: is_paid_field.clone(),
+                    field: is_paid_field,
                     value: "true".to_string(),
                 },
             ],
         }],
     };
-    schema.workflows.insert(workflow.name.clone(), workflow);
+    schema.workflows.insert(workflow.name, workflow);
 
     let engine = WorkflowEngine::new();
     let entity_data = serde_json::json!({});

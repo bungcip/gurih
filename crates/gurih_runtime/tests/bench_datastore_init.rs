@@ -1,4 +1,4 @@
-use gurih_ir::{DatabaseType, Schema, DatabaseSchema};
+use gurih_ir::{DatabaseSchema, DatabaseType, Schema};
 use gurih_runtime::datastore::init_datastore;
 use std::sync::Arc;
 use std::time::Instant;
@@ -7,11 +7,9 @@ use tokio::fs;
 #[tokio::test]
 async fn bench_init_datastore() {
     let tmp_dir = std::env::temp_dir().join("bench_datastore_init");
-    if tmp_dir.exists() {
-        if let Err(e) = fs::remove_dir_all(&tmp_dir).await {
-             println!("Failed to remove dir: {}", e);
-             // Maybe it doesn't exist?
-        }
+    if tmp_dir.exists() && let Err(e) = fs::remove_dir_all(&tmp_dir).await {
+        println!("Failed to remove dir: {}", e);
+        // Maybe it doesn't exist?
     }
 
     // We want to test if init_datastore creates the directory.
@@ -20,7 +18,7 @@ async fn bench_init_datastore() {
 
     // We make sure tmp_dir does NOT exist
     if tmp_dir.exists() {
-         fs::remove_dir_all(&tmp_dir).await.unwrap();
+        fs::remove_dir_all(&tmp_dir).await.unwrap();
     }
 
     let url = format!("sqlite://{}", db_path.display());

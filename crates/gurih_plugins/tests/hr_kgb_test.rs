@@ -178,7 +178,7 @@ async fn test_kgb_eligibility_fail_time() {
         .update("PengajuanKGB", &sub_id, json!({"status": "Diajukan"}), &ctx)
         .await;
     assert!(res.is_err());
-    assert!(format!("{}", res.unwrap_err()).contains("Belum memenuhi syarat 2 tahun"));
+    assert!(res.unwrap_err().to_string().contains("Belum memenuhi syarat 2 tahun"));
 }
 
 #[tokio::test]
@@ -249,5 +249,5 @@ async fn test_kgb_eligibility_fail_skp() {
         .update("PengajuanKGB", &sub_id, json!({"status": "Diajukan"}), &ctx)
         .await;
     assert!(res.is_err());
-    assert!(format!("{}", res.unwrap_err()).contains("Nilai SKP 2 tahun terakhir harus minimal 'Baik'"));
+    assert!(res.unwrap_err().to_string().contains("Nilai SKP 2 tahun terakhir harus minimal 'Baik'"));
 }

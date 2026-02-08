@@ -86,15 +86,14 @@ impl<'a> Validator<'a> {
         required_field: Option<&str>,
     ) -> Result<(), CompileError> {
         if let Some(fields) = entity_fields.get(entity_name) {
-            if let Some(field) = required_field {
-                if !fields.contains(field) {
+            if let Some(field) = required_field
+                && !fields.contains(field) {
                     return Err(CompileError::ValidationError {
                         src: self.src.to_string(),
                         span,
                         message: format!("Target field '{}' not found in entity '{}'", field, entity_name),
                     });
                 }
-            }
             self.validate_transitions(transitions, fields, entity_name)?;
         } else {
             return Err(CompileError::ValidationError {
@@ -303,23 +302,17 @@ impl<'a> Validator<'a> {
 
         for module in &ast.modules {
             for entity in &module.entities {
-                self.check_duplicate(
-                    &mut entity_names,
-                    &entity.name,
-                    entity.span,
-                    || format!("Duplicate entity name: {}", entity.name),
-                )?;
+                self.check_duplicate(&mut entity_names, &entity.name, entity.span, || {
+                    format!("Duplicate entity name: {}", entity.name)
+                })?;
                 self.validate_entity(entity)?;
             }
         }
 
         for entity in &ast.entities {
-            self.check_duplicate(
-                &mut entity_names,
-                &entity.name,
-                entity.span,
-                || format!("Duplicate entity name: {}", entity.name),
-            )?;
+            self.check_duplicate(&mut entity_names, &entity.name, entity.span, || {
+                format!("Duplicate entity name: {}", entity.name)
+            })?;
             self.validate_entity(entity)?;
         }
 
@@ -335,12 +328,9 @@ impl<'a> Validator<'a> {
         let mut avatar_count = 0;
 
         for field in &entity.fields {
-            self.check_duplicate(
-                &mut field_names,
-                &field.name,
-                field.span,
-                || format!("Duplicate field name '{}' in entity '{}'", field.name, entity.name),
-            )?;
+            self.check_duplicate(&mut field_names, &field.name, field.span, || {
+                format!("Duplicate field name '{}' in entity '{}'", field.name, entity.name)
+            })?;
 
             // Note: We are checking raw AST types here.
             // Custom types or Enum are not fully resolved but we can check the variant.

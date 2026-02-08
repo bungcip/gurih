@@ -59,14 +59,8 @@ fn test_sql_injection_reproduction() {
         !sql.contains("' OR '1'='1'"),
         "SQL Injection vulnerability fix verification: payload should NOT be in SQL string"
     );
-    assert!(
-        sql.contains("?"),
-        "SQL should use placeholders for string literals"
-    );
+    assert!(sql.contains("?"), "SQL should use placeholders for string literals");
 
     assert_eq!(params.len(), 1);
-    assert_eq!(
-        params[0],
-        serde_json::Value::String(malicious_input.to_string())
-    );
+    assert_eq!(params[0], serde_json::Value::String(malicious_input.to_string()));
 }

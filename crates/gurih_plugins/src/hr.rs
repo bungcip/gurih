@@ -134,7 +134,7 @@ impl Plugin for HrPlugin {
                 let pegawai_opt = ds
                     .get(table_name, pegawai_id)
                     .await
-                    .map_err(|e| RuntimeError::DataStoreError(e))?;
+                    .map_err(RuntimeError::DataStoreError)?;
 
                 let pegawai = if let Some(p) = pegawai_opt {
                     p
@@ -203,7 +203,7 @@ impl Plugin for HrPlugin {
                 let skps = ds
                     .find(skp_table_name, filters)
                     .await
-                    .map_err(|e| RuntimeError::DataStoreError(e))?;
+                    .map_err(RuntimeError::DataStoreError)?;
 
                 // Filter in memory for years
                 let relevant_skps: Vec<&serde_json::Map<String, Value>> = skps
