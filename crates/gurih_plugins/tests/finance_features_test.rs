@@ -43,6 +43,10 @@ impl DataStore for MockDataStore {
     async fn find(&self, _entity: &str, _filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
         Ok(vec![])
     }
+
+    async fn find_first(&self, _entity: &str, _filters: HashMap<String, String>) -> Result<Option<Arc<Value>>, String> {
+        Ok(None)
+    }
     async fn count(&self, _entity: &str, _filters: HashMap<String, String>) -> Result<i64, String> {
         Ok(0)
     }

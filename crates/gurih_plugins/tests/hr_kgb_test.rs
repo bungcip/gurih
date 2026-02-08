@@ -249,5 +249,9 @@ async fn test_kgb_eligibility_fail_skp() {
         .update("PengajuanKGB", &sub_id, json!({"status": "Diajukan"}), &ctx)
         .await;
     assert!(res.is_err());
-    assert!(res.unwrap_err().to_string().contains("Nilai SKP 2 tahun terakhir harus minimal 'Baik'"));
+    assert!(
+        res.unwrap_err()
+            .to_string()
+            .contains("Nilai SKP 2 tahun terakhir harus minimal 'Baik'")
+    );
 }

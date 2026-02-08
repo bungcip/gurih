@@ -87,13 +87,14 @@ impl<'a> Validator<'a> {
     ) -> Result<(), CompileError> {
         if let Some(fields) = entity_fields.get(entity_name) {
             if let Some(field) = required_field
-                && !fields.contains(field) {
-                    return Err(CompileError::ValidationError {
-                        src: self.src.to_string(),
-                        span,
-                        message: format!("Target field '{}' not found in entity '{}'", field, entity_name),
-                    });
-                }
+                && !fields.contains(field)
+            {
+                return Err(CompileError::ValidationError {
+                    src: self.src.to_string(),
+                    span,
+                    message: format!("Target field '{}' not found in entity '{}'", field, entity_name),
+                });
+            }
             self.validate_transitions(transitions, fields, entity_name)?;
         } else {
             return Err(CompileError::ValidationError {

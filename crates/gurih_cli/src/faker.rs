@@ -45,22 +45,26 @@ impl FakerEngine {
                     if let Some(target_entity) = &field.references {
                         // FIX: Only list if it's actually an entity
                         if schema.entities.contains_key(target_entity) {
-                            // Fetch IDs from the target entity
-                            // We use list with a large limit. In a real scenario, we might want to optimize this.
-                            let records = datastore.list(&target_entity.to_string(), Some(1000), None).await?;
-                            let ids: Vec<String> = records
-                                .iter()
-                                .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(|s| s.to_string()))
-                                .collect();
+                            if let Some(target_schema) = schema.entities.get(target_entity) {
+                                // Fetch IDs from the target entity using its table_name
+                                // We use list with a large limit. In a real scenario, we might want to optimize this.
+                                let records = datastore
+                                    .list(&target_schema.table_name.to_string(), Some(1000), None)
+                                    .await?;
+                                let ids: Vec<String> = records
+                                    .iter()
+                                    .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(|s| s.to_string()))
+                                    .collect();
 
-                            if ids.is_empty() {
-                                println!(
-                                    "Warning: No records found for referenced entity '{}'. Field '{}' might fail or be null.",
-                                    target_entity, field.name
-                                );
+                                if ids.is_empty() {
+                                    println!(
+                                        "Warning: No records found for referenced entity '{}'. Field '{}' might fail or be null.",
+                                        target_entity, field.name
+                                    );
+                                }
+
+                                foreign_keys.insert(field.name.to_string(), ids);
                             }
-
-                            foreign_keys.insert(field.name.to_string(), ids);
                         }
                     }
                 }
@@ -71,13 +75,17 @@ impl FakerEngine {
                         let field_name = format!("{}_id", rel.name);
                         // Check if already handled by explicit field
                         if let std::collections::hash_map::Entry::Vacant(e) = foreign_keys.entry(field_name) {
-                            // Fetch IDs from target_entity
-                            let records = datastore.list(&rel.target_entity.to_string(), Some(1000), None).await?;
-                            let ids: Vec<String> = records
-                                .iter()
-                                .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(|s| s.to_string()))
-                                .collect();
-                            e.insert(ids);
+                            // Fetch IDs from target_entity using its table_name
+                            if let Some(target_schema) = schema.entities.get(&rel.target_entity) {
+                                let records = datastore
+                                    .list(&target_schema.table_name.to_string(), Some(1000), None)
+                                    .await?;
+                                let ids: Vec<String> = records
+                                    .iter()
+                                    .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(|s| s.to_string()))
+                                    .collect();
+                                e.insert(ids);
+                            }
                         }
                     }
                 }
@@ -120,7 +128,10 @@ impl FakerEngine {
                         }
                     }
 
-                    if let Err(e) = datastore.insert(&entity_name.to_string(), Value::Object(record)).await {
+                    if let Err(e) = datastore
+                        .insert(&entity_schema.table_name.to_string(), Value::Object(record))
+                        .await
+                    {
                         // Ignore some errors? duplicate unique?
                         // For faker, we might want to retry or just log.
                         // But let's return error to stop if something is wrong.

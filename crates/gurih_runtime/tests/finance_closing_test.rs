@@ -76,6 +76,15 @@ impl DataStore for MockDataStore {
         Ok(vec![])
     }
 
+    async fn find_first(&self, entity: &str, filters: HashMap<String, String>) -> Result<Option<Arc<Value>>, String> {
+        let res = self.find(entity, filters).await?;
+        if res.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(res[0].clone()))
+        }
+    }
+
     async fn count(&self, _entity: &str, _filters: HashMap<String, String>) -> Result<i64, String> {
         Ok(0)
     }

@@ -2,6 +2,7 @@ use crate::context::RuntimeContext;
 use crate::datastore::DataStore;
 use hmac::Hmac;
 use pbkdf2::pbkdf2;
+use serde_json::Value;
 use sha2::Sha256;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -79,7 +80,7 @@ impl AuthEngine {
             datastore,
             sessions: Arc::new(Mutex::new(HashMap::new())),
             login_attempts: Arc::new(Mutex::new(HashMap::new())),
-            user_table: user_table.unwrap_or_else(|| "User".to_string()),
+            user_table: user_table.unwrap_or_else(|| "user".to_string()),
             dummy_hash,
         }
     }
@@ -103,26 +104,23 @@ impl AuthEngine {
         let mut filters = HashMap::new();
         filters.insert("username".to_string(), username.to_string());
 
-        let users = self.datastore.find(&self.user_table, filters).await?;
+        let user_opt = self.datastore.find_first(&self.user_table, filters).await?;
 
         // Determine if login is successful
-        let mut stored_password = self.dummy_hash.as_str();
-        let mut user_ref = None;
+        let mut stored_password_owned = self.dummy_hash.clone();
+        let mut user_ref: Option<Arc<Value>> = None;
 
-        if !users.is_empty() {
-            let user = &users[0];
-            // If password field is missing/null, use dummy_hash to fail verification
-            stored_password = user
-                .get("password")
-                .and_then(|v| v.as_str())
-                .unwrap_or(self.dummy_hash.as_str());
-            user_ref = Some(user);
+        if let Some(user_arc) = user_opt {
+            if let Some(pwd) = user_arc.get("password").and_then(|v| v.as_str()) {
+                stored_password_owned = pwd.to_string();
+            }
+            user_ref = Some(user_arc.clone());
         }
 
         // Always verify password to prevent timing attacks
-        let password_valid = verify_password(password, stored_password);
+        let password_valid = verify_password(password, &stored_password_owned);
 
-        if users.is_empty() || !password_valid {
+        if user_ref.is_none() || !password_valid {
             let mut attempts = self.login_attempts.lock().unwrap();
             let entry = attempts.entry(username.to_string()).or_insert((0, Instant::now()));
 
@@ -215,7 +213,7 @@ mod tests {
         let hashed = hash_password("correct_password");
         store
             .insert(
-                "User",
+                "user",
                 json!({
                     "username": "existing",
                     "password": hashed,
@@ -251,7 +249,7 @@ mod tests {
         let hashed = hash_password("secret");
         store
             .insert(
-                "User",
+                "user",
                 json!({
                     "username": "user1",
                     "password": hashed,

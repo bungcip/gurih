@@ -376,9 +376,14 @@ impl SchemaManager {
     }
 
     async fn create_tables(&self) -> Result<(), String> {
-        // 1. Create Tables
+        // 1. Create explicit tables
         for table in self.schema.tables.values() {
             self.create_explicit_table(table).await?;
+        }
+
+        // 2. Create tables for entities
+        for entity in self.schema.entities.values() {
+            self.create_entity_table(entity).await?;
         }
 
         Ok(())
@@ -484,6 +489,113 @@ impl SchemaManager {
             }
 
             defs.push(def);
+        }
+
+        sql.push_str(&defs.join(", "));
+        sql.push(')');
+
+        match &self.pool {
+            DbPool::Sqlite(p) => {
+                sqlx::query::<sqlx::Sqlite>(&sql)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+            }
+            DbPool::Postgres(p) => {
+                sqlx::query::<sqlx::Postgres>(&sql)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn create_entity_table(&self, entity: &EntitySchema) -> Result<(), String> {
+        let mut sql = format!("CREATE TABLE IF NOT EXISTS \"{}\" (", entity.table_name);
+        let mut defs = vec![];
+
+        for field in &entity.fields {
+            let sql_type = match &field.field_type {
+                FieldType::Pk | FieldType::Serial => {
+                    if self.db_kind == DatabaseType::Postgres {
+                        "UUID PRIMARY KEY DEFAULT gen_random_uuid()".to_string()
+                    } else {
+                        "TEXT PRIMARY KEY".to_string()
+                    }
+                }
+                FieldType::String
+                | FieldType::Name
+                | FieldType::Title
+                | FieldType::Email
+                | FieldType::Phone
+                | FieldType::Address
+                | FieldType::Password
+                | FieldType::Avatar
+                | FieldType::Sku => "TEXT".to_string(),
+                FieldType::Description | FieldType::Text => "TEXT".to_string(),
+                FieldType::Image | FieldType::File => "TEXT".to_string(),
+                FieldType::Integer => {
+                    if self.db_kind == DatabaseType::Postgres {
+                        "INT".to_string()
+                    } else {
+                        "INTEGER".to_string()
+                    }
+                }
+                FieldType::Float | FieldType::Money => {
+                    if self.db_kind == DatabaseType::Postgres {
+                        "DOUBLE PRECISION".to_string()
+                    } else {
+                        "REAL".to_string()
+                    }
+                }
+                FieldType::Boolean => {
+                    if self.db_kind == DatabaseType::Postgres {
+                        "BOOLEAN".to_string()
+                    } else {
+                        "INTEGER".to_string()
+                    }
+                }
+                FieldType::Date => "DATE".to_string(),
+                FieldType::Timestamp => {
+                    if self.db_kind == DatabaseType::Postgres {
+                        "TIMESTAMP".to_string()
+                    } else {
+                        "TEXT".to_string()
+                    }
+                }
+                FieldType::Uuid => "TEXT".to_string(),
+                FieldType::Enum(_) => "TEXT".to_string(),
+                FieldType::Relation => "TEXT".to_string(),
+                FieldType::Code | FieldType::Custom(_) => "TEXT".to_string(),
+            };
+
+            // Skip auto-generated pk fields, they'll be handled by PRIMARY KEY
+            if field.field_type == FieldType::Pk || field.field_type == FieldType::Serial {
+                defs.push(format!("\"{}\" {}", field.name, sql_type));
+                continue;
+            }
+
+            let mut def = format!("\"{}\" {}", field.name, sql_type);
+            if field.unique {
+                def.push_str(" UNIQUE");
+            }
+            if field.required {
+                def.push_str(" NOT NULL");
+            }
+            if let Some(default) = &field.default {
+                def.push_str(&format!(" DEFAULT {}", default));
+            }
+
+            defs.push(def);
+        }
+
+        // Add foreign key columns for BelongsTo relationships
+        for rel in &entity.relationships {
+            if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
+                let fk_field = format!("{}_id", rel.name);
+                defs.push(format!("\"{}\" TEXT", fk_field));
+            }
         }
 
         sql.push_str(&defs.join(", "));

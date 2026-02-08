@@ -47,7 +47,9 @@ impl Plugin for FinancePlugin {
         _entity_name: &str,
         _entity_data: &Value,
     ) -> Result<(Value, Vec<String>, Vec<Symbol>), RuntimeError> {
-        if name == "post_journal" && let Some(Expression::StringLiteral(rule)) = args.first() {
+        if name == "post_journal"
+            && let Some(Expression::StringLiteral(rule)) = args.first()
+        {
             return Ok((Value::Null, vec![], vec![Symbol::from(rule.as_str())]));
         }
         Ok((Value::Null, vec![], vec![]))
@@ -96,7 +98,10 @@ async fn fetch_journal_lines(
     }
 
     // 2. If not in payload, fetch from Datastore
-    if !found_lines_in_payload && let Some(ds) = datastore && let Some(id) = entity_data.get("id").and_then(|v| v.as_str()) {
+    if !found_lines_in_payload
+        && let Some(ds) = datastore
+        && let Some(id) = entity_data.get("id").and_then(|v| v.as_str())
+    {
         let table_name = schema
             .entities
             .get(&Symbol::from("JournalLine"))

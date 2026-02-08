@@ -12,6 +12,7 @@ pub trait DataStore: Send + Sync {
     async fn delete(&self, entity: &str, id: &str) -> Result<(), String>;
     async fn list(&self, entity: &str, limit: Option<usize>, offset: Option<usize>) -> Result<Vec<Arc<Value>>, String>;
     async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String>;
+    async fn find_first(&self, entity: &str, filters: HashMap<String, String>) -> Result<Option<Arc<Value>>, String>;
     async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String>;
     async fn aggregate(
         &self,
@@ -134,7 +135,9 @@ impl DataStore for MemoryDataStore {
             // Merge existing with new record
             let mut new_record = (**existing).clone();
 
-            if let Some(target) = new_record.as_object_mut() && let Value::Object(source) = record {
+            if let Some(target) = new_record.as_object_mut()
+                && let Value::Object(source) = record
+            {
                 for (k, v) in source {
                     target.insert(k, v);
                 }
@@ -191,6 +194,23 @@ impl DataStore for MemoryDataStore {
             Ok(results)
         } else {
             Ok(vec![])
+        }
+    }
+
+    async fn find_first(&self, entity: &str, filters: HashMap<String, String>) -> Result<Option<Arc<Value>>, String> {
+        let data = self.data.lock().unwrap();
+        if let Some(table) = data.get(entity) {
+            let parsed_filters: Vec<CompiledFilter> =
+                filters.into_iter().map(|(k, v)| CompiledFilter::new(k, v)).collect();
+
+            for record in table.values() {
+                if Self::matches_filters(record, &parsed_filters) {
+                    return Ok(Some(record.clone()));
+                }
+            }
+            Ok(None)
+        } else {
+            Ok(None)
         }
     }
 

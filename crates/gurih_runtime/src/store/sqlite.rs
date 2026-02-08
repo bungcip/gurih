@@ -240,6 +240,38 @@ impl DataStore for SqliteDataStore {
         Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
     }
 
+    async fn find_first(&self, entity: &str, filters: HashMap<String, String>) -> Result<Option<Arc<Value>>, String> {
+        validate_identifier(entity)?;
+        let mut query = format!("SELECT * FROM \"{}\"", entity);
+        let mut params = vec![];
+
+        if !filters.is_empty() {
+            query.push_str(" WHERE ");
+            for (i, (k, v)) in filters.iter().enumerate() {
+                validate_identifier(k)?;
+                if i > 0 {
+                    query.push_str(" AND ");
+                }
+                query.push_str(&format!("\"{}\" = ?", k));
+                params.push(v);
+            }
+        }
+
+        query.push_str(" LIMIT 1");
+
+        let mut q = sqlx::query(&query);
+        for p in params {
+            q = q.bind(p);
+        }
+
+        let row = q.fetch_optional(&self.pool).await.map_err(|e| e.to_string())?;
+        if let Some(r) = row {
+            Ok(Some(Arc::new(Self::row_to_json(&r))))
+        } else {
+            Ok(None)
+        }
+    }
+
     async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String> {
         validate_identifier(entity)?;
         let mut query = format!("SELECT COUNT(*) FROM \"{}\"", entity);

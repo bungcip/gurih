@@ -234,12 +234,16 @@ impl DataEngine {
                                 .and_then(|v| v.as_str())
                                 .unwrap_or("");
 
-                                if pwf.states.iter().any(|s| s.name == Symbol::from(p_state) && s.immutable) {
-                                    return Err(format!(
-                                        "Cannot modify record because parent '{}' is in immutable state '{}'",
-                                        parent_entity_name, p_state
-                                    ));
-                                }
+                            if pwf
+                                .states
+                                .iter()
+                                .any(|s| s.name == Symbol::from(p_state) && s.immutable)
+                            {
+                                return Err(format!(
+                                    "Cannot modify record because parent '{}' is in immutable state '{}'",
+                                    parent_entity_name, p_state
+                                ));
+                            }
                         }
                     }
                 }
@@ -646,7 +650,9 @@ impl DataEngine {
                     let mut roots: Vec<String> = Vec::new();
 
                     for record in &records {
-                        if let Some(obj) = record.as_object() && let Some(id) = obj.get("id").and_then(|v| v.as_str()) {
+                        if let Some(obj) = record.as_object()
+                            && let Some(id) = obj.get("id").and_then(|v| v.as_str())
+                        {
                             records_map.insert(id.to_string(), record.clone());
 
                             let parent_id = obj.get(&parent_field).and_then(|v| v.as_str()).map(|s| s.to_string());
@@ -777,8 +783,6 @@ impl DataEngine {
         visited.remove(id);
         Ok(current_rollup)
     }
-
-    
 
     fn flatten_hierarchy(
         &self,

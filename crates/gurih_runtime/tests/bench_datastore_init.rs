@@ -7,7 +7,9 @@ use tokio::fs;
 #[tokio::test]
 async fn bench_init_datastore() {
     let tmp_dir = std::env::temp_dir().join("bench_datastore_init");
-    if tmp_dir.exists() && let Err(e) = fs::remove_dir_all(&tmp_dir).await {
+    if tmp_dir.exists()
+        && let Err(e) = fs::remove_dir_all(&tmp_dir).await
+    {
         println!("Failed to remove dir: {}", e);
         // Maybe it doesn't exist?
     }
