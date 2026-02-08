@@ -1,4 +1,4 @@
-use crate::utils::parse_numeric_opt;
+use crate::utils::{get_db_range_placeholders, parse_numeric_opt, resolve_param};
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use gurih_ir::{ActionStep, Expression, Schema, Symbol};
@@ -6,6 +6,7 @@ use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::datastore::DataStore;
 use gurih_runtime::errors::RuntimeError;
 use gurih_runtime::plugins::Plugin;
+use gurih_runtime::store::validate_identifier;
 use gurih_runtime::traits::DataAccess;
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -253,10 +254,10 @@ async fn check_period_open(
                 "AccountingPeriod"
             };
 
-            if !target_entity.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            if let Err(e) = validate_identifier(target_entity) {
                 return Err(RuntimeError::WorkflowError(format!(
                     "Invalid entity name for period check: {}",
-                    target_entity
+                    e
                 )));
             }
 
@@ -277,11 +278,7 @@ async fn check_period_open(
                 .map(|d| d.db_type.clone())
                 .unwrap_or(gurih_ir::DatabaseType::Sqlite);
 
-            let (p_start, p_end) = if db_type == gurih_ir::DatabaseType::Postgres {
-                ("$1", "$2")
-            } else {
-                ("?", "?")
-            };
+            let (p_start, p_end) = get_db_range_placeholders(&db_type);
 
             let sql = format!(
                 "SELECT id FROM {} WHERE status = 'Open' AND start_date <= {} AND end_date >= {}",
@@ -319,20 +316,10 @@ async fn execute_reverse_journal(
     data_access: &dyn DataAccess,
     ctx: &RuntimeContext,
 ) -> Result<bool, RuntimeError> {
-    let resolve_arg = |val: &str| -> String {
-        if val.starts_with("param(") && val.ends_with(")") {
-            let key = &val[6..val.len() - 1];
-            let cleaned_key = key.trim_matches('"');
-            params.get(cleaned_key).cloned().unwrap_or(val.to_string())
-        } else {
-            val.to_string()
-        }
-    };
-
     let id_raw = step.args.get("id").ok_or(RuntimeError::WorkflowError(
         "Missing 'id' argument for finance:reverse_journal".to_string(),
     ))?;
-    let id = resolve_arg(id_raw);
+    let id = resolve_param(id_raw, params);
 
     // 1. Read Original
     let original_arc = data_access
@@ -414,21 +401,11 @@ async fn execute_generate_closing_entry(
     data_access: &dyn DataAccess,
     ctx: &RuntimeContext,
 ) -> Result<bool, RuntimeError> {
-    let resolve_arg = |val: &str| -> String {
-        if val.starts_with("param(") && val.ends_with(")") {
-            let key = &val[6..val.len() - 1];
-            let cleaned_key = key.trim_matches('"');
-            params.get(cleaned_key).cloned().unwrap_or(val.to_string())
-        } else {
-            val.to_string()
-        }
-    };
-
     let period_id_raw = step
         .args
         .get("period_id")
         .ok_or(RuntimeError::WorkflowError("Missing 'period_id' argument".to_string()))?;
-    let period_id = resolve_arg(period_id_raw);
+    let period_id = resolve_param(period_id_raw, params);
 
     // 1. Fetch Period
     let period_arc = data_access
@@ -472,11 +449,7 @@ async fn execute_generate_closing_entry(
         .map(|d| d.db_type.clone())
         .unwrap_or(gurih_ir::DatabaseType::Sqlite);
 
-    let (p_start, p_end) = if db_type == gurih_ir::DatabaseType::Postgres {
-        ("$1", "$2")
-    } else {
-        ("?", "?")
-    };
+    let (p_start, p_end) = get_db_range_placeholders(&db_type);
 
     let schema = data_access.get_schema();
     let journal_line_table = schema

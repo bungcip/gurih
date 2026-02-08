@@ -11,7 +11,7 @@ pub enum DbPool {
     Postgres(PgPool),
 }
 
-pub(crate) fn validate_identifier(s: &str) -> Result<(), String> {
+pub fn validate_identifier(s: &str) -> Result<(), String> {
     if s.is_empty() {
         return Err("Identifier cannot be empty".to_string());
     }
