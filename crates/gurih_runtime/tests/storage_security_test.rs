@@ -138,3 +138,34 @@ async fn test_filename_sanitization() {
 
     let _ = fs::remove_dir_all(&temp_dir);
 }
+
+#[tokio::test]
+async fn test_xml_xss_prevention() {
+    let temp_dir = std::env::temp_dir().join("gurih_test_storage_xml");
+    let base_path = temp_dir.join("safe_zone");
+    let _ = fs::remove_dir_all(&temp_dir);
+
+    let driver = LocalFileDriver::new(base_path.to_str().unwrap());
+
+    let dangerous_xml = vec!["exploit.xml", "data.xsl", "transform.xslt"];
+
+    for filename in dangerous_xml {
+        let payload = Bytes::from("<script>alert('xss')</script>");
+        let result = driver.put(filename, payload).await;
+
+        assert!(
+            result.is_err(),
+            "Dangerous XML/XSL file {} should be rejected to prevent Stored XSS",
+            filename
+        );
+        let err = result.err().unwrap();
+        assert!(
+            err.contains("File extension not allowed"),
+            "Unexpected error for {}: {}",
+            filename,
+            err
+        );
+    }
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
