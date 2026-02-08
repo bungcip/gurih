@@ -309,6 +309,32 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
                 });
                 current_pos += len;
             }
+            '\'' => {
+                chars.next(); // eat '
+                let mut content = String::new();
+                let mut len = 1;
+                let mut closed = false;
+                for ch in chars.by_ref() {
+                    len += ch.len_utf8();
+                    if ch == '\'' {
+                        closed = true;
+                        break;
+                    }
+                    content.push(ch);
+                }
+                if !closed {
+                    return Err(CompileError::ParseError {
+                        src: src.to_string(),
+                        span: (abs_start, len).into(),
+                        message: "Unclosed string literal".to_string(),
+                    });
+                }
+                tokens.push(Token {
+                    kind: TokenKind::String(content),
+                    span: (abs_start, len).into(),
+                });
+                current_pos += len;
+            }
             '"' => {
                 chars.next(); // eat "
                 let mut content = String::new();
