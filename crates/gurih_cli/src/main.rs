@@ -760,11 +760,11 @@ async fn get_dashboard_data(
     Path(name): Path<String>,
     headers: HeaderMap,
 ) -> impl IntoResponse {
-    let roles = if let Some(role_hdr) = headers.get("x-gurih-role") {
-        vec![role_hdr.to_str().unwrap_or("").to_string()]
-    } else {
-        vec![]
+    let ctx = match check_auth(headers.clone(), &state).await {
+        Ok(c) => c,
+        Err(e) => return e.into_response(),
     };
+    let roles = ctx.roles;
 
     let engine = gurih_runtime::dashboard::DashboardEngine::new();
     match engine
