@@ -55,9 +55,6 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     // Validate that only one entity:user exists
     validate_user_entity(&ast_root, src)?;
 
-    // Validate that only one entity:user exists
-    validate_user_entity(&ast_root, src)?;
-
     let mut ir_entities: HashMap<Symbol, EntitySchema> = HashMap::new();
     let mut ir_tables: HashMap<Symbol, TableSchema> = HashMap::new();
     let mut ir_modules: HashMap<Symbol, gurih_ir::ModuleSchema> = HashMap::new();

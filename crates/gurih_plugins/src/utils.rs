@@ -1,6 +1,5 @@
 use gurih_ir::DatabaseType;
 use serde_json::Value;
-use std::collections::HashMap;
 
 /// Parses a JSON value into a f64.
 /// Handles Numbers directly, and tries to parse Strings.
@@ -20,18 +19,6 @@ pub fn parse_numeric_opt(v: Option<&Value>) -> f64 {
     match v {
         Some(val) => parse_numeric(val),
         None => 0.0,
-    }
-}
-
-/// Resolves a parameter from the params map if the value matches "param(key)".
-/// Otherwise returns the value as is.
-pub fn resolve_param(val: &str, params: &HashMap<String, String>) -> String {
-    if val.starts_with("param(") && val.ends_with(")") {
-        let key = &val[6..val.len() - 1];
-        let cleaned_key = key.trim_matches('"');
-        params.get(cleaned_key).cloned().unwrap_or(val.to_string())
-    } else {
-        val.to_string()
     }
 }
 
