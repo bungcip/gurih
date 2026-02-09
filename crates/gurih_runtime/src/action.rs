@@ -1,5 +1,6 @@
 use crate::context::RuntimeContext;
 use crate::plugins::Plugin;
+use gurih_ir::utils::resolve_param;
 use gurih_ir::{ActionLogic, ActionStep, ActionStepType, Symbol};
 use std::collections::HashMap;
 
@@ -56,22 +57,11 @@ impl ActionEngine {
     ) -> Result<(), String> {
         let target_entity = &step.target;
 
-        // Helper to resolve args from params
-        let resolve_arg = |val: &str| -> String {
-            if val.starts_with("param(") && val.ends_with(")") {
-                let key = &val[6..val.len() - 1];
-                let cleaned_key = key.trim_matches(|c| c == '"' || c == '\'');
-                params.get(cleaned_key).cloned().unwrap_or(val.to_string())
-            } else {
-                val.to_string()
-            }
-        };
-
         match &step.step_type {
             ActionStepType::EntityDelete => {
                 // Expects "id" arg
                 let id_raw = step.args.get("id").ok_or("Missing 'id' argument for entity:delete")?;
-                let id = resolve_arg(id_raw);
+                let id = resolve_param(id_raw, params);
 
                 // Call DataEngine delete
                 println!("Executing Delete on {} with ID {}", target_entity, id);
@@ -98,8 +88,13 @@ impl ActionEngine {
                     // return Err(format!("Action step custom '{}' not handled", name));
                 }
             }
-            _ => {
-                println!("Step type {:?} not yet implemented in ActionEngine", step.step_type);
+            ActionStepType::EntityUpdate => {
+                // TODO: Implement EntityUpdate
+                println!("Step type EntityUpdate not yet implemented in ActionEngine");
+            }
+            ActionStepType::EntityCreate => {
+                // TODO: Implement EntityCreate
+                println!("Step type EntityCreate not yet implemented in ActionEngine");
             }
         }
 

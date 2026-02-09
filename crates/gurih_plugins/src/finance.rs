@@ -1,5 +1,6 @@
-use crate::utils::{get_db_range_placeholders, parse_numeric_opt, resolve_param};
+use crate::utils::{get_db_range_placeholders, parse_numeric_opt};
 use async_trait::async_trait;
+use gurih_ir::utils::resolve_param;
 use chrono::NaiveDate;
 use gurih_ir::{ActionStep, Expression, Schema, Symbol};
 use gurih_runtime::context::RuntimeContext;

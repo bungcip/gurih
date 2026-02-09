@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 pub fn to_title_case(s: &str) -> String {
     s.split('_')
         .map(|word| {
@@ -35,4 +37,17 @@ pub fn to_snake_case(s: &str) -> String {
         }
     }
     result
+}
+
+/// Resolves a parameter from the params map if the value matches "param(key)".
+/// Supports both double ("key") and single ('key') quotes.
+/// Otherwise returns the value as is.
+pub fn resolve_param(val: &str, params: &HashMap<String, String>) -> String {
+    if val.starts_with("param(") && val.ends_with(')') {
+        let key = &val[6..val.len() - 1];
+        let cleaned_key = key.trim_matches(|c| c == '"' || c == '\'');
+        params.get(cleaned_key).cloned().unwrap_or(val.to_string())
+    } else {
+        val.to_string()
+    }
 }
