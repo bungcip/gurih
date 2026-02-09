@@ -52,11 +52,93 @@ page "TrialBalanceReport" {
     }
 }
 
+// Balance Sheet (Assets, Liabilities, Equity)
+query:hierarchy "BalanceSheetQuery" for="Account" {
+    params "end_date"
+    select "code"
+    select "name"
+    select "parent"
+    select "type"
+
+    hierarchy parent="parent" {
+        rollup "closing_balance"
+    }
+
+    // Closing Balance (End Date)
+    formula "closing_balance" "SUM(if([journal_entry.date] <= param('end_date'), [debit] - [credit], 0))"
+
+    join "JournalLine" {
+        select "debit"
+        select "credit"
+
+        join "JournalEntry" {
+            // Filter only
+        }
+    }
+
+    filter "[journal_entry.status] == 'Posted'"
+    filter "[type] == 'Asset' || [type] == 'Liability' || [type] == 'Equity'"
+
+    group_by "id"
+    group_by "code"
+    group_by "name"
+    group_by "parent"
+    group_by "type"
+}
+
 page "BalanceSheetReport" {
     title "Balance Sheet"
-    datatable query="TrialBalanceQuery" { // reusing for simplicity
+    datatable query="BalanceSheetQuery" {
         column "code"
         column "name"
+        column "type"
+        column "closing_balance"
+    }
+}
+
+// Income Statement (Revenue, Expense)
+query:hierarchy "IncomeStatementQuery" for="Account" {
+    params "start_date" "end_date"
+    select "code"
+    select "name"
+    select "parent"
+    select "type"
+
+    hierarchy parent="parent" {
+        rollup "net_movement"
+    }
+
+    // Net Movement (Credit - Debit)
+    // Revenue (Credit normal): Positive
+    // Expense (Debit normal): Negative
+    formula "net_movement" "SUM(if([journal_entry.date] >= param('start_date') && [journal_entry.date] <= param('end_date'), [credit] - [debit], 0))"
+
+    join "JournalLine" {
+        select "debit"
+        select "credit"
+
+        join "JournalEntry" {
+            // Filter only
+        }
+    }
+
+    filter "[journal_entry.status] == 'Posted'"
+    filter "[type] == 'Revenue' || [type] == 'Expense'"
+
+    group_by "id"
+    group_by "code"
+    group_by "name"
+    group_by "parent"
+    group_by "type"
+}
+
+page "IncomeStatementReport" {
+    title "Income Statement"
+    datatable query="IncomeStatementQuery" {
+        column "code"
+        column "name"
+        column "type"
+        column "net_movement"
     }
 }
 
@@ -90,13 +172,5 @@ page "LedgerReport" {
         column "debit"
         column "credit"
         column "balance"
-    }
-}
-
-page "IncomeStatementReport" {
-    title "Income Statement"
-    datatable query="TrialBalanceQuery" {
-        column "code"
-        column "name"
     }
 }
