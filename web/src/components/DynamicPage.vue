@@ -120,7 +120,6 @@ async function handleCustomAction(action, row) {
         }
 
         // Default: Navigation
-        console.log("Navigating to", url);
     }
 }
 
