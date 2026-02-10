@@ -1,5 +1,6 @@
 use crate::auth::hash_password;
 use crate::store::DbPool;
+use gurih_ir::utils::get_db_placeholder;
 use gurih_ir::{ColumnType, DatabaseType, EntitySchema, FieldType, Schema, Symbol, TableSchema};
 use sha2::{Digest, Sha256};
 use sqlx::Row;
@@ -79,11 +80,7 @@ impl SchemaManager {
         }
 
         for i in 1..=cols.len() {
-            if self.db_kind == DatabaseType::Postgres {
-                placeholders.push(format!("${}", i));
-            } else {
-                placeholders.push("?".to_string());
-            }
+            placeholders.push(get_db_placeholder(&self.db_kind, i));
         }
 
         let sql = format!(
