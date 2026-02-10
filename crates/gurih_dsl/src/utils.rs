@@ -42,11 +42,11 @@ pub fn get_prop_bool(node: &KdlNode, key: &str) -> Option<bool> {
     })
 }
 
-pub fn get_prop_int(node: &KdlNode, key: &str) -> Result<i64, CompileError> {
+pub fn get_prop_int(node: &KdlNode, key: &str, src: &str) -> Result<i64, CompileError> {
     node.get(key)
         .and_then(|val| val.as_integer().map(|i| i as i64))
         .ok_or_else(|| CompileError::ParseError {
-            src: "".to_string(), // context missing here, ideally pass src
+            src: src.to_string(),
             span: node.span().into(),
             message: format!("Missing or invalid int property '{}'", key),
         })
@@ -71,15 +71,5 @@ pub fn get_arg_bool(node: &KdlNode, index: usize) -> Result<bool, CompileError> 
             src: "".to_string(),
             span: node.span().into(),
             message: format!("Missing or invalid bool argument at index {}", index),
-        })
-}
-
-pub fn get_arg_int(node: &KdlNode, index: usize, src: &str) -> Result<i64, CompileError> {
-    node.entry(index)
-        .and_then(|val| val.value().as_integer().map(|i| i as i64))
-        .ok_or_else(|| CompileError::ParseError {
-            src: src.to_string(),
-            span: node.span().into(),
-            message: format!("Missing or invalid int argument at index {}", index),
         })
 }

@@ -1210,7 +1210,7 @@ fn parse_serial_generator(node: &KdlNode, src: &str) -> Result<SerialGeneratorDe
                 "prefix" => prefix = Some(get_arg_string(child, 0, src)?),
                 "date" => date_format = Some(get_arg_string(child, 0, src)?),
                 "sequence" => {
-                    if let Ok(digits) = get_prop_int(child, "digits") {
+                    if let Ok(digits) = get_prop_int(child, "digits", src) {
                         sequence_digits = digits as u32;
                     }
                 }
