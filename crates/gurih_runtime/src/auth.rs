@@ -27,26 +27,42 @@ pub struct AuthEngine {
 pub fn hash_password(password: &str) -> String {
     // Generate a random salt
     let salt = Uuid::new_v4().to_string();
-    let iterations = 100_000;
+    // V4 uses 600,000 iterations (OWASP recommendation for PBKDF2-HMAC-SHA256)
+    let iterations = 600_000;
 
     let mut hash = [0u8; 32];
     pbkdf2::<Hmac<Sha256>>(password.as_bytes(), salt.as_bytes(), iterations, &mut hash).expect("HMAC error");
 
     let hash_hex = hex::encode(hash);
 
-    // Format: v3$salt$hash
-    format!("v3${}${}", salt, hash_hex)
+    // Format: v4$iterations$salt$hash
+    format!("v4${}${}${}", iterations, salt, hash_hex)
 }
 
 fn verify_password(password: &str, stored_value: &str) -> bool {
     let mut valid_format = false;
     let mut salt = "dummy_salt";
     let mut stored_hash_str = "";
+    // Default iterations for verification flow (to prevent timing attacks by always running PBKDF2)
+    // We default to v4 cost (600k) if format is invalid, to match dummy_hash cost.
+    let mut iterations = 600_000;
 
-    // Parse stored value if it matches expected format
-    if stored_value.starts_with("v3$") {
+    // Parse stored value
+    if stored_value.starts_with("v4$") {
+        let parts: Vec<&str> = stored_value.split('$').collect();
+        if parts.len() == 4 {
+            if let Ok(iter) = parts[1].parse::<u32>() {
+                iterations = iter;
+                salt = parts[2];
+                stored_hash_str = parts[3];
+                valid_format = true;
+            }
+        }
+    } else if stored_value.starts_with("v3$") {
+        // Backward compatibility for v3 (100k iterations, fixed format)
         let parts: Vec<&str> = stored_value.split('$').collect();
         if parts.len() == 3 {
+            iterations = 100_000;
             salt = parts[1];
             stored_hash_str = parts[2];
             valid_format = true;
@@ -54,8 +70,7 @@ fn verify_password(password: &str, stored_value: &str) -> bool {
     }
 
     // Always perform PBKDF2 to prevent timing attacks
-    // If format is invalid, we calculate hash with dummy salt and discard result
-    let iterations = 100_000;
+    // If format is invalid, we calculate hash with dummy salt (using default 600k cost) and discard result
     let mut computed = [0u8; 32];
     pbkdf2::<Hmac<Sha256>>(password.as_bytes(), salt.as_bytes(), iterations, &mut computed).expect("HMAC error");
 
@@ -75,6 +90,7 @@ fn verify_password(password: &str, stored_value: &str) -> bool {
 impl AuthEngine {
     pub fn new(datastore: Arc<dyn DataStore>, user_table: Option<String>) -> Self {
         // Use a random password for dummy hash so it matches nothing known
+        // This will now use v4 format (600k iterations)
         let dummy_hash = hash_password(&Uuid::new_v4().to_string());
         Self {
             datastore,
@@ -232,13 +248,30 @@ mod tests {
     }
 
     #[test]
-    fn test_v3_hashing() {
+    fn test_v4_hashing() {
         let password = "new_secure_password";
         let stored = hash_password(password);
-        assert!(stored.starts_with("v3$"));
+        assert!(stored.starts_with("v4$"));
+        // Ensure iteration count is present
+        assert!(stored.contains("$600000$"));
 
         assert!(verify_password(password, &stored));
         assert!(!verify_password("wrong", &stored));
+    }
+
+    #[test]
+    fn test_v3_backward_compatibility() {
+        // Manually create a v3 hash (100k iterations)
+        let password = "legacy_password";
+        let salt = "somesalt";
+        let iterations = 100_000;
+        let mut hash = [0u8; 32];
+        pbkdf2::<Hmac<Sha256>>(password.as_bytes(), salt.as_bytes(), iterations, &mut hash).expect("HMAC error");
+        let hash_hex = hex::encode(hash);
+        let v3_hash = format!("v3${}${}", salt, hash_hex);
+
+        assert!(verify_password(password, &v3_hash));
+        assert!(!verify_password("wrong", &v3_hash));
     }
 
     #[tokio::test]
