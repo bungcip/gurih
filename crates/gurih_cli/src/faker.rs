@@ -43,7 +43,6 @@ impl FakerEngine {
                 // 1. Explicit fields with references
                 for field in &entity_schema.fields {
                     if let Some(target_entity) = &field.references {
-                        // FIX: Only list if it's actually an entity
                         if schema.entities.contains_key(target_entity) {
                             if let Some(target_schema) = schema.entities.get(target_entity) {
                                 // Fetch IDs from the target entity using its table_name
@@ -366,6 +365,41 @@ mod tests {
                     "Employee should have department_id populated by FakerEngine for implicit relationship. Found keys: {:?}",
                     emp.as_object().unwrap().keys()
                 );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_faker_generation_non_existent_reference() {
+        let kdl = r#"
+        entity "EntityWithBadRef" {
+            field "id" type="Pk"
+            field "bad_ref" type="Relation" references="NonExistentEntity"
+        }
+        "#;
+
+        let schema = compile(kdl, None).expect("Schema compilation failed");
+        let datastore: Arc<dyn DataStore> = Arc::new(MemoryDataStore::new());
+
+        let faker = FakerEngine::new();
+        // Should not panic, should skip the reference
+        faker
+            .seed_entities(&schema, datastore.as_ref(), 10)
+            .await
+            .expect("Faker failed");
+
+        // Verify records exist
+        let records = datastore
+            .list("entity_with_bad_ref", None, None)
+            .await
+            .expect("Failed to list");
+        assert_eq!(records.len(), 10);
+
+        // Verify bad_ref is null or missing
+        for record in records {
+            // It might be missing because faker skips null values
+            if let Some(val) = record.get("bad_ref") {
+                assert!(val.is_null(), "bad_ref should be null, found {:?}", val);
             }
         }
     }
