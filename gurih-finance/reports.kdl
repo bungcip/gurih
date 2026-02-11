@@ -174,3 +174,48 @@ page "LedgerReport" {
         column "balance"
     }
 }
+
+// Income Statement by Cost Center (Filtered)
+query:hierarchy "IncomeStatementByCostCenterQuery" for="Account" {
+    params "start_date" "end_date" "cost_center_id"
+    select "code"
+    select "name"
+    select "parent"
+    select "type"
+
+    hierarchy parent="parent" {
+        rollup "net_movement"
+    }
+
+    // Net Movement (Credit - Debit)
+    formula "net_movement" "SUM(if([journal_entry.date] >= param('start_date') && [journal_entry.date] <= param('end_date'), [credit] - [debit], 0))"
+
+    join "JournalLine" {
+        select "debit"
+        select "credit"
+
+        join "JournalEntry" {
+            // Filter only
+        }
+    }
+
+    filter "[journal_entry.status] == 'Posted'"
+    filter "[type] == 'Revenue' || [type] == 'Expense'"
+    filter "[journal_line.cost_center] == param('cost_center_id')"
+
+    group_by "id"
+    group_by "code"
+    group_by "name"
+    group_by "parent"
+    group_by "type"
+}
+
+page "IncomeStatementByCostCenterReport" {
+    title "Income Statement (Cost Center)"
+    datatable query="IncomeStatementByCostCenterQuery" {
+        column "code"
+        column "name"
+        column "type"
+        column "net_movement"
+    }
+}
