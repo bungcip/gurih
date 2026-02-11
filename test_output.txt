@@ -1,0 +1,849 @@
+   Compiling cfg-if v1.0.4
+   Compiling libc v0.2.180
+   Compiling itoa v1.0.17
+   Compiling serde_core v1.0.228
+   Compiling memchr v2.7.6
+   Compiling once_cell v1.21.3
+   Compiling num-traits v0.2.19
+   Compiling crossbeam-utils v0.8.21
+   Compiling bitflags v2.10.0
+   Compiling zmij v1.0.17
+   Compiling equivalent v1.0.2
+   Compiling allocator-api2 v0.2.21
+   Compiling thiserror v2.0.18
+   Compiling stable_deref_trait v1.2.1
+   Compiling futures-core v0.3.31
+   Compiling log v0.4.29
+   Compiling bytes v1.11.0
+   Compiling pin-project-lite v0.2.16
+   Compiling foldhash v0.1.5
+   Compiling zerofrom v0.1.6
+   Compiling hashbrown v0.15.5
+   Compiling num-integer v0.1.46
+   Compiling scopeguard v1.2.0
+   Compiling lock_api v0.4.14
+   Compiling yoke v0.8.1
+   Compiling getrandom v0.3.4
+   Compiling num-bigint v0.4.6
+   Compiling zerovec v0.11.5
+   Compiling typenum v1.19.0
+   Compiling serde v1.0.228
+   Compiling serde_json v1.0.149
+   Compiling generic-array v0.14.7
+   Compiling smallvec v1.15.1
+   Compiling num-rational v0.4.2
+   Compiling symbol_table v0.5.0
+   Compiling tinystr v0.8.2
+   Compiling percent-encoding v2.3.2
+   Compiling writeable v0.6.2
+   Compiling litemap v0.8.1
+   Compiling anstyle v1.0.13
+   Compiling gurih_ir v0.1.0 (/app/crates/gurih_ir)
+   Compiling icu_locale_core v2.1.1
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling potential_utf v0.1.4
+   Compiling zerotrie v0.2.3
+   Compiling socket2 v0.6.2
+   Compiling icu_collections v2.1.1
+   Compiling icu_provider v2.1.1
+   Compiling num-iter v0.1.45
+   Compiling num-complex v0.4.6
+   Compiling pin-utils v0.1.0
+   Compiling unicode-width v0.1.14
+   Compiling icu_normalizer_data v2.1.1
+   Compiling unicode-width v0.2.2
+   Compiling miette v7.6.0
+   Compiling futures-task v0.3.31
+   Compiling num v0.4.3
+   Compiling slab v0.4.11
+   Compiling futures-io v0.3.31
+   Compiling winnow v0.6.24
+   Compiling annotate-snippets v0.12.10
+   Compiling icu_properties_data v2.1.2
+   Compiling foreign-types-shared v0.1.1
+   Compiling foreign-types v0.3.2
+   Compiling icu_properties v2.1.2
+   Compiling openssl-sys v0.9.111
+   Compiling form_urlencoded v1.2.2
+   Compiling parking_lot_core v0.9.12
+   Compiling kdl v6.5.0
+   Compiling tracing-core v0.1.36
+   Compiling futures-sink v0.3.31
+   Compiling parking_lot v0.12.5
+   Compiling tracing v0.1.44
+   Compiling mio v1.1.1
+   Compiling errno v0.3.14
+   Compiling getrandom v0.2.17
+   Compiling utf8_iter v1.0.4
+   Compiling openssl-probe v0.1.6
+   Compiling signal-hook-registry v1.4.8
+   Compiling tokio v1.49.0
+   Compiling gurih_dsl v0.1.0 (/app/crates/gurih_dsl)
+   Compiling http v1.4.0
+   Compiling ryu v1.0.22
+   Compiling zerocopy v0.8.34
+   Compiling futures-util v0.3.31
+   Compiling subtle v2.6.1
+   Compiling digest v0.10.7
+   Compiling either v1.15.0
+   Compiling iana-time-zone v0.1.64
+   Compiling cpufeatures v0.2.17
+   Compiling openssl v0.10.75
+   Compiling icu_normalizer v2.1.1
+   Compiling parking v2.2.1
+   Compiling base64 v0.22.1
+   Compiling idna_adapter v1.2.1
+   Compiling hashbrown v0.16.1
+   Compiling crc-catalog v2.4.0
+   Compiling crc v3.4.0
+   Compiling idna v1.1.0
+   Compiling indexmap v2.13.0
+   Compiling native-tls v0.2.14
+   Compiling http-body v1.0.1
+   Compiling rand_core v0.6.4
+   Compiling futures-channel v0.3.31
+   Compiling spin v0.9.8
+   Compiling url v2.5.8
+   Compiling ppv-lite86 v0.2.21
+   Compiling tinyvec_macros v0.1.1
+   Compiling tower-service v0.3.3
+   Compiling tinyvec v1.10.0
+   Compiling httparse v1.10.1
+   Compiling concurrent-queue v2.5.0
+   Compiling home v0.5.12
+   Compiling httpdate v1.0.3
+   Compiling try-lock v0.2.5
+   Compiling mime v0.3.17
+   Compiling want v0.3.1
+   Compiling event-listener v5.4.1
+   Compiling const-random-macro v0.1.16
+   Compiling hashlink v0.10.0
+   Compiling tokio-stream v0.1.18
+   Compiling futures-intrusive v0.5.0
+   Compiling unicode-normalization v0.1.25
+   Compiling chrono v0.4.43
+   Compiling http-body-util v0.1.3
+   Compiling crossbeam-queue v0.3.12
+   Compiling sha2 v0.10.9
+   Compiling sync_wrapper v1.0.2
+   Compiling atomic-waker v1.1.2
+   Compiling hex v0.4.3
+   Compiling tower-layer v0.3.3
+   Compiling unicode-bidi v0.3.18
+   Compiling unicase v2.9.0
+   Compiling unicode-properties v0.1.4
+   Compiling stringprep v0.1.5
+   Compiling mime_guess v2.0.5
+   Compiling hyper v1.8.1
+   Compiling sqlx-core v0.8.6
+   Compiling castaway v0.2.4
+   Compiling const-random v0.1.18
+   Compiling rand_chacha v0.3.1
+   Compiling libsqlite3-sys v0.30.1
+   Compiling atoi v2.0.0
+   Compiling hmac v0.12.1
+   Compiling serde_urlencoded v0.7.1
+   Compiling byteorder v1.5.0
+   Compiling ipnet v2.11.0
+   Compiling bytemuck v1.24.0
+   Compiling dotenvy v0.15.7
+   Compiling static_assertions v1.1.0
+   Compiling whoami v1.6.1
+   Compiling compact_str v0.7.1
+   Compiling hyper-util v0.1.19
+   Compiling hkdf v0.12.4
+   Compiling rand v0.8.5
+   Compiling dlv-list v0.5.2
+   Compiling tower v0.5.3
+   Compiling futures-executor v0.3.31
+   Compiling flume v0.11.1
+   Compiling md-5 v0.10.6
+   Compiling rand_core v0.9.5
+   Compiling time-core v0.1.8
+   Compiling num-conv v0.2.0
+   Compiling powerfmt v0.2.0
+   Compiling hashbrown v0.14.5
+   Compiling time-macros v0.2.26
+   Compiling deranged v0.5.5
+   Compiling ordered-multimap v0.7.3
+   Compiling sqlx-sqlite v0.8.6
+   Compiling rand_chacha v0.9.0
+   Compiling sqlx-postgres v0.8.6
+   Compiling rxml_validation v0.11.0
+   Compiling tokio-native-tls v0.3.1
+   Compiling tokio-util v0.7.18
+   Compiling iri-string v0.7.10
+   Compiling zeroize v1.8.2
+   Compiling http-range-header v0.4.2
+   Compiling rustls-pki-types v1.14.0
+   Compiling hyper-tls v0.6.0
+   Compiling rxml v0.11.1
+   Compiling tower-http v0.6.8
+   Compiling sqlx-macros-core v0.8.6
+   Compiling rand v0.9.2
+   Compiling time v0.3.46
+   Compiling rust-ini v0.21.3
+   Compiling atomic v0.6.1
+   Compiling attohttpc v0.30.1
+   Compiling quick-xml v0.38.4
+   Compiling sha1_smol v1.0.1
+   Compiling uuid v1.20.0
+   Compiling sqlx-macros v0.8.6
+   Compiling aws-creds v0.39.1
+   Compiling reqwest v0.12.28
+   Compiling minidom v0.16.0
+   Compiling aws-region v0.28.1
+   Compiling sysinfo v0.37.2
+   Compiling md5 v0.8.0
+   Compiling rust-s3 v0.37.1
+   Compiling sqlx v0.8.6
+   Compiling pbkdf2 v0.12.2
+   Compiling linux-raw-sys v0.11.0
+   Compiling fastrand v2.3.0
+   Compiling console v0.15.11
+   Compiling rustix v1.1.3
+   Compiling similar v2.7.0
+   Compiling tempfile v3.24.0
+   Compiling insta v1.46.1
+   Compiling crossbeam-epoch v0.9.18
+   Compiling gurih_runtime v0.1.0 (/app/crates/gurih_runtime)
+   Compiling crossbeam-deque v0.8.6
+   Compiling simd-adler32 v0.3.8
+   Compiling rayon-core v1.13.0
+   Compiling equator v0.4.2
+   Compiling aligned-vec v0.6.4
+   Compiling arrayvec v0.7.6
+   Compiling adler2 v2.0.1
+   Compiling miniz_oxide v0.8.9
+   Compiling v_frame v0.3.9
+   Compiling rayon v1.11.0
+   Compiling anyhow v1.0.100
+   Compiling gurih_plugins v0.1.0 (/app/crates/gurih_plugins)
+   Compiling as-slice v0.2.1
+   Compiling aligned v0.4.3
+   Compiling crc32fast v1.5.0
+   Compiling core2 v0.4.0
+   Compiling nom v8.0.0
+   Compiling utf8parse v0.2.2
+   Compiling y4m v0.8.0
+   Compiling quick-error v2.0.1
+   Compiling anstyle-parse v0.2.7
+   Compiling profiling v1.0.17
+   Compiling bitstream-io v4.9.0
+   Compiling maybe-rayon v0.1.1
+   Compiling av-scenechange v0.14.1
+   Compiling flate2 v1.1.8
+   Compiling half v2.7.1
+   Compiling itertools v0.14.0
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling zune-core v0.4.12
+   Compiling anstyle-query v1.1.5
+   Compiling av1-grain v0.2.5
+   Compiling new_debug_unreachable v1.0.6
+   Compiling imgref v1.12.0
+   Compiling weezl v0.1.12
+   Compiling colorchoice v1.0.4
+   Compiling rav1e v0.8.1
+   Compiling anstream v0.6.21
+   Compiling loop9 v0.1.5
+   Compiling zune-jpeg v0.4.21
+   Compiling fax v0.2.6
+   Compiling avif-serialize v0.8.6
+   Compiling fdeflate v0.3.7
+   Compiling zune-inflate v0.2.54
+   Compiling inotify-sys v0.1.5
+   Compiling pxfm v0.1.27
+   Compiling encoding_rs v0.8.35
+   Compiling rgb v0.8.52
+   Compiling clap_lex v0.7.7
+   Compiling strsim v0.11.1
+   Compiling zune-core v0.5.1
+   Compiling bit_field v0.10.3
+   Compiling lebe v0.5.3
+   Compiling byteorder-lite v0.1.0
+   Compiling color_quant v1.1.0
+   Compiling same-file v1.0.6
+   Compiling gif v0.14.1
+   Compiling walkdir v2.5.0
+   Compiling image-webp v0.2.4
+   Compiling moxcms v0.7.11
+   Compiling ravif v0.12.0
+   Compiling exr v1.74.0
+   Compiling zune-jpeg v0.5.11
+   Compiling multer v3.1.0
+   Compiling clap_builder v4.5.54
+   Compiling png v0.18.0
+   Compiling inotify v0.11.0
+   Compiling tiff v0.10.3
+   Compiling qoi v0.4.1
+   Compiling axum-core v0.5.6
+   Compiling url-escape v0.1.1
+   Compiling serde_path_to_error v0.1.20
+   Compiling notify-types v2.1.0
+   Compiling deunicode v1.6.2
+   Compiling matchit v0.8.4
+   Compiling fake v4.4.0
+   Compiling notify v8.2.0
+   Compiling axum v0.8.8
+   Compiling image v0.25.9
+   Compiling clap v4.5.54
+   Compiling gurih_cli v0.1.0 (/app/crates/gurih_cli)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 19s
+     Running unittests src/main.rs (target/debug/deps/gurih_cli-38c2a9caa00bc350)
+
+running 4 tests
+test security::tests::test_security_headers_presence ... ok
+test faker::tests::test_faker_generation_non_existent_reference ... ok
+test faker::tests::test_faker_generation ... ok
+test image_processor::tests::test_resize_image_coverage ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/lib.rs (target/debug/deps/gurih_dsl-f10d3c3fd6033333)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/compiler_test.rs (target/debug/deps/compiler_test-e6bc24317510e6cc)
+
+running 2 tests
+test test_compile_widget_icon ... ok
+test test_compile_golden_master ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/dsl_finance_test.rs (target/debug/deps/dsl_finance_test-deb462cf4e098777)
+
+running 1 test
+test test_finance_dsl_parsing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/employee_status_test.rs (target/debug/deps/employee_status_test-12cea8bc9cdb4965)
+
+running 5 tests
+test test_invalid_entity ... ok
+test test_employee_status_with_field ... ok
+test test_invalid_effect_field ... ok
+test test_invalid_precondition_field ... ok
+test test_valid_employee_status ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/error_snapshots.rs (target/debug/deps/error_snapshots-9764d64c656a44c5)
+
+running 5 tests
+test test_duplicate_field_error ... ok
+test test_duplicate_entity_error ... ok
+test test_missing_argument_error ... ok
+test test_route_to_unrecognized_page ... ok
+test test_unknown_top_level_node ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/finance_module_test.rs (target/debug/deps/finance_module_test-213a2003d5587fe5)
+
+running 1 test
+test test_compile_finance_module ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/hr_dsl_test.rs (target/debug/deps/hr_dsl_test-509d698d13968ad7)
+
+running 2 tests
+test test_update_rank_eligibility_parsing ... ok
+test test_suspend_payroll_parsing ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_test.rs (target/debug/deps/integration_test-12b311a0b9e97b44)
+
+running 2 tests
+test test_compile_invalid_schema ... ok
+test test_compile_valid_schema ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/minimal_test.rs (target/debug/deps/minimal_test-bc7e8353e7da913c)
+
+running 1 test
+test test_minimal_kdl ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/params_test.rs (target/debug/deps/params_test-a1e3658e9ae05ef5)
+
+running 1 test
+test test_query_params_parsing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/parser_test.rs (target/debug/deps/parser_test-78af87b651f4ade5)
+
+running 6 tests
+test test_parse_entity_user ... ok
+test test_compile_entity_user ... ok
+test test_compile_multiple_entity_user_fails ... ok
+test test_entity_user_in_module ... ok
+test test_snake_case_to_title_case_label_generation ... ok
+test test_parse_golden_master ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/perf_benchmark.rs (target/debug/deps/perf_benchmark-0f03ba9c8f66d91b)
+
+running 1 test
+test benchmark_parser ... ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/persistence_test.rs (target/debug/deps/persistence_test-9f4a50e2056347d1)
+
+running 1 test
+test test_compile_table_and_database ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/posting_test.rs (target/debug/deps/posting_test-be26945b913a6620)
+
+running 1 test
+test test_compile_posting_rule ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/refactor_test.rs (target/debug/deps/refactor_test-09e8b138de561f7b)
+
+running 1 test
+test test_employee_status_desugaring ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/rule_test.rs (target/debug/deps/rule_test-f09ea8e8d34e6937)
+
+running 8 tests
+test test_compile_rule_boolean ... ok
+test test_compile_rule ... ok
+test test_compile_rule_complex_logic ... ok
+test test_compile_rule_exists_with_double_quotes ... ok
+test test_compile_rule_new_syntax ... ok
+test test_compile_rule_non_bool_assert - should panic ... ok
+test test_compile_rule_type_error - should panic ... ok
+test test_compile_rule_exists_with_single_quotes ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/siasn_kepegawaian_test.rs (target/debug/deps/siasn_kepegawaian_test-bed943a48450c13f)
+
+running 1 test
+test test_siasn_kepegawaian_parsing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/siasn_workflow_test.rs (target/debug/deps/siasn_workflow_test-039b968bd27062c8)
+
+running 2 tests
+test test_siasn_status_parsing ... ok
+test test_siasn_workflow_parsing ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/strictness_test.rs (target/debug/deps/strictness_test-75296091971072e6)
+
+running 5 tests
+test test_invalid_storage_driver ... ok
+test test_invalid_database_type ... ok
+test test_invalid_action_step_type ... ok
+test test_invalid_action_method ... ok
+test test_invalid_widget_type ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/syntax_error_test.rs (target/debug/deps/syntax_error_test-b736470dd7fe8cef)
+
+running 1 test
+test test_kdl_syntax_error ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/gurih_ir-2d32dd6427223060)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/gurih_plugins-89a312b2239bb130)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/finance_balance_check_test.rs (target/debug/deps/finance_balance_check_test-7897a31e7ec53359)
+
+running 2 tests
+test test_unbalanced_journal_via_db_should_fail ... ok
+test test_balanced_journal_via_db_should_pass ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/finance_closing_test.rs (target/debug/deps/finance_closing_test-11ad4ec048e8e88c)
+
+running 1 test
+test test_generate_closing_entry ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/finance_features_test.rs (target/debug/deps/finance_features_test-4481e6db89506391)
+
+running 4 tests
+test test_query_group_by ... ok
+test test_delete_immutable ... ok
+test test_immutability ... ok
+test test_period_open_configured ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/finance_integrity_test.rs (target/debug/deps/finance_integrity_test-aed01ae627eea20e)
+
+running 2 tests
+test test_prevent_account_delete_in_use ... ok
+test test_allow_account_delete_unused ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/finance_logic_test.rs (target/debug/deps/finance_logic_test-e72ea8248572114b)
+
+running 1 test
+test test_balanced_transaction ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/finance_period_params_test.rs (target/debug/deps/finance_period_params_test-2a014fdae20f5ef1)
+
+running 1 test
+test test_period_check_uses_params ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/finance_posting_rule_test.rs (target/debug/deps/finance_posting_rule_test-c73feda79881abba)
+
+running 1 test
+test test_posting_rule_execution ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/finance_reverse_test.rs (target/debug/deps/finance_reverse_test-4b152fac8b1ef61f)
+
+running 1 test
+test test_finance_reverse_journal ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/finance_rules_test.rs (target/debug/deps/finance_rules_test-8de82ee6cd5b3c11)
+
+running 1 test
+test test_leaf_account_validation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/finance_subledger_test.rs (target/debug/deps/finance_subledger_test-0e0e270efdb038ed)
+
+running 1 test
+test test_subledger_validation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/hr_kgb_test.rs (target/debug/deps/hr_kgb_test-e88ed7d0f3168926)
+
+running 3 tests
+test test_kgb_eligibility_fail_skp ... ok
+test test_kgb_eligibility_success ... ok
+test test_kgb_eligibility_fail_time ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/hr_plugin_custom_effects_test.rs (target/debug/deps/hr_plugin_custom_effects_test-04bc679c0e57b3e5)
+
+running 1 test
+test test_hr_plugin_custom_effects ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/hr_status_test.rs (target/debug/deps/hr_status_test-47fd34f6da27efb9)
+
+running 2 tests
+test test_employee_status_transition_fail_precondition ... ok
+test test_employee_status_transition ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/hr_workflow_extended_test.rs (target/debug/deps/hr_workflow_extended_test-889a17e5eda60df0)
+
+running 1 test
+test test_effective_date_and_rank_eligibility ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/hr_workflow_test.rs (target/debug/deps/hr_workflow_test-9f261ee2ebc5da33)
+
+running 2 tests
+test test_retirement_min_age ... ok
+test test_hr_workflow_rules ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/siasn_integration_test.rs (target/debug/deps/siasn_integration_test-710cfc8864ab11d9)
+
+running 1 test
+test test_siasn_integration_workflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+     Running unittests src/lib.rs (target/debug/deps/gurih_runtime-f8d722111b044a4c)
+
+running 22 tests
+test auth::tests::test_v3_backward_compatibility ... ok
+test context::tests::test_runtime_context_permissions ... ok
+test evaluator::tests::test_eval_add ... ok
+test evaluator::tests::test_eval_age ... ok
+test evaluator::tests::test_eval_field ... ok
+test evaluator::tests::test_eval_literal ... ok
+test evaluator::tests::test_eval_nested_field ... ok
+test evaluator::tests::test_eval_valid_date_coverage ... ok
+test evaluator::tests::test_min_age_logic ... ok
+test evaluator::tests::test_short_circuit_and ... ok
+test evaluator::tests::test_short_circuit_or ... ok
+test page::tests::test_humanize_label ... ok
+test query_engine::tests::test_lower_flat_query ... ok
+test query_engine::tests::test_lower_perspective_query ... ok
+test query_engine::tests::test_nested_field_expression ... ok
+test query_engine::tests::test_parameterized_query ... ok
+test query_engine::tests::test_reporting_functions ... ok
+test store::tests::test_validate_identifier ... ok
+test validation::tests::test_validate_type_coverage ... ok
+test auth::tests::test_v4_hashing ... ok
+test auth::tests::test_session_expiration ... ok
+test auth::tests::test_login_timing_mitigation_logic ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 54.25s
+
+     Running tests/action_test.rs (target/debug/deps/action_test-c55d468c8ddba4c6)
+
+running 2 tests
+test test_action_execution_delete ... ok
+test test_action_param_with_single_quotes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/audit_test.rs (target/debug/deps/audit_test-e2a47ca92cd7f995)
+
+running 1 test
+test test_audit_trail ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/auth_rate_limit_test.rs (target/debug/deps/auth_rate_limit_test-6c9aa5fda0fdcb69)
+
+running 1 test
+test test_rate_limiting has been running for over 60 seconds
+test test_rate_limiting ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 73.43s
+
+     Running tests/auth_test.rs (target/debug/deps/auth_test-a2ae79c2d595733a)
+
+running 1 test
+test test_password_hashing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 31.77s
+
+     Running tests/bench_aggregate.rs (target/debug/deps/bench_aggregate-0673968a544cef91)
+
+running 1 test
+test bench_aggregate_performance ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.17s
+
+     Running tests/bench_datastore_init.rs (target/debug/deps/bench_datastore_init-6dd0579b12cbed24)
+
+running 1 test
+test bench_init_datastore ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/bench_filter.rs (target/debug/deps/bench_filter-03ac4f442ca60595)
+
+running 1 test
+test bench_filter_performance ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.91s
+
+     Running tests/composition_immutability_test.rs (target/debug/deps/composition_immutability_test-c1d6e41e8c8e774f)
+
+running 3 tests
+test test_create_child_into_locked_parent ... ok
+test test_child_update_fails_if_parent_locked ... ok
+test test_move_child_to_locked_parent ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/dashboard_role_test.rs (target/debug/deps/dashboard_role_test-0977ccdf48e56c2a)
+
+running 1 test
+test test_dashboard_role_filtering ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/datastore_test.rs (target/debug/deps/datastore_test-44e848ea7eb02eaf)
+
+running 1 test
+test bench_list_large_dataset ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.94s
+
+     Running tests/evaluator_exists_test.rs (target/debug/deps/evaluator_exists_test-48a22772e6d578fc)
+
+running 1 test
+test test_exists_function ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/evaluator_unary_test.rs (target/debug/deps/evaluator_unary_test-7bfcfeb38495ca9d)
+
+running 1 test
+test test_unary_operators ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/finance_closing_test.rs (target/debug/deps/finance_closing_test-722e1e246cc0c31c)
+
+running 1 test
+test test_generate_closing_entry ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/form_custom_test.rs (target/debug/deps/form_custom_test-fbd855fa05951588)
+
+running 1 test
+test test_custom_form_generation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/form_test.rs (target/debug/deps/form_test-8702ed288fbf0075)
+
+running 1 test
+test test_default_form_label_generation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/page_test.rs (target/debug/deps/page_test-d61fe2f271ecfbc4)
+
+running 1 test
+test test_generate_page_config_fallback ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/performance_bench.rs (target/debug/deps/performance_bench-a31baa5db395c239)
+
+running 1 test
+test bench_list_performance ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.89s
+
+     Running tests/permission_create_test.rs (target/debug/deps/permission_create_test-6199be8e4fe09839)
+
+running 2 tests
+test test_create_permission_missing ... ok
+test test_create_permission_granted ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/persistence_seed_test.rs (target/debug/deps/persistence_seed_test-bdd3e92f589e1159)
+
+running 1 test
+test test_seed_sorting ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/query_hierarchy_test.rs (target/debug/deps/query_hierarchy_test-5df06339da87882c)
+
+running 1 test
+test test_hierarchy_query_rollup ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/query_security_test.rs (target/debug/deps/query_security_test-2e6b26a2b0cf7b41)
+
+running 1 test
+test test_sql_injection_reproduction ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/rule_test.rs (target/debug/deps/rule_test-597e73807834e498)
+
+running 2 tests
+test test_rule_self_and_old ... ok
+test test_rule_enforcement ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/storage_security_test.rs (target/debug/deps/storage_security_test-67ccd30c32dc6d6b)
+
+running 5 tests
+test test_filename_sanitization ... ok
+test test_path_traversal_vulnerability ... ok
+test test_enhanced_extension_security ... ok
+test test_xml_xss_prevention ... ok
+test test_dangerous_extension_upload ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/verify_kdl_files.rs (target/debug/deps/verify_kdl_files-43d2dfa5056751b5)
+
+running 2 tests
+test test_verify_gurih_finance ... ok
+test test_verify_gurih_siasn ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+     Running tests/workflow_extension_test.rs (target/debug/deps/workflow_extension_test-a95d0ed4815d7304)
+
+running 1 test
+test test_workflow_extensions ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/workflow_test.rs (target/debug/deps/workflow_test-dac930832813de30)
+
+running 4 tests
+test test_workflow_assertion_type_error ... ok
+test test_missing_precondition_field ... ok
+test test_workflow_effects ... ok
+test test_workflow_transitions ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests gurih_dsl
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests gurih_ir
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests gurih_plugins
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests gurih_runtime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

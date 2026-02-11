@@ -252,8 +252,6 @@ fn parse_status_transition(node: &KdlNode, src: &str, from_status: &str) -> Resu
 fn parse_step_type(s: &str, _span: SourceSpan, _src: &str) -> Result<ActionStepType, CompileError> {
     match s {
         "entity:delete" => Ok(ActionStepType::EntityDelete),
-        "entity:update" => Ok(ActionStepType::EntityUpdate),
-        "entity:create" => Ok(ActionStepType::EntityCreate),
         custom => Ok(ActionStepType::Custom(custom.to_string())),
     }
 }

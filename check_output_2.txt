@@ -1,0 +1,6 @@
+    Checking gurih_ir v0.1.0 (/app/crates/gurih_ir)
+    Checking gurih_dsl v0.1.0 (/app/crates/gurih_dsl)
+    Checking gurih_runtime v0.1.0 (/app/crates/gurih_runtime)
+    Checking gurih_plugins v0.1.0 (/app/crates/gurih_plugins)
+    Checking gurih_cli v0.1.0 (/app/crates/gurih_cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.69s

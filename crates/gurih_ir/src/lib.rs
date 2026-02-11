@@ -447,8 +447,6 @@ pub struct ActionStep {
 #[serde(rename_all = "snake_case")]
 pub enum ActionStepType {
     EntityDelete,
-    EntityUpdate,
-    EntityCreate,
     Custom(String),
 }
 

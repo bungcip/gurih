@@ -88,14 +88,6 @@ impl ActionEngine {
                     // return Err(format!("Action step custom '{}' not handled", name));
                 }
             }
-            ActionStepType::EntityUpdate => {
-                // TODO: Implement EntityUpdate
-                println!("Step type EntityUpdate not yet implemented in ActionEngine");
-            }
-            ActionStepType::EntityCreate => {
-                // TODO: Implement EntityCreate
-                println!("Step type EntityCreate not yet implemented in ActionEngine");
-            }
         }
 
         Ok(())
