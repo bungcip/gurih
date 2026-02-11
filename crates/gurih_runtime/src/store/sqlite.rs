@@ -30,7 +30,7 @@ impl SqliteDataStore {
                     let v: Option<i64> = row.try_get(name).unwrap_or(None);
                     serde_json::to_value(v).unwrap()
                 }
-                "REAL" | "FLOAT" | "DOUBLE" => {
+                "REAL" | "FLOAT" | "DOUBLE" | "NUMERIC" => {
                     let v: Option<f64> = row.try_get(name).unwrap_or(None);
                     serde_json::to_value(v).unwrap()
                 }
@@ -49,9 +49,13 @@ impl SqliteDataStore {
                     serde_json::to_value(v).unwrap()
                 }
                 _ => {
-                    // Fallback to string
-                    let v: Option<String> = row.try_get(name).ok();
-                    serde_json::to_value(v).unwrap_or(Value::Null)
+                    // Fallback: try f64 first, then String
+                    if let Ok(val) = row.try_get::<Option<f64>, _>(name) {
+                        serde_json::to_value(val).unwrap_or(Value::Null)
+                    } else {
+                        let v: Option<String> = row.try_get(name).ok();
+                        serde_json::to_value(v).unwrap_or(Value::Null)
+                    }
                 }
             };
             map.insert(name.to_string(), val);
