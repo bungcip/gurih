@@ -25,6 +25,16 @@ fn validate_filename(filename: &str) -> Result<(), String> {
         return Err("Filename contains invalid characters".to_string());
     }
 
+    // Sentinel: Reject hidden files (e.g. .htaccess) and empty names
+    if filename.starts_with('.') || filename.is_empty() {
+        return Err("Hidden files or empty filenames are not allowed".to_string());
+    }
+
+    // Sentinel: Reject filenames ending with dot (e.g. exploit.php.)
+    if filename.ends_with('.') {
+        return Err("Filenames cannot end with a dot".to_string());
+    }
+
     let check_path = Path::new(filename);
     if check_path.is_absolute() {
         return Err("Absolute paths are not allowed in storage".to_string());

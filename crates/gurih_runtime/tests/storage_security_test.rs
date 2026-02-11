@@ -14,7 +14,9 @@ async fn test_path_traversal_vulnerability() {
 
     // Attempt path traversal
     let payload = Bytes::from("hacked");
-    let filename = "../pwned.txt";
+    // Use a path that doesn't start with '.' to test the traversal logic specifically
+    // (filenames starting with '.' are now blocked by the hidden file check)
+    let filename = "subdir/../pwned.txt";
 
     // With the fix, this should fail
     let result = driver.put(filename, payload).await;
