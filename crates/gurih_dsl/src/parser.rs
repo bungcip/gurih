@@ -345,7 +345,7 @@ fn parse_layout_section(node: &KdlNode, src: &str) -> Result<LayoutSectionDef, C
                 menu_ref = Some(get_arg_string(child, 0, src)?);
             } else if let Ok(val) = get_arg_string(child, 0, src) {
                 props.insert(key.to_string(), val);
-            } else if let Ok(val) = get_arg_bool(child, 0) {
+            } else if let Some(val) = get_arg_bool(child, 0) {
                 props.insert(key.to_string(), val.to_string());
             }
         }
@@ -1208,7 +1208,7 @@ fn parse_serial_generator(node: &KdlNode, src: &str) -> Result<SerialGeneratorDe
                 "prefix" => prefix = Some(get_arg_string(child, 0, src)?),
                 "date" => date_format = Some(get_arg_string(child, 0, src)?),
                 "sequence" => {
-                    if let Ok(digits) = get_prop_int(child, "digits", src) {
+                    if let Some(digits) = get_prop_int(child, "digits") {
                         sequence_digits = digits as u32;
                     }
                 }

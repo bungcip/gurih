@@ -702,12 +702,7 @@ async fn get_portal(State(state): State<AppState>, headers: HeaderMap) -> impl I
     let engine = PortalEngine::new();
     match engine.generate_navigation(state.data_engine.get_schema()) {
         Ok(nav) => {
-            // Generate ETag based on the content
-            let json_str = serde_json::to_string(&nav).unwrap_or_default();
-            let mut hasher = DefaultHasher::new();
-            json_str.hash(&mut hasher);
-            let hash = hasher.finish();
-            let etag = format!("\"{}\"", hash.to_string());
+            let etag = generate_etag(&nav);
 
             // Check if client has the same ETag
             if let Some(if_none_match) = headers.get("If-None-Match") {
@@ -777,12 +772,7 @@ async fn get_dashboard_data(
         .await
     {
         Ok(config) => {
-            // Generate ETag based on the content
-            let json_str = serde_json::to_string(&config).unwrap_or_default();
-            let mut hasher = DefaultHasher::new();
-            json_str.hash(&mut hasher);
-            let hash = hasher.finish();
-            let etag = format!("\"{}\"", hash.to_string());
+            let etag = generate_etag(&config);
 
             // Check if client has the same ETag
             if let Some(if_none_match) = headers.get("If-None-Match") {
@@ -804,6 +794,14 @@ async fn get_dashboard_data(
         }
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
+}
+
+fn generate_etag<T: serde::Serialize>(content: &T) -> String {
+    let json_str = serde_json::to_string(content).unwrap_or_default();
+    let mut hasher = DefaultHasher::new();
+    json_str.hash(&mut hasher);
+    let hash = hasher.finish();
+    format!("\"{}\"", hash)
 }
 
 async fn handle_dynamic_action(
