@@ -6,6 +6,7 @@ use crate::query_engine::{QueryEngine, QueryPlan};
 use crate::traits::DataAccess;
 use crate::workflow::WorkflowEngine;
 use async_trait::async_trait;
+use chrono::Local;
 use gurih_ir::{FieldType, Schema, Symbol};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -125,6 +126,120 @@ impl DataEngine {
         Ok(())
     }
 
+    async fn generate_serial_number(&self, generator_name: &Symbol, _ctx: &RuntimeContext) -> Result<String, String> {
+        let generator = self
+            .schema
+            .serial_generators
+            .get(generator_name)
+            .ok_or_else(|| format!("Serial generator '{}' not found", generator_name))?;
+
+        let now = Local::now();
+        let mut prefix = generator.prefix.clone().unwrap_or_default();
+
+        if let Some(fmt) = &generator.date_format {
+            // Apply date format
+            let date_part = if fmt.contains('%') {
+                now.format(fmt).to_string()
+            } else {
+                let yyyy = now.format("%Y").to_string();
+                let mm = now.format("%m").to_string();
+                let dd = now.format("%d").to_string();
+                fmt.replace("YYYY", &yyyy).replace("MM", &mm).replace("DD", &dd)
+            };
+            prefix.push_str(&date_part);
+        }
+
+        // Context key for sequence
+        let context_key = prefix.clone();
+        let seq_name = generator.name.as_str();
+
+        // Atomic Increment
+        let new_val = self.next_sequence_value(seq_name, &context_key).await?;
+
+        // Format
+        let seq_str = format!("{:0width$}", new_val, width = generator.digits as usize);
+        if prefix.is_empty() {
+            Ok(seq_str)
+        } else {
+            Ok(format!("{}{}", prefix, seq_str))
+        }
+    }
+
+    async fn next_sequence_value(&self, name: &str, context: &str) -> Result<i64, String> {
+        let db_type = self.schema.database.as_ref().map(|d| d.db_type.clone());
+
+        if let Some(db_t) = db_type {
+            let sql = if db_t == gurih_ir::DatabaseType::Postgres {
+                r#"INSERT INTO "_gurih_sequences" ("name", "context", "value") VALUES ($1, $2, 1) ON CONFLICT ("name", "context") DO UPDATE SET "value" = "_gurih_sequences"."value" + 1 RETURNING "value""#
+            } else {
+                r#"INSERT INTO _gurih_sequences (name, context, value) VALUES ($1, $2, 1) ON CONFLICT(name, context) DO UPDATE SET value = value + 1 RETURNING value"#
+            };
+
+            let params = vec![Value::String(name.to_string()), Value::String(context.to_string())];
+
+            match self.datastore.query_with_params(sql, params).await {
+                Ok(rows) => {
+                    if let Some(row) = rows.first() {
+                        if let Some(val) = row.get("value").and_then(|v| v.as_i64()) {
+                            return Ok(val);
+                        } else if let Some(val) = row.get("value").and_then(|v| v.as_str()) {
+                            // SQLite sometimes returns numbers as strings if mapped incorrectly or dynamic
+                            return val.parse::<i64>().map_err(|e| e.to_string());
+                        }
+                    }
+                    Err("Failed to return sequence value".to_string())
+                }
+                Err(e) => {
+                    if e.contains("not supported") {
+                        // Fallback for MemoryDataStore
+                        self.next_sequence_fallback(name, context).await
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
+        } else {
+            // No DB configured, assume Memory
+            self.next_sequence_fallback(name, context).await
+        }
+    }
+
+    async fn next_sequence_fallback(&self, name: &str, context: &str) -> Result<i64, String> {
+        let mut filters = HashMap::new();
+        filters.insert("name".to_string(), name.to_string());
+        filters.insert("context".to_string(), context.to_string());
+
+        if let Some(existing) = self.datastore.find_first("_gurih_sequences", filters.clone()).await? {
+            let current = existing
+                .get("value")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
+            let next = current + 1;
+            let id = existing
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or("Sequence record missing ID")?;
+
+            let mut update_data = serde_json::Map::new();
+            update_data.insert("value".to_string(), Value::from(next));
+
+            self.datastore
+                .update("_gurih_sequences", id, Value::Object(update_data))
+                .await?;
+            Ok(next)
+        } else {
+            let mut new_record = serde_json::Map::new();
+            new_record.insert("name".to_string(), Value::String(name.to_string()));
+            new_record.insert("context".to_string(), Value::String(context.to_string()));
+            new_record.insert("value".to_string(), Value::from(1));
+
+            self.datastore
+                .insert("_gurih_sequences", Value::Object(new_record))
+                .await?;
+            Ok(1)
+        }
+    }
+
     pub async fn create(&self, entity_name: &str, mut data: Value, ctx: &RuntimeContext) -> Result<String, String> {
         let entity_schema = self
             .schema
@@ -164,6 +279,27 @@ impl DataEngine {
             // Ensure ID exists (for stores that don't auto-generate, like SQLite with TEXT PK)
             if !obj.contains_key("id") {
                 obj.insert("id".to_string(), Value::String(Uuid::new_v4().to_string()));
+            }
+
+            // Generate Serials
+            for field in &entity_schema.fields {
+                if field.field_type == FieldType::Serial {
+                    // Generate if not provided (allows manual override if key exists, or generate if missing)
+                    // Usually serials are system generated. We assume if it's missing or empty string, we generate.
+                    let needs_generation = !obj.contains_key(field.name.as_str())
+                        || obj
+                            .get(field.name.as_str())
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.is_empty())
+                            .unwrap_or(true);
+
+                    if needs_generation {
+                        if let Some(gen_name) = &field.serial_generator {
+                            let val = self.generate_serial_number(gen_name, ctx).await?;
+                            obj.insert(field.name.to_string(), Value::String(val));
+                        }
+                    }
+                }
             }
 
             for field in &entity_schema.fields {

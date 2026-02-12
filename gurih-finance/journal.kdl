@@ -6,7 +6,7 @@ enum "JournalStatus" {
 
 serial_generator "JournalCode" {
     prefix "JE/"
-    date "YYYY/MM"
+    date "%Y/%m/"
     sequence digits=4
 }
 
