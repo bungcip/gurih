@@ -19,3 +19,8 @@
 **Vulnerability:** `verify_password` returned early if the stored hash format was invalid (e.g., legacy or corrupted), allowing attackers to potentially enumerate users or identify account migration status by measuring response time.
 **Learning:** Convenience checks (like checking string prefix/format) can introduce side channels if they bypass expensive operations.
 **Prevention:** Always perform the expensive cryptographic operation (PBKDF2/Argon2) regardless of input validity to ensure constant-time execution. Use dummy salts/hashes if necessary.
+
+## 2024-05-27 - [HIGH] Unbounded Memory Growth in AuthEngine
+**Vulnerability:** `login_attempts` and `sessions` maps in `AuthEngine` grew indefinitely, allowing Denial of Service via memory exhaustion by spamming login requests with unique usernames.
+**Learning:** In-memory state tracking for security (rate limiting, sessions) must always have upper bounds or eviction policies.
+**Prevention:** Implemented `cleanup_login_attempts` and `cleanup_sessions` to enforce `MAX_LOGIN_ATTEMPTS` and `MAX_SESSIONS` limits, clearing excessive entries when thresholds are reached.
