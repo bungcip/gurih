@@ -44,22 +44,11 @@ pub fn get_prop_bool(node: &KdlNode, key: &str) -> Option<bool> {
     node.get(key).and_then(parse_bool_value)
 }
 
-pub fn get_prop_int(node: &KdlNode, key: &str, src: &str) -> Result<i64, CompileError> {
-    node.get(key)
-        .and_then(|val| val.as_integer().map(|i| i as i64))
-        .ok_or_else(|| CompileError::ParseError {
-            src: src.to_string(),
-            span: node.span().into(),
-            message: format!("Missing or invalid int property '{}'", key),
-        })
+pub fn get_prop_int(node: &KdlNode, key: &str) -> Option<i64> {
+    node.get(key).and_then(|val| val.as_integer().map(|i| i as i64))
 }
 
-pub fn get_arg_bool(node: &KdlNode, index: usize) -> Result<bool, CompileError> {
+pub fn get_arg_bool(node: &KdlNode, index: usize) -> Option<bool> {
     node.entry(index)
         .and_then(|val| parse_bool_value(val.value()))
-        .ok_or_else(|| CompileError::ParseError {
-            src: "".to_string(),
-            span: node.span().into(),
-            message: format!("Missing or invalid bool argument at index {}", index),
-        })
 }
