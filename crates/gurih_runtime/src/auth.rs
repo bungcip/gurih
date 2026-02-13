@@ -22,6 +22,7 @@ pub struct AuthEngine {
     login_attempts: Arc<Mutex<HashMap<String, (u32, Instant)>>>,
     user_table: String,
     dummy_hash: String,
+    schema: Option<Arc<gurih_ir::Schema>>,
 }
 
 // Sentinel: Limits for preventing memory exhaustion
@@ -92,7 +93,11 @@ fn verify_password(password: &str, stored_value: &str) -> bool {
 }
 
 impl AuthEngine {
-    pub fn new(datastore: Arc<dyn DataStore>, user_table: Option<String>) -> Self {
+    pub fn new(
+        datastore: Arc<dyn DataStore>,
+        user_table: Option<String>,
+        schema: Option<Arc<gurih_ir::Schema>>,
+    ) -> Self {
         // Use a random password for dummy hash so it matches nothing known
         // This will now use v4 format (600k iterations)
         let dummy_hash = hash_password(&Uuid::new_v4().to_string());
@@ -102,6 +107,7 @@ impl AuthEngine {
             login_attempts: Arc::new(Mutex::new(HashMap::new())),
             user_table: user_table.unwrap_or_else(|| "user".to_string()),
             dummy_hash,
+            schema,
         }
     }
 
@@ -169,12 +175,19 @@ impl AuthEngine {
 
         let role = user.get("role").and_then(|v| v.as_str()).unwrap_or("user").to_string();
 
-        // Map role to permissions (simplified for now)
-        let permissions = if role == "admin" || role == "HRManager" {
+        // Map role to permissions
+        let mut permissions = if role == "admin" || role == "HRManager" {
             vec!["*".to_string()]
         } else {
             vec![]
         };
+
+        // Sentinel: Load permissions from schema
+        if let Some(schema) = &self.schema {
+            if let Some(perm_schema) = schema.permissions.get(&gurih_ir::Symbol::from(role.as_str())) {
+                permissions.extend(perm_schema.rules.clone());
+            }
+        }
 
         let token = Uuid::new_v4().to_string();
         let ctx = RuntimeContext {
@@ -256,7 +269,7 @@ mod tests {
     #[tokio::test]
     async fn test_login_timing_mitigation_logic() {
         let store = Arc::new(MemoryDataStore::new());
-        let auth = AuthEngine::new(store.clone(), None);
+        let auth = AuthEngine::new(store.clone(), None, None);
 
         // 1. Test non-existent user
         let result = auth.login("nonexistent", "password").await;
@@ -314,7 +327,7 @@ mod tests {
     #[tokio::test]
     async fn test_session_expiration() {
         let store = Arc::new(MemoryDataStore::new());
-        let auth = AuthEngine::new(store.clone(), None);
+        let auth = AuthEngine::new(store.clone(), None, None);
 
         let hashed = hash_password("secret");
         store
@@ -346,7 +359,7 @@ mod tests {
     #[tokio::test]
     async fn test_login_attempts_memory_exhaustion() {
         let store = Arc::new(MemoryDataStore::new());
-        let auth = AuthEngine::new(store.clone(), None);
+        let auth = AuthEngine::new(store.clone(), None, None);
 
         // Manually fill attempts to limit + 50
         {

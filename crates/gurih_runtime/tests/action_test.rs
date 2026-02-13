@@ -325,13 +325,17 @@ async fn test_action_execution_update() {
     // 4. Pre-populate Data
     let ctx = RuntimeContext::system();
     let id = data_engine
-        .create("Product", json!({
-            "id": "prod-1",
-            "name": "Old Product",
-            "price": 10.0,
-            "active": false,
-            "stock": 5
-        }), &ctx)
+        .create(
+            "Product",
+            json!({
+                "id": "prod-1",
+                "name": "Old Product",
+                "price": 10.0,
+                "active": false,
+                "stock": 5
+            }),
+            &ctx,
+        )
         .await;
     let id = id.expect("Create failed");
 

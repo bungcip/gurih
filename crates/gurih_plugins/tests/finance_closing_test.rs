@@ -1,6 +1,6 @@
 use gurih_ir::{
-    ActionLogic, ActionStep, ActionStepType, DatabaseSchema, DatabaseType, EntitySchema, FieldSchema,
-    FieldType, Schema, Symbol,
+    ActionLogic, ActionStep, ActionStepType, DatabaseSchema, DatabaseType, EntitySchema, FieldSchema, FieldType,
+    Schema, Symbol,
 };
 use gurih_plugins::finance::FinancePlugin;
 use gurih_runtime::context::RuntimeContext;
@@ -256,13 +256,7 @@ async fn test_generate_closing_entry() {
     params.insert("id".to_string(), period_id.clone());
 
     let handled = plugin
-        .execute_action_step(
-            "finance:generate_closing_entry",
-            &step,
-            &params,
-            &engine,
-            &ctx,
-        )
+        .execute_action_step("finance:generate_closing_entry", &step, &params, &engine, &ctx)
         .await
         .expect("Action execution failed");
 
@@ -330,7 +324,10 @@ async fn test_generate_closing_entry() {
         } else if acc_id == re_id {
             // Net Profit = 1000 - 400 = 600.
             // Profit is Credit to Equity.
-            assert!((credit - 600.0).abs() < 0.01, "Retained Earnings should be credited by 600");
+            assert!(
+                (credit - 600.0).abs() < 0.01,
+                "Retained Earnings should be credited by 600"
+            );
             assert!((debit - 0.0).abs() < 0.01);
             found_re = true;
         }

@@ -49,6 +49,5 @@ pub fn get_prop_int(node: &KdlNode, key: &str) -> Option<i64> {
 }
 
 pub fn get_arg_bool(node: &KdlNode, index: usize) -> Option<bool> {
-    node.entry(index)
-        .and_then(|val| parse_bool_value(val.value()))
+    node.entry(index).and_then(|val| parse_bool_value(val.value()))
 }

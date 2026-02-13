@@ -70,11 +70,41 @@ impl SchemaManager {
 
     fn get_sql_type(&self, category: &str) -> String {
         match category {
-            "integer" => if self.db_kind == DatabaseType::Postgres { "INT".to_string() } else { "INTEGER".to_string() },
-            "float" => if self.db_kind == DatabaseType::Postgres { "DOUBLE PRECISION".to_string() } else { "REAL".to_string() },
-            "boolean" => if self.db_kind == DatabaseType::Postgres { "BOOLEAN".to_string() } else { "INTEGER".to_string() },
-            "timestamp" => if self.db_kind == DatabaseType::Postgres { "TIMESTAMP".to_string() } else { "TEXT".to_string() },
-            "pk" => if self.db_kind == DatabaseType::Postgres { "UUID PRIMARY KEY DEFAULT gen_random_uuid()".to_string() } else { "TEXT PRIMARY KEY".to_string() },
+            "integer" => {
+                if self.db_kind == DatabaseType::Postgres {
+                    "INT".to_string()
+                } else {
+                    "INTEGER".to_string()
+                }
+            }
+            "float" => {
+                if self.db_kind == DatabaseType::Postgres {
+                    "DOUBLE PRECISION".to_string()
+                } else {
+                    "REAL".to_string()
+                }
+            }
+            "boolean" => {
+                if self.db_kind == DatabaseType::Postgres {
+                    "BOOLEAN".to_string()
+                } else {
+                    "INTEGER".to_string()
+                }
+            }
+            "timestamp" => {
+                if self.db_kind == DatabaseType::Postgres {
+                    "TIMESTAMP".to_string()
+                } else {
+                    "TEXT".to_string()
+                }
+            }
+            "pk" => {
+                if self.db_kind == DatabaseType::Postgres {
+                    "UUID PRIMARY KEY DEFAULT gen_random_uuid()".to_string()
+                } else {
+                    "TEXT PRIMARY KEY".to_string()
+                }
+            }
             _ => "TEXT".to_string(),
         }
     }

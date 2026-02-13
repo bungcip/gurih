@@ -60,7 +60,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     let mut ir_modules: HashMap<Symbol, gurih_ir::ModuleSchema> = HashMap::new();
     let mut ir_workflows: HashMap<Symbol, WorkflowSchema> = HashMap::new();
     let mut ir_forms: HashMap<Symbol, FormSchema> = HashMap::new();
-    let ir_permissions: HashMap<Symbol, PermissionSchema> = HashMap::new();
+    let mut ir_permissions: HashMap<Symbol, PermissionSchema> = HashMap::new();
     let mut ir_layouts: HashMap<Symbol, LayoutSchema> = HashMap::new();
     let mut ir_menus: HashMap<Symbol, MenuSchema> = HashMap::new();
     let mut ir_routes: HashMap<String, RouteSchema> = HashMap::new();
@@ -730,6 +730,32 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 description_expr: convert_expr(desc_expr),
                 date_expr: convert_expr(date_expr),
                 lines,
+            },
+        );
+    }
+
+    // 16.5. Process Permissions
+    for perm_def in &ast_root.permissions {
+        let rules = perm_def
+            .allows
+            .iter()
+            .map(|a| {
+                if let Some(actions) = &a.actions {
+                    // Resource + Action style
+                    // If actions contains comma, split? Assuming simple string for now as per AST
+                    format!("{}.{}", a.resource, actions)
+                } else {
+                    // Resource only style (e.g. "inventory.view" or "inventory.*")
+                    a.resource.clone()
+                }
+            })
+            .collect();
+
+        ir_permissions.insert(
+            perm_def.name.as_str().into(),
+            PermissionSchema {
+                name: perm_def.name.as_str().into(),
+                rules,
             },
         );
     }

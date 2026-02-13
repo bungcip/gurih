@@ -53,10 +53,7 @@ async fn test_finance_memory_store_compatibility() {
         EntitySchema {
             name: Symbol::from("Customer"),
             table_name: Symbol::from("customer"),
-            fields: vec![
-                field("id", FieldType::Pk),
-                field("name", FieldType::String)
-            ],
+            fields: vec![field("id", FieldType::Pk), field("name", FieldType::String)],
             relationships: vec![],
             options: HashMap::new(),
             seeds: None,
@@ -104,7 +101,9 @@ async fn test_finance_memory_store_compatibility() {
         "name": "Customer 1"
     });
     // Use table name "customer"
-    ds.insert("customer", customer).await.expect("Failed to insert customer");
+    ds.insert("customer", customer)
+        .await
+        .expect("Failed to insert customer");
 
     let journal_id = Uuid::new_v4().to_string();
     let line = json!({
@@ -126,15 +125,15 @@ async fn test_finance_memory_store_compatibility() {
     // 3. Test Check
     let plugin = FinancePlugin;
     let result = plugin
-            .check_precondition(
-                "valid_parties",
-                &[],
-                &HashMap::new(),
-                &entity_data,
-                &schema_arc,
-                Some(&ds),
-            )
-            .await;
+        .check_precondition(
+            "valid_parties",
+            &[],
+            &HashMap::new(),
+            &entity_data,
+            &schema_arc,
+            Some(&ds),
+        )
+        .await;
 
     assert!(result.is_ok(), "Check failed with MemoryDataStore: {:?}", result.err());
 }

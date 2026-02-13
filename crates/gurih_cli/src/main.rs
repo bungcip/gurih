@@ -279,7 +279,7 @@ async fn start_server(
                 .entities
                 .get(&Symbol::from("User"))
                 .map(|e| e.table_name.as_str().to_string());
-            let auth_engine = Arc::new(AuthEngine::new(datastore, user_table));
+            let auth_engine = Arc::new(AuthEngine::new(datastore, user_table, Some(schema.clone())));
 
             println!("Runtime initialized with {} entities.", schema.entities.len());
 
@@ -701,12 +701,7 @@ async fn upload_handler(
 async fn get_portal(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
     let engine = PortalEngine::new();
     match engine.generate_navigation(state.data_engine.get_schema()) {
-        Ok(nav) => create_response_with_etag(
-            nav,
-            &headers,
-            "no-store, no-cache, must-revalidate",
-        )
-        .into_response(),
+        Ok(nav) => create_response_with_etag(nav, &headers, "no-store, no-cache, must-revalidate").into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e })),

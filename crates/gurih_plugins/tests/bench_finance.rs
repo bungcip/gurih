@@ -5,7 +5,7 @@ use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::init_datastore;
 use gurih_runtime::plugins::Plugin;
 use gurih_runtime::traits::DataAccess;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;

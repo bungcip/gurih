@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use gurih_ir::utils::{get_db_range_placeholders, parse_numeric_opt, resolve_param};
 use chrono::NaiveDate;
+use gurih_ir::utils::{get_db_range_placeholders, parse_numeric_opt, resolve_param};
 use gurih_ir::{ActionStep, Expression, Schema, Symbol};
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::datastore::DataStore;
@@ -214,10 +214,7 @@ async fn check_valid_parties(
             .collect::<Vec<_>>()
             .join(", ");
 
-        let sql = format!(
-            "SELECT * FROM {} WHERE id IN ({})",
-            account_table, placeholders
-        );
+        let sql = format!("SELECT * FROM {} WHERE id IN ({})", account_table, placeholders);
         let params: Vec<Value> = ids.iter().map(|s| Value::String(s.clone())).collect();
 
         // Try query_with_params
@@ -232,11 +229,7 @@ async fn check_valid_parties(
             Err(e) if e.contains("Raw SQL query not supported") => {
                 // Fallback: Fetch one by one (MemoryDataStore)
                 for id in ids {
-                    if let Some(acc) = ds
-                        .get(account_table, &id)
-                        .await
-                        .map_err(RuntimeError::WorkflowError)?
-                    {
+                    if let Some(acc) = ds.get(account_table, &id).await.map_err(RuntimeError::WorkflowError)? {
                         accounts_cache.insert(id, acc);
                     }
                 }
@@ -264,8 +257,7 @@ async fn check_valid_parties(
                     // Mark found
                     for row in results {
                         if let Some(id) = row.get("id").and_then(|v| v.as_str()) {
-                            party_existence_cache
-                                .insert((pt.clone(), id.to_string()), true);
+                            party_existence_cache.insert((pt.clone(), id.to_string()), true);
                         }
                     }
                     // Mark not found (implicitly handled by lookup failure in cache, but for fallback consistency we just fill cache)
@@ -273,11 +265,7 @@ async fn check_valid_parties(
                 Err(e) if e.contains("Raw SQL query not supported") => {
                     // Fallback
                     for id in ids {
-                        let exists = ds
-                            .get(table, &id)
-                            .await
-                            .map_err(RuntimeError::WorkflowError)?
-                            .is_some();
+                        let exists = ds.get(table, &id).await.map_err(RuntimeError::WorkflowError)?.is_some();
                         if exists {
                             party_existence_cache.insert((pt.clone(), id), true);
                         }
@@ -300,27 +288,18 @@ async fn check_valid_parties(
                 "Journal line missing account".to_string(),
             ))?;
 
-        let account = accounts_cache.get(account_id).ok_or_else(|| {
-            RuntimeError::ValidationError(format!("Account not found: {}", account_id))
-        })?;
+        let account = accounts_cache
+            .get(account_id)
+            .ok_or_else(|| RuntimeError::ValidationError(format!("Account not found: {}", account_id)))?;
 
-        let requires_party = account
-            .get("requires_party")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+        let requires_party = account.get("requires_party").and_then(|v| v.as_bool()).unwrap_or(false);
 
         let party_type = line.get("party_type").and_then(|v| v.as_str());
         let party_id = line.get("party_id").and_then(|v| v.as_str());
 
         if requires_party && (party_type.is_none() || party_id.is_none()) {
-            let acc_code = account
-                .get("code")
-                .and_then(|v| v.as_str())
-                .unwrap_or("?");
-            let acc_name = account
-                .get("name")
-                .and_then(|v| v.as_str())
-                .unwrap_or("?");
+            let acc_code = account.get("code").and_then(|v| v.as_str()).unwrap_or("?");
+            let acc_name = account.get("name").and_then(|v| v.as_str()).unwrap_or("?");
             return Err(RuntimeError::ValidationError(format!(
                 "Account {} ({}) requires a Party (Customer/Vendor) to be specified.",
                 acc_code, acc_name
@@ -339,10 +318,7 @@ async fn check_valid_parties(
                     )));
                 }
             } else {
-                return Err(RuntimeError::ValidationError(format!(
-                    "Unknown Party Type: {}",
-                    pt
-                )));
+                return Err(RuntimeError::ValidationError(format!("Unknown Party Type: {}", pt)));
             }
         }
     }

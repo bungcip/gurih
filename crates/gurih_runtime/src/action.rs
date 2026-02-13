@@ -72,10 +72,7 @@ impl ActionEngine {
                     .map_err(|e| e.to_string())?;
             }
             ActionStepType::EntityUpdate => {
-                let id_raw = step
-                    .args
-                    .get("id")
-                    .ok_or("Missing 'id' argument for entity:update")?;
+                let id_raw = step.args.get("id").ok_or("Missing 'id' argument for entity:update")?;
                 let id = resolve_param(id_raw, params);
 
                 let schema = data_engine.get_schema();
@@ -93,18 +90,16 @@ impl ActionEngine {
                     let val_str = resolve_param(val_raw, params);
 
                     // Find field type to convert
-                    if let Some(field) = entity_schema
-                        .fields
-                        .iter()
-                        .find(|f| f.name == Symbol::from(key))
-                    {
+                    if let Some(field) = entity_schema.fields.iter().find(|f| f.name == Symbol::from(key)) {
                         let value = match field.field_type {
-                            FieldType::Integer => val_str.parse::<i64>().map(Value::from).map_err(|_| {
-                                format!("Invalid integer for field {}: {}", key, val_str)
-                            })?,
-                            FieldType::Float => val_str.parse::<f64>().map(Value::from).map_err(|_| {
-                                format!("Invalid float for field {}: {}", key, val_str)
-                            })?,
+                            FieldType::Integer => val_str
+                                .parse::<i64>()
+                                .map(Value::from)
+                                .map_err(|_| format!("Invalid integer for field {}: {}", key, val_str))?,
+                            FieldType::Float => val_str
+                                .parse::<f64>()
+                                .map(Value::from)
+                                .map_err(|_| format!("Invalid float for field {}: {}", key, val_str))?,
                             FieldType::Boolean => val_str
                                 .parse::<bool>()
                                 .map(Value::Bool)
@@ -120,12 +115,7 @@ impl ActionEngine {
 
                 println!("Executing Update on {} with ID {}", target_entity, id);
                 data_engine
-                    .update(
-                        target_entity.as_str(),
-                        &id,
-                        Value::Object(update_data),
-                        ctx,
-                    )
+                    .update(target_entity.as_str(), &id, Value::Object(update_data), ctx)
                     .await
                     .map_err(|e| e.to_string())?;
             }
