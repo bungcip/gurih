@@ -519,6 +519,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             SerialGeneratorSchema {
                 name: serial_def.name.as_str().into(),
                 prefix: serial_def.prefix.clone(),
+                date_format: serial_def.date_format.clone(),
                 digits: serial_def.sequence_digits,
             },
         );

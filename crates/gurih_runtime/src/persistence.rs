@@ -47,6 +47,9 @@ impl SchemaManager {
         // Always ensure audit table exists
         self.create_audit_table().await?;
 
+        // Always ensure sequences table exists
+        self.create_sequences_table().await?;
+
         self.apply_seeds().await?;
 
         println!("✅ Schema migration complete.");
@@ -60,6 +63,40 @@ impl SchemaManager {
                 for seed in seeds {
                     self.insert_seed(entity, seed).await?;
                 }
+            }
+        }
+        Ok(())
+    }
+
+    async fn create_sequences_table(&self) -> Result<(), String> {
+        let sql = if self.db_kind == DatabaseType::Postgres {
+            r#"CREATE TABLE IF NOT EXISTS "_gurih_sequences" (
+                "name" TEXT NOT NULL,
+                "context" TEXT NOT NULL,
+                "value" BIGINT NOT NULL DEFAULT 0,
+                PRIMARY KEY ("name", "context")
+            )"#
+        } else {
+            r#"CREATE TABLE IF NOT EXISTS "_gurih_sequences" (
+                "name" TEXT NOT NULL,
+                "context" TEXT NOT NULL,
+                "value" INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY ("name", "context")
+            )"#
+        };
+
+        match &self.pool {
+            DbPool::Sqlite(p) => {
+                sqlx::query::<sqlx::Sqlite>(sql)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+            }
+            DbPool::Postgres(p) => {
+                sqlx::query::<sqlx::Postgres>(sql)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
             }
         }
         Ok(())
@@ -529,13 +566,14 @@ impl SchemaManager {
 
         for field in &entity.fields {
             let sql_type = match &field.field_type {
-                FieldType::Pk | FieldType::Serial => {
+                FieldType::Pk => {
                     if self.db_kind == DatabaseType::Postgres {
                         "UUID PRIMARY KEY DEFAULT gen_random_uuid()".to_string()
                     } else {
                         "TEXT PRIMARY KEY".to_string()
                     }
                 }
+                FieldType::Serial => "TEXT".to_string(),
                 FieldType::String
                 | FieldType::Name
                 | FieldType::Title
@@ -583,7 +621,7 @@ impl SchemaManager {
             };
 
             // Skip auto-generated pk fields, they'll be handled by PRIMARY KEY
-            if field.field_type == FieldType::Pk || field.field_type == FieldType::Serial {
+            if field.field_type == FieldType::Pk {
                 defs.push(format!("\"{}\" {}", field.name, sql_type));
                 continue;
             }

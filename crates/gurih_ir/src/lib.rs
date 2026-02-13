@@ -480,6 +480,7 @@ pub enum WidgetType {
 pub struct SerialGeneratorSchema {
     pub name: Symbol,
     pub prefix: Option<String>,
+    pub date_format: Option<String>,
     pub digits: u32,
 }
 
