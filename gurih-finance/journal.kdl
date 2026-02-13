@@ -37,6 +37,9 @@ entity "JournalLine" {
     field:money "credit" default=0
     field:text "memo"
 
+    // Cost Center / Dimension
+    belongs_to "cost_center" "CostCenter" required=#false
+
     // Sub-ledger / Party support
     field:string "party_type" // e.g. "Customer", "Vendor"
     field:uuid "party_id"

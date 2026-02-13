@@ -35,6 +35,7 @@ include "period.kdl"
 include "journal.kdl"
 include "reports.kdl"
 include "integration.kdl"
+include "dimensions.kdl"
 
 routes {
     route "/" to="FinanceDashboard" layout="FinanceLayout"
@@ -51,9 +52,14 @@ routes {
         route "/periods" to="PeriodList"
         route "/periods/new" to="PeriodForm"
 
+        route "/cost-centers" to="CostCenterList"
+        route "/cost-centers/new" to="CostCenterForm"
+        route "/cost-centers/:id" to="CostCenterForm"
+
         route "/reports/trial-balance" to="TrialBalanceReport"
         route "/reports/balance-sheet" to="BalanceSheetReport"
         route "/reports/income-statement" to="IncomeStatementReport"
+        route "/reports/income-statement-by-cost-center" to="IncomeStatementByCostCenterReport"
     }
 }
 
@@ -64,12 +70,14 @@ menu "FinanceMenu" {
         item "Chart of Accounts" to="/finance/coa"
         item "Journal Entries" to="/finance/journals"
         item "Accounting Periods" to="/finance/periods"
+        item "Cost Centers" to="/finance/cost-centers"
     }
 
     group "Reports" icon="chart" {
         item "Trial Balance" to="/finance/reports/trial-balance"
         item "Balance Sheet" to="/finance/reports/balance-sheet"
         item "Income Statement" to="/finance/reports/income-statement"
+        item "Income Statement (By Cost Center)" to="/finance/reports/income-statement-by-cost-center"
     }
 }
 

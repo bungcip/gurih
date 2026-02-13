@@ -1,0 +1,32 @@
+entity "CostCenter" {
+    field:pk id
+    field:string "code" unique=#true
+    field:string "name"
+    field:boolean "is_active" default="true"
+
+    options {
+        track_changes #true
+    }
+}
+
+page "CostCenterList" {
+    title "Cost Centers"
+    datatable for="CostCenter" {
+        column "code"
+        column "name"
+        column "is_active"
+
+        action "Edit" icon="pencil" to="/finance/cost-centers/:id"
+    }
+}
+
+page "CostCenterForm" {
+    title "Cost Center"
+    form for="CostCenter" {
+        section "Details" {
+            field "code"
+            field "name"
+            field "is_active"
+        }
+    }
+}
