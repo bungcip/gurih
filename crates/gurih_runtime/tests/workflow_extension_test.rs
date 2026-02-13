@@ -112,7 +112,7 @@ async fn test_workflow_extensions() {
 
     // Test Case 4: Effects
     let (updates, _notifications, _postings) = engine
-        .apply_effects(&schema, "Pegawai", "CPNS", "PNS", &data_success)
+        .apply_effects(&schema, None, "Pegawai", "CPNS", "PNS", &data_success)
         .await;
 
     assert_eq!(updates.get("rank_eligible"), Some(&json!("true")));

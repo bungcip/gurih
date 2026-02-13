@@ -220,7 +220,7 @@ async fn test_workflow_effects() {
     let entity_data = serde_json::json!({});
 
     let (updates, notifications, postings) = engine
-        .apply_effects(&schema, "Invoice", "Unpaid", "Paid", &entity_data)
+        .apply_effects(&schema, None, "Invoice", "Unpaid", "Paid", &entity_data)
         .await;
 
     // Check Notifications
