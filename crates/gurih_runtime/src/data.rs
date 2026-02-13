@@ -39,6 +39,10 @@ impl DataAccess for DataEngine {
         self.create(entity_name, data, ctx).await
     }
 
+    async fn create_many(&self, entity_name: &str, data: Vec<Value>, ctx: &RuntimeContext) -> Result<Vec<String>, String> {
+        self.create_many(entity_name, data, ctx).await
+    }
+
     async fn read(&self, entity_name: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
         self.read(entity_name, id).await
     }
@@ -326,6 +330,142 @@ impl DataEngine {
         }
 
         Ok(id)
+    }
+
+    pub async fn create_many(&self, entity_name: &str, data: Vec<Value>, ctx: &RuntimeContext) -> Result<Vec<String>, String> {
+        if data.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let entity_schema = self
+            .schema
+            .entities
+            .get(&Symbol::from(entity_name))
+            .ok_or_else(|| format!("Entity '{}' not defined", entity_name))?;
+
+        // Validate create permission (once for the batch)
+        let create_perm = entity_schema
+            .options
+            .get("create_permission")
+            .cloned()
+            .unwrap_or_else(|| format!("create:{}", entity_name));
+
+        self.validate_permission(ctx, &create_perm, entity_name)?;
+
+        let mut prepared_records = Vec::with_capacity(data.len());
+
+        // Audit log collection
+        let track_changes = entity_schema
+            .options
+            .get("track_changes")
+            .map(|v| v == "true")
+            .unwrap_or(false);
+
+        for mut record in data {
+            // Rule Check (Create)
+            self.check_rules(entity_name, "create", &record, None).await?;
+
+            // Check Composition Immutability
+            self.check_composition_immutability(entity_name, &record).await?;
+
+             // Workflow: Set initial state if applicable
+            if let Some(wf) = self
+                .schema
+                .workflows
+                .values()
+                .find(|w| w.entity == Symbol::from(entity_name))
+                && let Some(obj) = record.as_object_mut()
+                && !obj.contains_key(wf.field.as_str())
+            {
+                obj.insert(wf.field.to_string(), Value::String(wf.initial_state.to_string()));
+            }
+
+            if let Some(obj) = record.as_object_mut() {
+                // Ensure ID exists
+                 if !obj.contains_key("id") {
+                    obj.insert("id".to_string(), Value::String(Uuid::new_v4().to_string()));
+                }
+
+                // Generate Serials
+                for field in &entity_schema.fields {
+                    if field.field_type == FieldType::Serial {
+                        let needs_generation = !obj.contains_key(field.name.as_str())
+                            || obj
+                                .get(field.name.as_str())
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.is_empty())
+                                .unwrap_or(true);
+
+                        if needs_generation {
+                            if let Some(gen_name) = &field.serial_generator {
+                                let val = self.generate_serial_number(gen_name, ctx).await?;
+                                obj.insert(field.name.to_string(), Value::String(val));
+                            }
+                        }
+                    }
+                }
+
+                // Check required fields
+                for field in &entity_schema.fields {
+                    if field.required && !obj.contains_key(&field.name.to_string()) {
+                        return Err(format!("Missing required field: {}", field.name));
+                    }
+                }
+
+                self.process_data_fields(entity_schema, obj)?;
+            } else {
+                 return Err("Data must be an object".to_string());
+            }
+
+            prepared_records.push(record);
+        }
+
+        let mut all_keys = std::collections::HashSet::new();
+        for r in &prepared_records {
+            if let Some(obj) = r.as_object() {
+                for k in obj.keys() {
+                    all_keys.insert(k.clone());
+                }
+            }
+        }
+
+        for r in &mut prepared_records {
+             if let Some(obj) = r.as_object_mut() {
+                 for k in &all_keys {
+                     if !obj.contains_key(k) {
+                         obj.insert(k.clone(), Value::Null);
+                     }
+                 }
+             }
+        }
+
+        let ids = self
+            .datastore
+            .insert_many(entity_schema.table_name.as_str(), prepared_records.clone())
+            .await?;
+
+        // Audit Trail
+        if track_changes {
+             let mut audit_logs = Vec::with_capacity(ids.len());
+             for (i, id) in ids.iter().enumerate() {
+                 let record = &prepared_records[i];
+                 let diff = serde_json::to_string(record).unwrap_or_default();
+
+                 let mut audit_record = serde_json::Map::new();
+                audit_record.insert("id".to_string(), Value::String(Uuid::new_v4().to_string()));
+                audit_record.insert("entity".to_string(), Value::String(entity_name.to_string()));
+                audit_record.insert("record_id".to_string(), Value::String(id.to_string()));
+                audit_record.insert("action".to_string(), Value::String("CREATE".to_string()));
+                audit_record.insert("user_id".to_string(), Value::String(ctx.user_id.clone()));
+                audit_record.insert("diff".to_string(), Value::String(diff));
+
+                audit_logs.push(Value::Object(audit_record));
+             }
+
+             self.datastore.insert_many("_audit_log", audit_logs).await.ok();
+        }
+
+        Ok(ids)
     }
 
     pub async fn read(&self, entity_name: &str, id: &str) -> Result<Option<Arc<Value>>, String> {

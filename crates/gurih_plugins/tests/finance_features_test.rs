@@ -18,6 +18,9 @@ impl DataStore for MockDataStore {
     async fn insert(&self, _entity: &str, _data: Value) -> Result<String, String> {
         Ok("1".to_string())
     }
+    async fn insert_many(&self, _entity: &str, _records: Vec<Value>) -> Result<Vec<String>, String> {
+        Ok(vec![])
+    }
     async fn update(&self, _entity: &str, _id: &str, _data: Value) -> Result<(), String> {
         Ok(())
     }

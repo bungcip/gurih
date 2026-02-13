@@ -495,6 +495,7 @@ async fn execute_reverse_journal(
         .map_err(RuntimeError::WorkflowError)?;
 
     // 4. Create Reverse Lines
+    let mut reverse_lines = Vec::with_capacity(lines.len());
     for line_arc in lines {
         let mut line = line_arc.as_ref().clone();
         if let Some(obj) = line.as_object_mut() {
@@ -508,11 +509,13 @@ async fn execute_reverse_journal(
             obj.insert("debit".to_string(), json!(credit.to_string()));
             obj.insert("credit".to_string(), json!(debit.to_string()));
         }
-        data_access
-            .create("JournalLine", line, ctx)
-            .await
-            .map_err(RuntimeError::WorkflowError)?;
+        reverse_lines.push(line);
     }
+
+    data_access
+        .create_many("JournalLine", reverse_lines, ctx)
+        .await
+        .map_err(RuntimeError::WorkflowError)?;
 
     Ok(true)
 }

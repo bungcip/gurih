@@ -7,6 +7,7 @@ use uuid::Uuid;
 #[async_trait]
 pub trait DataStore: Send + Sync {
     async fn insert(&self, entity: &str, record: Value) -> Result<String, String>;
+    async fn insert_many(&self, entity: &str, records: Vec<Value>) -> Result<Vec<String>, String>;
     async fn get(&self, entity: &str, id: &str) -> Result<Option<Arc<Value>>, String>;
     async fn update(&self, entity: &str, id: &str, record: Value) -> Result<(), String>;
     async fn delete(&self, entity: &str, id: &str) -> Result<(), String>;
@@ -116,6 +117,28 @@ impl DataStore for MemoryDataStore {
 
         table.insert(id.clone(), Arc::new(record));
         Ok(id)
+    }
+
+    async fn insert_many(&self, entity: &str, records: Vec<Value>) -> Result<Vec<String>, String> {
+        let mut data = self.data.lock().unwrap();
+        let table = data.entry(entity.to_string()).or_default();
+        let mut ids = Vec::new();
+
+        for mut record in records {
+            let id = if let Some(existing_id) = record.get("id").and_then(|v| v.as_str()) {
+                existing_id.to_string()
+            } else {
+                Uuid::new_v4().to_string()
+            };
+
+            if let Some(obj) = record.as_object_mut() {
+                obj.insert("id".to_string(), Value::String(id.clone()));
+            }
+
+            table.insert(id.clone(), Arc::new(record));
+            ids.push(id);
+        }
+        Ok(ids)
     }
 
     async fn get(&self, entity: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
