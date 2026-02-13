@@ -68,6 +68,35 @@ impl SchemaManager {
         Ok(())
     }
 
+    fn get_sql_type(&self, category: &str) -> String {
+        match category {
+            "integer" => if self.db_kind == DatabaseType::Postgres { "INT".to_string() } else { "INTEGER".to_string() },
+            "float" => if self.db_kind == DatabaseType::Postgres { "DOUBLE PRECISION".to_string() } else { "REAL".to_string() },
+            "boolean" => if self.db_kind == DatabaseType::Postgres { "BOOLEAN".to_string() } else { "INTEGER".to_string() },
+            "timestamp" => if self.db_kind == DatabaseType::Postgres { "TIMESTAMP".to_string() } else { "TEXT".to_string() },
+            "pk" => if self.db_kind == DatabaseType::Postgres { "UUID PRIMARY KEY DEFAULT gen_random_uuid()".to_string() } else { "TEXT PRIMARY KEY".to_string() },
+            _ => "TEXT".to_string(),
+        }
+    }
+
+    async fn execute_query(&self, sql: &str) -> Result<(), String> {
+        match &self.pool {
+            DbPool::Sqlite(p) => {
+                sqlx::query::<sqlx::Sqlite>(sql)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+            }
+            DbPool::Postgres(p) => {
+                sqlx::query::<sqlx::Postgres>(sql)
+                    .execute(p)
+                    .await
+                    .map_err(|e: sqlx::Error| e.to_string())?;
+            }
+        }
+        Ok(())
+    }
+
     async fn create_sequences_table(&self) -> Result<(), String> {
         let sql = if self.db_kind == DatabaseType::Postgres {
             r#"CREATE TABLE IF NOT EXISTS "_gurih_sequences" (
@@ -85,21 +114,7 @@ impl SchemaManager {
             )"#
         };
 
-        match &self.pool {
-            DbPool::Sqlite(p) => {
-                sqlx::query::<sqlx::Sqlite>(sql)
-                    .execute(p)
-                    .await
-                    .map_err(|e: sqlx::Error| e.to_string())?;
-            }
-            DbPool::Postgres(p) => {
-                sqlx::query::<sqlx::Postgres>(sql)
-                    .execute(p)
-                    .await
-                    .map_err(|e: sqlx::Error| e.to_string())?;
-            }
-        }
-        Ok(())
+        self.execute_query(sql).await
     }
 
     async fn insert_seed(&self, entity: &EntitySchema, seed: &HashMap<String, String>) -> Result<(), String> {
@@ -326,28 +341,8 @@ impl SchemaManager {
             let sql_create = "CREATE TABLE _gurih_metadata (key TEXT PRIMARY KEY, value TEXT)";
             let sql_insert = "INSERT INTO _gurih_metadata (key, value) VALUES ('mode', 'dev')";
 
-            match &self.pool {
-                DbPool::Sqlite(p) => {
-                    sqlx::query::<sqlx::Sqlite>(sql_create)
-                        .execute(p)
-                        .await
-                        .map_err(|e: sqlx::Error| e.to_string())?;
-                    sqlx::query::<sqlx::Sqlite>(sql_insert)
-                        .execute(p)
-                        .await
-                        .map_err(|e: sqlx::Error| e.to_string())?;
-                }
-                DbPool::Postgres(p) => {
-                    sqlx::query::<sqlx::Postgres>(sql_create)
-                        .execute(p)
-                        .await
-                        .map_err(|e: sqlx::Error| e.to_string())?;
-                    sqlx::query::<sqlx::Postgres>(sql_insert)
-                        .execute(p)
-                        .await
-                        .map_err(|e: sqlx::Error| e.to_string())?;
-                }
-            }
+            self.execute_query(sql_create).await?;
+            self.execute_query(sql_insert).await?;
 
             return Ok("dev".to_string());
         }
@@ -372,20 +367,7 @@ impl SchemaManager {
         } else {
             // Insert default
             let sql = "INSERT INTO _gurih_metadata (key, value) VALUES ('mode', 'dev')";
-            match &self.pool {
-                DbPool::Sqlite(p) => {
-                    sqlx::query::<sqlx::Sqlite>(sql)
-                        .execute(p)
-                        .await
-                        .map_err(|e: sqlx::Error| e.to_string())?;
-                }
-                DbPool::Postgres(p) => {
-                    sqlx::query::<sqlx::Postgres>(sql)
-                        .execute(p)
-                        .await
-                        .map_err(|e: sqlx::Error| e.to_string())?;
-                }
-            }
+            self.execute_query(sql).await?;
             Ok("dev".to_string())
         }
     }
@@ -405,20 +387,7 @@ impl SchemaManager {
                 format!("DROP TABLE IF EXISTS \"{}\"", table)
             };
 
-            match &self.pool {
-                DbPool::Sqlite(p) => {
-                    sqlx::query::<sqlx::Sqlite>(&sql)
-                        .execute(p)
-                        .await
-                        .map_err(|e: sqlx::Error| e.to_string())?;
-                }
-                DbPool::Postgres(p) => {
-                    sqlx::query::<sqlx::Postgres>(&sql)
-                        .execute(p)
-                        .await
-                        .map_err(|e: sqlx::Error| e.to_string())?;
-                }
-            }
+            self.execute_query(&sql).await?;
         }
 
         Ok(())
@@ -461,21 +430,7 @@ impl SchemaManager {
             )"#
         };
 
-        match &self.pool {
-            DbPool::Sqlite(p) => {
-                sqlx::query::<sqlx::Sqlite>(sql)
-                    .execute(p)
-                    .await
-                    .map_err(|e: sqlx::Error| e.to_string())?;
-            }
-            DbPool::Postgres(p) => {
-                sqlx::query::<sqlx::Postgres>(sql)
-                    .execute(p)
-                    .await
-                    .map_err(|e: sqlx::Error| e.to_string())?;
-            }
-        }
-        Ok(())
+        self.execute_query(sql).await
     }
 
     async fn create_explicit_table(&self, table: &TableSchema) -> Result<(), String> {
@@ -485,35 +440,11 @@ impl SchemaManager {
         for col in &table.columns {
             let sql_type = match &col.type_name {
                 ColumnType::Varchar | ColumnType::Text => "TEXT".to_string(),
-                ColumnType::Integer => {
-                    if self.db_kind == DatabaseType::Postgres {
-                        "INT".to_string()
-                    } else {
-                        "INTEGER".to_string()
-                    }
-                }
-                ColumnType::Float => {
-                    if self.db_kind == DatabaseType::Postgres {
-                        "DOUBLE PRECISION".to_string()
-                    } else {
-                        "REAL".to_string()
-                    }
-                }
-                ColumnType::Boolean => {
-                    if self.db_kind == DatabaseType::Postgres {
-                        "BOOLEAN".to_string()
-                    } else {
-                        "INTEGER".to_string()
-                    }
-                }
+                ColumnType::Integer => self.get_sql_type("integer"),
+                ColumnType::Float => self.get_sql_type("float"),
+                ColumnType::Boolean => self.get_sql_type("boolean"),
                 ColumnType::Date => "DATE".to_string(),
-                ColumnType::Timestamp => {
-                    if self.db_kind == DatabaseType::Postgres {
-                        "TIMESTAMP".to_string()
-                    } else {
-                        "TEXT".to_string()
-                    }
-                }
+                ColumnType::Timestamp => self.get_sql_type("timestamp"),
                 ColumnType::Custom(s) => s.clone(),
                 // Fallbacks for other types
                 ColumnType::Serial => "SERIAL".to_string(),
@@ -543,21 +474,7 @@ impl SchemaManager {
         sql.push_str(&defs.join(", "));
         sql.push(')');
 
-        match &self.pool {
-            DbPool::Sqlite(p) => {
-                sqlx::query::<sqlx::Sqlite>(&sql)
-                    .execute(p)
-                    .await
-                    .map_err(|e: sqlx::Error| e.to_string())?;
-            }
-            DbPool::Postgres(p) => {
-                sqlx::query::<sqlx::Postgres>(&sql)
-                    .execute(p)
-                    .await
-                    .map_err(|e: sqlx::Error| e.to_string())?;
-            }
-        }
-        Ok(())
+        self.execute_query(&sql).await
     }
 
     async fn create_entity_table(&self, entity: &EntitySchema) -> Result<(), String> {
@@ -566,13 +483,7 @@ impl SchemaManager {
 
         for field in &entity.fields {
             let sql_type = match &field.field_type {
-                FieldType::Pk => {
-                    if self.db_kind == DatabaseType::Postgres {
-                        "UUID PRIMARY KEY DEFAULT gen_random_uuid()".to_string()
-                    } else {
-                        "TEXT PRIMARY KEY".to_string()
-                    }
-                }
+                FieldType::Pk => self.get_sql_type("pk"),
                 FieldType::Serial => "TEXT".to_string(),
                 FieldType::String
                 | FieldType::Name
@@ -585,35 +496,11 @@ impl SchemaManager {
                 | FieldType::Sku => "TEXT".to_string(),
                 FieldType::Description | FieldType::Text => "TEXT".to_string(),
                 FieldType::Image | FieldType::File => "TEXT".to_string(),
-                FieldType::Integer => {
-                    if self.db_kind == DatabaseType::Postgres {
-                        "INT".to_string()
-                    } else {
-                        "INTEGER".to_string()
-                    }
-                }
-                FieldType::Float | FieldType::Money => {
-                    if self.db_kind == DatabaseType::Postgres {
-                        "DOUBLE PRECISION".to_string()
-                    } else {
-                        "REAL".to_string()
-                    }
-                }
-                FieldType::Boolean => {
-                    if self.db_kind == DatabaseType::Postgres {
-                        "BOOLEAN".to_string()
-                    } else {
-                        "INTEGER".to_string()
-                    }
-                }
+                FieldType::Integer => self.get_sql_type("integer"),
+                FieldType::Float | FieldType::Money => self.get_sql_type("float"),
+                FieldType::Boolean => self.get_sql_type("boolean"),
                 FieldType::Date => "DATE".to_string(),
-                FieldType::Timestamp => {
-                    if self.db_kind == DatabaseType::Postgres {
-                        "TIMESTAMP".to_string()
-                    } else {
-                        "TEXT".to_string()
-                    }
-                }
+                FieldType::Timestamp => self.get_sql_type("timestamp"),
                 FieldType::Uuid => "TEXT".to_string(),
                 FieldType::Enum(_) => "TEXT".to_string(),
                 FieldType::Relation => "TEXT".to_string(),
@@ -651,20 +538,6 @@ impl SchemaManager {
         sql.push_str(&defs.join(", "));
         sql.push(')');
 
-        match &self.pool {
-            DbPool::Sqlite(p) => {
-                sqlx::query::<sqlx::Sqlite>(&sql)
-                    .execute(p)
-                    .await
-                    .map_err(|e: sqlx::Error| e.to_string())?;
-            }
-            DbPool::Postgres(p) => {
-                sqlx::query::<sqlx::Postgres>(&sql)
-                    .execute(p)
-                    .await
-                    .map_err(|e: sqlx::Error| e.to_string())?;
-            }
-        }
-        Ok(())
+        self.execute_query(&sql).await
     }
 }

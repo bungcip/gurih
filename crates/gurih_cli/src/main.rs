@@ -701,27 +701,12 @@ async fn upload_handler(
 async fn get_portal(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
     let engine = PortalEngine::new();
     match engine.generate_navigation(state.data_engine.get_schema()) {
-        Ok(nav) => {
-            let etag = generate_etag(&nav);
-
-            // Check if client has the same ETag
-            if let Some(if_none_match) = headers.get("If-None-Match") {
-                if let Ok(client_etag) = if_none_match.to_str() {
-                    if client_etag == etag {
-                        // Content hasn't changed, return 304 Not Modified
-                        let mut response_headers = HeaderMap::new();
-                        response_headers.insert("ETag", etag.parse().unwrap());
-                        return (StatusCode::NOT_MODIFIED, response_headers).into_response();
-                    }
-                }
-            }
-
-            // Content has changed or first request, return with ETag
-            let mut response_headers = HeaderMap::new();
-            response_headers.insert("ETag", etag.parse().unwrap());
-            response_headers.insert("Cache-Control", "no-store, no-cache, must-revalidate".parse().unwrap());
-            (StatusCode::OK, response_headers, Json(nav)).into_response()
-        }
+        Ok(nav) => create_response_with_etag(
+            nav,
+            &headers,
+            "no-store, no-cache, must-revalidate",
+        )
+        .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e })),
@@ -771,29 +756,32 @@ async fn get_dashboard_data(
         )
         .await
     {
-        Ok(config) => {
-            let etag = generate_etag(&config);
-
-            // Check if client has the same ETag
-            if let Some(if_none_match) = headers.get("If-None-Match") {
-                if let Ok(client_etag) = if_none_match.to_str() {
-                    if client_etag == etag {
-                        // Content hasn't changed, return 304 Not Modified
-                        let mut response_headers = HeaderMap::new();
-                        response_headers.insert("ETag", etag.parse().unwrap());
-                        return (StatusCode::NOT_MODIFIED, response_headers).into_response();
-                    }
-                }
-            }
-
-            // Content has changed or first request, return with ETag
-            let mut response_headers = HeaderMap::new();
-            response_headers.insert("ETag", etag.parse().unwrap());
-            response_headers.insert("Cache-Control", "max-age=3600".parse().unwrap());
-            (StatusCode::OK, response_headers, Json(config)).into_response()
-        }
+        Ok(config) => create_response_with_etag(config, &headers, "max-age=3600").into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
     }
+}
+
+fn create_response_with_etag<T: serde::Serialize>(
+    content: T,
+    headers: &HeaderMap,
+    cache_control: &str,
+) -> impl IntoResponse {
+    let etag = generate_etag(&content);
+
+    if let Some(if_none_match) = headers.get("If-None-Match") {
+        if let Ok(client_etag) = if_none_match.to_str() {
+            if client_etag == etag {
+                let mut response_headers = HeaderMap::new();
+                response_headers.insert("ETag", etag.parse().unwrap());
+                return (StatusCode::NOT_MODIFIED, response_headers).into_response();
+            }
+        }
+    }
+
+    let mut response_headers = HeaderMap::new();
+    response_headers.insert("ETag", etag.parse().unwrap());
+    response_headers.insert("Cache-Control", cache_control.parse().unwrap());
+    (StatusCode::OK, response_headers, Json(content)).into_response()
 }
 
 fn generate_etag<T: serde::Serialize>(content: &T) -> String {
