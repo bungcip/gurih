@@ -24,6 +24,10 @@ pub struct AuthEngine {
     dummy_hash: String,
 }
 
+// Sentinel: Limits for preventing memory exhaustion
+const MAX_LOGIN_ATTEMPTS: usize = 1000;
+const MAX_SESSIONS: usize = 10000;
+
 pub fn hash_password(password: &str) -> String {
     // Generate a random salt
     let salt = Uuid::new_v4().to_string();
@@ -103,6 +107,9 @@ impl AuthEngine {
 
     #[allow(clippy::collapsible_if)]
     pub async fn login(&self, username: &str, password: &str) -> Result<RuntimeContext, String> {
+        self.cleanup_login_attempts();
+        self.cleanup_sessions();
+
         // Rate Limiting Check
         {
             let mut attempts = self.login_attempts.lock().unwrap();
@@ -208,6 +215,36 @@ impl AuthEngine {
             session.expires_at = Instant::now() - Duration::from_secs(1);
         }
     }
+
+    fn cleanup_login_attempts(&self) {
+        let mut attempts = self.login_attempts.lock().unwrap();
+        if attempts.len() >= MAX_LOGIN_ATTEMPTS {
+            // Remove expired entries first
+            attempts.retain(|_, (_, time)| time.elapsed() < Duration::from_secs(300));
+
+            // Sentinel: If still over limit, prevent DoS by clearing
+            if attempts.len() >= MAX_LOGIN_ATTEMPTS {
+                attempts.clear();
+            }
+        }
+    }
+
+    fn cleanup_sessions(&self) {
+        let mut sessions = self.sessions.lock().unwrap();
+        if sessions.len() >= MAX_SESSIONS {
+            // Remove expired sessions
+            sessions.retain(|_, session| Instant::now() < session.expires_at);
+
+            // Sentinel: If still over limit, remove arbitrary sessions to prevent OOM
+            if sessions.len() >= MAX_SESSIONS {
+                // Remove ~10% randomly to make space
+                let keys_to_remove: Vec<String> = sessions.keys().take(MAX_SESSIONS / 10).cloned().collect();
+                for k in keys_to_remove {
+                    sessions.remove(&k);
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -304,5 +341,30 @@ mod tests {
 
         // 4. Verify Invalid
         assert!(auth.verify_token(&token).is_none());
+    }
+
+    #[tokio::test]
+    async fn test_login_attempts_memory_exhaustion() {
+        let store = Arc::new(MemoryDataStore::new());
+        let auth = AuthEngine::new(store.clone(), None);
+
+        // Manually fill attempts to limit + 50
+        {
+            let mut attempts = auth.login_attempts.lock().unwrap();
+            for i in 0..(MAX_LOGIN_ATTEMPTS + 50) {
+                let username = format!("user_{}", i);
+                attempts.insert(username, (1, Instant::now()));
+            }
+        }
+
+        // Trigger login which should cleanup
+        let _ = auth.login("another_user", "wrong_password").await;
+
+        let attempts = auth.login_attempts.lock().unwrap();
+        // Should be cleared because all are "recent", so retain keeps them,
+        // but then size > MAX so it clears all.
+        // Then "another_user" is inserted (failed attempt).
+        assert!(attempts.len() <= MAX_LOGIN_ATTEMPTS);
+        assert_eq!(attempts.len(), 1);
     }
 }
