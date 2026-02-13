@@ -1,7 +1,8 @@
 use crate::context::RuntimeContext;
 use crate::plugins::Plugin;
 use gurih_ir::utils::resolve_param;
-use gurih_ir::{ActionLogic, ActionStep, ActionStepType, Symbol};
+use gurih_ir::{ActionLogic, ActionStep, ActionStepType, FieldType, Symbol};
+use serde_json::Value;
 use std::collections::HashMap;
 
 pub struct ActionEngine {
@@ -69,6 +70,68 @@ impl ActionEngine {
                     .delete(target_entity.as_str(), &id, ctx)
                     .await
                     .map_err(|e| e.to_string())?;
+            }
+            ActionStepType::EntityUpdate => {
+                let id_raw = step
+                    .args
+                    .get("id")
+                    .ok_or("Missing 'id' argument for entity:update")?;
+                let id = resolve_param(id_raw, params);
+
+                let schema = data_engine.get_schema();
+                let entity_schema = schema
+                    .entities
+                    .get(target_entity)
+                    .ok_or_else(|| format!("Entity not found: {}", target_entity))?;
+
+                let mut update_data = serde_json::Map::new();
+
+                for (key, val_raw) in &step.args {
+                    if key == "id" {
+                        continue;
+                    }
+                    let val_str = resolve_param(val_raw, params);
+
+                    // Find field type to convert
+                    if let Some(field) = entity_schema
+                        .fields
+                        .iter()
+                        .find(|f| f.name == Symbol::from(key))
+                    {
+                        let value = match field.field_type {
+                            FieldType::Integer => val_str.parse::<i64>().map(Value::from).map_err(|_| {
+                                format!("Invalid integer for field {}: {}", key, val_str)
+                            })?,
+                            FieldType::Float => val_str.parse::<f64>().map(Value::from).map_err(|_| {
+                                format!("Invalid float for field {}: {}", key, val_str)
+                            })?,
+                            FieldType::Boolean => val_str
+                                .parse::<bool>()
+                                .map(Value::Bool)
+                                .map_err(|_| format!("Invalid boolean for field {}: {}", key, val_str))?,
+                            _ => Value::String(val_str),
+                        };
+                        update_data.insert(key.clone(), value);
+                    } else {
+                        // If not in schema, just pass as string
+                        update_data.insert(key.clone(), Value::String(val_str));
+                    }
+                }
+
+                println!("Executing Update on {} with ID {}", target_entity, id);
+                data_engine
+                    .update(
+                        target_entity.as_str(),
+                        &id,
+                        Value::Object(update_data),
+                        ctx,
+                    )
+                    .await
+                    .map_err(|e| e.to_string())?;
+            }
+            ActionStepType::EntityCreate => {
+                // TODO: Implement EntityCreate
+                println!("Step type EntityCreate not yet implemented in ActionEngine");
             }
             ActionStepType::Custom(name) => {
                 let mut handled = false;
