@@ -162,7 +162,135 @@ async fn check_valid_parties(
 
     let lines_to_check = fetch_journal_lines(entity_data, schema, Some(ds)).await?;
 
-    // 2. Validate each line
+    // --- Optimization: Batch Fetch Accounts & Parties ---
+    // Instead of N+1 lookups, we try to fetch all referenced accounts and parties in batch.
+    // If the datastore (e.g. MemoryDataStore) doesn't support raw SQL queries, we fallback to iterative lookups.
+
+    let mut account_ids = std::collections::HashSet::new();
+    let mut parties_to_check: HashMap<String, std::collections::HashSet<String>> = HashMap::new();
+
+    for line in &lines_to_check {
+        if let Some(id) = line
+            .get("account")
+            .or_else(|| line.get("account_id"))
+            .and_then(|v| v.as_str())
+        {
+            account_ids.insert(id.to_string());
+        }
+
+        if let (Some(pt), Some(pid)) = (
+            line.get("party_type").and_then(|v| v.as_str()),
+            line.get("party_id").and_then(|v| v.as_str()),
+        ) {
+            parties_to_check
+                .entry(pt.to_string())
+                .or_default()
+                .insert(pid.to_string());
+        }
+    }
+
+    let db_type = schema
+        .database
+        .as_ref()
+        .map(|d| d.db_type.clone())
+        .unwrap_or(gurih_ir::DatabaseType::Sqlite);
+
+    // Cache: Account ID -> Account Data
+    let mut accounts_cache: HashMap<String, Arc<Value>> = HashMap::new();
+    // Cache: (PartyType, PartyID) -> Exists (bool)
+    let mut party_existence_cache: HashMap<(String, String), bool> = HashMap::new();
+
+    // 1. Batch Fetch Accounts
+    if !account_ids.is_empty() {
+        let account_table = schema
+            .entities
+            .get(&Symbol::from("Account"))
+            .map(|e| e.table_name.as_str())
+            .unwrap_or("account");
+
+        let ids: Vec<String> = account_ids.into_iter().collect();
+        let placeholders = (1..=ids.len())
+            .map(|i| gurih_ir::utils::get_db_placeholder(&db_type, i))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let sql = format!(
+            "SELECT * FROM {} WHERE id IN ({})",
+            account_table, placeholders
+        );
+        let params: Vec<Value> = ids.iter().map(|s| Value::String(s.clone())).collect();
+
+        // Try query_with_params
+        match ds.query_with_params(&sql, params).await {
+            Ok(results) => {
+                for acc in results {
+                    if let Some(id) = acc.get("id").and_then(|v| v.as_str()) {
+                        accounts_cache.insert(id.to_string(), acc.clone());
+                    }
+                }
+            }
+            Err(e) if e.contains("Raw SQL query not supported") => {
+                // Fallback: Fetch one by one (MemoryDataStore)
+                for id in ids {
+                    if let Some(acc) = ds
+                        .get(account_table, &id)
+                        .await
+                        .map_err(RuntimeError::WorkflowError)?
+                    {
+                        accounts_cache.insert(id, acc);
+                    }
+                }
+            }
+            Err(e) => return Err(RuntimeError::WorkflowError(e)),
+        }
+    }
+
+    // 2. Batch Fetch Parties
+    for (pt, pids) in parties_to_check {
+        let target_entity = schema.entities.get(&Symbol::from(pt.as_str()));
+        if let Some(entity_schema) = target_entity {
+            let table = entity_schema.table_name.as_str();
+            let ids: Vec<String> = pids.into_iter().collect();
+            let placeholders = (1..=ids.len())
+                .map(|i| gurih_ir::utils::get_db_placeholder(&db_type, i))
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            let sql = format!("SELECT id FROM {} WHERE id IN ({})", table, placeholders);
+            let params: Vec<Value> = ids.iter().map(|s| Value::String(s.clone())).collect();
+
+            match ds.query_with_params(&sql, params).await {
+                Ok(results) => {
+                    // Mark found
+                    for row in results {
+                        if let Some(id) = row.get("id").and_then(|v| v.as_str()) {
+                            party_existence_cache
+                                .insert((pt.clone(), id.to_string()), true);
+                        }
+                    }
+                    // Mark not found (implicitly handled by lookup failure in cache, but for fallback consistency we just fill cache)
+                }
+                Err(e) if e.contains("Raw SQL query not supported") => {
+                    // Fallback
+                    for id in ids {
+                        let exists = ds
+                            .get(table, &id)
+                            .await
+                            .map_err(RuntimeError::WorkflowError)?
+                            .is_some();
+                        if exists {
+                            party_existence_cache.insert((pt.clone(), id), true);
+                        }
+                    }
+                }
+                Err(e) => return Err(RuntimeError::WorkflowError(e)),
+            }
+        } else {
+            // Unknown Party Type handled in loop
+        }
+    }
+
+    // 2. Validate each line using Cache
     for line in lines_to_check {
         let account_id = line
             .get("account")
@@ -172,30 +300,27 @@ async fn check_valid_parties(
                 "Journal line missing account".to_string(),
             ))?;
 
-        // Fetch Account
-        let account_table = schema
-            .entities
-            .get(&Symbol::from("Account"))
-            .map(|e| e.table_name.as_str())
-            .unwrap_or("account");
+        let account = accounts_cache.get(account_id).ok_or_else(|| {
+            RuntimeError::ValidationError(format!("Account not found: {}", account_id))
+        })?;
 
-        let account = ds
-            .get(account_table, account_id)
-            .await
-            .map_err(RuntimeError::WorkflowError)?
-            .ok_or(RuntimeError::ValidationError(format!(
-                "Account not found: {}",
-                account_id
-            )))?;
-
-        let requires_party = account.get("requires_party").and_then(|v| v.as_bool()).unwrap_or(false);
+        let requires_party = account
+            .get("requires_party")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
 
         let party_type = line.get("party_type").and_then(|v| v.as_str());
         let party_id = line.get("party_id").and_then(|v| v.as_str());
 
         if requires_party && (party_type.is_none() || party_id.is_none()) {
-            let acc_code = account.get("code").and_then(|v| v.as_str()).unwrap_or("?");
-            let acc_name = account.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+            let acc_code = account
+                .get("code")
+                .and_then(|v| v.as_str())
+                .unwrap_or("?");
+            let acc_name = account
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("?");
             return Err(RuntimeError::ValidationError(format!(
                 "Account {} ({}) requires a Party (Customer/Vendor) to be specified.",
                 acc_code, acc_name
@@ -204,20 +329,20 @@ async fn check_valid_parties(
 
         // Verify Party Existence if specified
         if let (Some(pt), Some(pid)) = (party_type, party_id) {
-            // Find entity table name
             let target_entity = schema.entities.get(&Symbol::from(pt));
-            if let Some(entity_schema) = target_entity {
-                let table = entity_schema.table_name.as_str();
-                let exists = ds.get(table, pid).await.map_err(RuntimeError::WorkflowError)?.is_some();
-
-                if !exists {
+            if target_entity.is_some() {
+                // Check cache
+                if !party_existence_cache.contains_key(&(pt.to_string(), pid.to_string())) {
                     return Err(RuntimeError::ValidationError(format!(
                         "Referenced Party {} (Type: {}) does not exist.",
                         pid, pt
                     )));
                 }
             } else {
-                return Err(RuntimeError::ValidationError(format!("Unknown Party Type: {}", pt)));
+                return Err(RuntimeError::ValidationError(format!(
+                    "Unknown Party Type: {}",
+                    pt
+                )));
             }
         }
     }
