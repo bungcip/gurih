@@ -1,5 +1,5 @@
-use gurih_dsl::parser::parse;
 use gurih_dsl::compiler::compile;
+use gurih_dsl::parser::parse;
 use std::fs;
 use std::path::PathBuf;
 
@@ -82,7 +82,7 @@ fn test_parse_entity_user() {
 
     let ast = parse(input, None).expect("Should parse entity:user");
     assert_eq!(ast.entities.len(), 1);
-    
+
     let user_entity = &ast.entities[0];
     assert_eq!(user_entity.name, "User");
     assert!(user_entity.options.is_user_entity, "Should be marked as user entity");
@@ -100,10 +100,10 @@ fn test_compile_entity_user() {
     "#;
 
     let schema = compile(input, None).expect("Should compile entity:user");
-    
+
     // Find the User entity in the compiled schema
     let user_entity = schema.entities.get(&"User".into()).expect("Should have User entity");
-    
+
     // Check that is_user_entity option is set
     assert_eq!(
         user_entity.options.get("is_user_entity"),
@@ -130,7 +130,7 @@ fn test_compile_multiple_entity_user_fails() {
 
     let result = compile(input, None);
     assert!(result.is_err(), "Should fail with multiple entity:user declarations");
-    
+
     if let Err(e) = result {
         let error_msg = format!("{:?}", e);
         assert!(
@@ -160,10 +160,10 @@ fn test_entity_user_in_module() {
     "#;
 
     let schema = compile(input, None).expect("Should compile entity:user in module");
-    
+
     // Find the User entity in the compiled schema
     let user_entity = schema.entities.get(&"User".into()).expect("Should have User entity");
-    
+
     // Check that is_user_entity option is set
     assert_eq!(
         user_entity.options.get("is_user_entity"),

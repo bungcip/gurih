@@ -3,7 +3,7 @@ use gurih_ir::{EntitySchema, Expression, Schema, Symbol};
 use gurih_plugins::finance::FinancePlugin;
 use gurih_runtime::datastore::DataStore;
 use gurih_runtime::plugins::Plugin;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -70,10 +70,7 @@ impl DataStore for SpyDataStore {
         Ok(vec![Arc::new(json!({"id": "period1"}))])
     }
     async fn query_with_params(&self, sql: &str, params: Vec<Value>) -> Result<Vec<Arc<Value>>, String> {
-        self.query_params_calls
-            .lock()
-            .unwrap()
-            .push((sql.to_string(), params));
+        self.query_params_calls.lock().unwrap().push((sql.to_string(), params));
         // Return valid response to mimic open period
         Ok(vec![Arc::new(json!({"id": "period1"}))])
     }
@@ -108,14 +105,7 @@ async fn test_period_check_uses_params() {
     let entity_data = json!({ "date": "2024-01-15" });
 
     let result = plugin
-        .check_precondition(
-            "period_open",
-            &args,
-            &kwargs,
-            &entity_data,
-            &schema,
-            Some(&datastore),
-        )
+        .check_precondition("period_open", &args, &kwargs, &entity_data, &schema, Some(&datastore))
         .await;
 
     // 1. Verify success

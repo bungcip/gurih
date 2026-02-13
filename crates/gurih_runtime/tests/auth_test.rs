@@ -71,7 +71,7 @@ async fn test_password_hashing() {
     // 2. Setup Engines
     let datastore = Arc::new(MemoryDataStore::new());
     let data_engine = DataEngine::new(schema_arc.clone(), datastore.clone());
-    let auth_engine = AuthEngine::new(datastore.clone(), Some("user".to_string()));
+    let auth_engine = AuthEngine::new(datastore.clone(), Some("user".to_string()), Some(schema_arc.clone()));
 
     // 3. Create User
     let ctx = RuntimeContext::system();
@@ -100,4 +100,117 @@ async fn test_password_hashing() {
     assert_ne!(stored_pass, password, "Password stored in plaintext!");
     assert_ne!(stored_pass, "", "Password should not be empty");
     assert!(stored_pass.starts_with("v4$"), "Password should use v4 format");
+}
+
+#[tokio::test]
+async fn test_rbac_schema_permissions() {
+    // 1. Setup Schema with Permissions and User
+    let mut entities = HashMap::new();
+    // User fields...
+    let fields = vec![
+        FieldSchema {
+            name: Symbol::from("id"),
+            field_type: FieldType::String,
+            required: false,
+            unique: true,
+            default: None,
+            references: None,
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        },
+        FieldSchema {
+            name: Symbol::from("username"),
+            field_type: FieldType::String,
+            required: true,
+            unique: true,
+            default: None,
+            references: None,
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        },
+        FieldSchema {
+            name: Symbol::from("password"),
+            field_type: FieldType::Password,
+            required: true,
+            unique: false,
+            default: None,
+            references: None,
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        },
+        FieldSchema {
+            name: Symbol::from("role"),
+            field_type: FieldType::String,
+            required: false,
+            unique: false,
+            default: None,
+            references: None,
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        },
+    ];
+
+    entities.insert(
+        Symbol::from("User"),
+        EntitySchema {
+            name: Symbol::from("User"),
+            table_name: Symbol::from("user"),
+            fields,
+            relationships: vec![],
+            options: HashMap::new(),
+            seeds: None,
+        },
+    );
+
+    let mut permissions = HashMap::new();
+    permissions.insert(
+        Symbol::from("Editor"),
+        gurih_ir::PermissionSchema {
+            name: Symbol::from("Editor"),
+            rules: vec!["article.edit".to_string(), "article.view".to_string()],
+        },
+    );
+
+    let schema = Schema {
+        entities,
+        permissions,
+        ..Default::default()
+    };
+    let schema_arc = Arc::new(schema);
+
+    // 2. Setup Engines
+    let datastore = Arc::new(MemoryDataStore::new());
+    let data_engine = DataEngine::new(schema_arc.clone(), datastore.clone());
+    let auth_engine = AuthEngine::new(datastore.clone(), Some("user".to_string()), Some(schema_arc.clone()));
+
+    // 3. Create User with role "Editor"
+    let ctx = RuntimeContext::system();
+    data_engine
+        .create(
+            "User",
+            json!({
+                "username": "editor",
+                "password": "password",
+                "role": "Editor"
+            }),
+            &ctx,
+        )
+        .await
+        .expect("Failed to create user");
+
+    // 4. Login
+    let ctx = auth_engine.login("editor", "password").await.expect("Login failed");
+
+    // 5. Verify Permissions
+    assert!(ctx.permissions.contains(&"article.edit".to_string()));
+    assert!(ctx.permissions.contains(&"article.view".to_string()));
+    assert!(!ctx.permissions.contains(&"*".to_string()));
 }

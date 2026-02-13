@@ -6,8 +6,8 @@ use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::init_datastore;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::path::Path;
+use std::sync::Arc;
 
 #[tokio::test]
 async fn test_serial_generation() {
@@ -96,7 +96,9 @@ async fn test_serial_generation() {
 
     // 4. Init Datastore
     // Pass None as base_path for in-memory
-    let datastore = init_datastore(schema_arc.clone(), None).await.expect("Failed to init datastore");
+    let datastore = init_datastore(schema_arc.clone(), None)
+        .await
+        .expect("Failed to init datastore");
 
     // 5. Create DataEngine
     let engine = DataEngine::new(schema_arc.clone(), datastore);
@@ -107,11 +109,21 @@ async fn test_serial_generation() {
     data1.insert("title".to_string(), Value::String("Doc 1".to_string()));
 
     // Note: serial_no is not provided, so it should be generated.
-    let id1 = engine.create("Doc", Value::Object(data1), &ctx).await.expect("Failed to create Doc 1");
+    let id1 = engine
+        .create("Doc", Value::Object(data1), &ctx)
+        .await
+        .expect("Failed to create Doc 1");
 
     // 7. Verify First Serial
-    let record1 = engine.read("Doc", &id1).await.expect("Read failed").expect("Doc 1 not found");
-    let serial1 = record1.get("serial_no").and_then(|v| v.as_str()).expect("serial_no 1 missing");
+    let record1 = engine
+        .read("Doc", &id1)
+        .await
+        .expect("Read failed")
+        .expect("Doc 1 not found");
+    let serial1 = record1
+        .get("serial_no")
+        .and_then(|v| v.as_str())
+        .expect("serial_no 1 missing");
 
     let year = chrono::Local::now().format("%Y").to_string();
     let expected1 = format!("TEST/{}/0001", year);
@@ -122,11 +134,21 @@ async fn test_serial_generation() {
     let mut data2 = serde_json::Map::new();
     data2.insert("title".to_string(), Value::String("Doc 2".to_string()));
 
-    let id2 = engine.create("Doc", Value::Object(data2), &ctx).await.expect("Failed to create Doc 2");
+    let id2 = engine
+        .create("Doc", Value::Object(data2), &ctx)
+        .await
+        .expect("Failed to create Doc 2");
 
     // 9. Verify Second Serial
-    let record2 = engine.read("Doc", &id2).await.expect("Read failed").expect("Doc 2 not found");
-    let serial2 = record2.get("serial_no").and_then(|v| v.as_str()).expect("serial_no 2 missing");
+    let record2 = engine
+        .read("Doc", &id2)
+        .await
+        .expect("Read failed")
+        .expect("Doc 2 not found");
+    let serial2 = record2
+        .get("serial_no")
+        .and_then(|v| v.as_str())
+        .expect("serial_no 2 missing");
 
     let expected2 = format!("TEST/{}/0002", year);
     assert_eq!(serial2, expected2);

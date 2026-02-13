@@ -70,7 +70,7 @@ async fn test_rate_limiting() {
 
     let datastore = Arc::new(MemoryDataStore::new());
     let data_engine = DataEngine::new(schema_arc.clone(), datastore.clone());
-    let auth_engine = AuthEngine::new(datastore.clone(), Some("user".to_string()));
+    let auth_engine = AuthEngine::new(datastore.clone(), Some("user".to_string()), Some(schema_arc.clone()));
 
     let ctx = RuntimeContext::system();
     data_engine

@@ -24,3 +24,8 @@
 **Vulnerability:** `login_attempts` and `sessions` maps in `AuthEngine` grew indefinitely, allowing Denial of Service via memory exhaustion by spamming login requests with unique usernames.
 **Learning:** In-memory state tracking for security (rate limiting, sessions) must always have upper bounds or eviction policies.
 **Prevention:** Implemented `cleanup_login_attempts` and `cleanup_sessions` to enforce `MAX_LOGIN_ATTEMPTS` and `MAX_SESSIONS` limits, clearing excessive entries when thresholds are reached.
+
+## 2024-05-28 - [HIGH] Hardcoded RBAC Logic
+**Vulnerability:** Role-based access control was hardcoded to only recognize "admin" and "HRManager" roles, ignoring any roles and permissions defined in the DSL schema. This creates a security gap where defined policies are not enforced.
+**Learning:** Hardcoding security logic decouples it from the configuration/policy definition (DSL), leading to a false sense of security where users believe their policy changes are active.
+**Prevention:** Integrated `AuthEngine` with the compiled `Schema` to dynamically load and enforce permissions defined in the DSL `role` blocks.

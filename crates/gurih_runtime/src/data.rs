@@ -39,7 +39,12 @@ impl DataAccess for DataEngine {
         self.create(entity_name, data, ctx).await
     }
 
-    async fn create_many(&self, entity_name: &str, data: Vec<Value>, ctx: &RuntimeContext) -> Result<Vec<String>, String> {
+    async fn create_many(
+        &self,
+        entity_name: &str,
+        data: Vec<Value>,
+        ctx: &RuntimeContext,
+    ) -> Result<Vec<String>, String> {
         self.create_many(entity_name, data, ctx).await
     }
 
@@ -214,10 +219,7 @@ impl DataEngine {
         filters.insert("context".to_string(), context.to_string());
 
         if let Some(existing) = self.datastore.find_first("_gurih_sequences", filters.clone()).await? {
-            let current = existing
-                .get("value")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
+            let current = existing.get("value").and_then(|v| v.as_i64()).unwrap_or(0);
             let next = current + 1;
             let id = existing
                 .get("id")
@@ -332,7 +334,12 @@ impl DataEngine {
         Ok(id)
     }
 
-    pub async fn create_many(&self, entity_name: &str, data: Vec<Value>, ctx: &RuntimeContext) -> Result<Vec<String>, String> {
+    pub async fn create_many(
+        &self,
+        entity_name: &str,
+        data: Vec<Value>,
+        ctx: &RuntimeContext,
+    ) -> Result<Vec<String>, String> {
         if data.is_empty() {
             return Ok(vec![]);
         }
@@ -368,7 +375,7 @@ impl DataEngine {
             // Check Composition Immutability
             self.check_composition_immutability(entity_name, &record).await?;
 
-             // Workflow: Set initial state if applicable
+            // Workflow: Set initial state if applicable
             if let Some(wf) = self
                 .schema
                 .workflows
@@ -382,7 +389,7 @@ impl DataEngine {
 
             if let Some(obj) = record.as_object_mut() {
                 // Ensure ID exists
-                 if !obj.contains_key("id") {
+                if !obj.contains_key("id") {
                     obj.insert("id".to_string(), Value::String(Uuid::new_v4().to_string()));
                 }
 
@@ -414,7 +421,7 @@ impl DataEngine {
 
                 self.process_data_fields(entity_schema, obj)?;
             } else {
-                 return Err("Data must be an object".to_string());
+                return Err("Data must be an object".to_string());
             }
 
             prepared_records.push(record);
@@ -430,13 +437,13 @@ impl DataEngine {
         }
 
         for r in &mut prepared_records {
-             if let Some(obj) = r.as_object_mut() {
-                 for k in &all_keys {
-                     if !obj.contains_key(k) {
-                         obj.insert(k.clone(), Value::Null);
-                     }
-                 }
-             }
+            if let Some(obj) = r.as_object_mut() {
+                for k in &all_keys {
+                    if !obj.contains_key(k) {
+                        obj.insert(k.clone(), Value::Null);
+                    }
+                }
+            }
         }
 
         let ids = self
@@ -446,12 +453,12 @@ impl DataEngine {
 
         // Audit Trail
         if track_changes {
-             let mut audit_logs = Vec::with_capacity(ids.len());
-             for (i, id) in ids.iter().enumerate() {
-                 let record = &prepared_records[i];
-                 let diff = serde_json::to_string(record).unwrap_or_default();
+            let mut audit_logs = Vec::with_capacity(ids.len());
+            for (i, id) in ids.iter().enumerate() {
+                let record = &prepared_records[i];
+                let diff = serde_json::to_string(record).unwrap_or_default();
 
-                 let mut audit_record = serde_json::Map::new();
+                let mut audit_record = serde_json::Map::new();
                 audit_record.insert("id".to_string(), Value::String(Uuid::new_v4().to_string()));
                 audit_record.insert("entity".to_string(), Value::String(entity_name.to_string()));
                 audit_record.insert("record_id".to_string(), Value::String(id.to_string()));
@@ -460,9 +467,9 @@ impl DataEngine {
                 audit_record.insert("diff".to_string(), Value::String(diff));
 
                 audit_logs.push(Value::Object(audit_record));
-             }
+            }
 
-             self.datastore.insert_many("_audit_log", audit_logs).await.ok();
+            self.datastore.insert_many("_audit_log", audit_logs).await.ok();
         }
 
         Ok(ids)
