@@ -24,12 +24,14 @@ pub trait Plugin: Send + Sync {
     ) -> Result<(), RuntimeError>;
 
     /// Applies a custom effect.
+    #[allow(clippy::too_many_arguments)]
     async fn apply_effect(
         &self,
         name: &str,
         args: &[Expression],
         kwargs: &HashMap<String, String>,
         schema: &Schema,
+        datastore: Option<&Arc<dyn DataStore>>,
         entity_name: &str,
         entity_data: &Value,
     ) -> Result<(Value, Vec<String>, Vec<Symbol>), RuntimeError>;

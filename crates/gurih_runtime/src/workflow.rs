@@ -107,6 +107,7 @@ impl WorkflowEngine {
     pub async fn apply_effects(
         &self,
         schema: &Schema,
+        datastore: Option<&Arc<dyn DataStore>>,
         entity_name: &str,
         current_state: &str,
         new_state: &str,
@@ -149,7 +150,7 @@ impl WorkflowEngine {
                     TransitionEffect::Custom { name, args, kwargs } => {
                         for plugin in &self.plugins {
                             if let Ok((p_updates, p_notifications, p_postings)) = plugin
-                                .apply_effect(name.as_str(), args, kwargs, schema, entity_name, entity_data)
+                                .apply_effect(name.as_str(), args, kwargs, schema, datastore, entity_name, entity_data)
                                 .await
                             {
                                 // Merge results

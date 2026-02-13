@@ -43,6 +43,7 @@ entity "JournalLine" {
     // Sub-ledger / Party support
     field:string "party_type" // e.g. "Customer", "Vendor"
     field:uuid "party_id"
+    field:string "party_name" required=#false
 }
 
 workflow "JournalWorkflow" for="JournalEntry" field="status" {
@@ -60,6 +61,7 @@ workflow "JournalWorkflow" for="JournalEntry" field="status" {
         }
         effects {
             // Immutable once posted
+            snapshot_parties #true
         }
     }
 

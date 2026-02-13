@@ -277,6 +277,7 @@ impl Plugin for HrPlugin {
         args: &[Expression],
         _kwargs: &HashMap<String, String>,
         _schema: &Schema,
+        _datastore: Option<&Arc<dyn DataStore>>,
         _entity_name: &str,
         _entity_data: &Value,
     ) -> Result<(Value, Vec<String>, Vec<Symbol>), RuntimeError> {

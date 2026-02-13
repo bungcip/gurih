@@ -672,7 +672,14 @@ impl DataEngine {
                 // Apply Side Effects
                 let (updates, notifications, postings) = self
                     .workflow
-                    .apply_effects(&self.schema, entity_name, current_state, new_state, &merged_record)
+                    .apply_effects(
+                        &self.schema,
+                        Some(&self.datastore),
+                        entity_name,
+                        current_state,
+                        new_state,
+                        &merged_record,
+                    )
                     .await;
 
                 for notification in notifications {
