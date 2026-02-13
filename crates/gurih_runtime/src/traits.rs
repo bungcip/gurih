@@ -12,6 +12,7 @@ pub trait DataAccess: Send + Sync {
     fn datastore(&self) -> &Arc<dyn DataStore>;
 
     async fn create(&self, entity_name: &str, data: Value, ctx: &RuntimeContext) -> Result<String, String>;
+    async fn create_many(&self, entity_name: &str, data: Vec<Value>, ctx: &RuntimeContext) -> Result<Vec<String>, String>;
     async fn read(&self, entity_name: &str, id: &str) -> Result<Option<Arc<Value>>, String>;
     async fn update(&self, entity_name: &str, id: &str, data: Value, ctx: &RuntimeContext) -> Result<(), String>;
     async fn delete(&self, entity_name: &str, id: &str, ctx: &RuntimeContext) -> Result<(), String>;

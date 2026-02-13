@@ -32,6 +32,15 @@ impl DataStore for MockDataStore {
             Ok("1".to_string())
         }
     }
+
+    async fn insert_many(&self, entity: &str, records: Vec<Value>) -> Result<Vec<String>, String> {
+        let mut ids = Vec::new();
+        for record in records {
+            ids.push(self.insert(entity, record).await?);
+        }
+        Ok(ids)
+    }
+
     async fn update(&self, _entity: &str, _id: &str, _data: Value) -> Result<(), String> {
         Ok(())
     }

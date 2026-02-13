@@ -114,6 +114,96 @@ impl DataStore for PostgresDataStore {
         Ok(id)
     }
 
+    async fn insert_many(&self, entity: &str, records: Vec<Value>) -> Result<Vec<String>, String> {
+        validate_identifier(entity)?;
+        if records.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let mut prepared_records = Vec::with_capacity(records.len());
+        let mut ids = Vec::with_capacity(records.len());
+
+        for record in records {
+            let mut obj = record.as_object().ok_or("Record must be object")?.clone();
+            if !obj.contains_key("id") {
+                let new_id = uuid::Uuid::new_v4().to_string();
+                obj.insert("id".to_string(), Value::String(new_id.clone()));
+                ids.push(new_id);
+            } else {
+                let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+                ids.push(id);
+            }
+            prepared_records.push(obj);
+        }
+
+        let keys: Vec<String> = prepared_records[0].keys().cloned().collect();
+        let cols_count = keys.len();
+
+        // Chunking: Postgres limit is 65535 parameters.
+        let chunk_size = if cols_count > 0 { 65000 / cols_count } else { 2000 };
+        let chunk_size = std::cmp::max(1, chunk_size);
+
+        for chunk in prepared_records.chunks(chunk_size) {
+            let mut query = String::new();
+            query.push_str("INSERT INTO \"");
+            query.push_str(entity);
+            query.push_str("\" (");
+
+            for (i, key) in keys.iter().enumerate() {
+                validate_identifier(key)?;
+                if i > 0 {
+                    query.push_str(", ");
+                }
+                query.push('"');
+                query.push_str(key);
+                query.push('"');
+            }
+            query.push_str(") VALUES ");
+
+            let mut params = Vec::new();
+            let mut param_idx = 1;
+
+            for (r_idx, record) in chunk.iter().enumerate() {
+                if r_idx > 0 {
+                    query.push_str(", ");
+                }
+                query.push('(');
+                for (c_idx, key) in keys.iter().enumerate() {
+                    if c_idx > 0 {
+                        query.push_str(", ");
+                    }
+                    query.push_str(&format!("${}", param_idx));
+                    param_idx += 1;
+                    params.push(record.get(key).unwrap_or(&Value::Null));
+                }
+                query.push(')');
+            }
+
+            let mut q = sqlx::query(&query);
+            for p in params {
+                match p {
+                    Value::String(s) => q = q.bind(s),
+                    Value::Number(n) => {
+                        if n.is_i64() {
+                            q = q.bind(n.as_i64())
+                        } else if n.is_f64() {
+                            q = q.bind(n.as_f64())
+                        } else {
+                            q = q.bind(n.to_string())
+                        }
+                    }
+                    Value::Bool(b) => q = q.bind(b),
+                    Value::Null => q = q.bind(Option::<String>::None),
+                    _ => q = q.bind(p.to_string()),
+                }
+            }
+
+            q.execute(&self.pool).await.map_err(|e| e.to_string())?;
+        }
+
+        Ok(ids)
+    }
+
     async fn get(&self, entity: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
         validate_identifier(entity)?;
         let query = format!("SELECT * FROM \"{}\" WHERE id = $1", entity);
