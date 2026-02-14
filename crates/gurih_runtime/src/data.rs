@@ -48,8 +48,8 @@ impl DataAccess for DataEngine {
         self.create_many(entity_name, data, ctx).await
     }
 
-    async fn read(&self, entity_name: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
-        self.read(entity_name, id).await
+    async fn read(&self, entity_name: &str, id: &str, ctx: &RuntimeContext) -> Result<Option<Arc<Value>>, String> {
+        self.read(entity_name, id, ctx).await
     }
 
     async fn update(&self, entity_name: &str, id: &str, data: Value, ctx: &RuntimeContext) -> Result<(), String> {
@@ -66,8 +66,9 @@ impl DataAccess for DataEngine {
         limit: Option<usize>,
         offset: Option<usize>,
         filters: Option<HashMap<String, String>>,
+        ctx: &RuntimeContext,
     ) -> Result<Vec<Arc<Value>>, String> {
-        self.list(entity, limit, offset, filters).await
+        self.list(entity, limit, offset, filters, ctx).await
     }
 }
 
@@ -260,13 +261,13 @@ impl DataEngine {
             .cloned()
             .unwrap_or_else(|| format!("create:{}", entity_name));
 
-        self.validate_permission(ctx, &create_perm, entity_name)?;
+        self.validate_permission(ctx, &create_perm, "create", entity_name)?;
 
         // Rule Check (Create)
         self.check_rules(entity_name, "create", &data, None).await?;
 
         // Check Composition Immutability (Prevent creating into locked parent)
-        self.check_composition_immutability(entity_name, &data).await?;
+        self.check_composition_immutability(entity_name, &data, ctx).await?;
 
         // Workflow: Set initial state if applicable
         if let Some(wf) = self
@@ -357,7 +358,7 @@ impl DataEngine {
             .cloned()
             .unwrap_or_else(|| format!("create:{}", entity_name));
 
-        self.validate_permission(ctx, &create_perm, entity_name)?;
+        self.validate_permission(ctx, &create_perm, "create", entity_name)?;
 
         let mut prepared_records = Vec::with_capacity(data.len());
 
@@ -373,7 +374,7 @@ impl DataEngine {
             self.check_rules(entity_name, "create", &record, None).await?;
 
             // Check Composition Immutability
-            self.check_composition_immutability(entity_name, &record).await?;
+            self.check_composition_immutability(entity_name, &record, ctx).await?;
 
             // Workflow: Set initial state if applicable
             if let Some(wf) = self
@@ -475,16 +476,30 @@ impl DataEngine {
         Ok(ids)
     }
 
-    pub async fn read(&self, entity_name: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
+    pub async fn read(&self, entity_name: &str, id: &str, ctx: &RuntimeContext) -> Result<Option<Arc<Value>>, String> {
         let entity_schema = self.schema.entities.get(&Symbol::from(entity_name));
         if let Some(schema) = entity_schema {
+            // Validate read permission
+            let read_perm = schema
+                .options
+                .get("read_permission")
+                .cloned()
+                .unwrap_or_else(|| format!("read:{}", entity_name));
+
+            self.validate_permission(ctx, &read_perm, "read", entity_name)?;
+
             self.datastore.get(schema.table_name.as_str(), id).await
         } else {
             Err(format!("Entity '{}' not defined", entity_name))
         }
     }
 
-    async fn check_composition_immutability(&self, entity_name: &str, record: &Value) -> Result<(), String> {
+    async fn check_composition_immutability(
+        &self,
+        entity_name: &str,
+        record: &Value,
+        ctx: &RuntimeContext,
+    ) -> Result<(), String> {
         let entity_schema = self
             .schema
             .entities
@@ -507,7 +522,7 @@ impl DataEngine {
                     let parent_entity_name = rel.target_entity.as_str();
 
                     // Fetch Parent
-                    if let Some(parent_arc) = self.read(parent_entity_name, pid).await? {
+                    if let Some(parent_arc) = self.read(parent_entity_name, pid, ctx).await? {
                         // Check Parent Workflow
                         let parent_workflow = self.schema.workflows.values().find(|w| w.entity == rel.target_entity);
 
@@ -542,6 +557,15 @@ impl DataEngine {
             .get(&Symbol::from(entity_name))
             .ok_or_else(|| format!("Entity '{}' not defined", entity_name))?;
 
+        // Validate update permission
+        let update_perm = entity_schema
+            .options
+            .get("update_permission")
+            .cloned()
+            .unwrap_or_else(|| format!("update:{}", entity_name));
+
+        self.validate_permission(ctx, &update_perm, "update", entity_name)?;
+
         let mut data = data;
 
         // Determine if we need to fetch current record
@@ -575,7 +599,7 @@ impl DataEngine {
         if has_composition {
             if let Some(current) = &current_record_opt {
                 // 1. Check Source (Old Parent)
-                self.check_composition_immutability(entity_name, current).await?;
+                self.check_composition_immutability(entity_name, current, ctx).await?;
 
                 // 2. Check Destination (New Parent)
                 // Merge data to get potential new FK
@@ -587,7 +611,7 @@ impl DataEngine {
                         target.insert(k.clone(), v.clone());
                     }
                 }
-                self.check_composition_immutability(entity_name, &merged).await?;
+                self.check_composition_immutability(entity_name, &merged, ctx).await?;
             } else {
                 return Err("Record not found for composition validation".to_string());
             }
@@ -756,6 +780,15 @@ impl DataEngine {
             .get(&Symbol::from(entity_name))
             .ok_or_else(|| format!("Entity '{}' not defined", entity_name))?;
 
+        // Validate delete permission
+        let delete_perm = entity_schema
+            .options
+            .get("delete_permission")
+            .cloned()
+            .unwrap_or_else(|| format!("delete:{}", entity_name));
+
+        self.validate_permission(ctx, &delete_perm, "delete", entity_name)?;
+
         // Check Workflow Immutability
         let workflow = self
             .schema
@@ -780,13 +813,16 @@ impl DataEngine {
         let mut current_record_opt: Option<Arc<Value>> = None;
 
         if workflow.is_some() || has_delete_rules || has_composition {
-            current_record_opt = self.read(entity_name, id).await?;
+            // Note: calling self.read here would check read permission.
+            // Generally acceptable, but to be consistent with update, maybe verify delete needs read?
+            // Yes, user should have read access to delete properly (or at least check workflow).
+            current_record_opt = self.read(entity_name, id, ctx).await?;
         }
 
         // Check Composition Immutability
         if has_composition {
             if let Some(current) = &current_record_opt {
-                self.check_composition_immutability(entity_name, current).await?;
+                self.check_composition_immutability(entity_name, current, ctx).await?;
             } else {
                 return Err("Record not found for composition validation".to_string());
             }
@@ -822,11 +858,17 @@ impl DataEngine {
         Ok(())
     }
 
-    fn validate_permission(&self, ctx: &RuntimeContext, permission: &str, entity_name: &str) -> Result<(), String> {
+    fn validate_permission(
+        &self,
+        ctx: &RuntimeContext,
+        permission: &str,
+        action: &str,
+        entity_name: &str,
+    ) -> Result<(), String> {
         if !ctx.has_permission(permission) {
             Err(format!(
-                "Missing permission '{}' to create entity '{}'",
-                permission, entity_name
+                "Missing permission '{}' to {} entity '{}'",
+                permission, action, entity_name
             ))
         } else {
             Ok(())
@@ -888,8 +930,32 @@ impl DataEngine {
         limit: Option<usize>,
         offset: Option<usize>,
         filters: Option<std::collections::HashMap<String, String>>,
+        ctx: &RuntimeContext,
     ) -> Result<Vec<Arc<Value>>, String> {
         if self.schema.queries.contains_key(&Symbol::from(entity)) {
+            // Check permission for query?
+            // Generally we check read permission for the root entity of the query.
+            // Or a specific permission for the query name.
+            // For now, let's look up the query and check its root entity.
+            let query = self.schema.queries.get(&Symbol::from(entity)).unwrap(); // Verified by contains_key
+            let root_entity = query.root_entity.as_str();
+
+            // We check read permission for the root entity
+            // Ideally we should recursively check joined entities, but that's complex.
+            if let Some(entity_schema) = self.schema.entities.get(&query.root_entity) {
+                 let read_perm = entity_schema
+                    .options
+                    .get("read_permission")
+                    .cloned()
+                    .unwrap_or_else(|| format!("read:{}", root_entity));
+                 self.validate_permission(ctx, &read_perm, "read", root_entity)?;
+            } else {
+                 // Query might refer to non-entity? Unlikely.
+                 // Fallback: check read:{QueryName}
+                 let read_perm = format!("read:{}", entity);
+                 self.validate_permission(ctx, &read_perm, "read", entity)?;
+            }
+
             let mut runtime_params = std::collections::HashMap::new();
             if let Some(f) = filters {
                 for (k, v) in f {
@@ -967,6 +1033,15 @@ impl DataEngine {
         }
 
         if let Some(schema) = self.schema.entities.get(&Symbol::from(entity)) {
+            // Validate read permission
+            let read_perm = schema
+                .options
+                .get("read_permission")
+                .cloned()
+                .unwrap_or_else(|| format!("read:{}", entity));
+
+            self.validate_permission(ctx, &read_perm, "read", entity)?;
+
             self.datastore.list(schema.table_name.as_str(), limit, offset).await
         } else {
             Err(format!("Entity or Query '{}' not defined", entity))

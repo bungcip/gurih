@@ -424,7 +424,7 @@ async fn execute_reverse_journal(
 
     // 1. Read Original
     let original_arc = data_access
-        .read("JournalEntry", &id)
+        .read("JournalEntry", &id, ctx)
         .await
         .map_err(RuntimeError::WorkflowError)?
         .ok_or(RuntimeError::WorkflowError("JournalEntry not found".to_string()))?;
@@ -513,7 +513,7 @@ async fn execute_generate_closing_entry(
 
     // 1. Fetch Period
     let period_arc = data_access
-        .read("AccountingPeriod", &period_id)
+        .read("AccountingPeriod", &period_id, ctx)
         .await
         .map_err(RuntimeError::WorkflowError)?
         .ok_or(RuntimeError::WorkflowError("AccountingPeriod not found".to_string()))?;

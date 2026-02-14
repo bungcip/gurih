@@ -545,12 +545,13 @@ async fn list_entities(
     Path(entity): Path<String>,
     Query(params): Query<ListParams>,
 ) -> impl IntoResponse {
-    if let Err(e) = check_auth(headers, &state).await {
-        return e.into_response();
-    }
+    let ctx = match check_auth(headers, &state).await {
+        Ok(c) => c,
+        Err(e) => return e.into_response(),
+    };
     match state
         .data_engine
-        .list(&entity, params.limit, params.offset, Some(params.filters))
+        .list(&entity, params.limit, params.offset, Some(params.filters), &ctx)
         .await
     {
         Ok(list) => (StatusCode::OK, Json(list)).into_response(),
@@ -563,10 +564,11 @@ async fn get_entity(
     headers: HeaderMap,
     Path((entity, id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    if let Err(e) = check_auth(headers, &state).await {
-        return e.into_response();
-    }
-    match state.data_engine.read(&entity, &id).await {
+    let ctx = match check_auth(headers, &state).await {
+        Ok(c) => c,
+        Err(e) => return e.into_response(),
+    };
+    match state.data_engine.read(&entity, &id, &ctx).await {
         Ok(Some(item)) => (StatusCode::OK, Json(item)).into_response(),
         Ok(None) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Not found" }))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
