@@ -18,7 +18,7 @@ pub trait DataAccess: Send + Sync {
         data: Vec<Value>,
         ctx: &RuntimeContext,
     ) -> Result<Vec<String>, String>;
-    async fn read(&self, entity_name: &str, id: &str) -> Result<Option<Arc<Value>>, String>;
+    async fn read(&self, entity_name: &str, id: &str, ctx: &RuntimeContext) -> Result<Option<Arc<Value>>, String>;
     async fn update(&self, entity_name: &str, id: &str, data: Value, ctx: &RuntimeContext) -> Result<(), String>;
     async fn delete(&self, entity_name: &str, id: &str, ctx: &RuntimeContext) -> Result<(), String>;
     async fn list(
@@ -27,5 +27,6 @@ pub trait DataAccess: Send + Sync {
         limit: Option<usize>,
         offset: Option<usize>,
         filters: Option<HashMap<String, String>>,
+        ctx: &RuntimeContext,
     ) -> Result<Vec<Arc<Value>>, String>;
 }
