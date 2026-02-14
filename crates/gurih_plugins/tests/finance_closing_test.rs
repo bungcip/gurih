@@ -48,6 +48,7 @@ async fn test_generate_closing_entry() {
         create_field("name", FieldType::String, false),
         create_field("code", FieldType::String, false),
         create_field("type", FieldType::String, false),
+        create_field("system_tag", FieldType::String, false),
     ];
     schema.entities.insert(
         Symbol::from("Account"),
@@ -167,7 +168,7 @@ async fn test_generate_closing_entry() {
     let re_id = engine
         .create(
             "Account",
-            json!({ "name": "Retained Earnings", "code": "300", "type": "Equity" }),
+            json!({ "name": "Retained Earnings", "code": "300", "type": "Equity", "system_tag": "retained_earnings" }),
             &ctx,
         )
         .await

@@ -21,6 +21,9 @@ entity "Account" {
     field:boolean "is_group" default="false"
     field:boolean "requires_party" default="false"
 
+    // System identifier for special accounts (e.g. "retained_earnings")
+    field:string "system_tag" unique=#true required=#false
+
     // Using self-referencing relationship for hierarchy
     belongs_to "parent" entity="Account"
 
@@ -58,6 +61,7 @@ account "Retained Earnings" {
     code "300"
     type "Equity"
     normal_balance "Credit"
+    system_tag "retained_earnings"
 }
 
 account "Sales Revenue" {

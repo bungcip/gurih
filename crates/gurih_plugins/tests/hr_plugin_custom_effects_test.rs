@@ -58,7 +58,7 @@ async fn test_hr_plugin_custom_effects() {
     });
     engine.update("Employee", &id, suspend_update, &ctx).await.unwrap();
 
-    let emp = engine.read("Employee", &id).await.unwrap().unwrap();
+    let emp = engine.read("Employee", &id, &ctx).await.unwrap().unwrap();
     assert_eq!(emp.get("is_payroll_active").unwrap(), false);
 
     // 3. Update Rank Eligibility
@@ -67,6 +67,6 @@ async fn test_hr_plugin_custom_effects() {
     });
     engine.update("Employee", &id, rank_update, &ctx).await.unwrap();
 
-    let emp = engine.read("Employee", &id).await.unwrap().unwrap();
+    let emp = engine.read("Employee", &id, &ctx).await.unwrap().unwrap();
     assert_eq!(emp.get("rank_eligible").unwrap(), true);
 }

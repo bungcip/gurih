@@ -129,7 +129,7 @@ async fn test_posting_rule_execution() {
 
     // 6. Verify Journal Entry
     let journals = engine
-        .list("JournalEntry", None, None, None)
+        .list("JournalEntry", None, None, None, &ctx)
         .await
         .expect("Failed to list journals");
     assert_eq!(journals.len(), 1, "Should create exactly 1 journal entry");
@@ -140,7 +140,7 @@ async fn test_posting_rule_execution() {
 
     // 7. Verify Journal Lines (in DB)
     let lines = engine
-        .list("JournalLine", None, None, None)
+        .list("JournalLine", None, None, None, &ctx)
         .await
         .expect("Failed to list journal lines");
     assert_eq!(lines.len(), 2, "Should create exactly 2 journal lines");

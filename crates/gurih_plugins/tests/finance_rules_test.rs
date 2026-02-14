@@ -38,7 +38,7 @@ async fn test_leaf_account_validation() {
         .expect("Failed to create group account");
 
     // Verify Group Account
-    let saved_group = engine.read("Account", &group_id).await.unwrap().unwrap();
+    let saved_group = engine.read("Account", &group_id, &ctx).await.unwrap().unwrap();
     println!("Saved Group: {:?}", saved_group);
     assert_eq!(saved_group.get("is_group"), Some(&json!(true)));
 

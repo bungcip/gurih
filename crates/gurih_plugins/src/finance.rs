@@ -524,7 +524,7 @@ async fn execute_generate_closing_entry(
 
     // 2. Find Retained Earnings Account
     let mut filters = HashMap::new();
-    filters.insert("name".to_string(), "Retained Earnings".to_string());
+    filters.insert("system_tag".to_string(), "retained_earnings".to_string());
 
     let account_table = data_access
         .get_schema()
@@ -542,7 +542,7 @@ async fn execute_generate_closing_entry(
         .first()
         .and_then(|a| a.get("id").and_then(|v| v.as_str()))
         .ok_or(RuntimeError::WorkflowError(
-            "Retained Earnings account not found. Please add it to Chart of Accounts.".to_string(),
+            "Retained Earnings account not found. Please ensure an account with system_tag='retained_earnings' exists.".to_string(),
         ))?;
 
     // 3. Aggregate Revenue and Expense
