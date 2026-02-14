@@ -68,7 +68,7 @@ async fn test_effective_date_and_rank_eligibility() {
     assert!(res.is_ok());
 
     // 4. Verify effects
-    let emp = engine.read("Employee", &id).await.unwrap().unwrap();
+    let emp = engine.read("Employee", &id, &ctx).await.unwrap().unwrap();
 
     // Status updated
     assert_eq!(emp.get("status").unwrap(), "Associate");

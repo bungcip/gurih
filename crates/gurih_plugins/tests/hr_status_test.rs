@@ -82,7 +82,7 @@ async fn test_employee_status_transition() {
 
     // Verify effects
     let employee = data_engine
-        .read("Pegawai", &id)
+        .read("Pegawai", &id, &gurih_runtime::context::RuntimeContext::system())
         .await
         .expect("Read failed")
         .expect("Employee not found");
@@ -105,7 +105,7 @@ async fn test_employee_status_transition() {
         .expect("Failed to transition to Cuti");
 
     let employee_cuti = data_engine
-        .read("Pegawai", &id)
+        .read("Pegawai", &id, &gurih_runtime::context::RuntimeContext::system())
         .await
         .expect("Read failed")
         .expect("Employee not found");

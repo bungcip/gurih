@@ -82,7 +82,7 @@ async fn test_siasn_integration_workflow() {
         .expect("Failed transition to PNS");
 
     // Verify State
-    let emp = engine.read("Pegawai", &id).await.unwrap().unwrap();
+    let emp = engine.read("Pegawai", &id, &ctx).await.unwrap().unwrap();
     assert_eq!(emp.get("status_pegawai").unwrap(), "PNS");
 
     // 6. Transition PNS -> Nonaktif (Test new feature)
@@ -109,7 +109,7 @@ async fn test_siasn_integration_workflow() {
         .expect("Failed transition to Nonaktif");
 
     // Verify Effect
-    let emp = engine.read("Pegawai", &id).await.unwrap().unwrap();
+    let emp = engine.read("Pegawai", &id, &ctx).await.unwrap().unwrap();
     assert_eq!(emp.get("status_pegawai").unwrap(), "Nonaktif");
 
     // Check effect
