@@ -760,6 +760,30 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         );
     }
 
+    // 16.8. Infer Composition Ownership
+    let mut composition_inferences = vec![];
+    for (parent_name, parent_entity) in &ir_entities {
+        for rel in &parent_entity.relationships {
+            if rel.rel_type == gurih_ir::RelationshipType::HasMany
+                && rel.ownership == gurih_ir::Ownership::Composition
+            {
+                composition_inferences.push((rel.target_entity.clone(), parent_name.clone()));
+            }
+        }
+    }
+
+    for (child_name, parent_name) in composition_inferences {
+        if let Some(child_entity) = ir_entities.get_mut(&child_name) {
+            for rel in &mut child_entity.relationships {
+                if rel.rel_type == gurih_ir::RelationshipType::BelongsTo
+                    && rel.target_entity == parent_name
+                {
+                    rel.ownership = gurih_ir::Ownership::Composition;
+                }
+            }
+        }
+    }
+
     // 17. Generate missing TableSchemas for Entities
     for entity in ir_entities.values() {
         ir_tables.entry(entity.table_name).or_insert_with(|| {
