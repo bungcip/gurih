@@ -103,7 +103,7 @@ async fn test_hr_workflow_rules() {
     assert!(res.is_ok(), "Failed valid transition: {:?}", res.err());
 
     // 7. Verify side effects
-    let emp_opt = engine.read("Employee", &id).await.unwrap();
+    let emp_opt = engine.read("Employee", &id, &ctx).await.unwrap();
     let emp = emp_opt.unwrap();
     assert_eq!(emp.get("status").unwrap(), "cuti");
     // "suspend_payroll true" -> active should be false
@@ -198,6 +198,6 @@ async fn test_retirement_min_age() {
     assert!(res.is_ok());
 
     // 4. Verify payroll suspended
-    let emp = engine.read("Employee", &id).await.unwrap().unwrap();
+    let emp = engine.read("Employee", &id, &ctx).await.unwrap().unwrap();
     assert_eq!(emp.get("is_payroll_active").unwrap(), false);
 }
