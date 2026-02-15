@@ -1312,13 +1312,14 @@ impl DataEngine {
         let journal_id = self.create("JournalEntry", Value::Object(journal), ctx).await?;
 
         // Create Journal Lines
-        for mut line_val in journal_lines {
+        for line_val in &mut journal_lines {
             if let Some(obj) = line_val.as_object_mut() {
                 obj.insert("journal_entry".to_string(), Value::String(journal_id.clone()));
             }
-            // Use create() to ensure validation logic runs
-            self.create("JournalLine", line_val, ctx).await?;
         }
+
+        // Use create_many() to ensure validation logic runs in batch
+        self.create_many("JournalLine", journal_lines, ctx).await?;
 
         Ok(())
     }

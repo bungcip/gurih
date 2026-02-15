@@ -92,7 +92,7 @@ async fn test_action_execution_delete() {
     let id = id.expect("Create failed");
 
     // Verify it exists
-    assert!(data_engine.read("Item", &id).await.unwrap().is_some());
+    assert!(data_engine.read("Item", &id, &ctx).await.unwrap().is_some());
 
     // 5. Execute Action
     let mut params = HashMap::new();
@@ -102,7 +102,7 @@ async fn test_action_execution_delete() {
     assert!(result.is_ok());
 
     // 6. Verify Deletion
-    assert!(data_engine.read("Item", &id).await.unwrap().is_none());
+    assert!(data_engine.read("Item", &id, &ctx).await.unwrap().is_none());
 }
 
 #[tokio::test]
@@ -188,7 +188,7 @@ async fn test_action_param_with_single_quotes() {
     let id = id.expect("Create failed");
 
     // Verify it exists
-    assert!(data_engine.read("Item", &id).await.unwrap().is_some());
+    assert!(data_engine.read("Item", &id, &ctx).await.unwrap().is_some());
 
     // 5. Execute Action with single quotes in param()
     let mut params = HashMap::new();
@@ -198,7 +198,7 @@ async fn test_action_param_with_single_quotes() {
     assert!(result.is_ok());
 
     // 6. Verify Deletion
-    assert!(data_engine.read("Item", &id).await.unwrap().is_none());
+    assert!(data_engine.read("Item", &id, &ctx).await.unwrap().is_none());
 }
 
 #[tokio::test]
@@ -340,7 +340,7 @@ async fn test_action_execution_update() {
     let id = id.expect("Create failed");
 
     // Verify initial state
-    let initial = data_engine.read("Product", &id).await.unwrap().unwrap();
+    let initial = data_engine.read("Product", &id, &ctx).await.unwrap().unwrap();
     assert_eq!(initial.get("name").unwrap().as_str().unwrap(), "Old Product");
     assert_eq!(initial.get("price").unwrap().as_f64().unwrap(), 10.0);
     assert_eq!(initial.get("active").unwrap().as_bool().unwrap(), false);
@@ -358,7 +358,7 @@ async fn test_action_execution_update() {
     assert!(result.is_ok(), "Action failed: {:?}", result.err());
 
     // 6. Verify Update
-    let updated = data_engine.read("Product", &id).await.unwrap().unwrap();
+    let updated = data_engine.read("Product", &id, &ctx).await.unwrap().unwrap();
     assert_eq!(updated.get("name").unwrap().as_str().unwrap(), "New Product");
     assert_eq!(updated.get("price").unwrap().as_f64().unwrap(), 15.5);
     assert_eq!(updated.get("active").unwrap().as_bool().unwrap(), true);
