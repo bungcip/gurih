@@ -678,15 +678,16 @@ async fn execute_generate_closing_entry(
         .map_err(RuntimeError::WorkflowError)?;
 
     // Create Journal Lines
-    for mut line_val in closing_lines {
+    for line_val in &mut closing_lines {
         if let Some(obj) = line_val.as_object_mut() {
             obj.insert("journal_entry".to_string(), Value::String(new_journal_id.clone()));
         }
-        data_access
-            .create("JournalLine", line_val, ctx)
-            .await
-            .map_err(RuntimeError::WorkflowError)?;
     }
+
+    data_access
+        .create_many("JournalLine", closing_lines, ctx)
+        .await
+        .map_err(RuntimeError::WorkflowError)?;
 
     Ok(true)
 }
