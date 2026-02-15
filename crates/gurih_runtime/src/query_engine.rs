@@ -1,3 +1,4 @@
+use crate::store::validate_identifier;
 use gurih_ir::{BinaryOperator, DatabaseType, Expression, QueryJoin, Schema, UnaryOperator};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -53,6 +54,7 @@ impl QueryEngine {
         let mut join_parts = vec![];
         let mut params = vec![];
         let root_table = Self::entity_to_table(&query.root_entity.to_string());
+        validate_identifier(&root_table)?;
 
         // Process Root Selections & Formulas
         for sel in &query.selections {
@@ -100,6 +102,9 @@ impl QueryEngine {
 
         let mut group_by_clause = String::new();
         if !query.group_by.is_empty() {
+            for s in &query.group_by {
+                validate_identifier(s.as_str())?;
+            }
             // Naive field formatting, assumes fields are columns of root or joined tables.
             // But symbols don't have table qualification.
             // We might need to assume root table or use qualified names in DSL.
@@ -145,6 +150,7 @@ impl QueryEngine {
         for join in joins {
             let target_entity_name = &join.target_entity;
             let target_table = Self::entity_to_table(&target_entity_name.to_string());
+            validate_identifier(&target_table)?;
 
             // Find relationship to determine join condition
             // Assuming parent has relationship to target or vice versa
