@@ -13,3 +13,4 @@ symbol_table = {workspace = true }
 
 [dev-dependencies]
 insta = { workspace = true }
+gurih_ir = { workspace = true }
