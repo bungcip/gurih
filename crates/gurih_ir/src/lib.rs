@@ -448,7 +448,6 @@ pub struct ActionStep {
 pub enum ActionStepType {
     EntityDelete,
     EntityUpdate,
-    EntityCreate,
     Custom(String),
 }
 

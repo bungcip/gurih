@@ -231,9 +231,9 @@ impl FakerEngine {
                 Value::String(format!("https://placehold.co/400?text={}", field_name))
             }
             FieldType::Money => {
-                // Store as integer cents usually? Or float?
-                // Prompt says "Money -> Random money amounts (as integers in cents)"
-                Value::Number(serde_json::Number::from(rand::rng().random_range(1000..100000)))
+                // Money must be a string (e.g., "123.45")
+                let val: f64 = rand::rng().random_range(10.0..1000.0);
+                Value::String(format!("{:.2}", val))
             }
             FieldType::Email => Value::String(FreeEmail().fake()),
             FieldType::Phone => Value::String(PhoneNumber().fake()),
