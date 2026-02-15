@@ -119,10 +119,6 @@ impl ActionEngine {
                     .await
                     .map_err(|e| e.to_string())?;
             }
-            ActionStepType::EntityCreate => {
-                // TODO: Implement EntityCreate
-                println!("Step type EntityCreate not yet implemented in ActionEngine");
-            }
             ActionStepType::Custom(name) => {
                 let mut handled = false;
                 for plugin in &self.plugins {
