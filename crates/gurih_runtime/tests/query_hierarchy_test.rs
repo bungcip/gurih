@@ -182,7 +182,7 @@ async fn test_hierarchy_query_rollup() {
         .unwrap();
 
     // 4. Execute Query
-    let result = engine.list("HierarchyQuery", None, None, None).await.unwrap();
+    let result = engine.list("HierarchyQuery", None, None, None, &ctx).await.unwrap();
 
     // 5. Verify
     assert_eq!(result.len(), 4);

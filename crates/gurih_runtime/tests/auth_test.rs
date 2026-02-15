@@ -93,7 +93,7 @@ async fn test_password_hashing() {
     assert!(login_result.is_ok(), "Login failed with correct password");
 
     // 5. Verify Stored Password is NOT Plaintext
-    let stored_user = data_engine.read("User", &id).await.unwrap().unwrap();
+    let stored_user = data_engine.read("User", &id, &ctx).await.unwrap().unwrap();
     let stored_pass = stored_user.get("password").unwrap().as_str().unwrap();
 
     println!("Stored password: {}", stored_pass);

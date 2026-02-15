@@ -74,7 +74,9 @@ impl DataStore for MockDataStore {
     async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
         if entity == "Account" || entity == "account" {
             // case sensitivity depends on caller
-            if filters.get("name").map(|s| s.as_str()) == Some("Retained Earnings") {
+            if filters.get("name").map(|s| s.as_str()) == Some("Retained Earnings")
+                || filters.get("system_tag").map(|s| s.as_str()) == Some("retained_earnings")
+            {
                 return Ok(vec![Arc::new(json!({
                     "id": "retained_earnings_id",
                     "name": "Retained Earnings",
