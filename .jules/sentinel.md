@@ -29,3 +29,8 @@
 **Vulnerability:** Role-based access control was hardcoded to only recognize "admin" and "HRManager" roles, ignoring any roles and permissions defined in the DSL schema. This creates a security gap where defined policies are not enforced.
 **Learning:** Hardcoding security logic decouples it from the configuration/policy definition (DSL), leading to a false sense of security where users believe their policy changes are active.
 **Prevention:** Integrated `AuthEngine` with the compiled `Schema` to dynamically load and enforce permissions defined in the DSL `role` blocks.
+
+## 2024-05-29 - [CRITICAL] SQL Injection via Schema Definition (Self-SQLi)
+**Vulnerability:** The `QueryEngine` trusted entity names and field identifiers from the schema to be safe, directly interpolating them into SQL queries. A malicious schema (e.g., entity name `User; DROP TABLE users; --`) could execute arbitrary SQL.
+**Learning:** In DSL/Schema-driven architectures, the schema definition itself must be treated as untrusted input if it can be influenced by users or if the system aims to be robust against configuration errors. "Internal" names are not always safe.
+**Prevention:** Implemented mandatory identifier validation (`validate_identifier`) in `QueryEngine` for table names and `group_by` fields before SQL construction, rejecting any non-alphanumeric identifiers.
