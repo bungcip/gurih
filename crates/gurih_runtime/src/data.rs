@@ -1228,51 +1228,126 @@ impl DataEngine {
         let date_str = date_val.as_str().unwrap_or("").to_string();
 
         let mut journal_lines = vec![];
+
+        let mut unique_terms = std::collections::HashSet::new();
+        for line in &rule.lines {
+            unique_terms.insert(line.account.as_str());
+        }
+
+        let account_table = self
+            .schema
+            .entities
+            .get(&Symbol::from("Account"))
+            .map(|e| e.table_name.as_str())
+            .unwrap_or("Account");
+
+        let mut code_map = HashMap::new();
+        let mut name_map = HashMap::new();
+
+        // Batch Fetch if DB is configured
+        if let Some(db_config) = &self.schema.database {
+            let terms_vec: Vec<&str> = unique_terms.iter().cloned().collect();
+            // Chunk size to respect DB parameter limits (safe margin)
+            let chunks = terms_vec.chunks(500);
+
+            for chunk in chunks {
+                let mut params = Vec::new();
+                let mut placeholders_code = Vec::new();
+                let mut placeholders_name = Vec::new();
+
+                for (i, term) in chunk.iter().enumerate() {
+                    params.push(Value::String(term.to_string()));
+                    placeholders_code.push(gurih_ir::utils::get_db_placeholder(&db_config.db_type, i + 1));
+                }
+
+                // For name clause placeholders
+                if db_config.db_type == gurih_ir::DatabaseType::Postgres {
+                    // Postgres can reuse params $1..$N
+                    for i in 0..chunk.len() {
+                        placeholders_name.push(format!("${}", i + 1));
+                    }
+                } else {
+                    // SQLite needs params to be repeated
+                    for term in chunk {
+                        params.push(Value::String(term.to_string()));
+                    }
+                    for _ in 0..chunk.len() {
+                        placeholders_name.push("?".to_string());
+                    }
+                }
+
+                let sql = format!(
+                    "SELECT id, code, name FROM {} WHERE code IN ({}) OR name IN ({})",
+                    account_table,
+                    placeholders_code.join(", "),
+                    placeholders_name.join(", ")
+                );
+
+                if let Ok(rows) = self.datastore.query_with_params(&sql, params).await {
+                    for row in rows {
+                        if let Some(obj) = row.as_object() {
+                            let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+                            let code = obj
+                                .get("code")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or_default()
+                                .to_string();
+                            let name = obj
+                                .get("name")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or_default()
+                                .to_string();
+
+                            if !code.is_empty() {
+                                code_map.insert(code, id.clone());
+                            }
+                            if !name.is_empty() {
+                                name_map.insert(name, id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         for line in &rule.lines {
             let mut line_obj = serde_json::Map::new();
 
-            // Resolve Account (Simple Lookup)
+            // Resolve Account (Optimized Lookup with Fallback)
             let account_term = line.account.as_str();
 
-            // Try Find by Code
-            let mut filters = HashMap::new();
-            filters.insert("code".to_string(), account_term.to_string());
-
-            // Note: We use the Entity name "Account" to resolve table name internally in find/list
-            // assuming datastore handles entity->table mapping or we pass table name.
-            // DataStore trait takes 'entity' (which is often table name in implementation).
-            // But DataEngine usually resolves it.
-            // Here we should use the schema to get table name.
-            let account_table = self
-                .schema
-                .entities
-                .get(&Symbol::from("Account"))
-                .map(|e| e.table_name.as_str())
-                .unwrap_or("Account");
-
-            let mut accounts = self
-                .datastore
-                .find(account_table, filters)
-                .await
-                .map_err(|e| e.to_string())?;
-
-            if accounts.is_empty() {
-                // Try Find by Name
+            let account_id = if let Some(id) = code_map.get(account_term) {
+                id.clone()
+            } else if let Some(id) = name_map.get(account_term) {
+                id.clone()
+            } else {
+                // Fallback to individual find (MemoryStore or missing from batch)
                 let mut filters = HashMap::new();
-                filters.insert("name".to_string(), account_term.to_string());
-                accounts = self
+                filters.insert("code".to_string(), account_term.to_string());
+                let mut accounts = self
                     .datastore
                     .find(account_table, filters)
                     .await
                     .map_err(|e| e.to_string())?;
-            }
 
-            let account_id = accounts
-                .first()
-                .and_then(|row| row.get("id").and_then(|v| v.as_str()))
-                .ok_or_else(|| format!("Account '{}' not found", account_term))?;
+                if accounts.is_empty() {
+                    let mut filters = HashMap::new();
+                    filters.insert("name".to_string(), account_term.to_string());
+                    accounts = self
+                        .datastore
+                        .find(account_table, filters)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                }
 
-            line_obj.insert("account".to_string(), Value::String(account_id.to_string()));
+                accounts
+                    .first()
+                    .and_then(|row| row.get("id").and_then(|v| v.as_str()))
+                    .ok_or_else(|| format!("Account '{}' not found", account_term))?
+                    .to_string()
+            };
+
+            line_obj.insert("account".to_string(), Value::String(account_id));
 
             // Helper to ensure Money fields are strings
             let to_money_val = |v: Value| -> Value {

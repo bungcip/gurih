@@ -116,7 +116,7 @@ async fn test_serial_generation() {
 
     // 7. Verify First Serial
     let record1 = engine
-        .read("Doc", &id1)
+        .read("Doc", &id1, &ctx)
         .await
         .expect("Read failed")
         .expect("Doc 1 not found");
@@ -141,7 +141,7 @@ async fn test_serial_generation() {
 
     // 9. Verify Second Serial
     let record2 = engine
-        .read("Doc", &id2)
+        .read("Doc", &id2, &ctx)
         .await
         .expect("Read failed")
         .expect("Doc 2 not found");
