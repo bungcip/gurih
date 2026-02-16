@@ -1,22 +1,42 @@
-use gurih_dsl::compiler::compile;
-use std::fs;
+use gurih_dsl::compile;
 use std::path::PathBuf;
 
 #[test]
 fn test_compile_finance_module() {
-    let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    d.push("../../gurih-finance/gurih.kdl");
+    let root = PathBuf::from("../../gurih-finance/gurih.kdl");
+    // Ensure we run from workspace root or handle path correctly.
+    // Tests run from crate dir usually.
+    let path = if root.exists() {
+        root
+    } else {
+        PathBuf::from("gurih-finance/gurih.kdl") // Fallback if running from root
+    };
 
-    let src = fs::read_to_string(&d).expect("Failed to read gurih.kdl");
-    let schema = compile(&src, d.parent()).expect("Should compile");
+    // Check if file exists relative to where we are
+    if !path.exists() {
+        // Try absolute path resolution relative to CARGO_MANIFEST_DIR
+        let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+        let path = PathBuf::from(manifest_dir).join("../../gurih-finance/gurih.kdl");
+        if !path.exists() {
+             panic!("Could not find gurih-finance/gurih.kdl at {:?}", path);
+        }
+    }
 
-    // Check Account Seeds
-    let account = schema
-        .entities
-        .get(&gurih_ir::Symbol::from("Account"))
-        .expect("Account entity should exist");
-    let seeds = account.seeds.as_ref().expect("Account seeds should exist");
-    assert!(!seeds.is_empty(), "Should have seeds from 'account' nodes");
+    let path = std::env::current_dir().unwrap().join("../../gurih-finance/gurih.kdl");
+    let content = std::fs::read_to_string(&path).expect(&format!("Failed to read {:?}", path));
+    let base = path.parent();
 
-    println!("Found {} account seeds", seeds.len());
+    match compile(&content, base) {
+        Ok(schema) => {
+            println!("Compile Success! Found {} entities.", schema.entities.len());
+
+            // Validate critical features are present
+            assert!(schema.queries.contains_key(&gurih_ir::Symbol::from("TrialBalanceQuery")));
+            assert!(schema.queries.contains_key(&gurih_ir::Symbol::from("BalanceSheetQuery")));
+            assert!(schema.queries.contains_key(&gurih_ir::Symbol::from("IncomeStatementQuery")));
+        },
+        Err(e) => {
+            panic!("Compile Error: {:?}", e);
+        }
+    }
 }
