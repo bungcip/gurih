@@ -424,7 +424,10 @@ async fn bench_generate_closing_entry() {
         .expect("Failed to generate closing entry");
 
     let duration = start.elapsed();
-    println!("Generate Closing Entry ({} accounts) took: {:?}", num_accounts, duration);
+    println!(
+        "Generate Closing Entry ({} accounts) took: {:?}",
+        num_accounts, duration
+    );
 
     assert!(result);
 }

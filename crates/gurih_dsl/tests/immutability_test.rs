@@ -28,11 +28,7 @@ fn test_composition_inference() {
         .find(|r| r.target_entity == Symbol::from("Parent"))
         .expect("Relationship to Parent not found");
 
-    assert_eq!(
-        parent_rel.rel_type,
-        RelationshipType::BelongsTo,
-        "Should be BelongsTo"
-    );
+    assert_eq!(parent_rel.rel_type, RelationshipType::BelongsTo, "Should be BelongsTo");
     assert_eq!(
         parent_rel.ownership,
         Ownership::Composition,

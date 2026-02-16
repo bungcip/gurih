@@ -542,7 +542,8 @@ async fn execute_generate_closing_entry(
         .first()
         .and_then(|a| a.get("id").and_then(|v| v.as_str()))
         .ok_or(RuntimeError::WorkflowError(
-            "Retained Earnings account not found. Please ensure an account with system_tag='retained_earnings' exists.".to_string(),
+            "Retained Earnings account not found. Please ensure an account with system_tag='retained_earnings' exists."
+                .to_string(),
         ))?;
 
     // 3. Aggregate Revenue and Expense
@@ -731,10 +732,8 @@ async fn execute_snapshot_parties(
                         // Fetch Party Name
                         if let Some(target_entity) = schema.entities.get(&Symbol::from(pt)) {
                             let target_table = target_entity.table_name.as_str();
-                            if let Some(party_record) = ds
-                                .get(target_table, pid)
-                                .await
-                                .map_err(RuntimeError::WorkflowError)?
+                            if let Some(party_record) =
+                                ds.get(target_table, pid).await.map_err(RuntimeError::WorkflowError)?
                             {
                                 let name = party_record
                                     .get("name")
