@@ -103,9 +103,9 @@ pub struct S3FileDriver {
 }
 
 impl S3FileDriver {
-    pub async fn new(props: &HashMap<String, String>) -> Self {
+    pub async fn new(props: &HashMap<String, String>) -> Result<Self, String> {
         let region_str = props.get("region").cloned().unwrap_or_else(|| "us-east-1".to_string());
-        let bucket_name = props.get("bucket").cloned().expect("Bucket is required for S3");
+        let bucket_name = props.get("bucket").cloned().ok_or("Bucket is required for S3")?;
         let endpoint = props.get("endpoint").cloned();
         let access_key = props.get("access_key").cloned();
         let secret_key = props.get("secret_key").cloned();
@@ -121,16 +121,17 @@ impl S3FileDriver {
         };
 
         let credentials = Credentials::new(access_key.as_deref(), secret_key.as_deref(), None, None, None)
-            .expect("Failed to create S3 credentials");
+            .map_err(|e| format!("Failed to create S3 credentials: {}", e))?;
 
-        let mut bucket = Bucket::new(&bucket_name, region, credentials).expect("Failed to create S3 bucket");
+        let mut bucket = Bucket::new(&bucket_name, region, credentials)
+            .map_err(|e| format!("Failed to create S3 bucket: {}", e))?;
 
         // If it's a custom endpoint, often we need path style (e.g. Minio)
         if props.contains_key("endpoint") {
             bucket.set_path_style();
         }
 
-        Self { bucket, public_url }
+        Ok(Self { bucket, public_url })
     }
 }
 
@@ -166,13 +167,23 @@ impl StorageEngine {
         let mut drivers = HashMap::new();
 
         for (name, config) in configs {
-            let driver: Arc<dyn FileDriver> = match config.driver {
-                StorageDriver::Local => {
-                    Arc::new(LocalFileDriver::new(config.location.as_deref().unwrap_or("./storage")))
-                }
-                StorageDriver::S3 => Arc::new(S3FileDriver::new(&config.props).await),
+            let driver_res: Result<Arc<dyn FileDriver>, String> = match config.driver {
+                StorageDriver::Local => Ok(Arc::new(LocalFileDriver::new(
+                    config.location.as_deref().unwrap_or("./storage"),
+                ))),
+                StorageDriver::S3 => S3FileDriver::new(&config.props)
+                    .await
+                    .map(|d| Arc::new(d) as Arc<dyn FileDriver>),
             };
-            drivers.insert(name.to_string(), driver);
+
+            match driver_res {
+                Ok(driver) => {
+                    drivers.insert(name.to_string(), driver);
+                }
+                Err(e) => {
+                    eprintln!("⚠️ Failed to initialize storage '{}': {}", name, e);
+                }
+            }
         }
 
         Self { drivers }

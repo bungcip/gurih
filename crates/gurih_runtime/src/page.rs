@@ -1,3 +1,4 @@
+use gurih_ir::utils::to_title_case;
 use gurih_ir::{Schema, Symbol};
 use serde_json::{Value, json};
 
@@ -107,7 +108,7 @@ impl PageEngine {
             .map(|f| {
                 json!({
                     "key": f.name,
-                    "label": humanize_label(&f.name.to_string()),
+                    "label": to_title_case(&f.name.to_string()),
                     "type": format!("{:?}", f.field_type)
                 })
             })
@@ -127,36 +128,3 @@ impl PageEngine {
     }
 }
 
-fn humanize_label(input: &str) -> String {
-    input
-        .split(['_', '-'])
-        .filter(|s| !s.is_empty())
-        .map(|s| {
-            let mut chars = s.chars();
-            match chars.next() {
-                None => String::new(),
-                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_humanize_label() {
-        assert_eq!(humanize_label("first_name"), "First Name");
-        assert_eq!(humanize_label("last_name"), "Last Name");
-        assert_eq!(humanize_label("email"), "Email");
-        assert_eq!(humanize_label("created_at"), "Created At");
-        assert_eq!(humanize_label("sk_pns"), "Sk Pns");
-        assert_eq!(humanize_label("my-field-name"), "My Field Name");
-        assert_eq!(humanize_label("simple"), "Simple");
-        assert_eq!(humanize_label(""), "");
-        assert_eq!(humanize_label("____"), "");
-        assert_eq!(humanize_label("weird__spacing"), "Weird Spacing");
-    }
-}
