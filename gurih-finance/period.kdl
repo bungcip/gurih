@@ -10,6 +10,10 @@ entity "AccountingPeriod" {
     field:date "start_date"
     field:date "end_date"
     field:enum "status" "PeriodStatus" default="Open"
+
+    options {
+        track_changes #true
+    }
 }
 
 page "PeriodList" {
