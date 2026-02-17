@@ -26,7 +26,7 @@ pub struct AuthEngine {
 }
 
 // Sentinel: Limits for preventing memory exhaustion
-const MAX_LOGIN_ATTEMPTS: usize = 1000;
+const MAX_LOGIN_ATTEMPTS: usize = 10000;
 const MAX_SESSIONS: usize = 10000;
 
 pub fn hash_password(password: &str) -> String {
@@ -235,9 +235,36 @@ impl AuthEngine {
             // Remove expired entries first
             attempts.retain(|_, (_, time)| time.elapsed() < Duration::from_secs(300));
 
-            // Sentinel: If still over limit, prevent DoS by clearing
+            // Sentinel: If still over limit, prevent DoS by smart eviction
             if attempts.len() >= MAX_LOGIN_ATTEMPTS {
-                attempts.clear();
+                // Collect references to sort without cloning all keys
+                let mut entries: Vec<(&String, u32, Instant)> = attempts
+                    .iter()
+                    .map(|(k, v)| (k, v.0, v.1))
+                    .collect();
+
+                // Sort by:
+                // 1. Count (Ascending) - we want to remove low counts (noise) first
+                // 2. Time (Ascending) - we want to remove oldest first among same count
+                entries.sort_unstable_by(|a, b| {
+                    if a.1 != b.1 {
+                        a.1.cmp(&b.1)
+                    } else {
+                        a.2.cmp(&b.2)
+                    }
+                });
+
+                // Remove top 10% to make space
+                let to_remove_count = MAX_LOGIN_ATTEMPTS / 10;
+                let keys_to_remove: Vec<String> = entries
+                    .iter()
+                    .take(to_remove_count)
+                    .map(|(k, _, _)| (*k).clone())
+                    .collect();
+
+                for k in keys_to_remove {
+                    attempts.remove(&k);
+                }
             }
         }
     }
@@ -374,10 +401,9 @@ mod tests {
         let _ = auth.login("another_user", "wrong_password").await;
 
         let attempts = auth.login_attempts.lock().unwrap();
-        // Should be cleared because all are "recent", so retain keeps them,
-        // but then size > MAX so it clears all.
-        // Then "another_user" is inserted (failed attempt).
+        // Should be reduced by ~10% of MAX, not cleared entirely
         assert!(attempts.len() <= MAX_LOGIN_ATTEMPTS);
-        assert_eq!(attempts.len(), 1);
+        // We expect roughly (MAX + 50 - MAX/10 + 1) items remaining
+        assert!(attempts.len() > MAX_LOGIN_ATTEMPTS / 2);
     }
 }
