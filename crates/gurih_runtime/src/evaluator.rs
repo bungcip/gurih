@@ -325,18 +325,7 @@ async fn eval_function(
 }
 
 fn as_f64(v: &Value) -> Result<f64, RuntimeError> {
-    match v {
-        Value::Number(n) => n
-            .as_f64()
-            .ok_or_else(|| RuntimeError::EvaluationError(format!("Type mismatch: expected f64, found {:?}", v))),
-        Value::String(s) => s
-            .parse::<f64>()
-            .map_err(|_| RuntimeError::EvaluationError(format!("Invalid number format in string: {}", s))),
-        _ => Err(RuntimeError::EvaluationError(format!(
-            "Type mismatch: expected number, found {:?}",
-            v
-        ))),
-    }
+    gurih_ir::utils::parse_numeric_strict(v).map_err(RuntimeError::EvaluationError)
 }
 
 fn as_bool(v: &Value) -> Result<bool, RuntimeError> {

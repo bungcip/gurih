@@ -67,6 +67,18 @@ pub fn parse_numeric(v: &Value) -> f64 {
     }
 }
 
+/// Parses a JSON value into a f64 strictly.
+/// Returns Ok(f64) if successful, otherwise Err with description.
+pub fn parse_numeric_strict(v: &Value) -> Result<f64, String> {
+    if let Some(f) = v.as_f64() {
+        Ok(f)
+    } else if let Some(s) = v.as_str() {
+        s.parse().map_err(|_| format!("Invalid number format: {}", s))
+    } else {
+        Err(format!("Expected number, found {:?}", v))
+    }
+}
+
 /// Helper to parse optional reference to Value
 pub fn parse_numeric_opt(v: Option<&Value>) -> f64 {
     match v {
