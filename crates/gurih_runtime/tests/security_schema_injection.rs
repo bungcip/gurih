@@ -33,7 +33,11 @@ fn test_sql_injection_in_schema_entity_name() {
     assert!(result.is_err(), "Query planning should fail for malicious entity name");
     let err = result.err().unwrap();
     // Assuming validate_identifier returns error starting with "Invalid identifier"
-    assert!(err.contains("Invalid identifier"), "Error should mention invalid identifier, got: {}", err);
+    assert!(
+        err.contains("Invalid identifier"),
+        "Error should mention invalid identifier, got: {}",
+        err
+    );
 }
 
 #[test]
@@ -60,7 +64,14 @@ fn test_sql_injection_in_group_by() {
 
     let result = QueryEngine::plan(&schema, "MaliciousGroupBy", &runtime_params);
 
-    assert!(result.is_err(), "Query planning should fail for malicious group_by field");
+    assert!(
+        result.is_err(),
+        "Query planning should fail for malicious group_by field"
+    );
     let err = result.err().unwrap();
-    assert!(err.contains("Invalid identifier"), "Error should mention invalid identifier, got: {}", err);
+    assert!(
+        err.contains("Invalid identifier"),
+        "Error should mention invalid identifier, got: {}",
+        err
+    );
 }

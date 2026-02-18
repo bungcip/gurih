@@ -96,12 +96,7 @@ async fn test_access_control_vulnerability() {
 
     // C. UPDATE (Should fail now)
     let update_result = engine
-        .update(
-            "User",
-            "target_user",
-            json!({ "username": "pwned" }),
-            &ctx,
-        )
+        .update("User", "target_user", json!({ "username": "pwned" }), &ctx)
         .await;
     assert!(
         update_result.is_err(),

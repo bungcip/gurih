@@ -235,9 +235,29 @@ impl AuthEngine {
             // Remove expired entries first
             attempts.retain(|_, (_, time)| time.elapsed() < Duration::from_secs(300));
 
-            // Sentinel: If still over limit, prevent DoS by clearing
+            // Sentinel: If still over limit, prioritize keeping banned users
             if attempts.len() >= MAX_LOGIN_ATTEMPTS {
-                attempts.clear();
+                // 1. Remove non-banned entries (count < 5) first.
+                // This resets failed attempts for users who haven't been banned yet,
+                // which is acceptable degradation under attack.
+                attempts.retain(|_, (count, _)| *count >= 5);
+            }
+
+            // 2. If STILL full (attacker created 1000 banned users), remove oldest entries.
+            // This is O(N) but necessary to prevent OOM while keeping as many bans as possible.
+            if attempts.len() >= MAX_LOGIN_ATTEMPTS {
+                // Collect keys and times to sort (only if strictly necessary)
+                let mut entries: Vec<(String, Instant)> =
+                    attempts.iter().map(|(k, (_, time))| (k.clone(), *time)).collect();
+
+                // Sort by time (oldest first)
+                entries.sort_by(|a, b| a.1.cmp(&b.1));
+
+                // Remove oldest 10% to make space
+                let remove_count = (MAX_LOGIN_ATTEMPTS / 10).max(1);
+                for (k, _) in entries.iter().take(remove_count) {
+                    attempts.remove(k);
+                }
             }
         }
     }
@@ -379,5 +399,69 @@ mod tests {
         // Then "another_user" is inserted (failed attempt).
         assert!(attempts.len() <= MAX_LOGIN_ATTEMPTS);
         assert_eq!(attempts.len(), 1);
+    }
+
+    #[test]
+    fn test_cleanup_login_attempts_priority() {
+        let store = Arc::new(MemoryDataStore::new());
+        let auth = AuthEngine::new(store.clone(), None, None);
+
+        // Populate with MAX entries
+        // 1. One "banned" user (count=5)
+        // 2. 999 "innocent" users (count=1)
+        {
+            let mut attempts = auth.login_attempts.lock().unwrap();
+
+            // Insert banned user (oldest)
+            attempts.insert("banned_user".to_string(), (5, Instant::now() - Duration::from_secs(10)));
+
+            // Insert innocent users
+            for i in 0..(MAX_LOGIN_ATTEMPTS - 1) {
+                attempts.insert(format!("user_{}", i), (1, Instant::now()));
+            }
+        }
+
+        auth.cleanup_login_attempts();
+
+        let attempts = auth.login_attempts.lock().unwrap();
+
+        // Expectation: Non-banned users removed first
+        assert!(attempts.contains_key("banned_user"), "Banned user should be retained");
+        assert!(attempts.len() < MAX_LOGIN_ATTEMPTS, "Size should be reduced");
+        // Specifically, all innocent users should be gone because count < 5
+        assert_eq!(attempts.len(), 1);
+    }
+
+    #[test]
+    fn test_cleanup_login_attempts_overflow_banned() {
+        let store = Arc::new(MemoryDataStore::new());
+        let auth = AuthEngine::new(store.clone(), None, None);
+
+        // Populate with MAX + 50 entries, all banned
+        {
+            let mut attempts = auth.login_attempts.lock().unwrap();
+            for i in 0..(MAX_LOGIN_ATTEMPTS + 50) {
+                // Vary time slightly to ensure deterministic sort
+                let time = Instant::now() + Duration::from_millis(i as u64);
+                attempts.insert(format!("banned_{}", i), (5, time));
+            }
+        }
+
+        auth.cleanup_login_attempts();
+
+        let attempts = auth.login_attempts.lock().unwrap();
+
+        // Should remove oldest 10% (100)
+        // Initial: 1050
+        // Removed: 100
+        // Result: 950
+        // Verify it didn't clear everything
+        assert!(attempts.len() > 0, "Should not clear all banned users");
+        assert!(attempts.len() < MAX_LOGIN_ATTEMPTS + 50, "Should reduce size");
+        // Verify rough size (approx 950)
+        assert!(
+            attempts.len() >= 900 && attempts.len() <= 1000,
+            "Should remove approx 10%"
+        );
     }
 }

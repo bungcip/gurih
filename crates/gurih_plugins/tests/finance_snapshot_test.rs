@@ -34,10 +34,7 @@ async fn test_snapshot_parties() {
         EntitySchema {
             name: Symbol::from("Customer"),
             table_name: Symbol::from("customer"),
-            fields: vec![
-                field("id", FieldType::Pk),
-                field("name", FieldType::String)
-            ],
+            fields: vec![field("id", FieldType::Pk), field("name", FieldType::String)],
             relationships: vec![],
             options: HashMap::new(),
             seeds: None,
@@ -69,35 +66,47 @@ async fn test_snapshot_parties() {
     // 2. Seed Data
     let customer_id = "cust-123";
     let customer_name = "Acme Corp";
-    ds.insert("customer", json!({
-        "id": customer_id,
-        "name": customer_name
-    })).await.unwrap();
+    ds.insert(
+        "customer",
+        json!({
+            "id": customer_id,
+            "name": customer_name
+        }),
+    )
+    .await
+    .unwrap();
 
     let journal_id = "je-001";
     let line_id = "line-001";
 
     // Create Line without party_name
-    ds.insert("journal_line", json!({
-        "id": line_id,
-        "journal_entry": journal_id,
-        "party_type": "Customer",
-        "party_id": customer_id
-    })).await.unwrap();
+    ds.insert(
+        "journal_line",
+        json!({
+            "id": line_id,
+            "journal_entry": journal_id,
+            "party_type": "Customer",
+            "party_id": customer_id
+        }),
+    )
+    .await
+    .unwrap();
 
     // 3. Execute Plugin Effect
     let plugin = FinancePlugin;
     let entity_data = json!({ "id": journal_id });
 
-    let result = plugin.apply_effect(
-        "snapshot_parties",
-        &[],
-        &HashMap::new(),
-        &schema_arc,
-        Some(&ds),
-        "JournalEntry",
-        &entity_data
-    ).await;
+    let result = plugin
+        .apply_effect(
+            "snapshot_parties",
+            &[],
+            &HashMap::new(),
+            &schema_arc,
+            Some(&ds),
+            "JournalEntry",
+            &entity_data,
+        )
+        .await;
 
     assert!(result.is_ok(), "Plugin execution failed: {:?}", result.err());
 
@@ -109,18 +118,22 @@ async fn test_snapshot_parties() {
 
     // 5. Test Audit (Change customer name, snapshot shouldn't change if already set)
     // Update Customer
-    ds.update("customer", customer_id, json!({ "name": "Acme Inc" })).await.unwrap();
+    ds.update("customer", customer_id, json!({ "name": "Acme Inc" }))
+        .await
+        .unwrap();
 
     // Execute again
-    let result2 = plugin.apply_effect(
-        "snapshot_parties",
-        &[],
-        &HashMap::new(),
-        &schema_arc,
-        Some(&ds),
-        "JournalEntry",
-        &entity_data
-    ).await;
+    let result2 = plugin
+        .apply_effect(
+            "snapshot_parties",
+            &[],
+            &HashMap::new(),
+            &schema_arc,
+            Some(&ds),
+            "JournalEntry",
+            &entity_data,
+        )
+        .await;
     assert!(result2.is_ok());
 
     // Verify it did NOT change (because logic checks if missing/empty)

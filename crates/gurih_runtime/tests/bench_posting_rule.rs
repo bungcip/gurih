@@ -1,5 +1,8 @@
 use async_trait::async_trait;
-use gurih_ir::{ActionStep, Expression, Schema, Symbol, FieldType, PostingRuleSchema, PostingLineSchema, EntitySchema, FieldSchema, WorkflowSchema, StateSchema, Transition, TransitionEffect, DatabaseSchema, DatabaseType};
+use gurih_ir::{
+    ActionStep, DatabaseSchema, DatabaseType, EntitySchema, Expression, FieldSchema, FieldType, PostingLineSchema,
+    PostingRuleSchema, Schema, StateSchema, Symbol, Transition, TransitionEffect, WorkflowSchema,
+};
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::DataStore;
@@ -7,7 +10,7 @@ use gurih_runtime::datastore::init_datastore;
 use gurih_runtime::errors::RuntimeError;
 use gurih_runtime::plugins::Plugin;
 use gurih_runtime::traits::DataAccess;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
@@ -158,25 +161,27 @@ fn create_schema(num_accounts: usize) -> Schema {
         field: Symbol::from("status"),
         initial_state: Symbol::from("Draft"),
         states: vec![
-            StateSchema { name: Symbol::from("Draft"), immutable: false },
-            StateSchema { name: Symbol::from("Posted"), immutable: true },
+            StateSchema {
+                name: Symbol::from("Draft"),
+                immutable: false,
+            },
+            StateSchema {
+                name: Symbol::from("Posted"),
+                immutable: true,
+            },
         ],
-        transitions: vec![
-            Transition {
-                name: Symbol::from("Post"),
-                from: Symbol::from("Draft"),
-                to: Symbol::from("Posted"),
-                required_permission: None,
-                preconditions: vec![],
-                effects: vec![
-                    TransitionEffect::Custom {
-                        name: Symbol::from("trigger_posting"),
-                        args: vec![],
-                        kwargs: HashMap::new(),
-                    }
-                ],
-            }
-        ],
+        transitions: vec![Transition {
+            name: Symbol::from("Post"),
+            from: Symbol::from("Draft"),
+            to: Symbol::from("Posted"),
+            required_permission: None,
+            preconditions: vec![],
+            effects: vec![TransitionEffect::Custom {
+                name: Symbol::from("trigger_posting"),
+                args: vec![],
+                kwargs: HashMap::new(),
+            }],
+        }],
     };
     schema.workflows.insert(Symbol::from("SourceDoc"), workflow);
 
@@ -214,11 +219,13 @@ async fn bench_posting_rule_n_plus_1() {
     let schema = Arc::new(create_schema(num_accounts));
 
     // Init Datastore
-    let datastore = init_datastore(schema.clone(), None).await.expect("Failed to init datastore");
+    let datastore = init_datastore(schema.clone(), None)
+        .await
+        .expect("Failed to init datastore");
 
-    let engine = DataEngine::new(schema.clone(), datastore).with_plugins(vec![
-        Box::new(TriggerPlugin { rule_name: "PR1".to_string() })
-    ]);
+    let engine = DataEngine::new(schema.clone(), datastore).with_plugins(vec![Box::new(TriggerPlugin {
+        rule_name: "PR1".to_string(),
+    })]);
 
     let ctx = RuntimeContext::system();
 
@@ -231,22 +238,43 @@ async fn bench_posting_rule_n_plus_1() {
             "name": format!("Account {:03}", i)
         }));
     }
-    engine.create_many("Account", account_data, &ctx).await.expect("Failed to create accounts");
+    engine
+        .create_many("Account", account_data, &ctx)
+        .await
+        .expect("Failed to create accounts");
 
     // 2. Create Source Doc
-    let doc_id = engine.create("SourceDoc", json!({
-        "status": "Draft",
-        "amount": "1000.00"
-    }), &ctx).await.expect("Failed to create doc");
+    let doc_id = engine
+        .create(
+            "SourceDoc",
+            json!({
+                "status": "Draft",
+                "amount": "1000.00"
+            }),
+            &ctx,
+        )
+        .await
+        .expect("Failed to create doc");
 
     // 3. Update Doc to Posted -> Triggers Rule
     println!("Executing posting rule...");
     let start = Instant::now();
 
-    engine.update("SourceDoc", &doc_id, json!({
-        "status": "Posted"
-    }), &ctx).await.expect("Failed to post doc");
+    engine
+        .update(
+            "SourceDoc",
+            &doc_id,
+            json!({
+                "status": "Posted"
+            }),
+            &ctx,
+        )
+        .await
+        .expect("Failed to post doc");
 
     let duration = start.elapsed();
-    println!("BENCH_RESULT: Posting rule with {} lines took: {:?}", num_accounts, duration);
+    println!(
+        "BENCH_RESULT: Posting rule with {} lines took: {:?}",
+        num_accounts, duration
+    );
 }

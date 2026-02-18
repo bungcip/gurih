@@ -943,17 +943,17 @@ impl DataEngine {
             // We check read permission for the root entity
             // Ideally we should recursively check joined entities, but that's complex.
             if let Some(entity_schema) = self.schema.entities.get(&query.root_entity) {
-                 let read_perm = entity_schema
+                let read_perm = entity_schema
                     .options
                     .get("read_permission")
                     .cloned()
                     .unwrap_or_else(|| format!("read:{}", root_entity));
-                 self.validate_permission(ctx, &read_perm, "read", root_entity)?;
+                self.validate_permission(ctx, &read_perm, "read", root_entity)?;
             } else {
-                 // Query might refer to non-entity? Unlikely.
-                 // Fallback: check read:{QueryName}
-                 let read_perm = format!("read:{}", entity);
-                 self.validate_permission(ctx, &read_perm, "read", entity)?;
+                // Query might refer to non-entity? Unlikely.
+                // Fallback: check read:{QueryName}
+                let read_perm = format!("read:{}", entity);
+                self.validate_permission(ctx, &read_perm, "read", entity)?;
             }
 
             let mut runtime_params = std::collections::HashMap::new();
@@ -1287,16 +1287,8 @@ impl DataEngine {
                     for row in rows {
                         if let Some(obj) = row.as_object() {
                             let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
-                            let code = obj
-                                .get("code")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or_default()
-                                .to_string();
-                            let name = obj
-                                .get("name")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or_default()
-                                .to_string();
+                            let code = obj.get("code").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+                            let name = obj.get("name").and_then(|v| v.as_str()).unwrap_or_default().to_string();
 
                             if !code.is_empty() {
                                 code_map.insert(code, id.clone());
