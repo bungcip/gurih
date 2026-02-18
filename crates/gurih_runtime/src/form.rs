@@ -34,16 +34,30 @@ impl FormEngine {
 
             for section in &form.sections {
                 let mut ui_fields = vec![];
-                for field_name in &section.fields {
-                    let ui_field = if let Some(field_def) = entity.fields.iter().find(|f| &f.name == field_name) {
-                        self.create_field_widget(field_def)
-                    } else if let Some(rel_def) = entity.relationships.iter().find(|r| &r.name == field_name) {
-                        self.create_relation_widget(rel_def)
-                    } else {
-                        return Err(format!("Field {} not found in entity {}", field_name, form.entity));
-                    };
-
-                    ui_fields.push(ui_field);
+                for item in &section.items {
+                    match item {
+                        gurih_ir::FormItem::Field(field_name) => {
+                            let ui_field = if let Some(field_def) =
+                                entity.fields.iter().find(|f| &f.name == field_name)
+                            {
+                                self.create_field_widget(field_def)
+                            } else if let Some(rel_def) =
+                                entity.relationships.iter().find(|r| &r.name == field_name)
+                            {
+                                self.create_relation_widget(rel_def)
+                            } else {
+                                return Err(format!(
+                                    "Field {} not found in entity {}",
+                                    field_name, form.entity
+                                ));
+                            };
+                            ui_fields.push(ui_field);
+                        }
+                        gurih_ir::FormItem::Grid(grid_def) => {
+                            let ui_grid = self.create_grid_widget(grid_def, entity, schema)?;
+                            ui_fields.push(ui_grid);
+                        }
+                    }
                 }
 
                 ui_sections.push(json!({
@@ -130,6 +144,70 @@ impl FormEngine {
             "widget": "RelationPicker",
             "required": false
         })
+    }
+
+    fn create_grid_widget(
+        &self,
+        grid_def: &gurih_ir::GridDef,
+        parent_entity: &gurih_ir::EntitySchema,
+        schema: &Schema,
+    ) -> Result<Value, String> {
+        let field_name = &grid_def.field;
+
+        // Find the relationship
+        let rel_def = parent_entity
+            .relationships
+            .iter()
+            .find(|r| &r.name == field_name)
+            .ok_or_else(|| {
+                format!(
+                    "Relationship {} not found in entity {}",
+                    field_name, parent_entity.name
+                )
+            })?;
+
+        if rel_def.rel_type != gurih_ir::RelationshipType::HasMany {
+            return Err(format!(
+                "Field {} is not a has_many relationship",
+                field_name
+            ));
+        }
+
+        let target_entity_name = &rel_def.target_entity;
+        let target_entity = schema
+            .entities
+            .get(target_entity_name)
+            .ok_or_else(|| format!("Entity {} not found", target_entity_name))?;
+
+        let mut columns = vec![];
+
+        // 1. Regular fields
+        for field in &target_entity.fields {
+            if field.name == Symbol::from("id") {
+                continue;
+            }
+            columns.push(self.create_field_widget(field));
+        }
+
+        // 2. Relationships
+        for rel in &target_entity.relationships {
+            if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
+                // Skip if it points back to parent
+                if rel.target_entity == parent_entity.name {
+                    continue;
+                }
+                columns.push(self.create_relation_widget(rel));
+            }
+        }
+
+        Ok(json!({
+            "name": field_name,
+            "label": to_title_case(field_name.as_str()),
+            "widget": "InputGrid",
+            "target_entity": target_entity_name,
+            "columns": columns,
+            "required": false
+        }))
     }
 
     fn map_field_type_to_widget(&self, field_type: &gurih_ir::FieldType) -> String {

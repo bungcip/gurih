@@ -380,7 +380,20 @@ pub struct FormDef {
 #[derive(Debug, Clone)]
 pub struct FormSectionDef {
     pub title: String,
-    pub fields: Vec<String>,
+    pub items: Vec<FormItemDef>,
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Clone)]
+pub enum FormItemDef {
+    Field(String),
+    Grid(FormGridDef),
+}
+
+#[derive(Debug, Clone)]
+pub struct FormGridDef {
+    pub field: String,
+    pub columns: Option<Vec<String>>,
     pub span: SourceSpan,
 }
 

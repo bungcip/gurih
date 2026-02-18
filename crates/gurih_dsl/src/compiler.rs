@@ -472,7 +472,23 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                         .iter()
                         .map(|s| FormSection {
                             title: s.title.clone(),
-                            fields: s.fields.iter().map(|f| Symbol::from(f.as_str())).collect(),
+                            items: s
+                                .items
+                                .iter()
+                                .map(|item| match item {
+                                    ast::FormItemDef::Field(f) => {
+                                        gurih_ir::FormItem::Field(Symbol::from(f.as_str()))
+                                    }
+                                    ast::FormItemDef::Grid(g) => {
+                                        gurih_ir::FormItem::Grid(gurih_ir::GridDef {
+                                            field: Symbol::from(g.field.as_str()),
+                                            columns: g.columns.as_ref().map(|cols| {
+                                                cols.iter().map(|c| Symbol::from(c.as_str())).collect()
+                                            }),
+                                        })
+                                    }
+                                })
+                                .collect(),
                         })
                         .collect(),
                 },

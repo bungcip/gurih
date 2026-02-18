@@ -104,8 +104,9 @@ page "JournalForm" {
             }
             field "description"
         }
-        // Child table support assumed in form
-        // In real impl, need "grid" or similar.
+        section "Lines" {
+            grid "lines"
+        }
     }
 }
 

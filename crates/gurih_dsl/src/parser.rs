@@ -1572,29 +1572,36 @@ fn parse_form(node: &KdlNode, src: &str) -> Result<FormDef, CompileError> {
 
 fn parse_section(node: &KdlNode, src: &str) -> Result<FormSectionDef, CompileError> {
     let title = get_arg_string(node, 0, src)?;
-    let mut fields = vec![];
+    let mut items = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             if child.name().value() == "field" {
                 let field_name = get_arg_string(child, 0, src)?;
-                fields.push(field_name);
+                items.push(FormItemDef::Field(field_name));
             } else if child.name().value() == "group"
                 && let Some(grandkids) = child.children()
             {
                 for grandkid in grandkids.nodes() {
                     if grandkid.name().value() == "field" {
                         let field_name = get_arg_string(grandkid, 0, src)?;
-                        fields.push(field_name);
+                        items.push(FormItemDef::Field(field_name));
                     }
                 }
+            } else if child.name().value() == "grid" {
+                let field_name = get_arg_string(child, 0, src)?;
+                items.push(FormItemDef::Grid(FormGridDef {
+                    field: field_name,
+                    columns: None,
+                    span: child.span().into(),
+                }));
             }
         }
     }
 
     Ok(FormSectionDef {
         title,
-        fields,
+        items,
         span: node.span().into(),
     })
 }
