@@ -371,13 +371,22 @@ impl DataEngine {
             .map(|v| v == "true")
             .unwrap_or(false);
 
+        // Phase 1: Parallel Validation
+        // Process in chunks to limit concurrency
+        for chunk in data.chunks(50) {
+            let validation_futures = chunk.iter().map(|record| async move {
+                self.check_rules(entity_name, "create", record, None).await?;
+                self.check_composition_immutability(entity_name, record, ctx).await
+            });
+
+            let validation_results = join_all(validation_futures).await;
+            for res in validation_results {
+                res?;
+            }
+        }
+
+        // Phase 2: Sequential Processing (Mutation & Serial Generation)
         for mut record in data {
-            // Rule Check (Create)
-            self.check_rules(entity_name, "create", &record, None).await?;
-
-            // Check Composition Immutability
-            self.check_composition_immutability(entity_name, &record, ctx).await?;
-
             // Workflow: Set initial state if applicable
             if let Some(wf) = self
                 .schema
