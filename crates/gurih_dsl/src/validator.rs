@@ -271,6 +271,16 @@ impl<'a> Validator<'a> {
                         }
                         Ok(DataType::Boolean)
                     }
+                    BinaryOpType::Like | BinaryOpType::ILike => {
+                        if l != DataType::String || r != DataType::String {
+                            return Err(CompileError::ValidationError {
+                                src: self.src.to_string(),
+                                span: *span,
+                                message: "Like requires strings".into(),
+                            });
+                        }
+                        Ok(DataType::Boolean)
+                    }
                 }
             }
             Expr::Grouping(e, _) => self.infer_type(e),

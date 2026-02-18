@@ -38,6 +38,8 @@ pub enum BinaryOpType {
     Lt,
     Gte,
     Lte,
+    Like,
+    ILike,
     And,
     Or,
 }
@@ -97,6 +99,8 @@ enum TokenKind {
     Lt,
     GtEq,
     LtEq,
+    Like,
+    ILike,
     And,
     Or,
     Bang,
@@ -399,6 +403,8 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
                 let kind = match content.as_str() {
                     "true" => TokenKind::True,
                     "false" => TokenKind::False,
+                    "like" => TokenKind::Like,
+                    "ilike" => TokenKind::ILike,
                     _ => TokenKind::Identifier(content),
                 };
                 tokens.push(Token {
@@ -515,17 +521,26 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    // comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )*
+    // comparison -> term ( ( ">" | ">=" | "<" | "<=" | "like" | "ilike" ) term )*
     fn comparison(&mut self) -> Result<Expr, CompileError> {
         let mut expr = self.term()?;
 
-        while self.match_token(&[TokenKind::Gt, TokenKind::GtEq, TokenKind::Lt, TokenKind::LtEq]) {
+        while self.match_token(&[
+            TokenKind::Gt,
+            TokenKind::GtEq,
+            TokenKind::Lt,
+            TokenKind::LtEq,
+            TokenKind::Like,
+            TokenKind::ILike,
+        ]) {
             let op_token = self.previous().clone();
             let op = match op_token.kind {
                 TokenKind::Gt => BinaryOpType::Gt,
                 TokenKind::GtEq => BinaryOpType::Gte,
                 TokenKind::Lt => BinaryOpType::Lt,
                 TokenKind::LtEq => BinaryOpType::Lte,
+                TokenKind::Like => BinaryOpType::Like,
+                TokenKind::ILike => BinaryOpType::ILike,
                 _ => unreachable!(),
             };
             let right = self.term()?;

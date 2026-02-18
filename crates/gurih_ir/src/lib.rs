@@ -142,6 +142,8 @@ pub enum BinaryOperator {
     Lte,
     And,
     Or,
+    Like,
+    ILike,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

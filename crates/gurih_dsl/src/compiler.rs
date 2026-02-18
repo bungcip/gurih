@@ -923,6 +923,8 @@ fn convert_expr(e: &crate::expr::Expr) -> gurih_ir::Expression {
                 crate::expr::BinaryOpType::Lt => gurih_ir::BinaryOperator::Lt,
                 crate::expr::BinaryOpType::Gte => gurih_ir::BinaryOperator::Gte,
                 crate::expr::BinaryOpType::Lte => gurih_ir::BinaryOperator::Lte,
+                crate::expr::BinaryOpType::Like => gurih_ir::BinaryOperator::Like,
+                crate::expr::BinaryOpType::ILike => gurih_ir::BinaryOperator::ILike,
                 crate::expr::BinaryOpType::And => gurih_ir::BinaryOperator::And,
                 crate::expr::BinaryOpType::Or => gurih_ir::BinaryOperator::Or,
             },

@@ -331,6 +331,14 @@ impl QueryEngine {
                     BinaryOperator::Lt => "<",
                     BinaryOperator::Gte => ">=",
                     BinaryOperator::Lte => "<=",
+                    BinaryOperator::Like => "LIKE",
+                    BinaryOperator::ILike => {
+                        if *db_type == DatabaseType::Postgres {
+                            "ILIKE"
+                        } else {
+                            "LIKE"
+                        }
+                    }
                     BinaryOperator::And => "AND",
                     BinaryOperator::Or => "OR",
                 };
