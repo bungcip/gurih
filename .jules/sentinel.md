@@ -34,3 +34,8 @@
 **Vulnerability:** The `QueryEngine` trusted entity names and field identifiers from the schema to be safe, directly interpolating them into SQL queries. A malicious schema (e.g., entity name `User; DROP TABLE users; --`) could execute arbitrary SQL.
 **Learning:** In DSL/Schema-driven architectures, the schema definition itself must be treated as untrusted input if it can be influenced by users or if the system aims to be robust against configuration errors. "Internal" names are not always safe.
 **Prevention:** Implemented mandatory identifier validation (`validate_identifier`) in `QueryEngine` for table names and `group_by` fields before SQL construction, rejecting any non-alphanumeric identifiers.
+
+## 2024-05-30 - [HIGH] Rate Limit Bypass via Eviction Strategy
+**Vulnerability:** The rate limiting mechanism in `AuthEngine` cleared the entire `login_attempts` map when it reached capacity (`MAX_LOGIN_ATTEMPTS`). An attacker could exploit this by flooding the server with requests from random usernames to fill the map, triggering a full clear and resetting their own blocked status.
+**Learning:** Simple "clear all" eviction policies for security controls (like rate limits or blacklists) are dangerous because they allow attackers to manipulate the control's state to their advantage.
+**Prevention:** Implemented a smart eviction strategy that prioritizes removing low-risk entries (low failure counts) and oldest entries first, ensuring high-risk data (active attackers) is preserved even under load.

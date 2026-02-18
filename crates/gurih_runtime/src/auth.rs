@@ -235,9 +235,25 @@ impl AuthEngine {
             // Remove expired entries first
             attempts.retain(|_, (_, time)| time.elapsed() < Duration::from_secs(300));
 
-            // Sentinel: If still over limit, prevent DoS by clearing
+            // Sentinel: If still over limit, smarter eviction strategy
             if attempts.len() >= MAX_LOGIN_ATTEMPTS {
-                attempts.clear();
+                // Collect keys and metrics
+                let mut entries: Vec<(String, u32, Instant)> = attempts
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.0, v.1))
+                    .collect();
+
+                // Sort by count ASC (evict low risk first), then time ASC (evict oldest first)
+                entries.sort_by(|a, b| match a.1.cmp(&b.1) {
+                    std::cmp::Ordering::Equal => a.2.cmp(&b.2),
+                    other => other,
+                });
+
+                // Remove top 10% to make space
+                let remove_count = (MAX_LOGIN_ATTEMPTS / 10).max(1);
+                for (key, _, _) in entries.iter().take(remove_count) {
+                    attempts.remove(key);
+                }
             }
         }
     }
@@ -374,10 +390,12 @@ mod tests {
         let _ = auth.login("another_user", "wrong_password").await;
 
         let attempts = auth.login_attempts.lock().unwrap();
-        // Should be cleared because all are "recent", so retain keeps them,
-        // but then size > MAX so it clears all.
-        // Then "another_user" is inserted (failed attempt).
+        // Should NOT be cleared entirely, but evicted intelligently.
+        // We added MAX + 50. It should remove ~10% (100) or more if needed.
+        // So size should be around MAX - 100 + 1.
         assert!(attempts.len() <= MAX_LOGIN_ATTEMPTS);
-        assert_eq!(attempts.len(), 1);
+        // Ensure we kept history (didn't clear all)
+        assert!(attempts.len() > 1);
     }
+
 }
