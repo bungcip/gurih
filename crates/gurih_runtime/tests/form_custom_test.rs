@@ -1,4 +1,4 @@
-use gurih_ir::{EntitySchema, FieldSchema, FieldType, FormSchema, FormSection, Schema, Symbol};
+use gurih_ir::{EntitySchema, FieldSchema, FieldType, FormItem, FormSchema, FormSection, Schema, Symbol};
 use gurih_runtime::form::FormEngine;
 use std::collections::HashMap;
 
@@ -123,15 +123,15 @@ fn test_custom_form_generation() {
         entity: entity_name,
         sections: vec![FormSection {
             title: "Main".to_string(),
-            fields: vec![
-                Symbol::from("description"),
-                Symbol::from("avatar"),
-                Symbol::from("price"),
-                Symbol::from("secret"),
-                Symbol::from("is_active"),
-                Symbol::from("category"),
-                Symbol::from("script"),
-                Symbol::from("custom"),
+            items: vec![
+                FormItem::Field(Symbol::from("description")),
+                FormItem::Field(Symbol::from("avatar")),
+                FormItem::Field(Symbol::from("price")),
+                FormItem::Field(Symbol::from("secret")),
+                FormItem::Field(Symbol::from("is_active")),
+                FormItem::Field(Symbol::from("category")),
+                FormItem::Field(Symbol::from("script")),
+                FormItem::Field(Symbol::from("custom")),
             ],
         }],
     };

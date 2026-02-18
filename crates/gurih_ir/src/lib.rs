@@ -369,7 +369,20 @@ pub struct FormSchema {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FormSection {
     pub title: String,
-    pub fields: Vec<Symbol>,
+    pub items: Vec<FormItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "value")]
+pub enum FormItem {
+    Field(Symbol),
+    Grid(GridDef),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GridDef {
+    pub field: Symbol,
+    pub columns: Option<Vec<Symbol>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

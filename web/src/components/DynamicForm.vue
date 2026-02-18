@@ -9,6 +9,7 @@ import Tabs from './Tabs.vue'
 import FileUpload from './FileUpload.vue'
 import CurrencyInput from './CurrencyInput.vue'
 import Alert from './Alert.vue'
+import InputGrid from './InputGrid.vue'
 
 const props = defineProps(['entity', 'id'])
 const emit = defineEmits(['saved', 'cancel'])
@@ -34,33 +35,48 @@ async function fetchSchema() {
         activeTab.value = 0
 
         // Initialize fetch for relation fields
-        const targetsMap = new Map() // target -> [fieldNames]
+        const targetsMap = new Map() // target -> [ {fieldName, fieldRef} ]
+
+        const processField = (field, isGridColumn = false) => {
+            if (field.widget === 'RelationPicker' || (isGridColumn && field.widget === 'Select' && !field.options)) {
+                // Heuristic for relation name: assume ends with _id or is relation field
+                let target = null
+                if (field.target_entity) {
+                    target = field.target_entity
+                } else if (field.name.endsWith("_id")) {
+                    target = field.name.replace("_id", "")
+                    target = target.charAt(0).toUpperCase() + target.slice(1)
+                }
+
+                if (target) {
+                    if (!targetsMap.has(target)) {
+                        targetsMap.set(target, [])
+                    }
+                    targetsMap.get(target).push({ fieldName: field.name, fieldRef: field })
+                }
+            }
+        }
 
         for (const section of schema.value.layout) {
             for (const field of section.fields) {
-                if (field.widget === 'RelationPicker') {
-                    if (field.name.endsWith("_id")) {
-                        let target = field.name.replace("_id", "")
-                        target = target.charAt(0).toUpperCase() + target.slice(1)
-
-                        if (!targetsMap.has(target)) {
-                            targetsMap.set(target, [])
-                        }
-                        targetsMap.get(target).push(field.name)
+                processField(field)
+                if (field.widget === 'InputGrid' && field.columns) {
+                    for (const col of field.columns) {
+                        processField(col, true)
                     }
                 }
             }
         }
 
-        await Promise.all(Array.from(targetsMap.entries()).map(([target, fields]) =>
-            fetchRelations(target, fields)
+        await Promise.all(Array.from(targetsMap.entries()).map(([target, items]) =>
+            fetchRelations(target, items)
         ))
     } catch (e) {
         console.error("Failed to fetch form schema", e)
     }
 }
 
-async function fetchRelations(targetEntity, fieldNames) {
+async function fetchRelations(targetEntity, items) {
     try {
         const res = await request(`/${targetEntity}`)
         if (res.ok) {
@@ -70,8 +86,13 @@ async function fetchRelations(targetEntity, fieldNames) {
                 label: item.name || item.title || item.id
             }))
 
-            for (const fieldName of fieldNames) {
-                relationOptions.value[fieldName] = options
+            for (const item of items) {
+                // If it's a top-level field, store in relationOptions
+                relationOptions.value[item.fieldName] = options
+                // If it's a grid column (or any field really), inject options directly
+                if (item.fieldRef) {
+                    item.fieldRef.options = options
+                }
             }
         }
     } catch (e) {
@@ -272,6 +293,12 @@ onMounted(() => {
                                             <SelectInput :id="field.name" v-model="formData[field.name]"
                                                 :options="field.options || relationOptions[field.name] || []"
                                                 :placeholder="'Select ' + field.label + '...'"
+                                                :required="field.required" />
+                                        </div>
+
+                                        <div v-if="field.widget === 'InputGrid'" class="col-span-1 md:col-span-2">
+                                            <InputGrid v-model="formData[field.name]" :columns="field.columns"
+                                                :label="field.label" :target-entity="field.target_entity"
                                                 :required="field.required" />
                                         </div>
                                     </div>
