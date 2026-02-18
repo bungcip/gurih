@@ -94,8 +94,33 @@ function validateFile(file) {
     if (props.maxSize && file.size > props.maxSize) {
         return `File ${file.name} is too large (max ${formatSize(props.maxSize)})`
     }
-    // Simple mime type check could be added here if needed, 
-    // but input accept attribute handles most of it broadly.
+
+    // Check file type based on accept prop
+    if (props.accept && props.accept !== '*/*') {
+        const acceptedTypes = props.accept.split(',').map(t => t.trim().toLowerCase())
+        const fileType = (file.type || '').toLowerCase()
+        const fileName = file.name.toLowerCase()
+
+        const isValid = acceptedTypes.some(type => {
+            if (type === '*/*') return true
+            if (type.endsWith('/*')) {
+                // e.g. image/*
+                const prefix = type.slice(0, -2)
+                return fileType.startsWith(prefix)
+            }
+            if (type.startsWith('.')) {
+                // e.g. .jpg
+                return fileName.endsWith(type)
+            }
+            // e.g. image/jpeg
+            return fileType === type
+        })
+
+        if (!isValid) {
+            return `File type not allowed: ${file.name}`
+        }
+    }
+
     return null
 }
 
