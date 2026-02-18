@@ -55,6 +55,7 @@ fn verify_password(password: &str, stored_value: &str) -> bool {
     // Parse stored value
     if stored_value.starts_with("v4$") {
         let parts: Vec<&str> = stored_value.split('$').collect();
+        #[allow(clippy::collapsible_if)]
         if parts.len() == 4 {
             if let Ok(iter) = parts[1].parse::<u32>() {
                 iterations = iter;

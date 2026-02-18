@@ -97,6 +97,13 @@ impl MemoryDataStore {
         }
         true
     }
+
+    fn compile_filters(filters: HashMap<String, String>) -> Vec<CompiledFilter> {
+        filters
+            .into_iter()
+            .map(|(k, v)| CompiledFilter::new(k, v))
+            .collect()
+    }
 }
 
 #[async_trait]
@@ -205,9 +212,7 @@ impl DataStore for MemoryDataStore {
     async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
         let data = self.data.lock().unwrap();
         if let Some(table) = data.get(entity) {
-            // OPTIMIZATION: Pre-process filters to avoid parsing/allocating inside the loop
-            let parsed_filters: Vec<CompiledFilter> =
-                filters.into_iter().map(|(k, v)| CompiledFilter::new(k, v)).collect();
+            let parsed_filters = Self::compile_filters(filters);
 
             let results: Vec<Arc<Value>> = table
                 .values()
@@ -223,8 +228,7 @@ impl DataStore for MemoryDataStore {
     async fn find_first(&self, entity: &str, filters: HashMap<String, String>) -> Result<Option<Arc<Value>>, String> {
         let data = self.data.lock().unwrap();
         if let Some(table) = data.get(entity) {
-            let parsed_filters: Vec<CompiledFilter> =
-                filters.into_iter().map(|(k, v)| CompiledFilter::new(k, v)).collect();
+            let parsed_filters = Self::compile_filters(filters);
 
             for record in table.values() {
                 if Self::matches_filters(record, &parsed_filters) {
@@ -240,9 +244,7 @@ impl DataStore for MemoryDataStore {
     async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String> {
         let data = self.data.lock().unwrap();
         if let Some(table) = data.get(entity) {
-            // OPTIMIZATION: Pre-process filters to avoid parsing/allocating inside the loop
-            let parsed_filters: Vec<CompiledFilter> =
-                filters.into_iter().map(|(k, v)| CompiledFilter::new(k, v)).collect();
+            let parsed_filters = Self::compile_filters(filters);
 
             let count = table
                 .values()
@@ -264,9 +266,7 @@ impl DataStore for MemoryDataStore {
         if let Some(table) = data.get(entity) {
             let mut groups: HashMap<String, i64> = HashMap::new();
 
-            // OPTIMIZATION: Pre-process filters to avoid parsing/allocating inside the loop
-            let parsed_filters: Vec<CompiledFilter> =
-                filters.into_iter().map(|(k, v)| CompiledFilter::new(k, v)).collect();
+            let parsed_filters = Self::compile_filters(filters);
 
             for record in table.values() {
                 // Filter first

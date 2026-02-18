@@ -767,7 +767,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             if rel.rel_type == gurih_ir::RelationshipType::HasMany
                 && rel.ownership == gurih_ir::Ownership::Composition
             {
-                composition_inferences.push((rel.target_entity.clone(), parent_name.clone()));
+                composition_inferences.push((rel.target_entity, *parent_name));
             }
         }
     }
