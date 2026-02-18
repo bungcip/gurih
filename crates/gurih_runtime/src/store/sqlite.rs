@@ -15,6 +15,29 @@ impl SqliteDataStore {
         Self { pool }
     }
 
+    fn build_where_clause(filters: &HashMap<String, String>) -> Result<(String, Vec<&String>), String> {
+        if filters.is_empty() {
+            return Ok((String::new(), vec![]));
+        }
+
+        let mut query = String::new();
+        let mut params = vec![];
+
+        let mut keys: Vec<&String> = filters.keys().collect();
+        keys.sort();
+
+        query.push_str(" WHERE ");
+        for (i, k) in keys.into_iter().enumerate() {
+            validate_identifier(k)?;
+            if i > 0 {
+                query.push_str(" AND ");
+            }
+            query.push_str(&format!("\"{}\" = ?", k));
+            params.push(filters.get(k).unwrap());
+        }
+        Ok((query, params))
+    }
+
     fn row_to_json(row: &sqlx::sqlite::SqliteRow) -> Value {
         let mut map = serde_json::Map::new();
         for col in row.columns() {
@@ -315,19 +338,9 @@ impl DataStore for SqliteDataStore {
     async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
         validate_identifier(entity)?;
         let mut query = format!("SELECT * FROM \"{}\"", entity);
-        let mut params = vec![];
 
-        if !filters.is_empty() {
-            query.push_str(" WHERE ");
-            for (i, (k, v)) in filters.iter().enumerate() {
-                validate_identifier(k)?;
-                if i > 0 {
-                    query.push_str(" AND ");
-                }
-                query.push_str(&format!("\"{}\" = ?", k));
-                params.push(v);
-            }
-        }
+        let (where_clause, params) = Self::build_where_clause(&filters)?;
+        query.push_str(&where_clause);
 
         let mut q = sqlx::query(&query);
         for p in params {
@@ -341,19 +354,9 @@ impl DataStore for SqliteDataStore {
     async fn find_first(&self, entity: &str, filters: HashMap<String, String>) -> Result<Option<Arc<Value>>, String> {
         validate_identifier(entity)?;
         let mut query = format!("SELECT * FROM \"{}\"", entity);
-        let mut params = vec![];
 
-        if !filters.is_empty() {
-            query.push_str(" WHERE ");
-            for (i, (k, v)) in filters.iter().enumerate() {
-                validate_identifier(k)?;
-                if i > 0 {
-                    query.push_str(" AND ");
-                }
-                query.push_str(&format!("\"{}\" = ?", k));
-                params.push(v);
-            }
-        }
+        let (where_clause, params) = Self::build_where_clause(&filters)?;
+        query.push_str(&where_clause);
 
         query.push_str(" LIMIT 1");
 
@@ -373,19 +376,9 @@ impl DataStore for SqliteDataStore {
     async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String> {
         validate_identifier(entity)?;
         let mut query = format!("SELECT COUNT(*) FROM \"{}\"", entity);
-        let mut params = vec![];
 
-        if !filters.is_empty() {
-            query.push_str(" WHERE ");
-            for (i, (k, v)) in filters.iter().enumerate() {
-                validate_identifier(k)?;
-                if i > 0 {
-                    query.push_str(" AND ");
-                }
-                query.push_str(&format!("\"{}\" = ?", k));
-                params.push(v);
-            }
-        }
+        let (where_clause, params) = Self::build_where_clause(&filters)?;
+        query.push_str(&where_clause);
 
         let mut q = sqlx::query_scalar(&query);
         for p in params {
@@ -405,19 +398,9 @@ impl DataStore for SqliteDataStore {
         validate_identifier(entity)?;
         validate_identifier(group_by)?;
         let mut query = format!("SELECT \"{}\", COUNT(*) FROM \"{}\"", group_by, entity);
-        let mut params = vec![];
 
-        if !filters.is_empty() {
-            query.push_str(" WHERE ");
-            for (i, (k, v)) in filters.iter().enumerate() {
-                validate_identifier(k)?;
-                if i > 0 {
-                    query.push_str(" AND ");
-                }
-                query.push_str(&format!("\"{}\" = ?", k));
-                params.push(v);
-            }
-        }
+        let (where_clause, params) = Self::build_where_clause(&filters)?;
+        query.push_str(&where_clause);
 
         query.push_str(&format!(" GROUP BY \"{}\"", group_by));
 
@@ -469,5 +452,43 @@ impl DataStore for SqliteDataStore {
         }
         let rows = q.fetch_all(&self.pool).await.map_err(|e| e.to_string())?;
         Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_build_where_clause_determinism() {
+        let mut filters = HashMap::new();
+        filters.insert("z".to_string(), "1".to_string());
+        filters.insert("a".to_string(), "2".to_string());
+        filters.insert("m".to_string(), "3".to_string());
+        filters.insert("b".to_string(), "4".to_string());
+
+        // Call the private method
+        let (clause, params) = SqliteDataStore::build_where_clause(&filters).expect("Failed to build clause");
+
+        // Check SQL string order
+        // With sorted keys: a, b, m, z
+        let expected = " WHERE \"a\" = ? AND \"b\" = ? AND \"m\" = ? AND \"z\" = ?";
+        assert_eq!(clause, expected);
+
+        // Check params order matches keys
+        let expected_params = vec!["2", "4", "3", "1"];
+        assert_eq!(params, expected_params);
+
+        // Ensure deterministic regardless of insertion order
+        let mut filters2 = HashMap::new();
+        filters2.insert("a".to_string(), "2".to_string());
+        filters2.insert("b".to_string(), "4".to_string());
+        filters2.insert("m".to_string(), "3".to_string());
+        filters2.insert("z".to_string(), "1".to_string());
+
+        let (clause2, params2) = SqliteDataStore::build_where_clause(&filters2).expect("Failed to build clause");
+        assert_eq!(clause, clause2);
+        assert_eq!(params, params2);
     }
 }
