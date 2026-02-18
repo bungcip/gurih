@@ -12,6 +12,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
+use futures::future::join_all;
 
 pub struct DataEngine {
     schema: Arc<Schema>,
@@ -1304,6 +1305,63 @@ impl DataEngine {
                             if !name.is_empty() {
                                 name_map.insert(name, id);
                             }
+                        }
+                    }
+                }
+            }
+        } else {
+            // Parallel Fetch Optimization for non-SQL stores
+            // Instead of N+1 sequential queries, we run them in parallel
+            let terms_vec: Vec<&str> = unique_terms.iter().cloned().collect();
+
+            // 1. Find by Code
+            let mut futures = Vec::new();
+            for term in &terms_vec {
+                let mut filters = HashMap::new();
+                filters.insert("code".to_string(), term.to_string());
+                futures.push(self.datastore.find_first(account_table, filters));
+            }
+
+            let results = join_all(futures).await;
+
+            for (i, result) in results.into_iter().enumerate() {
+                if let Ok(Some(account)) = result {
+                    if let Some(obj) = account.as_object() {
+                        let id = obj
+                            .get("id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or_default()
+                            .to_string();
+                        // We found it by code
+                        code_map.insert(terms_vec[i].to_string(), id);
+                    }
+                }
+            }
+
+            // 2. Find by Name (for those not found)
+            let mut name_futures = Vec::new();
+            let mut pending_terms = Vec::new();
+
+            for term in &terms_vec {
+                if !code_map.contains_key(*term) {
+                    let mut filters = HashMap::new();
+                    filters.insert("name".to_string(), term.to_string());
+                    name_futures.push(self.datastore.find_first(account_table, filters));
+                    pending_terms.push(*term);
+                }
+            }
+
+            if !name_futures.is_empty() {
+                let results = join_all(name_futures).await;
+                for (i, result) in results.into_iter().enumerate() {
+                    if let Ok(Some(account)) = result {
+                        if let Some(obj) = account.as_object() {
+                            let id = obj
+                                .get("id")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or_default()
+                                .to_string();
+                            name_map.insert(pending_terms[i].to_string(), id);
                         }
                     }
                 }
