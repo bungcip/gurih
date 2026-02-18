@@ -8,12 +8,30 @@ use gurih_runtime::errors::RuntimeError;
 use gurih_runtime::plugins::Plugin;
 use gurih_runtime::store::validate_identifier;
 use gurih_runtime::traits::DataAccess;
+use rust_decimal::Decimal;
 use serde_json::{Value, json};
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 use uuid::Uuid;
 
 pub struct FinancePlugin;
+
+fn parse_decimal_opt(v: Option<&Value>) -> Decimal {
+    match v {
+        Some(val) => {
+            if let Some(s) = val.as_str() {
+                Decimal::from_str(s).unwrap_or(Decimal::ZERO)
+            } else if let Some(n) = val.as_f64() {
+                // Best effort conversion from float
+                Decimal::from_f64_retain(n).unwrap_or(Decimal::ZERO)
+            } else {
+                Decimal::ZERO
+            }
+        },
+        None => Decimal::ZERO,
+    }
+}
 
 #[async_trait]
 impl Plugin for FinancePlugin {
@@ -134,20 +152,20 @@ async fn check_balanced_transaction(
 ) -> Result<(), RuntimeError> {
     let lines = fetch_journal_lines(entity_data, schema, datastore).await?;
 
-    let mut total_debit = 0.0;
-    let mut total_credit = 0.0;
+    let mut total_debit = Decimal::ZERO;
+    let mut total_credit = Decimal::ZERO;
 
     for line in lines {
         if let Some(line_obj) = line.as_object() {
-            total_debit += parse_numeric_opt(line_obj.get("debit"));
-            total_credit += parse_numeric_opt(line_obj.get("credit"));
+            total_debit += parse_decimal_opt(line_obj.get("debit"));
+            total_credit += parse_decimal_opt(line_obj.get("credit"));
         }
     }
 
     let diff = (total_debit - total_credit).abs();
-    if diff > 0.01 {
+    if !diff.is_zero() {
         return Err(RuntimeError::ValidationError(format!(
-            "Transaction not balanced: Debit {:.2}, Credit {:.2} (Diff {:.2})",
+            "Transaction not balanced: Debit {}, Credit {} (Diff {})",
             total_debit, total_credit, diff
         )));
     }
@@ -482,11 +500,24 @@ async fn execute_reverse_journal(
             obj.insert("id".to_string(), json!(Uuid::new_v4().to_string()));
             obj.insert("journal_entry".to_string(), json!(new_id));
 
-            let debit = parse_numeric_opt(obj.get("debit"));
-            let credit = parse_numeric_opt(obj.get("credit"));
+            // Use string parsing to preserve precision if strings are available
+            let debit_val = obj.get("debit");
+            let credit_val = obj.get("credit");
 
-            obj.insert("debit".to_string(), json!(credit.to_string()));
-            obj.insert("credit".to_string(), json!(debit.to_string()));
+            let debit_str = if let Some(s) = debit_val.and_then(|v| v.as_str()) {
+                s.to_string()
+            } else {
+                parse_numeric_opt(debit_val).to_string()
+            };
+
+            let credit_str = if let Some(s) = credit_val.and_then(|v| v.as_str()) {
+                s.to_string()
+            } else {
+                parse_numeric_opt(credit_val).to_string()
+            };
+
+            obj.insert("debit".to_string(), json!(credit_str));
+            obj.insert("credit".to_string(), json!(debit_str));
         }
         reverse_lines.push(line);
     }
@@ -547,6 +578,7 @@ async fn execute_generate_closing_entry(
         ))?;
 
     // 3. Aggregate Revenue and Expense
+    // We fetch raw lines instead of SUM() to ensure decimal precision
     let db_type = data_access
         .get_schema()
         .database
@@ -577,8 +609,8 @@ async fn execute_generate_closing_entry(
         r#"
         SELECT
             jl.account as account_id,
-            SUM(jl.debit) as total_debit,
-            SUM(jl.credit) as total_credit,
+            jl.debit,
+            jl.credit,
             a.type as account_type
         FROM {} jl
         JOIN {} je ON jl.journal_entry = je.id
@@ -587,7 +619,6 @@ async fn execute_generate_closing_entry(
           AND je.date >= {}
           AND je.date <= {}
           AND (a.type = 'Revenue' OR a.type = 'Expense')
-        GROUP BY jl.account, a.type
     "#,
         journal_line_table, journal_entry_table, account_table, p_start, p_end
     );
@@ -603,40 +634,55 @@ async fn execute_generate_closing_entry(
         .await
         .map_err(RuntimeError::WorkflowError)?;
 
-    let mut closing_lines = vec![];
-    let mut total_retained_earnings_impact = 0.0; // Positive = Credit to RE (Profit), Negative = Debit to RE (Loss)
+    // Aggregate in memory using Decimal
+    let mut account_balances: HashMap<String, (Decimal, Decimal)> = HashMap::new(); // AccountID -> (TotalDebit, TotalCredit)
+    let mut account_types: HashMap<String, String> = HashMap::new();
 
     for row in results {
-        let account_id = row.get("account_id").and_then(|v| v.as_str()).unwrap_or("");
-        let total_debit = parse_numeric_opt(row.get("total_debit"));
-        let total_credit = parse_numeric_opt(row.get("total_credit"));
+        let account_id = row.get("account_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        if account_id.is_empty() { continue; }
 
-        // Round to 2 decimal places to avoid floating point issues
-        let net = ((total_debit * 100.0).round() - (total_credit * 100.0).round()) / 100.0;
+        let debit = parse_decimal_opt(row.get("debit"));
+        let credit = parse_decimal_opt(row.get("credit"));
 
-        if net.abs() < 0.01 {
+        if let Some(t) = row.get("account_type").and_then(|v| v.as_str()) {
+            account_types.insert(account_id.clone(), t.to_string());
+        }
+
+        let entry = account_balances.entry(account_id).or_insert((Decimal::ZERO, Decimal::ZERO));
+        entry.0 += debit;
+        entry.1 += credit;
+    }
+
+    let mut closing_lines = vec![];
+    let mut total_retained_earnings_impact = Decimal::ZERO; // Positive = Credit to RE (Profit)
+
+    for (account_id, (total_debit, total_credit)) in account_balances {
+        let net = total_debit - total_credit;
+
+        if net.is_zero() {
             continue;
         }
 
         let mut line = serde_json::Map::new();
-        line.insert("account".to_string(), Value::String(account_id.to_string()));
+        line.insert("account".to_string(), Value::String(account_id));
 
-        if net > 0.0 {
+        if net > Decimal::ZERO {
             // Debit Balance (Expense) -> Credit it
-            line.insert("credit".to_string(), Value::String(format!("{:.2}", net)));
+            line.insert("credit".to_string(), Value::String(net.to_string()));
             line.insert("debit".to_string(), Value::String("0.00".to_string()));
-            // Effect on RE: Expense reduces Equity (Debit RE).
-            // We Credited Expense, so we Debit RE.
+
+            // Expense reduces Equity. We Credit Expense, so we Debit RE.
             // Impact tracks Credit side. So Debit = Negative Impact.
             total_retained_earnings_impact -= net;
         } else {
             // Credit Balance (Revenue) -> Debit it
             let amount = net.abs();
-            line.insert("debit".to_string(), Value::String(format!("{:.2}", amount)));
+            line.insert("debit".to_string(), Value::String(amount.to_string()));
             line.insert("credit".to_string(), Value::String("0.00".to_string()));
-            // Effect on RE: Revenue increases Equity (Credit RE).
-            // We Debited Revenue, so we Credit RE.
-            // Impact tracks Credit side. So Credit = Positive Impact.
+
+            // Revenue increases Equity. We Debit Revenue, so we Credit RE.
+            // Impact tracks Credit side.
             total_retained_earnings_impact += amount;
         }
         closing_lines.push(Value::Object(line));
@@ -650,16 +696,15 @@ async fn execute_generate_closing_entry(
     let mut plug_line = serde_json::Map::new();
     plug_line.insert("account".to_string(), Value::String(retained_earnings_id.to_string()));
 
-    // Round impact
-    let impact = (total_retained_earnings_impact * 100.0).round() / 100.0;
+    let impact = total_retained_earnings_impact;
 
-    if impact > 0.0 {
+    if impact > Decimal::ZERO {
         // Profit -> Credit RE
-        plug_line.insert("credit".to_string(), Value::String(format!("{:.2}", impact)));
+        plug_line.insert("credit".to_string(), Value::String(impact.to_string()));
         plug_line.insert("debit".to_string(), Value::String("0.00".to_string()));
     } else {
         // Loss -> Debit RE
-        plug_line.insert("debit".to_string(), Value::String(format!("{:.2}", impact.abs())));
+        plug_line.insert("debit".to_string(), Value::String(impact.abs().to_string()));
         plug_line.insert("credit".to_string(), Value::String("0.00".to_string()));
     }
     closing_lines.push(Value::Object(plug_line));
