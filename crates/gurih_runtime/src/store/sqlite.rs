@@ -319,7 +319,10 @@ impl DataStore for SqliteDataStore {
 
         if !filters.is_empty() {
             query.push_str(" WHERE ");
-            for (i, (k, v)) in filters.iter().enumerate() {
+            let mut sorted_filters: Vec<_> = filters.iter().collect();
+            sorted_filters.sort_by_key(|(k, _)| *k);
+
+            for (i, (k, v)) in sorted_filters.into_iter().enumerate() {
                 validate_identifier(k)?;
                 if i > 0 {
                     query.push_str(" AND ");
@@ -345,7 +348,10 @@ impl DataStore for SqliteDataStore {
 
         if !filters.is_empty() {
             query.push_str(" WHERE ");
-            for (i, (k, v)) in filters.iter().enumerate() {
+            let mut sorted_filters: Vec<_> = filters.iter().collect();
+            sorted_filters.sort_by_key(|(k, _)| *k);
+
+            for (i, (k, v)) in sorted_filters.into_iter().enumerate() {
                 validate_identifier(k)?;
                 if i > 0 {
                     query.push_str(" AND ");
@@ -377,7 +383,10 @@ impl DataStore for SqliteDataStore {
 
         if !filters.is_empty() {
             query.push_str(" WHERE ");
-            for (i, (k, v)) in filters.iter().enumerate() {
+            let mut sorted_filters: Vec<_> = filters.iter().collect();
+            sorted_filters.sort_by_key(|(k, _)| *k);
+
+            for (i, (k, v)) in sorted_filters.into_iter().enumerate() {
                 validate_identifier(k)?;
                 if i > 0 {
                     query.push_str(" AND ");
@@ -409,7 +418,10 @@ impl DataStore for SqliteDataStore {
 
         if !filters.is_empty() {
             query.push_str(" WHERE ");
-            for (i, (k, v)) in filters.iter().enumerate() {
+            let mut sorted_filters: Vec<_> = filters.iter().collect();
+            sorted_filters.sort_by_key(|(k, _)| *k);
+
+            for (i, (k, v)) in sorted_filters.into_iter().enumerate() {
                 validate_identifier(k)?;
                 if i > 0 {
                     query.push_str(" AND ");
