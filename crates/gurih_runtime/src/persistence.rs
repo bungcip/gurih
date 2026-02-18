@@ -424,14 +424,17 @@ impl SchemaManager {
     }
 
     async fn create_tables(&self) -> Result<(), String> {
-        // 1. Create explicit tables
+        // 1. Create explicit tables (includes auto-generated ones from entities)
         for table in self.schema.tables.values() {
             self.create_explicit_table(table).await?;
         }
 
-        // 2. Create tables for entities
+        // 2. Fallback: Create tables for entities if not present in tables map
+        // This is needed for tests that construct schema manually without compiler
         for entity in self.schema.entities.values() {
-            self.create_entity_table(entity).await?;
+            if !self.schema.tables.contains_key(&entity.table_name) {
+                self.create_entity_table(entity).await?;
+            }
         }
 
         Ok(())

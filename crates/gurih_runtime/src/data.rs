@@ -300,6 +300,7 @@ impl DataEngine {
                             .map(|s| s.is_empty())
                             .unwrap_or(true);
 
+                    #[allow(clippy::collapsible_if)]
                     if needs_generation {
                         if let Some(gen_name) = &field.serial_generator {
                             let val = self.generate_serial_number(gen_name, ctx).await?;
@@ -404,6 +405,7 @@ impl DataEngine {
                                 .map(|s| s.is_empty())
                                 .unwrap_or(true);
 
+                        #[allow(clippy::collapsible_if)]
                         if needs_generation {
                             if let Some(gen_name) = &field.serial_generator {
                                 let val = self.generate_serial_number(gen_name, ctx).await?;

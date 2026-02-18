@@ -114,6 +114,7 @@ impl PortalEngine {
 
         // 1. Try to find path in routes tree
         for route in schema.routes.values() {
+            #[allow(clippy::collapsible_if)]
             if let Some(target_action) = Self::walk_route(route, &parts) {
                 if target_action != Symbol::from("") {
                     let res = Self::resolve_entity_from_target(schema, target_action.as_str());
@@ -148,7 +149,7 @@ impl PortalEngine {
         let current_path = route.path.trim_start_matches('/');
 
         // If current route matches the first segment
-        if current_path == current_segment || (route.path == "/" && current_segment == "") {
+        if current_path == current_segment || (route.path == "/" && current_segment.is_empty()) {
             let remaining = &segments[1..];
             if remaining.is_empty() {
                 // If we've consumed all segments, return this route's action
@@ -166,6 +167,7 @@ impl PortalEngine {
 
             // Otherwise, try to find match in children
             for child in &route.children {
+                #[allow(clippy::collapsible_if)]
                 if let Some(res) = Self::walk_route(child, remaining) {
                     if res != Symbol::from("") || remaining.len() == 1 {
                         return Some(res);
@@ -175,6 +177,7 @@ impl PortalEngine {
         } else if route.path == "/" {
             // Root group might match the same segment if it's just a prefix "/"
             for child in &route.children {
+                #[allow(clippy::collapsible_if)]
                 if let Some(res) = Self::walk_route(child, segments) {
                     if res != Symbol::from("") {
                         return Some(res);
