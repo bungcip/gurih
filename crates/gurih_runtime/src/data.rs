@@ -791,6 +791,16 @@ impl DataEngine {
 
         self.validate_permission(ctx, &delete_perm, "delete", entity_name)?;
 
+        // Validate read permission
+        // User must be able to read the entity to delete it (consistency)
+        let read_perm = entity_schema
+            .options
+            .get("read_permission")
+            .cloned()
+            .unwrap_or_else(|| format!("read:{}", entity_name));
+
+        self.validate_permission(ctx, &read_perm, "read", entity_name)?;
+
         // Check Workflow Immutability
         let workflow = self
             .schema
@@ -815,9 +825,7 @@ impl DataEngine {
         let mut current_record_opt: Option<Arc<Value>> = None;
 
         if workflow.is_some() || has_delete_rules || has_composition {
-            // Note: calling self.read here would check read permission.
-            // Generally acceptable, but to be consistent with update, maybe verify delete needs read?
-            // Yes, user should have read access to delete properly (or at least check workflow).
+            // Fetch record for validation
             current_record_opt = self.read(entity_name, id, ctx).await?;
         }
 

@@ -114,9 +114,9 @@ impl DataStore for MockDataStore {
     }
 
     async fn query_with_params(&self, sql: &str, _params: Vec<Value>) -> Result<Vec<Arc<Value>>, String> {
-        // Mock the aggregation query
-        if sql.contains("SUM(jl.debit)") {
-            // Return mock balances
+        // Mock the aggregation query (Updated to match Plugin's raw fetch)
+        if sql.contains("jl.debit") && sql.contains("jl.credit") {
+            // Return mock balances as individual lines or pre-aggregated lines behaving as raw lines
             // Rev: Credit 1000 (Revenue is Credit normal)
             // Exp: Debit 400 (Expense is Debit normal)
             // Profit = 600.
@@ -128,14 +128,14 @@ impl DataStore for MockDataStore {
             return Ok(vec![
                 Arc::new(json!({
                     "account_id": "rev_id",
-                    "total_debit": 0.0,
-                    "total_credit": 1000.0,
+                    "debit": 0.0,
+                    "credit": 1000.0,
                     "account_type": "Revenue"
                 })),
                 Arc::new(json!({
                     "account_id": "exp_id",
-                    "total_debit": 400.0,
-                    "total_credit": 0.0,
+                    "debit": 400.0,
+                    "credit": 0.0,
                     "account_type": "Expense"
                 })),
             ]);
