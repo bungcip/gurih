@@ -15,6 +15,8 @@ pub enum QueryPlan {
     ExecuteHierarchy {
         sql: String,
         params: Vec<Value>,
+        structure_sql: String,
+        structure_params: Vec<Value>,
         parent_field: String,
         rollup_fields: Vec<String>,
     },
@@ -108,11 +110,6 @@ impl QueryEngine {
             for s in &query.group_by {
                 validate_identifier(s.as_str())?;
             }
-            // Naive field formatting, assumes fields are columns of root or joined tables.
-            // But symbols don't have table qualification.
-            // We might need to assume root table or use qualified names in DSL.
-            // For now, let's wrap in brackets.
-            // Actually, expression_to_sql handles Field as [name].
             let group_parts: Vec<String> = query.group_by.iter().map(|s| format!("[{}]", s)).collect();
             group_by_clause = format!("GROUP BY {}", group_parts.join(", "));
         }
@@ -129,10 +126,65 @@ impl QueryEngine {
                 .hierarchy
                 .as_ref()
                 .ok_or("Hierarchy definition missing for query:hierarchy")?;
+
+            // Generate Structure SQL (Minimal fetch)
+            let mut struct_selects = vec![];
+            let mut struct_params = vec![];
+            let mut struct_join_parts = vec![];
+
+            // Force ID and Parent
+            struct_selects.push(format!("{}.id", root_table));
+            struct_selects.push(format!("{}.{}", root_table, h.parent_field));
+
+            for rf in &h.rollup_fields {
+                if let Some(form) = query.formulas.iter().find(|f| f.name == *rf) {
+                    let expr_sql = Self::expression_to_sql(&form.expression, &mut struct_params, &db_type, runtime_params);
+                    struct_selects.push(format!("{} AS {}", expr_sql, rf));
+                } else if let Some(sel) = query.selections.iter().find(|s| s.alias.as_ref() == Some(rf) || s.field == *rf) {
+                    let col_sql = format!("{}.{}", root_table, sel.field);
+                    struct_selects.push(format!("{} AS {}", col_sql, rf));
+                } else {
+                    struct_selects.push(format!("{}.{}", root_table, rf));
+                }
+            }
+
+            let mut dummy_selects = vec![];
+            let mut struct_state = QueryBuilderState {
+                schema,
+                select_parts: &mut dummy_selects, // Discard implicit selections
+                join_parts: &mut struct_join_parts,
+                params: &mut struct_params,
+                db_type: &db_type,
+                runtime_params,
+            };
+
+            Self::process_joins(&query.joins, &root_table, &query.root_entity.to_string(), &mut struct_state)?;
+
+            let struct_join_clause = struct_join_parts.join(" ");
+
+            let mut struct_where_clause = String::new();
+            if !query.filters.is_empty() {
+                let filter_parts: Vec<String> = query
+                    .filters
+                    .iter()
+                    .map(|e| Self::expression_to_sql(e, &mut struct_params, &db_type, runtime_params))
+                    .collect();
+                struct_where_clause = format!("WHERE {}", filter_parts.join(" AND "));
+            }
+
+            let structure_sql = format!(
+                "SELECT {} FROM {} {} {} {}",
+                struct_selects.join(", "), root_table, struct_join_clause, struct_where_clause, group_by_clause
+            )
+            .trim()
+            .to_string();
+
             Ok(QueryExecutionStrategy {
                 plans: vec![QueryPlan::ExecuteHierarchy {
                     sql,
                     params,
+                    structure_sql,
+                    structure_params: struct_params,
                     parent_field: h.parent_field.to_string(),
                     rollup_fields: h.rollup_fields.iter().map(|s| s.to_string()).collect(),
                 }],

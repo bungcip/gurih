@@ -999,13 +999,15 @@ impl DataEngine {
                 Some(QueryPlan::ExecuteHierarchy {
                     sql,
                     params,
+                    structure_sql,
+                    structure_params,
                     parent_field,
                     rollup_fields,
                 }) => {
-                    // 1. Fetch all records (flat)
+                    // 1. Fetch minimal structure (flat)
                     let records = self
                         .datastore
-                        .query_with_params(&sql, params)
+                        .query_with_params(&structure_sql, structure_params)
                         .await
                         .map_err(|e| e.to_string())?;
 
@@ -1036,8 +1038,99 @@ impl DataEngine {
                         }
                     }
 
-                    // 3. Recursive Rollup & Flatten
-                    return self.build_hierarchy(&roots, &records_map, &children_map, &rollup_fields, limit, offset);
+                    // 3. Recursive Rollup & Flatten (returns structure + rollups)
+                    let page_results = self.build_hierarchy(
+                        &roots,
+                        &records_map,
+                        &children_map,
+                        &rollup_fields,
+                        limit,
+                        offset,
+                    )?;
+
+                    if page_results.is_empty() {
+                        return Ok(vec![]);
+                    }
+
+                    // 4. Fetch Details for visible page
+                    let mut ids = Vec::new();
+                    for r in &page_results {
+                        if let Some(id) = r.get("id").and_then(|v| v.as_str()) {
+                            ids.push(id.to_string());
+                        }
+                    }
+
+                    if ids.is_empty() {
+                        return Ok(page_results);
+                    }
+
+                    // Wrap original SQL in subquery to filter by ID
+                    let mut detail_params = params.clone();
+                    let mut placeholders = Vec::new();
+
+                    let is_postgres = self
+                        .schema
+                        .database
+                        .as_ref()
+                        .map(|d| d.db_type == gurih_ir::DatabaseType::Postgres)
+                        .unwrap_or(false);
+
+                    for (i, id) in ids.iter().enumerate() {
+                        detail_params.push(Value::String(id.clone()));
+                        if is_postgres {
+                            placeholders.push(format!("${}", params.len() + i + 1));
+                        } else {
+                            placeholders.push("?".to_string());
+                        }
+                    }
+
+                    let details_sql = format!(
+                        "SELECT * FROM ({}) AS details WHERE details.id IN ({})",
+                        sql,
+                        placeholders.join(", ")
+                    );
+
+                    let details = self
+                        .datastore
+                        .query_with_params(&details_sql, detail_params)
+                        .await
+                        .map_err(|e| format!("Failed to fetch hierarchy details: {}", e))?;
+
+                    // 5. Merge Details
+                    let details_map: std::collections::HashMap<String, Arc<Value>> = details
+                        .into_iter()
+                        .filter_map(|d| {
+                            let id = d.get("id")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string());
+                            id.map(|i| (i, d))
+                        })
+                        .collect();
+
+                    let mut final_page = Vec::with_capacity(page_results.len());
+
+                    for node in page_results {
+                        let id = node.get("id").and_then(|v| v.as_str()).unwrap_or("");
+
+                        // Start with detail object (full fields)
+                        let mut merged = if let Some(detail) = details_map.get(id) {
+                            detail.as_object().cloned().unwrap_or_default()
+                        } else {
+                            // Fallback to node (structure only)
+                            node.as_object().cloned().unwrap_or_default()
+                        };
+
+                        // Overlay structure metadata (rollups, _level, etc)
+                        if let Some(node_obj) = node.as_object() {
+                            for (k, v) in node_obj {
+                                // Overwrite details with computed values (rollups) and metadata
+                                merged.insert(k.clone(), v.clone());
+                            }
+                        }
+                        final_page.push(Arc::new(Value::Object(merged)));
+                    }
+
+                    return Ok(final_page);
                 }
                 None => return Err("Query engine failed to produce SQL plan".to_string()),
             }
