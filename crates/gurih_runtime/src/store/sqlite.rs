@@ -39,45 +39,61 @@ impl SqliteDataStore {
     }
 
     fn row_to_json(row: &sqlx::sqlite::SqliteRow) -> Value {
+        use serde_json::Number;
+
         let mut map = serde_json::Map::new();
-        for col in row.columns() {
+        for (i, col) in row.columns().iter().enumerate() {
             let name = col.name();
             let type_name = col.type_info().name();
 
             let val = match type_name {
                 "TEXT" | "VARCHAR" | "CHAR" | "CLOB" => {
-                    let v: Option<String> = row.try_get(name).unwrap_or(None);
-                    serde_json::to_value(v).unwrap()
+                    match row.try_get::<Option<String>, _>(i) {
+                        Ok(Some(v)) => Value::String(v),
+                        _ => Value::Null,
+                    }
                 }
                 "INTEGER" | "INT" | "BIGINT" | "TINYINT" | "SMALLINT" => {
-                    let v: Option<i64> = row.try_get(name).unwrap_or(None);
-                    serde_json::to_value(v).unwrap()
+                    match row.try_get::<Option<i64>, _>(i) {
+                        Ok(Some(v)) => Value::Number(Number::from(v)),
+                        _ => Value::Null,
+                    }
                 }
                 "REAL" | "FLOAT" | "DOUBLE" | "NUMERIC" => {
-                    let v: Option<f64> = row.try_get(name).unwrap_or(None);
-                    serde_json::to_value(v).unwrap()
+                    match row.try_get::<Option<f64>, _>(i) {
+                        Ok(Some(v)) => Number::from_f64(v).map(Value::Number).unwrap_or(Value::Null),
+                        _ => Value::Null,
+                    }
                 }
                 "BOOLEAN" => {
-                    let v: Option<bool> = row.try_get(name).unwrap_or(None);
-                    serde_json::to_value(v).unwrap()
+                    match row.try_get::<Option<bool>, _>(i) {
+                        Ok(Some(v)) => Value::Bool(v),
+                        _ => Value::Null,
+                    }
                 }
                 "DATE" => {
                     // SQLite doesn't have a native DATE type, but we might have declared it as DATE.
                     // SQLx maps DATE to chrono::NaiveDate if the column type is "DATE".
-                    let v: Option<NaiveDate> = row.try_get(name).unwrap_or(None);
-                    serde_json::to_value(v).unwrap()
+                    let v: Option<NaiveDate> = row.try_get(i).unwrap_or(None);
+                    serde_json::to_value(v).unwrap_or(Value::Null)
                 }
                 "DATETIME" | "TIMESTAMP" => {
-                    let v: Option<chrono::NaiveDateTime> = row.try_get(name).unwrap_or(None);
-                    serde_json::to_value(v).unwrap()
+                    let v: Option<chrono::NaiveDateTime> = row.try_get(i).unwrap_or(None);
+                    serde_json::to_value(v).unwrap_or(Value::Null)
                 }
                 _ => {
                     // Fallback: try f64 first, then String
-                    if let Ok(val) = row.try_get::<Option<f64>, _>(name) {
-                        serde_json::to_value(val).unwrap_or(Value::Null)
+                    if let Ok(val) = row.try_get::<Option<f64>, _>(i) {
+                        if let Some(v) = val {
+                            Number::from_f64(v).map(Value::Number).unwrap_or(Value::Null)
+                        } else {
+                            Value::Null
+                        }
                     } else {
-                        let v: Option<String> = row.try_get(name).ok();
-                        serde_json::to_value(v).unwrap_or(Value::Null)
+                        match row.try_get::<Option<String>, _>(i) {
+                            Ok(Some(v)) => Value::String(v),
+                            _ => Value::Null,
+                        }
                     }
                 }
             };
