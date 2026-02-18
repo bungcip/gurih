@@ -2,6 +2,9 @@ use crate::store::validate_identifier;
 use gurih_ir::{BinaryOperator, DatabaseType, Expression, QueryJoin, Schema, UnaryOperator};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::cell::RefCell;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum QueryPlan {
@@ -201,19 +204,37 @@ impl QueryEngine {
         Ok(())
     }
 
-    fn entity_to_table(s: &str) -> String {
-        let mut result = String::new();
-        for (i, c) in s.char_indices() {
-            if c.is_uppercase() {
-                if i > 0 {
-                    result.push('_');
-                }
-                result.push(c.to_ascii_lowercase());
-            } else {
-                result.push(c);
-            }
+    fn entity_to_table(s: &str) -> Arc<str> {
+        thread_local! {
+            static CACHE: RefCell<HashMap<String, Arc<str>>> = RefCell::new(HashMap::new());
         }
-        result
+        CACHE.with(|cache| {
+            let mut cache = cache.borrow_mut();
+            if let Some(val) = cache.get(s) {
+                return val.clone();
+            }
+
+            let mut result = String::new();
+            for (i, c) in s.char_indices() {
+                if c.is_uppercase() {
+                    if i > 0 {
+                        result.push('_');
+                    }
+                    result.push(c.to_ascii_lowercase());
+                } else {
+                    result.push(c);
+                }
+            }
+
+            let val: Arc<str> = Arc::from(result);
+            if s.len() <= 128 {
+                if cache.len() > 1000 {
+                    cache.clear();
+                }
+                cache.insert(s.to_string(), val.clone());
+            }
+            val
+        })
     }
 
     fn expression_to_sql(
