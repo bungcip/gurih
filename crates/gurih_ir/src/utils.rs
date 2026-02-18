@@ -3,7 +3,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 pub fn to_title_case(s: &str) -> String {
-    s.split('_')
+    s.split(|c| c == '_' || c == '-')
+        .filter(|s| !s.is_empty())
         .map(|word| {
             if word.eq_ignore_ascii_case("id") {
                 return "ID".to_string();
@@ -94,5 +95,26 @@ pub fn get_db_placeholder(db_type: &DatabaseType, index: usize) -> String {
         format!("${}", index)
     } else {
         "?".to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_to_title_case() {
+        assert_eq!(to_title_case("first_name"), "First Name");
+        assert_eq!(to_title_case("last_name"), "Last Name");
+        assert_eq!(to_title_case("email"), "Email");
+        assert_eq!(to_title_case("created_at"), "Created At");
+        assert_eq!(to_title_case("sk_pns"), "Sk Pns");
+        assert_eq!(to_title_case("my-field-name"), "My Field Name");
+        assert_eq!(to_title_case("simple"), "Simple");
+        assert_eq!(to_title_case(""), "");
+        assert_eq!(to_title_case("____"), "");
+        assert_eq!(to_title_case("weird__spacing"), "Weird Spacing");
+        assert_eq!(to_title_case("id"), "ID");
+        assert_eq!(to_title_case("user_id"), "User ID");
     }
 }
