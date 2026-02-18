@@ -7,7 +7,7 @@ use crate::traits::DataAccess;
 use crate::workflow::WorkflowEngine;
 use async_trait::async_trait;
 use chrono::Local;
-use gurih_ir::{FieldType, Schema, Symbol};
+use gurih_ir::{FieldType, QueryJoin, Schema, Symbol};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -950,7 +950,6 @@ impl DataEngine {
             let root_entity = query.root_entity.as_str();
 
             // We check read permission for the root entity
-            // Ideally we should recursively check joined entities, but that's complex.
             if let Some(entity_schema) = self.schema.entities.get(&query.root_entity) {
                 let read_perm = entity_schema
                     .options
@@ -964,6 +963,9 @@ impl DataEngine {
                 let read_perm = format!("read:{}", entity);
                 self.validate_permission(ctx, &read_perm, "read", entity)?;
             }
+
+            // Recursively check joined entities
+            self.check_query_permissions_recursive(&query.joins, ctx)?;
 
             let mut runtime_params = std::collections::HashMap::new();
             if let Some(f) = filters {
@@ -1055,6 +1057,29 @@ impl DataEngine {
         } else {
             Err(format!("Entity or Query '{}' not defined", entity))
         }
+    }
+
+    fn check_query_permissions_recursive(
+        &self,
+        joins: &[QueryJoin],
+        ctx: &RuntimeContext,
+    ) -> Result<(), String> {
+        for join in joins {
+            let target_entity = join.target_entity.as_str();
+            if let Some(entity_schema) = self.schema.entities.get(&join.target_entity) {
+                let read_perm = entity_schema
+                    .options
+                    .get("read_permission")
+                    .cloned()
+                    .unwrap_or_else(|| format!("read:{}", target_entity));
+
+                self.validate_permission(ctx, &read_perm, "read", target_entity)?;
+            }
+
+            // Recurse
+            self.check_query_permissions_recursive(&join.joins, ctx)?;
+        }
+        Ok(())
     }
 
     fn build_hierarchy(
