@@ -12,29 +12,12 @@ pub async fn evaluate(
     schema: Option<&Schema>,
     datastore: Option<&Arc<dyn DataStore>>,
 ) -> Result<Value, RuntimeError> {
+    if !needs_async(expr) {
+        return evaluate_sync(expr, context, schema);
+    }
+
     match expr {
-        Expression::Field(name) => {
-            let key = name.as_str();
-            if key.contains('.') {
-                // OPTIMIZATION: Iterate directly over split iterator to avoid Vec allocation
-                let mut current = context;
-                for part in key.split('.') {
-                    match current {
-                        Value::Object(map) => {
-                            if let Some(val) = map.get(part) {
-                                current = val;
-                            } else {
-                                return Ok(Value::Null);
-                            }
-                        }
-                        _ => return Ok(Value::Null),
-                    }
-                }
-                Ok(current.clone())
-            } else {
-                Ok(context.get(key).cloned().unwrap_or(Value::Null))
-            }
-        }
+        Expression::Field(name) => eval_field(name.as_str(), context),
         Expression::Literal(n) => {
             Ok(Value::Number(serde_json::Number::from_f64(*n).ok_or_else(|| {
                 RuntimeError::EvaluationError("Invalid float literal".to_string())
@@ -42,43 +25,182 @@ pub async fn evaluate(
         }
         Expression::StringLiteral(s) => Ok(Value::String(s.clone())),
         Expression::BoolLiteral(b) => Ok(Value::Bool(*b)),
-        Expression::Grouping(inner) => Box::pin(evaluate(inner, context, schema, datastore)).await,
+        Expression::Grouping(inner) => {
+            if needs_async(inner) {
+                Box::pin(evaluate(inner, context, schema, datastore)).await
+            } else {
+                evaluate_sync(inner, context, schema)
+            }
+        },
         Expression::UnaryOp { op, expr } => {
-            let val = Box::pin(evaluate(expr, context, schema, datastore)).await?;
+            let val = if needs_async(expr) {
+                Box::pin(evaluate(expr, context, schema, datastore)).await?
+            } else {
+                evaluate_sync(expr, context, schema)?
+            };
             eval_unary_op(op, val)
         }
         Expression::BinaryOp { left, op, right } => match op {
             BinaryOperator::And => {
-                let l = Box::pin(evaluate(left, context, schema, datastore)).await?;
+                let l = if needs_async(left) {
+                    Box::pin(evaluate(left, context, schema, datastore)).await?
+                } else {
+                    evaluate_sync(left, context, schema)?
+                };
                 if !as_bool(&l)? {
                     return Ok(Value::Bool(false));
                 }
-                let r = Box::pin(evaluate(right, context, schema, datastore)).await?;
+                let r = if needs_async(right) {
+                    Box::pin(evaluate(right, context, schema, datastore)).await?
+                } else {
+                    evaluate_sync(right, context, schema)?
+                };
                 let r_bool = as_bool(&r)?;
                 Ok(Value::Bool(r_bool))
             }
             BinaryOperator::Or => {
-                let l = Box::pin(evaluate(left, context, schema, datastore)).await?;
+                let l = if needs_async(left) {
+                    Box::pin(evaluate(left, context, schema, datastore)).await?
+                } else {
+                    evaluate_sync(left, context, schema)?
+                };
                 if as_bool(&l)? {
                     return Ok(Value::Bool(true));
                 }
-                let r = Box::pin(evaluate(right, context, schema, datastore)).await?;
+                let r = if needs_async(right) {
+                    Box::pin(evaluate(right, context, schema, datastore)).await?
+                } else {
+                    evaluate_sync(right, context, schema)?
+                };
                 let r_bool = as_bool(&r)?;
                 Ok(Value::Bool(r_bool))
             }
             _ => {
-                let l = Box::pin(evaluate(left, context, schema, datastore)).await?;
-                let r = Box::pin(evaluate(right, context, schema, datastore)).await?;
+                let l = if needs_async(left) {
+                    Box::pin(evaluate(left, context, schema, datastore)).await?
+                } else {
+                    evaluate_sync(left, context, schema)?
+                };
+                let r = if needs_async(right) {
+                    Box::pin(evaluate(right, context, schema, datastore)).await?
+                } else {
+                    evaluate_sync(right, context, schema)?
+                };
                 eval_binary_op(op, l, r)
             }
         },
         Expression::FunctionCall { name, args } => {
-            let mut eval_args = Vec::new();
+            let mut eval_args = Vec::with_capacity(args.len());
             for arg in args {
-                eval_args.push(Box::pin(evaluate(arg, context, schema, datastore)).await?);
+                if needs_async(arg) {
+                    eval_args.push(Box::pin(evaluate(arg, context, schema, datastore)).await?);
+                } else {
+                    eval_args.push(evaluate_sync(arg, context, schema)?);
+                }
             }
-            eval_function(name.as_str(), &eval_args, schema, datastore).await
+
+            if let Some(val) = eval_function_sync(name.as_str(), &eval_args)? {
+                Ok(val)
+            } else {
+                eval_function(name.as_str(), &eval_args, schema, datastore).await
+            }
         }
+    }
+}
+
+fn needs_async(expr: &Expression) -> bool {
+    match expr {
+        Expression::FunctionCall { name, args } => {
+            let n = name.as_str();
+            if n == "lookup_field" || n == "exists" {
+                return true;
+            }
+            args.iter().any(needs_async)
+        }
+        Expression::Grouping(inner) => needs_async(inner),
+        Expression::UnaryOp { expr, .. } => needs_async(expr),
+        Expression::BinaryOp { left, right, .. } => needs_async(left) || needs_async(right),
+        _ => false,
+    }
+}
+
+fn evaluate_sync(
+    expr: &Expression,
+    context: &Value,
+    schema: Option<&Schema>,
+) -> Result<Value, RuntimeError> {
+    match expr {
+        Expression::Field(name) => eval_field(name.as_str(), context),
+        Expression::Literal(n) => {
+            Ok(Value::Number(serde_json::Number::from_f64(*n).ok_or_else(|| {
+                RuntimeError::EvaluationError("Invalid float literal".to_string())
+            })?))
+        }
+        Expression::StringLiteral(s) => Ok(Value::String(s.clone())),
+        Expression::BoolLiteral(b) => Ok(Value::Bool(*b)),
+        Expression::Grouping(inner) => evaluate_sync(inner, context, schema),
+        Expression::UnaryOp { op, expr } => {
+            let val = evaluate_sync(expr, context, schema)?;
+            eval_unary_op(op, val)
+        }
+        Expression::BinaryOp { left, op, right } => match op {
+            BinaryOperator::And => {
+                let l = evaluate_sync(left, context, schema)?;
+                if !as_bool(&l)? {
+                    return Ok(Value::Bool(false));
+                }
+                let r = evaluate_sync(right, context, schema)?;
+                let r_bool = as_bool(&r)?;
+                Ok(Value::Bool(r_bool))
+            }
+            BinaryOperator::Or => {
+                let l = evaluate_sync(left, context, schema)?;
+                if as_bool(&l)? {
+                    return Ok(Value::Bool(true));
+                }
+                let r = evaluate_sync(right, context, schema)?;
+                let r_bool = as_bool(&r)?;
+                Ok(Value::Bool(r_bool))
+            }
+            _ => {
+                let l = evaluate_sync(left, context, schema)?;
+                let r = evaluate_sync(right, context, schema)?;
+                eval_binary_op(op, l, r)
+            }
+        },
+        Expression::FunctionCall { name, args } => {
+            let mut eval_args = Vec::with_capacity(args.len());
+            for arg in args {
+                eval_args.push(evaluate_sync(arg, context, schema)?);
+            }
+            if let Some(val) = eval_function_sync(name.as_str(), &eval_args)? {
+                Ok(val)
+            } else {
+                Err(RuntimeError::EvaluationError(format!("Async function call in sync context: {}", name)))
+            }
+        }
+    }
+}
+
+fn eval_field(key: &str, context: &Value) -> Result<Value, RuntimeError> {
+    if key.contains('.') {
+        // OPTIMIZATION: Iterate directly over split iterator to avoid Vec allocation
+        let mut current = context;
+        for part in key.split('.') {
+            match current {
+                Value::Object(map) => {
+                    if let Some(val) = map.get(part) {
+                        current = val;
+                    } else {
+                        return Ok(Value::Null);
+                    }
+                }
+                _ => return Ok(Value::Null),
+            }
+        }
+        Ok(current.clone())
+    } else {
+        Ok(context.get(key).cloned().unwrap_or(Value::Null))
     }
 }
 
@@ -181,12 +303,7 @@ fn eval_binary_op(op: &BinaryOperator, left: Value, right: Value) -> Result<Valu
     }
 }
 
-async fn eval_function(
-    name: &str,
-    args: &[Value],
-    schema: Option<&Schema>,
-    datastore: Option<&Arc<dyn DataStore>>,
-) -> Result<Value, RuntimeError> {
+fn eval_function_sync(name: &str, args: &[Value]) -> Result<Option<Value>, RuntimeError> {
     match name {
         "age" => {
             if args.len() != 1 {
@@ -203,7 +320,7 @@ async fn eval_function(
                 age -= 1;
             }
 
-            Ok(Value::Number(serde_json::Number::from(age)))
+            Ok(Some(Value::Number(serde_json::Number::from(age))))
         }
         "years_of_service" => {
             if args.len() != 1 {
@@ -222,17 +339,18 @@ async fn eval_function(
                 years -= 1;
             }
 
-            Ok(Value::Number(serde_json::Number::from(years)))
+            Ok(Some(Value::Number(serde_json::Number::from(years))))
         }
         "is_set" => {
             if args.len() != 1 {
                 return Err(RuntimeError::EvaluationError("is_set() takes 1 argument".into()));
             }
-            match &args[0] {
-                Value::Null => Ok(Value::Bool(false)),
-                Value::String(s) => Ok(Value::Bool(!s.is_empty())),
-                _ => Ok(Value::Bool(true)),
-            }
+            let res = match &args[0] {
+                Value::Null => Value::Bool(false),
+                Value::String(s) => Value::Bool(!s.is_empty()),
+                _ => Value::Bool(true),
+            };
+            Ok(Some(res))
         }
         "valid_date" => {
             if args.len() != 1 {
@@ -240,13 +358,24 @@ async fn eval_function(
             }
             let date_str = match &args[0] {
                 Value::String(s) => s,
-                Value::Null => return Ok(Value::Bool(false)),
-                _ => return Ok(Value::Bool(false)),
+                Value::Null => return Ok(Some(Value::Bool(false))),
+                _ => return Ok(Some(Value::Bool(false))),
             };
 
             let valid = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").is_ok();
-            Ok(Value::Bool(valid))
+            Ok(Some(Value::Bool(valid)))
         }
+        _ => Ok(None),
+    }
+}
+
+async fn eval_function(
+    name: &str,
+    args: &[Value],
+    schema: Option<&Schema>,
+    datastore: Option<&Arc<dyn DataStore>>,
+) -> Result<Value, RuntimeError> {
+    match name {
         "lookup_field" => {
             if args.len() != 3 {
                 return Err(RuntimeError::EvaluationError("lookup_field() takes 3 arguments".into()));
