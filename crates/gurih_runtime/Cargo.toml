@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+futures = "0.3"
 pbkdf2 = "0.12"
 subtle = "2.4"
 hmac = "0.12.1"
