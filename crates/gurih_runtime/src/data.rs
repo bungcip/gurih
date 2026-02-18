@@ -1243,6 +1243,7 @@ impl DataEngine {
 
         let mut code_map = HashMap::new();
         let mut name_map = HashMap::new();
+        let mut system_tag_map = HashMap::new();
 
         // Batch Fetch if DB is configured
         if let Some(db_config) = &self.schema.database {
@@ -1254,33 +1255,45 @@ impl DataEngine {
                 let mut params = Vec::new();
                 let mut placeholders_code = Vec::new();
                 let mut placeholders_name = Vec::new();
+                let mut placeholders_tag = Vec::new();
 
                 for (i, term) in chunk.iter().enumerate() {
                     params.push(Value::String(term.to_string()));
                     placeholders_code.push(gurih_ir::utils::get_db_placeholder(&db_config.db_type, i + 1));
                 }
 
-                // For name clause placeholders
+                // For name/tag clause placeholders
                 if db_config.db_type == gurih_ir::DatabaseType::Postgres {
                     // Postgres can reuse params $1..$N
                     for i in 0..chunk.len() {
-                        placeholders_name.push(format!("${}", i + 1));
+                        let p = format!("${}", i + 1);
+                        placeholders_name.push(p.clone());
+                        placeholders_tag.push(p);
                     }
                 } else {
                     // SQLite needs params to be repeated
+                    // Name params
                     for term in chunk {
                         params.push(Value::String(term.to_string()));
                     }
                     for _ in 0..chunk.len() {
                         placeholders_name.push("?".to_string());
                     }
+                    // Tag params
+                    for term in chunk {
+                        params.push(Value::String(term.to_string()));
+                    }
+                    for _ in 0..chunk.len() {
+                        placeholders_tag.push("?".to_string());
+                    }
                 }
 
                 let sql = format!(
-                    "SELECT id, code, name FROM {} WHERE code IN ({}) OR name IN ({})",
+                    "SELECT id, code, name, system_tag FROM {} WHERE code IN ({}) OR name IN ({}) OR system_tag IN ({})",
                     account_table,
                     placeholders_code.join(", "),
-                    placeholders_name.join(", ")
+                    placeholders_name.join(", "),
+                    placeholders_tag.join(", ")
                 );
 
                 if let Ok(rows) = self.datastore.query_with_params(&sql, params).await {
@@ -1297,12 +1310,20 @@ impl DataEngine {
                                 .and_then(|v| v.as_str())
                                 .unwrap_or_default()
                                 .to_string();
+                            let tag = obj
+                                .get("system_tag")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or_default()
+                                .to_string();
 
                             if !code.is_empty() {
                                 code_map.insert(code, id.clone());
                             }
                             if !name.is_empty() {
-                                name_map.insert(name, id);
+                                name_map.insert(name, id.clone());
+                            }
+                            if !tag.is_empty() {
+                                system_tag_map.insert(tag, id);
                             }
                         }
                     }
@@ -1316,19 +1337,31 @@ impl DataEngine {
             // Resolve Account (Optimized Lookup with Fallback)
             let account_term = line.account.as_str();
 
-            let account_id = if let Some(id) = code_map.get(account_term) {
+            let account_id = if let Some(id) = system_tag_map.get(account_term) {
+                id.clone()
+            } else if let Some(id) = code_map.get(account_term) {
                 id.clone()
             } else if let Some(id) = name_map.get(account_term) {
                 id.clone()
             } else {
                 // Fallback to individual find (MemoryStore or missing from batch)
                 let mut filters = HashMap::new();
-                filters.insert("code".to_string(), account_term.to_string());
+                filters.insert("system_tag".to_string(), account_term.to_string());
                 let mut accounts = self
                     .datastore
                     .find(account_table, filters)
                     .await
                     .map_err(|e| e.to_string())?;
+
+                if accounts.is_empty() {
+                    let mut filters = HashMap::new();
+                    filters.insert("code".to_string(), account_term.to_string());
+                    accounts = self
+                        .datastore
+                        .find(account_table, filters)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                }
 
                 if accounts.is_empty() {
                     let mut filters = HashMap::new();
@@ -1387,13 +1420,14 @@ impl DataEngine {
         let journal_id = self.create("JournalEntry", Value::Object(journal), ctx).await?;
 
         // Create Journal Lines
-        for mut line_val in journal_lines {
+        for line_val in &mut journal_lines {
             if let Some(obj) = line_val.as_object_mut() {
                 obj.insert("journal_entry".to_string(), Value::String(journal_id.clone()));
             }
-            // Use create() to ensure validation logic runs
-            self.create("JournalLine", line_val, ctx).await?;
         }
+
+        // Use create_many() to ensure validation logic runs in batch
+        self.create_many("JournalLine", journal_lines, ctx).await?;
 
         Ok(())
     }
