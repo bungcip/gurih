@@ -301,7 +301,45 @@ fn eval_binary_op(op: &BinaryOperator, left: Value, right: Value) -> Result<Valu
             let r = as_bool(&right)?;
             Ok(Value::Bool(l || r))
         }
+        BinaryOperator::Like => {
+            let l_str = as_str(&left)?;
+            let r_str = as_str(&right)?;
+            Ok(Value::Bool(match_like(l_str, r_str)))
+        }
+        BinaryOperator::ILike => {
+            let l_str = as_str(&left)?;
+            let r_str = as_str(&right)?;
+            Ok(Value::Bool(match_like(&l_str.to_lowercase(), &r_str.to_lowercase())))
+        }
     }
+}
+
+fn match_like(s: &str, p: &str) -> bool {
+    let s_chars: Vec<char> = s.chars().collect();
+    let p_chars: Vec<char> = p.chars().collect();
+    match_like_recursive(&s_chars, 0, &p_chars, 0)
+}
+
+fn match_like_recursive(s: &[char], si: usize, p: &[char], pi: usize) -> bool {
+    if pi == p.len() {
+        return si == s.len();
+    }
+    if p[pi] == '%' {
+        // Match zero or more characters
+        // Skip % in pattern
+        if match_like_recursive(s, si, p, pi + 1) {
+            return true;
+        }
+        // Consume character in string
+        if si < s.len() {
+            return match_like_recursive(s, si + 1, p, pi);
+        }
+        return false;
+    }
+    if si < s.len() && (p[pi] == '_' || p[pi] == s[si]) {
+        return match_like_recursive(s, si + 1, p, pi + 1);
+    }
+    false
 }
 
 fn eval_function_sync(name: &str, args: &[Value]) -> Result<Option<Value>, RuntimeError> {
