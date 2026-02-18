@@ -449,15 +449,7 @@ mod tests {
             group_by: vec![],
             filters: vec![Expression::BinaryOp {
                 left: Box::new(Expression::Field("published_at".into())),
-                op: BinaryOperator::Sub, // Using sub as placeholder for comparison (no comparison op yet)
-                // Wait, DSL needs comparison operators for filters.
-                // The prompt example: `[published_at] < DATE('2000-01-01')`.
-                // My `Expression` enum only supports basic arithmetic.
-                // I need to add comparison operators to `BinaryOp` or `Expression`.
-                // BUT, for now I will use existing operators just to verify WHERE clause generation.
-                // Assuming parser parses `<` as something or I'll just use BinaryOp for now.
-                // Wait, if parser doesn't support `<`, then user request `[published_at] < DATE` won't parse.
-                // I need to update Expression/Parser to support `<`.
+                op: BinaryOperator::Lt,
                 right: Box::new(Expression::FunctionCall {
                     name: "DATE".into(),
                     args: vec![],
@@ -500,7 +492,7 @@ mod tests {
         assert!(sql.contains("people_entity.name AS author"));
         assert!(sql.contains("FROM book_entity"));
         assert!(sql.contains("LEFT JOIN people_entity"));
-        assert!(sql.contains("WHERE [published_at] - DATE()"));
+        assert!(sql.contains("WHERE [published_at] < DATE()"));
     }
 
     #[test]

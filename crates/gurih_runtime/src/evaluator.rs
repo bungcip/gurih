@@ -270,25 +270,26 @@ fn eval_binary_op(op: &BinaryOperator, left: Value, right: Value) -> Result<Valu
         }
         BinaryOperator::Eq => Ok(Value::Bool(left == right)),
         BinaryOperator::Neq => Ok(Value::Bool(left != right)),
-        BinaryOperator::Gt => {
-            let l = as_f64(&left)?;
-            let r = as_f64(&right)?;
-            Ok(Value::Bool(l > r))
-        }
-        BinaryOperator::Lt => {
-            let l = as_f64(&left)?;
-            let r = as_f64(&right)?;
-            Ok(Value::Bool(l < r))
-        }
-        BinaryOperator::Gte => {
-            let l = as_f64(&left)?;
-            let r = as_f64(&right)?;
-            Ok(Value::Bool(l >= r))
-        }
-        BinaryOperator::Lte => {
-            let l = as_f64(&left)?;
-            let r = as_f64(&right)?;
-            Ok(Value::Bool(l <= r))
+        BinaryOperator::Gt | BinaryOperator::Lt | BinaryOperator::Gte | BinaryOperator::Lte => {
+            if let (Some(l_str), Some(r_str)) = (left.as_str(), right.as_str()) {
+                match op {
+                    BinaryOperator::Gt => Ok(Value::Bool(l_str > r_str)),
+                    BinaryOperator::Lt => Ok(Value::Bool(l_str < r_str)),
+                    BinaryOperator::Gte => Ok(Value::Bool(l_str >= r_str)),
+                    BinaryOperator::Lte => Ok(Value::Bool(l_str <= r_str)),
+                    _ => unreachable!(),
+                }
+            } else {
+                let l = as_f64(&left)?;
+                let r = as_f64(&right)?;
+                match op {
+                    BinaryOperator::Gt => Ok(Value::Bool(l > r)),
+                    BinaryOperator::Lt => Ok(Value::Bool(l < r)),
+                    BinaryOperator::Gte => Ok(Value::Bool(l >= r)),
+                    BinaryOperator::Lte => Ok(Value::Bool(l <= r)),
+                    _ => unreachable!(),
+                }
+            }
         }
         BinaryOperator::And => {
             let l = as_bool(&left)?;
@@ -616,6 +617,38 @@ mod tests {
         // Assert successful evaluation (short-circuit)
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), json!(true));
+    }
+
+    #[tokio::test]
+    async fn test_string_comparison() {
+        let ctx = json!({});
+
+        // "apple" < "banana"
+        let expr = Expression::BinaryOp {
+            left: Box::new(Expression::StringLiteral("apple".into())),
+            op: BinaryOperator::Lt,
+            right: Box::new(Expression::StringLiteral("banana".into())),
+        };
+        let res = evaluate(&expr, &ctx, None, None).await.unwrap();
+        assert_eq!(res, json!(true));
+
+        // "apple" > "banana" -> false
+        let expr = Expression::BinaryOp {
+            left: Box::new(Expression::StringLiteral("apple".into())),
+            op: BinaryOperator::Gt,
+            right: Box::new(Expression::StringLiteral("banana".into())),
+        };
+        let res = evaluate(&expr, &ctx, None, None).await.unwrap();
+        assert_eq!(res, json!(false));
+
+        // "2023-01-01" < "2023-12-31"
+        let expr = Expression::BinaryOp {
+            left: Box::new(Expression::StringLiteral("2023-01-01".into())),
+            op: BinaryOperator::Lt,
+            right: Box::new(Expression::StringLiteral("2023-12-31".into())),
+        };
+        let res = evaluate(&expr, &ctx, None, None).await.unwrap();
+        assert_eq!(res, json!(true));
     }
 
     #[tokio::test]
