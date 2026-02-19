@@ -15,6 +15,29 @@ impl PostgresDataStore {
         Self { pool }
     }
 
+    fn build_where_clause(filters: &HashMap<String, String>) -> Result<(String, Vec<&String>), String> {
+        if filters.is_empty() {
+            return Ok((String::new(), vec![]));
+        }
+
+        let mut query = String::new();
+        let mut params = vec![];
+
+        let mut keys: Vec<&String> = filters.keys().collect();
+        keys.sort();
+
+        query.push_str(" WHERE ");
+        for (i, k) in keys.into_iter().enumerate() {
+            validate_identifier(k)?;
+            if i > 0 {
+                query.push_str(" AND ");
+            }
+            query.push_str(&format!("\"{}\" = ${}", k, i + 1));
+            params.push(filters.get(k).unwrap());
+        }
+        Ok((query, params))
+    }
+
     fn row_to_json(row: &sqlx::postgres::PgRow) -> Value {
         let mut map = serde_json::Map::new();
         for col in row.columns() {
@@ -298,19 +321,9 @@ impl DataStore for PostgresDataStore {
     async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
         validate_identifier(entity)?;
         let mut query = format!("SELECT * FROM \"{}\"", entity);
-        let mut params = vec![];
 
-        if !filters.is_empty() {
-            query.push_str(" WHERE ");
-            for (i, (k, v)) in filters.iter().enumerate() {
-                validate_identifier(k)?;
-                if i > 0 {
-                    query.push_str(" AND ");
-                }
-                query.push_str(&format!("\"{}\" = ${}", k, i + 1));
-                params.push(v);
-            }
-        }
+        let (where_clause, params) = Self::build_where_clause(&filters)?;
+        query.push_str(&where_clause);
 
         let mut q = sqlx::query(&query);
         for p in params {
@@ -324,19 +337,9 @@ impl DataStore for PostgresDataStore {
     async fn find_first(&self, entity: &str, filters: HashMap<String, String>) -> Result<Option<Arc<Value>>, String> {
         validate_identifier(entity)?;
         let mut query = format!("SELECT * FROM \"{}\"", entity);
-        let mut params = vec![];
 
-        if !filters.is_empty() {
-            query.push_str(" WHERE ");
-            for (i, (k, v)) in filters.iter().enumerate() {
-                validate_identifier(k)?;
-                if i > 0 {
-                    query.push_str(" AND ");
-                }
-                query.push_str(&format!("\"{}\" = ${}", k, i + 1));
-                params.push(v);
-            }
-        }
+        let (where_clause, params) = Self::build_where_clause(&filters)?;
+        query.push_str(&where_clause);
 
         query.push_str(" LIMIT 1");
 
@@ -356,19 +359,9 @@ impl DataStore for PostgresDataStore {
     async fn count(&self, entity: &str, filters: HashMap<String, String>) -> Result<i64, String> {
         validate_identifier(entity)?;
         let mut query = format!("SELECT COUNT(*) FROM \"{}\"", entity);
-        let mut params = vec![];
 
-        if !filters.is_empty() {
-            query.push_str(" WHERE ");
-            for (i, (k, v)) in filters.iter().enumerate() {
-                validate_identifier(k)?;
-                if i > 0 {
-                    query.push_str(" AND ");
-                }
-                query.push_str(&format!("\"{}\" = ${}", k, i + 1));
-                params.push(v);
-            }
-        }
+        let (where_clause, params) = Self::build_where_clause(&filters)?;
+        query.push_str(&where_clause);
 
         let mut q = sqlx::query_scalar(&query);
         for p in params {
@@ -388,19 +381,9 @@ impl DataStore for PostgresDataStore {
         validate_identifier(entity)?;
         validate_identifier(group_by)?;
         let mut query = format!("SELECT \"{}\", COUNT(*) FROM \"{}\"", group_by, entity);
-        let mut params = vec![];
 
-        if !filters.is_empty() {
-            query.push_str(" WHERE ");
-            for (i, (k, v)) in filters.iter().enumerate() {
-                validate_identifier(k)?;
-                if i > 0 {
-                    query.push_str(" AND ");
-                }
-                query.push_str(&format!("\"{}\" = ${}", k, i + 1));
-                params.push(v);
-            }
-        }
+        let (where_clause, params) = Self::build_where_clause(&filters)?;
+        query.push_str(&where_clause);
 
         query.push_str(&format!(" GROUP BY \"{}\"", group_by));
 

@@ -2,11 +2,10 @@ use crate::errors::CompileError;
 pub use gurih_ir::utils::{capitalize, to_title_case};
 use kdl::{KdlNode, KdlValue};
 
-pub fn get_arg_string(node: &KdlNode, index: usize, src: &str) -> Result<String, CompileError> {
+pub fn get_arg_string(node: &KdlNode, index: usize) -> Result<String, CompileError> {
     node.entry(index)
         .and_then(|val| val.value().as_string().map(|s| s.to_string()))
         .ok_or_else(|| CompileError::ParseError {
-            src: src.to_string(),
             span: node.span().into(),
             message: format!(
                 "Missing or invalid argument at index {} for node '{}'",
@@ -16,11 +15,10 @@ pub fn get_arg_string(node: &KdlNode, index: usize, src: &str) -> Result<String,
         })
 }
 
-pub fn get_prop_string(node: &KdlNode, key: &str, src: &str) -> Result<String, CompileError> {
+pub fn get_prop_string(node: &KdlNode, key: &str) -> Result<String, CompileError> {
     node.get(key)
         .and_then(|val| val.as_string().map(|s| s.to_string()))
         .ok_or_else(|| CompileError::ParseError {
-            src: src.to_string(),
             span: node.span().into(),
             message: format!("Missing property '{}'", key),
         })

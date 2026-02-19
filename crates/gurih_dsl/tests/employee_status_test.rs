@@ -24,7 +24,7 @@ fn test_valid_employee_status() {
     "#;
 
     let ast = parse(src, None).expect("Parse failed");
-    Validator::new(src).validate(&ast).expect("Validation failed");
+    Validator::new().validate(&ast).expect("Validation failed");
 }
 
 #[test]
@@ -36,7 +36,7 @@ fn test_invalid_entity() {
     "#;
 
     let ast = parse(src, None).expect("Parse failed");
-    let err = Validator::new(src).validate(&ast).unwrap_err();
+    let err = Validator::new().validate(&ast).unwrap_err();
     assert!(err.to_string().contains("Entity 'UnknownEntity' not found"));
 }
 
@@ -62,7 +62,7 @@ fn test_invalid_precondition_field() {
     let ast = parse(src, None).expect("Parse failed");
     // Validation should pass because 'min_years_of_service' is a generic Custom node
     // and the validator cannot verify its arguments (like 'from') without domain knowledge.
-    Validator::new(src).validate(&ast).expect("Validation passed");
+    Validator::new().validate(&ast).expect("Validation passed");
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn test_invalid_effect_field() {
     "#;
 
     let ast = parse(src, None).expect("Parse failed");
-    let err = Validator::new(src).validate(&ast).unwrap_err();
+    let err = Validator::new().validate(&ast).unwrap_err();
     assert!(
         err.to_string()
             .contains("Effect target field 'unknown_field' not found")
@@ -104,7 +104,7 @@ fn test_employee_status_with_field() {
     "#;
 
     let ast = parse(src, None).expect("Parse failed");
-    Validator::new(src).validate(&ast).expect("Validation failed");
+    Validator::new().validate(&ast).expect("Validation failed");
 
     let status_def = &ast.employee_statuses[0];
     assert_eq!(status_def.field, Some("status_pegawai".to_string()));

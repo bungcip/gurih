@@ -67,7 +67,7 @@ impl Expr {
 
 pub fn parse_expression(src: &str, start_offset: usize) -> Result<Expr, CompileError> {
     let tokens = tokenize(src, start_offset)?;
-    let mut parser = Parser::new(tokens, src);
+    let mut parser = Parser::new(tokens);
     parser.parse()
 }
 
@@ -211,7 +211,6 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
                     current_pos += 2;
                 } else {
                     return Err(CompileError::ParseError {
-                        src: src.to_string(),
                         span: (abs_start, 1).into(),
                         message: "Unexpected '=', did you mean '=='?".to_string(),
                     });
@@ -262,7 +261,6 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
                     current_pos += 2;
                 } else {
                     return Err(CompileError::ParseError {
-                        src: src.to_string(),
                         span: (abs_start, 1).into(),
                         message: "Unexpected character '&', did you mean '&&'?".to_string(),
                     });
@@ -279,7 +277,6 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
                     current_pos += 2;
                 } else {
                     return Err(CompileError::ParseError {
-                        src: src.to_string(),
                         span: (abs_start, 1).into(),
                         message: "Unexpected character '|', did you mean '||'?".to_string(),
                     });
@@ -301,7 +298,6 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
 
                 if !closed {
                     return Err(CompileError::ParseError {
-                        src: src.to_string(),
                         span: (abs_start, len).into(),
                         message: "Unclosed field bracket".to_string(),
                     });
@@ -328,7 +324,6 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
                 }
                 if !closed {
                     return Err(CompileError::ParseError {
-                        src: src.to_string(),
                         span: (abs_start, len).into(),
                         message: "Unclosed string literal".to_string(),
                     });
@@ -354,7 +349,6 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
                 }
                 if !closed {
                     return Err(CompileError::ParseError {
-                        src: src.to_string(),
                         span: (abs_start, len).into(),
                         message: "Unclosed string literal".to_string(),
                     });
@@ -378,7 +372,6 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
                     }
                 }
                 let val: f64 = content.parse().map_err(|_| CompileError::ParseError {
-                    src: src.to_string(),
                     span: (abs_start, len).into(),
                     message: "Invalid number".to_string(),
                 })?;
@@ -415,7 +408,6 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
             }
             _ => {
                 return Err(CompileError::ParseError {
-                    src: src.to_string(),
                     span: (abs_start, 1).into(),
                     message: format!("Unexpected character: {}", c),
                 });
@@ -431,18 +423,16 @@ fn tokenize(src: &str, start_offset: usize) -> Result<Vec<Token>, CompileError> 
     Ok(tokens)
 }
 
-struct Parser<'a> {
+struct Parser {
     tokens: Vec<Token>,
     current: usize,
-    src: &'a str,
 }
 
-impl<'a> Parser<'a> {
-    fn new(tokens: Vec<Token>, src: &'a str) -> Self {
+impl Parser {
+    fn new(tokens: Vec<Token>) -> Self {
         Self {
             tokens,
             current: 0,
-            src,
         }
     }
 
@@ -675,7 +665,6 @@ impl<'a> Parser<'a> {
                                 // But let's allow it in AST?
                                 // No, the IR expects Field to be a symbol.
                                 return Err(CompileError::ParseError {
-                                    src: self.src.to_string(),
                                     span: next.span,
                                     message:
                                         "Chained field access on function call result not supported in this version."
@@ -684,7 +673,6 @@ impl<'a> Parser<'a> {
                             }
                             _ => {
                                 return Err(CompileError::ParseError {
-                                    src: self.src.to_string(),
                                     span: next.span,
                                     message: "Dot access only allowed on fields/identifiers.".to_string(),
                                 });
@@ -692,14 +680,12 @@ impl<'a> Parser<'a> {
                         }
                     } else {
                         return Err(CompileError::ParseError {
-                            src: self.src.to_string(),
                             span: next.span,
                             message: "Expect identifier after '.'".to_string(),
                         });
                     }
                 } else {
                     return Err(CompileError::ParseError {
-                        src: self.src.to_string(),
                         span: self.peek().span,
                         message: "Expect identifier after '.'".to_string(),
                     });
@@ -715,7 +701,6 @@ impl<'a> Parser<'a> {
     fn primary(&mut self) -> Result<Expr, CompileError> {
         if self.is_at_end() {
             return Err(CompileError::ParseError {
-                src: self.src.to_string(),
                 span: (self.tokens.last().unwrap().span),
                 message: "Unexpected end of expression".to_string(),
             });
@@ -760,7 +745,6 @@ impl<'a> Parser<'a> {
 
                     if !self.match_token(&[TokenKind::RParen]) {
                         return Err(CompileError::ParseError {
-                            src: self.src.to_string(),
                             span: self.peek().span,
                             message: "Expect ')' after function arguments.".to_string(),
                         });
@@ -781,7 +765,6 @@ impl<'a> Parser<'a> {
                 let expr = self.expression()?;
                 if !self.match_token(&[TokenKind::RParen]) {
                     return Err(CompileError::ParseError {
-                        src: self.src.to_string(),
                         span: self.peek().span,
                         message: "Expect ')' after expression.".to_string(),
                     });
@@ -794,7 +777,6 @@ impl<'a> Parser<'a> {
                 Ok(Expr::Grouping(Box::new(expr), span))
             }
             _ => Err(CompileError::ParseError {
-                src: self.src.to_string(),
                 span: token.span,
                 message: format!("Expect expression, found {:?}", token.kind),
             }),

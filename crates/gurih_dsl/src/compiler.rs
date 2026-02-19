@@ -13,7 +13,7 @@ use gurih_ir::{
 };
 use std::collections::HashMap;
 
-fn validate_user_entity(ast_root: &ast::Ast, src: &str) -> Result<(), CompileError> {
+fn validate_user_entity(ast_root: &ast::Ast) -> Result<(), CompileError> {
     let mut user_entity_count = 0;
 
     // Check root-level entities
@@ -34,7 +34,6 @@ fn validate_user_entity(ast_root: &ast::Ast, src: &str) -> Result<(), CompileErr
 
     if user_entity_count > 1 {
         return Err(CompileError::ValidationError {
-            src: src.to_string(),
             span: (0, 0).into(),
             message: format!(
                 "Only one entity:user is allowed in the application. Found {} user entities.",
@@ -50,10 +49,10 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
     let ast_root = parse(src, base_path)?;
 
     // Run Validation
-    Validator::new(src).validate(&ast_root)?;
+    Validator::new().validate(&ast_root)?;
 
     // Validate that only one entity:user exists
-    validate_user_entity(&ast_root, src)?;
+    validate_user_entity(&ast_root)?;
 
     let mut ir_entities: HashMap<Symbol, EntitySchema> = HashMap::new();
     let mut ir_tables: HashMap<Symbol, TableSchema> = HashMap::new();
@@ -249,7 +248,6 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
         } else {
             // Warn or Error? For now error to enforce definition.
             return Err(CompileError::ParseError {
-                src: src.to_string(),
                 span: ast_root.accounts[0].span,
                 message: "Found 'account' definitions but no 'Account' entity defined.".to_string(),
             });
