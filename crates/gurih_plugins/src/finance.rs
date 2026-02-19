@@ -52,6 +52,7 @@ impl Plugin for FinancePlugin {
             "balanced_transaction" => check_balanced_transaction(entity_data, schema, datastore).await,
             "valid_parties" => check_valid_parties(entity_data, schema, datastore).await,
             "period_open" => check_period_open(args, entity_data, schema, datastore).await,
+            "no_period_overlap" => check_period_overlap(entity_data, schema, datastore).await,
             _ => Ok(()),
         }
     }
@@ -426,6 +427,94 @@ async fn check_period_open(
             "Cannot check PeriodOpen: Datastore not available".to_string(),
         ));
     }
+    Ok(())
+}
+
+async fn check_period_overlap(
+    entity_data: &Value,
+    schema: &Schema,
+    datastore: Option<&Arc<dyn DataStore>>,
+) -> Result<(), RuntimeError> {
+    let ds = datastore
+        .ok_or_else(|| RuntimeError::WorkflowError("Datastore not available".to_string()))?;
+
+    // 1. Get dates from current entity
+    let start_date_s = entity_data
+        .get("start_date")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| RuntimeError::ValidationError("Missing start_date".to_string()))?;
+    let end_date_s = entity_data
+        .get("end_date")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| RuntimeError::ValidationError("Missing end_date".to_string()))?;
+
+    let start_date = NaiveDate::parse_from_str(start_date_s, "%Y-%m-%d")
+        .map_err(|_| RuntimeError::ValidationError("Invalid start_date format".to_string()))?;
+    let end_date = NaiveDate::parse_from_str(end_date_s, "%Y-%m-%d")
+        .map_err(|_| RuntimeError::ValidationError("Invalid end_date format".to_string()))?;
+
+    if start_date > end_date {
+        return Err(RuntimeError::ValidationError(
+            "Start date must be before or equal to end date".to_string(),
+        ));
+    }
+
+    let current_id = entity_data.get("id").and_then(|v| v.as_str());
+
+    // 2. Fetch all periods
+    let table_name = schema
+        .entities
+        .get(&Symbol::from("AccountingPeriod"))
+        .map(|e| e.table_name.as_str())
+        .unwrap_or("accounting_period");
+
+    let all_periods = ds
+        .list(table_name, None, None)
+        .await
+        .map_err(RuntimeError::WorkflowError)?;
+
+    // 3. Check Overlap
+    for period in all_periods {
+        // Skip self
+        if let Some(pid) = period.get("id").and_then(|v| v.as_str()) {
+            if let Some(cid) = current_id {
+                if pid == cid {
+                    continue;
+                }
+            }
+        }
+
+        // Skip Draft
+        if let Some(status) = period.get("status").and_then(|v| v.as_str()) {
+            if status == "Draft" {
+                continue;
+            }
+        }
+
+        let p_start_s = period
+            .get("start_date")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let p_end_s = period
+            .get("end_date")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        if let (Ok(p_start), Ok(p_end)) = (
+            NaiveDate::parse_from_str(p_start_s, "%Y-%m-%d"),
+            NaiveDate::parse_from_str(p_end_s, "%Y-%m-%d"),
+        ) {
+            // Overlap logic: start1 <= end2 AND end1 >= start2
+            if start_date <= p_end && end_date >= p_start {
+                let name = period.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+                return Err(RuntimeError::ValidationError(format!(
+                    "Period overlaps with existing period '{}'",
+                    name
+                )));
+            }
+        }
+    }
+
     Ok(())
 }
 

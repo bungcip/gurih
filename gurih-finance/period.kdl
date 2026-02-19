@@ -1,4 +1,5 @@
 enum "PeriodStatus" {
+    Draft
     Open
     Closed
     Locked
@@ -9,7 +10,43 @@ entity "AccountingPeriod" {
     field:string "name" // e.g. "Jan 2024"
     field:date "start_date"
     field:date "end_date"
-    field:enum "status" "PeriodStatus" default="Open"
+    field:enum "status" "PeriodStatus" default="Draft"
+    options {
+        track_changes #true
+    }
+}
+
+workflow "PeriodWorkflow" for="AccountingPeriod" field="status" {
+    state "Draft" initial=#true
+    state "Open"
+    state "Closed"
+    state "Locked"
+
+    transition "activate" {
+        from "Draft"
+        to "Open"
+        requires {
+            no_period_overlap #true
+        }
+    }
+
+    transition "close" {
+        from "Open"
+        to "Closed"
+    }
+
+    transition "lock" {
+        from "Closed"
+        to "Locked"
+    }
+
+    transition "reopen" {
+        from "Closed"
+        to "Open"
+        requires {
+            no_period_overlap #true
+        }
+    }
 }
 
 page "PeriodList" {
@@ -19,6 +56,10 @@ page "PeriodList" {
         column "start_date"
         column "end_date"
         column "status"
+
+        action "Activate" method="POST" to="/api/workflow/activate" variant="primary"
+        action "Close" method="POST" to="/api/workflow/close"
+        action "Lock" method="POST" to="/api/workflow/lock"
     }
 }
 
