@@ -349,8 +349,13 @@ async fn start_server(
                 app = app.layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any));
             }
 
-            // Apply Security Headers (Global)
-            app = app.layer(middleware::from_fn(security::security_headers));
+            // Sentinel: Apply Security Headers based on environment
+            // Use stricter CSP in production (no 'unsafe-inline')
+            if watch_mode || no_auth {
+                app = app.layer(middleware::from_fn(security::dev_security_headers));
+            } else {
+                app = app.layer(middleware::from_fn(security::prod_security_headers));
+            }
 
             let mut app = app.with_state(state);
 

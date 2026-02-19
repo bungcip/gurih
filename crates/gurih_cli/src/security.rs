@@ -5,7 +5,7 @@ use axum::{
     response::Response,
 };
 
-pub async fn security_headers(req: Request<Body>, next: Next) -> Response {
+pub async fn dev_security_headers(req: Request<Body>, next: Next) -> Response {
     let mut response = next.run(req).await;
     let headers = response.headers_mut();
 
@@ -16,11 +16,32 @@ pub async fn security_headers(req: Request<Body>, next: Next) -> Response {
         "Referrer-Policy",
         HeaderValue::from_static("strict-origin-when-cross-origin"),
     );
-    // Sentinel: Add Content-Security-Policy to mitigate XSS and injection attacks.
-    // We allow 'unsafe-inline' for scripts/styles to support Vue runtime and dev mode injection without complex build steps.
+    // Sentinel: Dev Mode (Permissive) - Allow 'unsafe-inline' for Vue runtime/dev tools.
     headers.insert(
         "Content-Security-Policy",
         HeaderValue::from_static("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self'; frame-ancestors 'self';"),
+    );
+
+    response
+}
+
+pub async fn prod_security_headers(req: Request<Body>, next: Next) -> Response {
+    let mut response = next.run(req).await;
+    let headers = response.headers_mut();
+
+    headers.insert("X-Content-Type-Options", HeaderValue::from_static("nosniff"));
+    headers.insert("X-Frame-Options", HeaderValue::from_static("SAMEORIGIN"));
+    headers.insert("X-XSS-Protection", HeaderValue::from_static("1; mode=block"));
+    headers.insert(
+        "Referrer-Policy",
+        HeaderValue::from_static("strict-origin-when-cross-origin"),
+    );
+    // Sentinel: Production Mode (Strict) - No 'unsafe-inline'.
+    // Removed 'unsafe-inline' from script-src and style-src.
+    // Added object-src 'none' and base-uri 'self'.
+    headers.insert(
+        "Content-Security-Policy",
+        HeaderValue::from_static("default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self';"),
     );
 
     response
@@ -34,10 +55,10 @@ mod tests {
     use tower::util::ServiceExt;
 
     #[tokio::test]
-    async fn test_security_headers_presence() {
+    async fn test_dev_security_headers() {
         let app = Router::new()
             .route("/", get(|| async { "Hello" }))
-            .layer(middleware::from_fn(security_headers));
+            .layer(middleware::from_fn(dev_security_headers));
 
         let response = app
             .oneshot(Request::builder().uri("/").body(Body::from("")).unwrap())
@@ -47,16 +68,31 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
 
         let headers = response.headers();
-        assert_eq!(headers.get("X-Content-Type-Options").unwrap(), "nosniff");
-        assert_eq!(headers.get("X-Frame-Options").unwrap(), "SAMEORIGIN");
-        assert_eq!(headers.get("X-XSS-Protection").unwrap(), "1; mode=block");
-        assert_eq!(
-            headers.get("Referrer-Policy").unwrap(),
-            "strict-origin-when-cross-origin"
-        );
-        assert!(headers.get("Content-Security-Policy").is_some());
         let csp = headers.get("Content-Security-Policy").unwrap().to_str().unwrap();
-        assert!(csp.contains("default-src 'self'"));
+
+        // Dev headers MUST contain unsafe-inline
         assert!(csp.contains("script-src 'self' 'unsafe-inline'"));
+    }
+
+    #[tokio::test]
+    async fn test_prod_security_headers() {
+        let app = Router::new()
+            .route("/", get(|| async { "Hello" }))
+            .layer(middleware::from_fn(prod_security_headers));
+
+        let response = app
+            .oneshot(Request::builder().uri("/").body(Body::from("")).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let headers = response.headers();
+        let csp = headers.get("Content-Security-Policy").unwrap().to_str().unwrap();
+
+        // Prod headers MUST NOT contain unsafe-inline
+        assert!(!csp.contains("'unsafe-inline'"));
+        assert!(csp.contains("script-src 'self'"));
+        assert!(csp.contains("object-src 'none'"));
     }
 }
