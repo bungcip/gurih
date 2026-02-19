@@ -9,11 +9,7 @@ pub fn to_title_case(s: &str) -> String {
             if word.eq_ignore_ascii_case("id") {
                 return "ID".to_string();
             }
-            let mut chars = word.chars();
-            match chars.next() {
-                None => String::new(),
-                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-            }
+            capitalize(word)
         })
         .collect::<Vec<_>>()
         .join(" ")

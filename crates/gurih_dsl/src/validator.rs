@@ -13,13 +13,11 @@ enum DataType {
     Any,
 }
 
-pub struct Validator<'a> {
-    src: &'a str,
-}
+pub struct Validator;
 
-impl<'a> Validator<'a> {
-    pub fn new(src: &'a str) -> Self {
-        Self { src }
+impl Validator {
+    pub fn new() -> Self {
+        Self
     }
 
     pub fn validate(&self, ast: &Ast) -> Result<(), CompileError> {
@@ -90,7 +88,6 @@ impl<'a> Validator<'a> {
                 && !fields.contains(field)
             {
                 return Err(CompileError::ValidationError {
-                    src: self.src.to_string(),
                     span,
                     message: format!("Target field '{}' not found in entity '{}'", field, entity_name),
                 });
@@ -98,7 +95,6 @@ impl<'a> Validator<'a> {
             self.validate_transitions(transitions, fields, entity_name)?;
         } else {
             return Err(CompileError::ValidationError {
-                src: self.src.to_string(),
                 span,
                 message: format!("Entity '{}' not found", entity_name),
             });
@@ -124,7 +120,6 @@ impl<'a> Validator<'a> {
                 if let ast::TransitionEffectDef::UpdateField { field, span, .. } = effect {
                     if !fields.contains(field) {
                         return Err(CompileError::ValidationError {
-                            src: self.src.to_string(),
                             span: *span,
                             message: format!("Effect target field '{}' not found in entity '{}'", field, entity_name),
                         });
@@ -145,7 +140,6 @@ impl<'a> Validator<'a> {
             Expr::Field(name, _) => {
                 if !fields.contains(name) {
                     return Err(CompileError::ValidationError {
-                        src: self.src.to_string(),
                         span,
                         message: format!("Field '{}' not found in entity", name),
                     });
@@ -176,7 +170,6 @@ impl<'a> Validator<'a> {
             let ty = self.infer_type(&rule.assertion)?;
             if ty != DataType::Boolean && ty != DataType::Any {
                 return Err(CompileError::ValidationError {
-                    src: self.src.to_string(),
                     span: rule.span,
                     message: format!("Rule assertion must evaluate to Boolean, found {:?}", ty),
                 });
@@ -198,7 +191,6 @@ impl<'a> Validator<'a> {
                     UnaryOpType::Not => {
                         if inner != DataType::Boolean && inner != DataType::Any {
                             return Err(CompileError::ValidationError {
-                                src: self.src.to_string(),
                                 span: *span,
                                 message: "NOT requires boolean".into(),
                             });
@@ -208,7 +200,6 @@ impl<'a> Validator<'a> {
                     UnaryOpType::Neg => {
                         if inner != DataType::Number && inner != DataType::Any {
                             return Err(CompileError::ValidationError {
-                                src: self.src.to_string(),
                                 span: *span,
                                 message: "Negation requires number".into(),
                             });
@@ -234,7 +225,6 @@ impl<'a> Validator<'a> {
                     BinaryOpType::Add | BinaryOpType::Sub | BinaryOpType::Mul | BinaryOpType::Div => {
                         if l != DataType::Number || r != DataType::Number {
                             return Err(CompileError::ValidationError {
-                                src: self.src.to_string(),
                                 span: *span,
                                 message: "Arithmetic requires numbers".into(),
                             });
@@ -244,7 +234,6 @@ impl<'a> Validator<'a> {
                     BinaryOpType::And | BinaryOpType::Or => {
                         if l != DataType::Boolean || r != DataType::Boolean {
                             return Err(CompileError::ValidationError {
-                                src: self.src.to_string(),
                                 span: *span,
                                 message: "Logic requires booleans".into(),
                             });
@@ -254,7 +243,6 @@ impl<'a> Validator<'a> {
                     BinaryOpType::Gt | BinaryOpType::Lt | BinaryOpType::Gte | BinaryOpType::Lte => {
                         if l != r || l != DataType::Number {
                             return Err(CompileError::ValidationError {
-                                src: self.src.to_string(),
                                 span: *span,
                                 message: "Comparison requires numbers".into(),
                             });
@@ -264,7 +252,6 @@ impl<'a> Validator<'a> {
                     BinaryOpType::Eq | BinaryOpType::Neq => {
                         if l != r {
                             return Err(CompileError::ValidationError {
-                                src: self.src.to_string(),
                                 span: *span,
                                 message: "Equality requires same types".into(),
                             });
@@ -274,7 +261,6 @@ impl<'a> Validator<'a> {
                     BinaryOpType::Like | BinaryOpType::ILike => {
                         if l != DataType::String || r != DataType::String {
                             return Err(CompileError::ValidationError {
-                                src: self.src.to_string(),
                                 span: *span,
                                 message: "Like requires strings".into(),
                             });
@@ -299,7 +285,6 @@ impl<'a> Validator<'a> {
     {
         if names.contains_key(name) {
             return Err(CompileError::ValidationError {
-                src: self.src.to_string(),
                 span,
                 message: message_fn(),
             });
@@ -357,7 +342,6 @@ impl<'a> Validator<'a> {
 
         if !has_pk {
             return Err(CompileError::ValidationError {
-                src: self.src.to_string(),
                 span: entity.span,
                 message: format!("Entity '{}' must have at least one primary key (field:pk)", entity.name),
             });
@@ -365,28 +349,24 @@ impl<'a> Validator<'a> {
 
         if name_count > 1 {
             return Err(CompileError::ValidationError {
-                src: self.src.to_string(),
                 span: entity.span,
                 message: format!("Entity '{}' can have at most one field:name", entity.name),
             });
         }
         if title_count > 1 {
             return Err(CompileError::ValidationError {
-                src: self.src.to_string(),
                 span: entity.span,
                 message: format!("Entity '{}' can have at most one field:title", entity.name),
             });
         }
         if description_count > 1 {
             return Err(CompileError::ValidationError {
-                src: self.src.to_string(),
                 span: entity.span,
                 message: format!("Entity '{}' can have at most one field:description", entity.name),
             });
         }
         if avatar_count > 1 {
             return Err(CompileError::ValidationError {
-                src: self.src.to_string(),
                 span: entity.span,
                 message: format!("Entity '{}' can have at most one field:avatar", entity.name),
             });
@@ -428,7 +408,6 @@ impl<'a> Validator<'a> {
             ast::RouteNode::Route(r) => {
                 if !valid_targets.contains(r.action.as_str()) {
                     return Err(CompileError::ValidationError {
-                        src: self.src.to_string(),
                         span: r.span,
                         message: format!("Route target '{}' not found in pages, dashboards or actions", r.action),
                     });

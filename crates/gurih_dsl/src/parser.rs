@@ -39,15 +39,14 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
     for node in doc.nodes() {
         let name = node.name().value();
         match name {
-            "name" => ast.name = Some(get_arg_string(node, 0, src)?),
-            "version" => ast.version = Some(get_arg_string(node, 0, src)?),
-            "storage" => ast.storages.push(parse_storage(node, src)?),
+            "name" => ast.name = Some(get_arg_string(node, 0)?),
+            "version" => ast.version = Some(get_arg_string(node, 0)?),
+            "storage" => ast.storages.push(parse_storage(node)?),
             "include" => {
                 if let Some(base) = base_path {
-                    let filename = get_arg_string(node, 0, src)?;
+                    let filename = get_arg_string(node, 0)?;
                     let path = base.join(&filename);
                     let content = std::fs::read_to_string(&path).map_err(|e| CompileError::ParseError {
-                        src: src.to_string(),
                         span: node.name().span().into(),
                         message: format!("Failed to read include file {}: {}", path.display(), e),
                     })?;
@@ -87,37 +86,35 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
                     ast.employee_statuses.extend(included_ast.employee_statuses);
                 } else {
                     return Err(CompileError::ParseError {
-                        src: src.to_string(),
                         span: node.name().span().into(),
                         message: "Includes are not supported in this context (missing base path)".to_string(),
                     });
                 }
             }
-            "database" | "persistence" | "datastore" => ast.database = Some(parse_database(node, src)?),
-            "icons" => ast.icons.extend(parse_icons(node, src)?),
-            "layout" => ast.layouts.push(parse_layout(node, src)?),
-            "module" => ast.modules.push(parse_module(node, src)?),
-            "entity" => ast.entities.push(parse_entity(node, src, false)?),
-            "entity:user" => ast.entities.push(parse_entity(node, src, true)?),
-            "table" => ast.tables.push(parse_table(node, src)?),
-            "enum" => ast.enums.push(parse_enum(node, src)?),
-            "serial_generator" => ast.serial_generators.push(parse_serial_generator(node, src)?),
-            "workflow" => ast.workflows.push(parse_workflow(node, src)?),
-            "dashboard" => ast.dashboards.push(parse_dashboard(node, src)?),
-            "page" => ast.pages.push(parse_page(node, src)?),
-            "action" => ast.actions.push(parse_action_logic(node, src)?),
-            "routes" => ast.routes.push(parse_routes(node, src)?),
-            "menu" => ast.menus.push(parse_menu(node, src)?),
-            "print" => ast.prints.push(parse_print(node, src)?),
-            "role" | "permission" => ast.permissions.push(parse_permission(node, src)?),
-            "query" | "query:nested" | "query:flat" | "query:hierarchy" => ast.queries.push(parse_query(node, src)?),
-            "account" => ast.accounts.push(parse_account(node, src)?),
-            "rule" => ast.rules.push(parse_rule(node, src)?),
-            "posting_rule" => ast.posting_rules.push(parse_posting_rule(node, src)?),
-            "employee_status" => ast.employee_statuses.push(parse_employee_status(node, src)?),
+            "database" | "persistence" | "datastore" => ast.database = Some(parse_database(node)?),
+            "icons" => ast.icons.extend(parse_icons(node)?),
+            "layout" => ast.layouts.push(parse_layout(node)?),
+            "module" => ast.modules.push(parse_module(node)?),
+            "entity" => ast.entities.push(parse_entity(node, false)?),
+            "entity:user" => ast.entities.push(parse_entity(node, true)?),
+            "table" => ast.tables.push(parse_table(node)?),
+            "enum" => ast.enums.push(parse_enum(node)?),
+            "serial_generator" => ast.serial_generators.push(parse_serial_generator(node)?),
+            "workflow" => ast.workflows.push(parse_workflow(node)?),
+            "dashboard" => ast.dashboards.push(parse_dashboard(node)?),
+            "page" => ast.pages.push(parse_page(node)?),
+            "action" => ast.actions.push(parse_action_logic(node)?),
+            "routes" => ast.routes.push(parse_routes(node)?),
+            "menu" => ast.menus.push(parse_menu(node)?),
+            "print" => ast.prints.push(parse_print(node)?),
+            "role" | "permission" => ast.permissions.push(parse_permission(node)?),
+            "query" | "query:nested" | "query:flat" | "query:hierarchy" => ast.queries.push(parse_query(node)?),
+            "account" => ast.accounts.push(parse_account(node)?),
+            "rule" => ast.rules.push(parse_rule(node)?),
+            "posting_rule" => ast.posting_rules.push(parse_posting_rule(node)?),
+            "employee_status" => ast.employee_statuses.push(parse_employee_status(node)?),
             _ => {
                 return Err(CompileError::ParseError {
-                    src: src.to_string(),
                     span: node.name().span().into(),
                     message: format!("Unknown top-level definition: {}", name),
                 });
@@ -129,21 +126,21 @@ pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
 }
 
 #[allow(clippy::collapsible_if)]
-fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
+fn parse_action_logic(node: &KdlNode) -> Result<ActionLogicDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
     let mut params = vec![];
     let mut steps = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
-                "param" => params.push(get_arg_string(child, 0, src)?),
+                "param" => params.push(get_arg_string(child, 0)?),
                 "step" => {
-                    let step_type_str = get_arg_string(child, 0, src)?;
+                    let step_type_str = get_arg_string(child, 0)?;
                     let span = child.span();
-                    let step_type = parse_step_type(&step_type_str, span.into(), src)?;
+                    let step_type = parse_step_type(&step_type_str, span.into())?;
 
-                    let target = get_prop_string(child, "target", src).unwrap_or_default();
+                    let target = get_prop_string(child, "target").unwrap_or_default();
 
                     let mut args = std::collections::HashMap::new();
                     for entry in child.entries() {
@@ -164,7 +161,7 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
                     });
                 }
                 step_type_str if step_type_str.starts_with("step:") => {
-                    let target = get_arg_string(child, 0, src)?;
+                    let target = get_arg_string(child, 0)?;
                     let mut args = std::collections::HashMap::new();
                     for entry in child.entries() {
                         if let Some(key) = entry.name() {
@@ -178,7 +175,6 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
                         step_type: parse_step_type(
                             step_type_str.strip_prefix("step:").unwrap_or(step_type_str),
                             span.into(),
-                            src,
                         )?,
                         target,
                         args,
@@ -198,12 +194,12 @@ fn parse_action_logic(node: &KdlNode, src: &str) -> Result<ActionLogicDef, Compi
     })
 }
 
-fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef, CompileError> {
-    let status = get_arg_string(node, 0, src)?;
-    let entity = get_prop_string(node, "for", src)
-        .or_else(|_| get_prop_string(node, "entity", src))
+fn parse_employee_status(node: &KdlNode) -> Result<EmployeeStatusDef, CompileError> {
+    let status = get_arg_string(node, 0)?;
+    let entity = get_prop_string(node, "for")
+        .or_else(|_| get_prop_string(node, "entity"))
         .unwrap_or_else(|_| "Pegawai".to_string());
-    let field = get_prop_string(node, "field", src).ok();
+    let field = get_prop_string(node, "field").ok();
     let initial = get_prop_bool(node, "initial").unwrap_or(false);
 
     let mut transitions = vec![];
@@ -211,7 +207,7 @@ fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef,
     if let Some(children) = node.children() {
         for child in children.nodes() {
             if child.name().value() == "can_transition_to" {
-                transitions.push(parse_status_transition(child, src, &status)?);
+                transitions.push(parse_status_transition(child, &status)?);
             }
         }
     }
@@ -226,12 +222,12 @@ fn parse_employee_status(node: &KdlNode, src: &str) -> Result<EmployeeStatusDef,
     })
 }
 
-fn parse_status_transition(node: &KdlNode, src: &str, from_status: &str) -> Result<TransitionDef, CompileError> {
-    let target = get_arg_string(node, 0, src)?;
-    let permission = get_prop_string(node, "permission", src).ok();
+fn parse_status_transition(node: &KdlNode, from_status: &str) -> Result<TransitionDef, CompileError> {
+    let target = get_arg_string(node, 0)?;
+    let permission = get_prop_string(node, "permission").ok();
 
     let (preconditions, effects) = if let Some(children) = node.children() {
-        parse_transition_body(children, src)?
+        parse_transition_body(children)?
     } else {
         (vec![], vec![])
     };
@@ -249,7 +245,7 @@ fn parse_status_transition(node: &KdlNode, src: &str, from_status: &str) -> Resu
     })
 }
 
-fn parse_step_type(s: &str, _span: SourceSpan, _src: &str) -> Result<ActionStepType, CompileError> {
+fn parse_step_type(s: &str, _span: SourceSpan) -> Result<ActionStepType, CompileError> {
     match s {
         "entity:delete" => Ok(ActionStepType::EntityDelete),
         "entity:update" => Ok(ActionStepType::EntityUpdate),
@@ -257,7 +253,7 @@ fn parse_step_type(s: &str, _span: SourceSpan, _src: &str) -> Result<ActionStepT
     }
 }
 
-fn parse_database(node: &KdlNode, src: &str) -> Result<DatabaseDef, CompileError> {
+fn parse_database(node: &KdlNode) -> Result<DatabaseDef, CompileError> {
     let mut db_type = DatabaseType::Postgres;
     let mut url = String::new();
 
@@ -265,20 +261,19 @@ fn parse_database(node: &KdlNode, src: &str) -> Result<DatabaseDef, CompileError
         for child in children.nodes() {
             match child.name().value() {
                 "type" => {
-                    let t = get_arg_string(child, 0, src)?;
+                    let t = get_arg_string(child, 0)?;
                     db_type = match t.to_lowercase().as_str() {
                         "postgres" => DatabaseType::Postgres,
                         "sqlite" => DatabaseType::Sqlite,
                         _ => {
                             return Err(CompileError::ParseError {
-                                src: src.to_string(),
                                 span: child.span().into(),
                                 message: format!("Unsupported database type: {}", t),
                             });
                         }
                     };
                 }
-                "url" => url = get_arg_string(child, 0, src)?,
+                "url" => url = get_arg_string(child, 0)?,
                 _ => {}
             }
         }
@@ -291,12 +286,12 @@ fn parse_database(node: &KdlNode, src: &str) -> Result<DatabaseDef, CompileError
     })
 }
 
-fn parse_icons(node: &KdlNode, src: &str) -> Result<Vec<IconDef>, CompileError> {
+fn parse_icons(node: &KdlNode) -> Result<Vec<IconDef>, CompileError> {
     let mut icons = vec![];
     if let Some(children) = node.children() {
         for child in children.nodes() {
             let name = child.name().value().to_string();
-            let uri = get_arg_string(child, 0, src)?;
+            let uri = get_arg_string(child, 0)?;
             icons.push(IconDef {
                 name,
                 uri,
@@ -307,8 +302,8 @@ fn parse_icons(node: &KdlNode, src: &str) -> Result<Vec<IconDef>, CompileError> 
     Ok(icons)
 }
 
-fn parse_layout(node: &KdlNode, src: &str) -> Result<LayoutDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
+fn parse_layout(node: &KdlNode) -> Result<LayoutDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
     let mut header = None;
     let mut sidebar = None;
     let mut footer = None;
@@ -316,9 +311,9 @@ fn parse_layout(node: &KdlNode, src: &str) -> Result<LayoutDef, CompileError> {
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
-                "header" => header = Some(parse_layout_section(child, src)?),
-                "sidebar" => sidebar = Some(parse_layout_section(child, src)?),
-                "footer" => footer = Some(get_arg_string(child, 0, src)?),
+                "header" => header = Some(parse_layout_section(child)?),
+                "sidebar" => sidebar = Some(parse_layout_section(child)?),
+                "footer" => footer = Some(get_arg_string(child, 0)?),
                 _ => {}
             }
         }
@@ -333,7 +328,7 @@ fn parse_layout(node: &KdlNode, src: &str) -> Result<LayoutDef, CompileError> {
     })
 }
 
-fn parse_layout_section(node: &KdlNode, src: &str) -> Result<LayoutSectionDef, CompileError> {
+fn parse_layout_section(node: &KdlNode) -> Result<LayoutSectionDef, CompileError> {
     let enabled = get_arg_bool(node, 0).unwrap_or(true);
 
     let mut props = std::collections::HashMap::new();
@@ -343,8 +338,8 @@ fn parse_layout_section(node: &KdlNode, src: &str) -> Result<LayoutSectionDef, C
         for child in children.nodes() {
             let key = child.name().value();
             if key == "menu_ref" {
-                menu_ref = Some(get_arg_string(child, 0, src)?);
-            } else if let Ok(val) = get_arg_string(child, 0, src) {
+                menu_ref = Some(get_arg_string(child, 0)?);
+            } else if let Ok(val) = get_arg_string(child, 0) {
                 props.insert(key.to_string(), val);
             } else if let Some(val) = get_arg_bool(child, 0) {
                 props.insert(key.to_string(), val.to_string());
@@ -360,17 +355,17 @@ fn parse_layout_section(node: &KdlNode, src: &str) -> Result<LayoutSectionDef, C
     })
 }
 
-fn parse_module(node: &KdlNode, src: &str) -> Result<ModuleDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
+fn parse_module(node: &KdlNode) -> Result<ModuleDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
     let mut entities = vec![];
     let mut actions = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
-                "entity" => entities.push(parse_entity(child, src, false)?),
-                "entity:user" => entities.push(parse_entity(child, src, true)?),
-                "action" => actions.push(parse_action_logic(child, src)?),
+                "entity" => entities.push(parse_entity(child, false)?),
+                "entity:user" => entities.push(parse_entity(child, true)?),
+                "action" => actions.push(parse_action_logic(child)?),
                 _ => {}
             }
         }
@@ -385,8 +380,8 @@ fn parse_module(node: &KdlNode, src: &str) -> Result<ModuleDef, CompileError> {
     })
 }
 
-fn parse_entity(node: &KdlNode, src: &str, is_user_entity: bool) -> Result<EntityDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
+fn parse_entity(node: &KdlNode, is_user_entity: bool) -> Result<EntityDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
     let mut fields = vec![];
     let mut relationships = vec![];
     let mut options = EntityOptions::default();
@@ -398,10 +393,10 @@ fn parse_entity(node: &KdlNode, src: &str, is_user_entity: bool) -> Result<Entit
         for child in children.nodes() {
             let child_name = child.name().value();
             match child_name {
-                "field" => fields.push(parse_field(child, src)?),
+                "field" => fields.push(parse_field(child)?),
                 name if name.starts_with("field:") => {
                     let type_part = &name[6..];
-                    let mut field_def = parse_field(child, src)?;
+                    let mut field_def = parse_field(child)?;
                     field_def.type_name = parse_field_type_str(type_part);
                     fields.push(field_def);
                 }
@@ -449,15 +444,15 @@ fn parse_entity(node: &KdlNode, src: &str, is_user_entity: bool) -> Result<Entit
                         _ => unreachable!(),
                     };
 
-                    let arg0 = get_arg_string(child, 0, src)?;
-                    let (name, target) = if let Ok(arg1) = get_arg_string(child, 1, src) {
+                    let arg0 = get_arg_string(child, 0)?;
+                    let (name, target) = if let Ok(arg1) = get_arg_string(child, 1) {
                         (arg0, arg1)
                     } else {
                         let name = arg0.to_lowercase();
                         (name, arg0)
                     };
 
-                    let ownership_str = get_prop_string(child, "type", src).ok();
+                    let ownership_str = get_prop_string(child, "type").ok();
                     let ownership = match ownership_str.as_deref() {
                         Some("composition") => Ownership::Composition,
                         _ => Ownership::Reference,
@@ -490,8 +485,8 @@ fn parse_entity(node: &KdlNode, src: &str, is_user_entity: bool) -> Result<Entit
                 | "datetime" | "timestamp" | "time" | "money" | "code" | "enum" | "name" | "email" | "phone"
                 | "description" | "pk" | "serial" | "sku" | "title" | "avatar" | "address" | "image" | "file" => {
                     let type_name = parse_field_type_str(child_name);
-                    let field_name = get_arg_string(child, 0, src).unwrap_or(child_name.to_string());
-                    fields.push(parse_field_props(child, src, field_name, type_name)?);
+                    let field_name = get_arg_string(child, 0).unwrap_or(child_name.to_string());
+                    fields.push(parse_field_props(child, field_name, type_name)?);
                 }
                 _ => {}
             }
@@ -508,14 +503,14 @@ fn parse_entity(node: &KdlNode, src: &str, is_user_entity: bool) -> Result<Entit
     })
 }
 
-fn parse_table(node: &KdlNode, src: &str) -> Result<TableDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
+fn parse_table(node: &KdlNode) -> Result<TableDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
     let mut columns = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             if child.name().value() == "column" {
-                columns.push(parse_column(child, src)?);
+                columns.push(parse_column(child)?);
             }
         }
     }
@@ -527,9 +522,9 @@ fn parse_table(node: &KdlNode, src: &str) -> Result<TableDef, CompileError> {
     })
 }
 
-fn parse_column(node: &KdlNode, src: &str) -> Result<ColumnDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
-    let type_name = get_prop_string(node, "type", src)?;
+fn parse_column(node: &KdlNode) -> Result<ColumnDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
+    let type_name = get_prop_string(node, "type")?;
     let primary = get_prop_bool(node, "primary").unwrap_or(false);
     let unique = get_prop_bool(node, "unique").unwrap_or(false);
 
@@ -557,22 +552,22 @@ fn parse_column(node: &KdlNode, src: &str) -> Result<ColumnDef, CompileError> {
     })
 }
 
-fn parse_field(node: &KdlNode, src: &str) -> Result<FieldDef, CompileError> {
-    let name = get_arg_string(node, 0, src).unwrap_or_else(|_| "unknown".to_string());
-    let type_str = get_prop_string(node, "type", src).unwrap_or_else(|_| "String".to_string());
+fn parse_field(node: &KdlNode) -> Result<FieldDef, CompileError> {
+    let name = get_arg_string(node, 0).unwrap_or_else(|_| "unknown".to_string());
+    let type_str = get_prop_string(node, "type").unwrap_or_else(|_| "String".to_string());
     let type_name = parse_field_type_str(&type_str);
-    parse_field_props(node, src, name, type_name)
+    parse_field_props(node, name, type_name)
 }
 
-fn parse_field_props(node: &KdlNode, src: &str, name: String, type_name: FieldType) -> Result<FieldDef, CompileError> {
+fn parse_field_props(node: &KdlNode, name: String, type_name: FieldType) -> Result<FieldDef, CompileError> {
     let node_name = node.name().value();
 
     let references = if node_name == "enum" || node_name == "field:enum" {
-        get_arg_string(node, 1, src)
+        get_arg_string(node, 1)
             .ok()
-            .or_else(|| get_prop_string(node, "references", src).ok())
+            .or_else(|| get_prop_string(node, "references").ok())
     } else {
-        get_prop_string(node, "references", src).ok()
+        get_prop_string(node, "references").ok()
     };
 
     let required_prop = get_prop_bool(node, "required");
@@ -585,12 +580,12 @@ fn parse_field_props(node: &KdlNode, src: &str, name: String, type_name: FieldTy
     };
 
     let unique = get_prop_bool(node, "unique").unwrap_or(false);
-    let default = get_prop_string(node, "default", src).ok();
-    let serial_generator = get_prop_string(node, "serial_generator", src).ok();
+    let default = get_prop_string(node, "default").ok();
+    let serial_generator = get_prop_string(node, "serial_generator").ok();
 
-    let storage = get_prop_string(node, "storage", src).ok();
-    let resize = get_prop_string(node, "resize", src).ok();
-    let filetype = get_prop_string(node, "filetype", src).ok();
+    let storage = get_prop_string(node, "storage").ok();
+    let resize = get_prop_string(node, "resize").ok();
+    let filetype = get_prop_string(node, "filetype").ok();
 
     Ok(FieldDef {
         name,
@@ -638,8 +633,8 @@ fn parse_field_type_str(s: &str) -> FieldType {
     }
 }
 
-fn parse_storage(node: &KdlNode, src: &str) -> Result<StorageDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
+fn parse_storage(node: &KdlNode) -> Result<StorageDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
     let mut driver = StorageDriver::Local;
     let mut location = None;
     let mut props = std::collections::HashMap::new();
@@ -648,22 +643,21 @@ fn parse_storage(node: &KdlNode, src: &str) -> Result<StorageDef, CompileError> 
         for child in children.nodes() {
             match child.name().value() {
                 "driver" => {
-                    let d = get_arg_string(child, 0, src)?;
+                    let d = get_arg_string(child, 0)?;
                     driver = match d.to_lowercase().as_str() {
                         "s3" => StorageDriver::S3,
                         "file" | "local" => StorageDriver::Local,
                         _ => {
                             return Err(CompileError::ParseError {
-                                src: src.to_string(),
                                 span: child.span().into(),
                                 message: format!("Unsupported storage driver: {}", d),
                             });
                         }
                     };
                 }
-                "location" => location = Some(get_arg_string(child, 0, src)?),
+                "location" => location = Some(get_arg_string(child, 0)?),
                 key => {
-                    if let Ok(val) = get_arg_string(child, 0, src) {
+                    if let Ok(val) = get_arg_string(child, 0) {
                         props.insert(key.to_string(), val);
                     }
                 }
@@ -680,11 +674,11 @@ fn parse_storage(node: &KdlNode, src: &str) -> Result<StorageDef, CompileError> 
     })
 }
 
-fn parse_workflow(node: &KdlNode, src: &str) -> Result<WorkflowDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
-    let entity = get_prop_string(node, "for", src).or_else(|_| get_prop_string(node, "entity", src))?;
+fn parse_workflow(node: &KdlNode) -> Result<WorkflowDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
+    let entity = get_prop_string(node, "for").or_else(|_| get_prop_string(node, "entity"))?;
 
-    let field = get_prop_string(node, "field", src)?;
+    let field = get_prop_string(node, "field")?;
 
     let mut states = vec![];
     let mut transitions = vec![];
@@ -692,8 +686,8 @@ fn parse_workflow(node: &KdlNode, src: &str) -> Result<WorkflowDef, CompileError
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
-                "state" => states.push(parse_state(child, src)?),
-                "transition" => transitions.push(parse_transition(child, src)?),
+                "state" => states.push(parse_state(child)?),
+                "transition" => transitions.push(parse_transition(child)?),
                 _ => {}
             }
         }
@@ -709,8 +703,8 @@ fn parse_workflow(node: &KdlNode, src: &str) -> Result<WorkflowDef, CompileError
     })
 }
 
-fn parse_state(node: &KdlNode, src: &str) -> Result<StateDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
+fn parse_state(node: &KdlNode) -> Result<StateDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
     let initial = get_prop_bool(node, "initial").unwrap_or(false);
     let immutable = get_prop_bool(node, "immutable").unwrap_or(false);
 
@@ -724,7 +718,6 @@ fn parse_state(node: &KdlNode, src: &str) -> Result<StateDef, CompileError> {
 
 fn parse_transition_body(
     children: &KdlDocument,
-    src: &str,
 ) -> Result<(Vec<TransitionPreconditionDef>, Vec<TransitionEffectDef>), CompileError> {
     let mut preconditions = vec![];
     let mut effects = vec![];
@@ -736,7 +729,7 @@ fn parse_transition_body(
                     for req in req_children.nodes() {
                         match req.name().value() {
                             "document" => {
-                                let doc_name = get_arg_string(req, 0, src)?;
+                                let doc_name = get_arg_string(req, 0)?;
                                 let span = req
                                     .entries()
                                     .first()
@@ -789,15 +782,15 @@ fn parse_transition_body(
                     for eff in eff_children.nodes() {
                         match eff.name().value() {
                             "notify" => {
-                                let target = get_arg_string(eff, 0, src)?;
+                                let target = get_arg_string(eff, 0)?;
                                 effects.push(TransitionEffectDef::Notify {
                                     target,
                                     span: eff.span().into(),
                                 });
                             }
                             "update" => {
-                                let field = get_arg_string(eff, 0, src)?;
-                                let value = get_arg_string(eff, 1, src)?;
+                                let field = get_arg_string(eff, 0)?;
+                                let value = get_arg_string(eff, 1)?;
                                 effects.push(TransitionEffectDef::UpdateField {
                                     field,
                                     value,
@@ -845,11 +838,11 @@ fn parse_transition_body(
     Ok((preconditions, effects))
 }
 
-fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
-    let mut from = get_prop_string(node, "from", src).ok();
-    let mut to = get_prop_string(node, "to", src).ok();
-    let permission = get_prop_string(node, "permission", src).ok();
+fn parse_transition(node: &KdlNode) -> Result<TransitionDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
+    let mut from = get_prop_string(node, "from").ok();
+    let mut to = get_prop_string(node, "to").ok();
+    let permission = get_prop_string(node, "permission").ok();
 
     let mut preconditions = vec![];
     let mut effects = vec![];
@@ -857,24 +850,22 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
-                "from" => from = Some(get_arg_string(child, 0, src)?),
-                "to" => to = Some(get_arg_string(child, 0, src)?),
+                "from" => from = Some(get_arg_string(child, 0)?),
+                "to" => to = Some(get_arg_string(child, 0)?),
                 _ => {}
             }
         }
-        let (mut p, mut e) = parse_transition_body(children, src)?;
+        let (mut p, mut e) = parse_transition_body(children)?;
         preconditions.append(&mut p);
         effects.append(&mut e);
     }
 
     let from = from.ok_or_else(|| CompileError::ParseError {
-        src: src.to_string(),
         span: node.span().into(),
         message: "Missing property 'from'".to_string(),
     })?;
 
     let to = to.ok_or_else(|| CompileError::ParseError {
-        src: src.to_string(),
         span: node.span().into(),
         message: "Missing property 'to'".to_string(),
     })?;
@@ -890,14 +881,14 @@ fn parse_transition(node: &KdlNode, src: &str) -> Result<TransitionDef, CompileE
     })
 }
 
-fn parse_account(node: &KdlNode, src: &str) -> Result<AccountDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
+fn parse_account(node: &KdlNode) -> Result<AccountDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
     let mut fields = HashMap::new();
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             let key = child.name().value();
-            if let Ok(val) = get_arg_string(child, 0, src) {
+            if let Ok(val) = get_arg_string(child, 0) {
                 fields.insert(key.to_string(), val);
             }
         }
@@ -910,8 +901,8 @@ fn parse_account(node: &KdlNode, src: &str) -> Result<AccountDef, CompileError> 
     })
 }
 
-fn parse_rule(node: &KdlNode, src: &str) -> Result<RuleDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
+fn parse_rule(node: &KdlNode) -> Result<RuleDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
     let mut on_event = String::new();
     let mut assertion = None;
     let mut message = String::new();
@@ -920,7 +911,7 @@ fn parse_rule(node: &KdlNode, src: &str) -> Result<RuleDef, CompileError> {
         for child in children.nodes() {
             let child_name = child.name().value();
             if child_name == "assert" {
-                let s = get_arg_string(child, 0, src)?;
+                let s = get_arg_string(child, 0)?;
                 let offset = child
                     .entries()
                     .first()
@@ -928,16 +919,15 @@ fn parse_rule(node: &KdlNode, src: &str) -> Result<RuleDef, CompileError> {
                     .unwrap_or(child.span().offset());
                 assertion = Some(parse_expression(&s, offset)?);
             } else if child_name == "message" {
-                message = get_arg_string(child, 0, src)?;
+                message = get_arg_string(child, 0)?;
             } else if let Some(lifecycle) = child_name.strip_prefix("on:") {
-                let entity = get_arg_string(child, 0, src)?;
+                let entity = get_arg_string(child, 0)?;
                 on_event = format!("{}:{}", entity, lifecycle);
             }
         }
     }
 
     let assertion = assertion.ok_or_else(|| CompileError::ParseError {
-        src: src.to_string(),
         span: node.span().into(),
         message: "Missing assertion in rule".to_string(),
     })?;
@@ -951,9 +941,9 @@ fn parse_rule(node: &KdlNode, src: &str) -> Result<RuleDef, CompileError> {
     })
 }
 
-fn parse_posting_rule(node: &KdlNode, src: &str) -> Result<PostingRuleDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
-    let source_entity = get_prop_string(node, "for", src)?;
+fn parse_posting_rule(node: &KdlNode) -> Result<PostingRuleDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
+    let source_entity = get_prop_string(node, "for")?;
     let mut description_expr = None;
     let mut date_expr = None;
     let mut lines = vec![];
@@ -962,7 +952,7 @@ fn parse_posting_rule(node: &KdlNode, src: &str) -> Result<PostingRuleDef, Compi
         for child in children.nodes() {
             match child.name().value() {
                 "description" => {
-                    let s = get_arg_string(child, 0, src)?;
+                    let s = get_arg_string(child, 0)?;
                     let offset = child
                         .entries()
                         .first()
@@ -971,7 +961,7 @@ fn parse_posting_rule(node: &KdlNode, src: &str) -> Result<PostingRuleDef, Compi
                     description_expr = Some(parse_expression(&s, offset)?);
                 }
                 "date" => {
-                    let s = get_arg_string(child, 0, src)?;
+                    let s = get_arg_string(child, 0)?;
                     let offset = child
                         .entries()
                         .first()
@@ -979,19 +969,17 @@ fn parse_posting_rule(node: &KdlNode, src: &str) -> Result<PostingRuleDef, Compi
                         .unwrap_or(child.span().offset());
                     date_expr = Some(parse_expression(&s, offset)?);
                 }
-                "entry" | "line" => lines.push(parse_posting_line(child, src)?),
+                "entry" | "line" => lines.push(parse_posting_line(child)?),
                 _ => {}
             }
         }
     }
 
     let description_expr = description_expr.ok_or_else(|| CompileError::ParseError {
-        src: src.to_string(),
         span: node.span().into(),
         message: "Missing description".to_string(),
     })?;
     let date_expr = date_expr.ok_or_else(|| CompileError::ParseError {
-        src: src.to_string(),
         span: node.span().into(),
         message: "Missing date".to_string(),
     })?;
@@ -1006,7 +994,7 @@ fn parse_posting_rule(node: &KdlNode, src: &str) -> Result<PostingRuleDef, Compi
     })
 }
 
-fn parse_posting_line(node: &KdlNode, src: &str) -> Result<PostingLineDef, CompileError> {
+fn parse_posting_line(node: &KdlNode) -> Result<PostingLineDef, CompileError> {
     let mut account = String::new();
     let mut debit_expr = None;
     let mut credit_expr = None;
@@ -1014,9 +1002,9 @@ fn parse_posting_line(node: &KdlNode, src: &str) -> Result<PostingLineDef, Compi
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
-                "account" => account = get_arg_string(child, 0, src)?,
+                "account" => account = get_arg_string(child, 0)?,
                 "debit" => {
-                    let s = get_arg_string(child, 0, src)?;
+                    let s = get_arg_string(child, 0)?;
                     let offset = child
                         .entries()
                         .first()
@@ -1025,7 +1013,7 @@ fn parse_posting_line(node: &KdlNode, src: &str) -> Result<PostingLineDef, Compi
                     debit_expr = Some(parse_expression(&s, offset)?);
                 }
                 "credit" => {
-                    let s = get_arg_string(child, 0, src)?;
+                    let s = get_arg_string(child, 0)?;
                     let offset = child
                         .entries()
                         .first()
@@ -1046,9 +1034,9 @@ fn parse_posting_line(node: &KdlNode, src: &str) -> Result<PostingLineDef, Compi
     })
 }
 
-fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
-    let root_entity = get_prop_string(node, "for", src)?;
+fn parse_query(node: &KdlNode) -> Result<QueryDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
+    let root_entity = get_prop_string(node, "for")?;
     let mut params = vec![];
     let mut selections = vec![];
     let mut formulas = vec![];
@@ -1074,11 +1062,11 @@ fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
                         }
                     }
                 }
-                "select" => selections.push(parse_query_selection(child, src)?),
-                "formula" => formulas.push(parse_query_formula(child, src)?),
-                "join" => joins.push(parse_query_join(child, src)?),
+                "select" => selections.push(parse_query_selection(child)?),
+                "formula" => formulas.push(parse_query_formula(child)?),
+                "join" => joins.push(parse_query_join(child)?),
                 "filter" => {
-                    let s = get_arg_string(child, 0, src)?;
+                    let s = get_arg_string(child, 0)?;
                     let offset = child
                         .entries()
                         .first()
@@ -1086,8 +1074,8 @@ fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
                         .unwrap_or(child.span().offset());
                     filters.push(parse_expression(&s, offset)?);
                 }
-                "group_by" => group_by.push(get_arg_string(child, 0, src)?),
-                "hierarchy" => hierarchy = Some(parse_hierarchy(child, src)?),
+                "group_by" => group_by.push(get_arg_string(child, 0)?),
+                "hierarchy" => hierarchy = Some(parse_hierarchy(child)?),
                 _ => {}
             }
         }
@@ -1108,14 +1096,14 @@ fn parse_query(node: &KdlNode, src: &str) -> Result<QueryDef, CompileError> {
     })
 }
 
-fn parse_hierarchy(node: &KdlNode, src: &str) -> Result<HierarchyDef, CompileError> {
-    let parent_field = get_prop_string(node, "parent", src)?;
+fn parse_hierarchy(node: &KdlNode) -> Result<HierarchyDef, CompileError> {
+    let parent_field = get_prop_string(node, "parent")?;
     let mut rollup_fields = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             if child.name().value() == "rollup" {
-                rollup_fields.push(get_arg_string(child, 0, src)?);
+                rollup_fields.push(get_arg_string(child, 0)?);
             }
         }
     }
@@ -1127,9 +1115,9 @@ fn parse_hierarchy(node: &KdlNode, src: &str) -> Result<HierarchyDef, CompileErr
     })
 }
 
-fn parse_query_selection(node: &KdlNode, src: &str) -> Result<QuerySelectionDef, CompileError> {
-    let field = get_arg_string(node, 0, src)?;
-    let alias = get_prop_string(node, "as", src).ok();
+fn parse_query_selection(node: &KdlNode) -> Result<QuerySelectionDef, CompileError> {
+    let field = get_arg_string(node, 0)?;
+    let alias = get_prop_string(node, "as").ok();
     Ok(QuerySelectionDef {
         field,
         alias,
@@ -1137,9 +1125,9 @@ fn parse_query_selection(node: &KdlNode, src: &str) -> Result<QuerySelectionDef,
     })
 }
 
-fn parse_query_formula(node: &KdlNode, src: &str) -> Result<QueryFormulaDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
-    let s = get_arg_string(node, 1, src)?;
+fn parse_query_formula(node: &KdlNode) -> Result<QueryFormulaDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
+    let s = get_arg_string(node, 1)?;
     let offset = node
         .entries()
         .get(1)
@@ -1154,8 +1142,8 @@ fn parse_query_formula(node: &KdlNode, src: &str) -> Result<QueryFormulaDef, Com
     })
 }
 
-fn parse_query_join(node: &KdlNode, src: &str) -> Result<QueryJoinDef, CompileError> {
-    let target_entity = get_arg_string(node, 0, src)?;
+fn parse_query_join(node: &KdlNode) -> Result<QueryJoinDef, CompileError> {
+    let target_entity = get_arg_string(node, 0)?;
     let mut selections = vec![];
     let mut formulas = vec![];
     let mut joins = vec![];
@@ -1163,9 +1151,9 @@ fn parse_query_join(node: &KdlNode, src: &str) -> Result<QueryJoinDef, CompileEr
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
-                "select" => selections.push(parse_query_selection(child, src)?),
-                "formula" => formulas.push(parse_query_formula(child, src)?),
-                "join" => joins.push(parse_query_join(child, src)?),
+                "select" => selections.push(parse_query_selection(child)?),
+                "formula" => formulas.push(parse_query_formula(child)?),
+                "join" => joins.push(parse_query_join(child)?),
                 _ => {}
             }
         }
@@ -1180,8 +1168,8 @@ fn parse_query_join(node: &KdlNode, src: &str) -> Result<QueryJoinDef, CompileEr
     })
 }
 
-fn parse_enum(node: &KdlNode, src: &str) -> Result<EnumDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
+fn parse_enum(node: &KdlNode) -> Result<EnumDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
     let mut variants = vec![];
 
     if let Some(children) = node.children() {
@@ -1197,8 +1185,8 @@ fn parse_enum(node: &KdlNode, src: &str) -> Result<EnumDef, CompileError> {
     })
 }
 
-fn parse_serial_generator(node: &KdlNode, src: &str) -> Result<SerialGeneratorDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
+fn parse_serial_generator(node: &KdlNode) -> Result<SerialGeneratorDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
     let mut prefix = None;
     let mut date_format = None;
     let mut sequence_digits = 4;
@@ -1206,8 +1194,8 @@ fn parse_serial_generator(node: &KdlNode, src: &str) -> Result<SerialGeneratorDe
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
-                "prefix" => prefix = Some(get_arg_string(child, 0, src)?),
-                "date" => date_format = Some(get_arg_string(child, 0, src)?),
+                "prefix" => prefix = Some(get_arg_string(child, 0)?),
+                "date" => date_format = Some(get_arg_string(child, 0)?),
                 "sequence" => {
                     if let Some(digits) = get_prop_int(child, "digits") {
                         sequence_digits = digits as u32;
@@ -1227,25 +1215,25 @@ fn parse_serial_generator(node: &KdlNode, src: &str) -> Result<SerialGeneratorDe
     })
 }
 
-fn parse_dashboard(node: &KdlNode, src: &str) -> Result<DashboardDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
+fn parse_dashboard(node: &KdlNode) -> Result<DashboardDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
     let mut title = name.clone();
     let mut widgets = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
-                "title" => title = get_arg_string(child, 0, src)?,
+                "title" => title = get_arg_string(child, 0)?,
                 "grid" | "row" => {
                     if let Some(grid_children) = child.children() {
                         for w in grid_children.nodes() {
                             if w.name().value() == "widget" {
-                                widgets.push(parse_widget(w, src)?);
+                                widgets.push(parse_widget(w)?);
                             }
                         }
                     }
                 }
-                "widget" => widgets.push(parse_widget(child, src)?),
+                "widget" => widgets.push(parse_widget(child)?),
                 _ => {}
             }
         }
@@ -1259,9 +1247,9 @@ fn parse_dashboard(node: &KdlNode, src: &str) -> Result<DashboardDef, CompileErr
     })
 }
 
-fn parse_widget(node: &KdlNode, src: &str) -> Result<WidgetDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
-    let widget_type_str = get_prop_string(node, "type", src)?;
+fn parse_widget(node: &KdlNode) -> Result<WidgetDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
+    let widget_type_str = get_prop_string(node, "type")?;
     let widget_type = match widget_type_str.to_lowercase().as_str() {
         "stat" => WidgetType::Stat,
         "chart" => WidgetType::Chart,
@@ -1269,7 +1257,6 @@ fn parse_widget(node: &KdlNode, src: &str) -> Result<WidgetDef, CompileError> {
         "pie" => WidgetType::Pie,
         _ => {
             return Err(CompileError::ParseError {
-                src: src.to_string(),
                 span: node.span().into(),
                 message: format!("Unsupported widget type: {}", widget_type_str),
             });
@@ -1280,16 +1267,16 @@ fn parse_widget(node: &KdlNode, src: &str) -> Result<WidgetDef, CompileError> {
     let mut value = None;
     let mut icon = None;
     let mut query = None;
-    let mut roles = get_prop_string(node, "role", src).ok().map(|r| vec![r]);
+    let mut roles = get_prop_string(node, "role").ok().map(|r| vec![r]);
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
-                "label" => label = Some(get_arg_string(child, 0, src)?),
-                "value" => value = Some(get_arg_string(child, 0, src)?),
-                "icon" => icon = Some(get_arg_string(child, 0, src)?),
-                "query" => query = Some(get_arg_string(child, 0, src)?),
-                "role" => roles = Some(vec![get_arg_string(child, 0, src)?]),
+                "label" => label = Some(get_arg_string(child, 0)?),
+                "value" => value = Some(get_arg_string(child, 0)?),
+                "icon" => icon = Some(get_arg_string(child, 0)?),
+                "query" => query = Some(get_arg_string(child, 0)?),
+                "role" => roles = Some(vec![get_arg_string(child, 0)?]),
                 _ => {}
             }
         }
@@ -1307,8 +1294,8 @@ fn parse_widget(node: &KdlNode, src: &str) -> Result<WidgetDef, CompileError> {
     })
 }
 
-fn parse_page(node: &KdlNode, src: &str) -> Result<PageDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
+fn parse_page(node: &KdlNode) -> Result<PageDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
     let mut title = name.clone();
     let mut layout = None;
     let mut content = PageContent::None;
@@ -1316,10 +1303,10 @@ fn parse_page(node: &KdlNode, src: &str) -> Result<PageDef, CompileError> {
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
-                "title" => title = get_arg_string(child, 0, src)?,
-                "layout" => layout = Some(get_arg_string(child, 0, src)?),
-                "datatable" => content = PageContent::Datatable(parse_datatable(child, src)?),
-                "form" => content = PageContent::Form(parse_form(child, src)?),
+                "title" => title = get_arg_string(child, 0)?,
+                "layout" => layout = Some(get_arg_string(child, 0)?),
+                "datatable" => content = PageContent::Datatable(parse_datatable(child)?),
+                "form" => content = PageContent::Form(parse_form(child)?),
                 _ => {}
             }
         }
@@ -1334,13 +1321,12 @@ fn parse_page(node: &KdlNode, src: &str) -> Result<PageDef, CompileError> {
     })
 }
 
-fn parse_datatable(node: &KdlNode, src: &str) -> Result<DatatableDef, CompileError> {
-    let entity = get_prop_string(node, "for", src).ok();
-    let query = get_prop_string(node, "query", src).ok();
+fn parse_datatable(node: &KdlNode) -> Result<DatatableDef, CompileError> {
+    let entity = get_prop_string(node, "for").ok();
+    let query = get_prop_string(node, "query").ok();
 
     if entity.is_none() && query.is_none() {
         return Err(CompileError::ParseError {
-            src: src.to_string(),
             span: node.span().into(),
             message: "Datatable must have either 'for' (entity) or 'query' property".to_string(),
         });
@@ -1353,15 +1339,15 @@ fn parse_datatable(node: &KdlNode, src: &str) -> Result<DatatableDef, CompileErr
         for child in children.nodes() {
             match child.name().value() {
                 "column" => {
-                    let field = get_arg_string(child, 0, src)?;
-                    let label = get_prop_string(child, "label", src).unwrap_or_else(|_| to_title_case(&field));
+                    let field = get_arg_string(child, 0)?;
+                    let label = get_prop_string(child, "label").unwrap_or_else(|_| to_title_case(&field));
                     columns.push(DatatableColumnDef { field, label });
                 }
                 "action" => {
-                    let label = get_arg_string(child, 0, src)?;
-                    let icon = get_prop_string(child, "icon", src).ok();
-                    let to = get_prop_string(child, "to", src).ok();
-                    let method_str = get_prop_string(child, "method", src).ok();
+                    let label = get_arg_string(child, 0)?;
+                    let icon = get_prop_string(child, "icon").ok();
+                    let to = get_prop_string(child, "to").ok();
+                    let method_str = get_prop_string(child, "method").ok();
                     let method = match method_str {
                         Some(m) => match m.to_uppercase().as_str() {
                             "GET" => Some(RouteVerb::Get),
@@ -1370,7 +1356,6 @@ fn parse_datatable(node: &KdlNode, src: &str) -> Result<DatatableDef, CompileErr
                             "DELETE" => Some(RouteVerb::Delete),
                             _ => {
                                 return Err(CompileError::ParseError {
-                                    src: src.to_string(),
                                     span: child.span().into(),
                                     message: format!("Unsupported HTTP method: {}", m),
                                 });
@@ -1378,7 +1363,7 @@ fn parse_datatable(node: &KdlNode, src: &str) -> Result<DatatableDef, CompileErr
                         },
                         None => None,
                     };
-                    let variant = get_prop_string(child, "variant", src).ok();
+                    let variant = get_prop_string(child, "variant").ok();
 
                     actions.push(ActionDef {
                         label,
@@ -1402,12 +1387,12 @@ fn parse_datatable(node: &KdlNode, src: &str) -> Result<DatatableDef, CompileErr
     })
 }
 
-fn parse_routes(node: &KdlNode, src: &str) -> Result<RoutesDef, CompileError> {
+fn parse_routes(node: &KdlNode) -> Result<RoutesDef, CompileError> {
     let mut routes = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            routes.push(parse_route_node(child, src)?);
+            routes.push(parse_route_node(child)?);
         }
     }
 
@@ -1417,7 +1402,7 @@ fn parse_routes(node: &KdlNode, src: &str) -> Result<RoutesDef, CompileError> {
     })
 }
 
-fn parse_route_node(node: &KdlNode, src: &str) -> Result<RouteNode, CompileError> {
+fn parse_route_node(node: &KdlNode) -> Result<RouteNode, CompileError> {
     match node.name().value() {
         "route" | "route:get" | "route:post" | "route:put" | "route:delete" => {
             let verb = match node.name().value() {
@@ -1427,11 +1412,11 @@ fn parse_route_node(node: &KdlNode, src: &str) -> Result<RouteNode, CompileError
                 _ => RouteVerb::Get,
             };
 
-            let path = get_arg_string(node, 0, src)?;
-            let action = get_prop_string(node, "action", src).or_else(|_| get_prop_string(node, "to", src))?;
+            let path = get_arg_string(node, 0)?;
+            let action = get_prop_string(node, "action").or_else(|_| get_prop_string(node, "to"))?;
 
-            let layout = get_prop_string(node, "layout", src).ok();
-            let permission = get_prop_string(node, "permission", src).ok();
+            let layout = get_prop_string(node, "layout").ok();
+            let permission = get_prop_string(node, "permission").ok();
 
             Ok(RouteNode::Route(RouteDef {
                 verb,
@@ -1443,14 +1428,14 @@ fn parse_route_node(node: &KdlNode, src: &str) -> Result<RouteNode, CompileError
             }))
         }
         "group" => {
-            let path = get_arg_string(node, 0, src)?;
-            let layout = get_prop_string(node, "layout", src).ok();
-            let permission = get_prop_string(node, "permission", src).ok();
+            let path = get_arg_string(node, 0)?;
+            let layout = get_prop_string(node, "layout").ok();
+            let permission = get_prop_string(node, "permission").ok();
             let mut children = vec![];
 
             if let Some(kids) = node.children() {
                 for k in kids.nodes() {
-                    children.push(parse_route_node(k, src)?);
+                    children.push(parse_route_node(k)?);
                 }
             }
 
@@ -1463,20 +1448,19 @@ fn parse_route_node(node: &KdlNode, src: &str) -> Result<RouteNode, CompileError
             }))
         }
         _ => Err(CompileError::ParseError {
-            src: src.to_string(),
             span: node.span().into(),
             message: format!("Unexpected node in routes: {}", node.name().value()),
         }),
     }
 }
 
-fn parse_menu(node: &KdlNode, src: &str) -> Result<MenuDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
+fn parse_menu(node: &KdlNode) -> Result<MenuDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
     let mut items = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            items.push(parse_menu_item(child, src)?);
+            items.push(parse_menu_item(child)?);
         }
     }
 
@@ -1487,13 +1471,13 @@ fn parse_menu(node: &KdlNode, src: &str) -> Result<MenuDef, CompileError> {
     })
 }
 
-fn parse_menu_item(node: &KdlNode, src: &str) -> Result<MenuItemDef, CompileError> {
+fn parse_menu_item(node: &KdlNode) -> Result<MenuItemDef, CompileError> {
     let name = node.name().value();
     match name {
         "item" => {
-            let label = get_arg_string(node, 0, src)?;
-            let to = get_prop_string(node, "to", src)?;
-            let icon = get_prop_string(node, "icon", src).ok();
+            let label = get_arg_string(node, 0)?;
+            let to = get_prop_string(node, "to")?;
+            let icon = get_prop_string(node, "icon").ok();
 
             Ok(MenuItemDef::Item(MenuItem {
                 label,
@@ -1503,13 +1487,13 @@ fn parse_menu_item(node: &KdlNode, src: &str) -> Result<MenuItemDef, CompileErro
             }))
         }
         "group" => {
-            let label = get_arg_string(node, 0, src)?;
-            let icon = get_prop_string(node, "icon", src).ok();
+            let label = get_arg_string(node, 0)?;
+            let icon = get_prop_string(node, "icon").ok();
             let mut children = vec![];
 
             if let Some(kids) = node.children() {
                 for k in kids.nodes() {
-                    children.push(parse_menu_item(k, src)?);
+                    children.push(parse_menu_item(k)?);
                 }
             }
 
@@ -1521,22 +1505,21 @@ fn parse_menu_item(node: &KdlNode, src: &str) -> Result<MenuItemDef, CompileErro
             }))
         }
         _ => Err(CompileError::ParseError {
-            src: src.to_string(),
             span: node.span().into(),
             message: format!("Unexpected node in menu: {}", name),
         }),
     }
 }
 
-fn parse_print(node: &KdlNode, src: &str) -> Result<PrintDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
-    let entity = get_prop_string(node, "for", src)?;
+fn parse_print(node: &KdlNode) -> Result<PrintDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
+    let entity = get_prop_string(node, "for")?;
     let mut title = name.clone();
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             if child.name().value() == "title" {
-                title = get_arg_string(child, 0, src)?;
+                title = get_arg_string(child, 0)?;
             }
         }
     }
@@ -1549,15 +1532,15 @@ fn parse_print(node: &KdlNode, src: &str) -> Result<PrintDef, CompileError> {
     })
 }
 
-fn parse_form(node: &KdlNode, src: &str) -> Result<FormDef, CompileError> {
-    let name = get_arg_string(node, 0, src).unwrap_or_else(|_| "DefaultForm".to_string());
-    let entity = get_prop_string(node, "entity", src).or_else(|_| get_prop_string(node, "for", src))?;
+fn parse_form(node: &KdlNode) -> Result<FormDef, CompileError> {
+    let name = get_arg_string(node, 0).unwrap_or_else(|_| "DefaultForm".to_string());
+    let entity = get_prop_string(node, "entity").or_else(|_| get_prop_string(node, "for"))?;
     let mut sections = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             if child.name().value() == "section" {
-                sections.push(parse_section(child, src)?);
+                sections.push(parse_section(child)?);
             }
         }
     }
@@ -1570,26 +1553,26 @@ fn parse_form(node: &KdlNode, src: &str) -> Result<FormDef, CompileError> {
     })
 }
 
-fn parse_section(node: &KdlNode, src: &str) -> Result<FormSectionDef, CompileError> {
-    let title = get_arg_string(node, 0, src)?;
+fn parse_section(node: &KdlNode) -> Result<FormSectionDef, CompileError> {
+    let title = get_arg_string(node, 0)?;
     let mut items = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             if child.name().value() == "field" {
-                let field_name = get_arg_string(child, 0, src)?;
+                let field_name = get_arg_string(child, 0)?;
                 items.push(FormItemDef::Field(field_name));
             } else if child.name().value() == "group"
                 && let Some(grandkids) = child.children()
             {
                 for grandkid in grandkids.nodes() {
                     if grandkid.name().value() == "field" {
-                        let field_name = get_arg_string(grandkid, 0, src)?;
+                        let field_name = get_arg_string(grandkid, 0)?;
                         items.push(FormItemDef::Field(field_name));
                     }
                 }
             } else if child.name().value() == "grid" {
-                let field_name = get_arg_string(child, 0, src)?;
+                let field_name = get_arg_string(child, 0)?;
                 items.push(FormItemDef::Grid(FormGridDef {
                     field: field_name,
                     columns: None,
@@ -1606,15 +1589,15 @@ fn parse_section(node: &KdlNode, src: &str) -> Result<FormSectionDef, CompileErr
     })
 }
 
-fn parse_permission(node: &KdlNode, src: &str) -> Result<PermissionDef, CompileError> {
-    let name = get_arg_string(node, 0, src)?;
+fn parse_permission(node: &KdlNode) -> Result<PermissionDef, CompileError> {
+    let name = get_arg_string(node, 0)?;
     let mut allows = vec![];
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
             if child.name().value() == "allow" {
-                let resource = get_arg_string(child, 0, src)?;
-                let actions = get_arg_string(child, 1, src).ok();
+                let resource = get_arg_string(child, 0)?;
+                let actions = get_arg_string(child, 1).ok();
 
                 allows.push(AllowDef { resource, actions });
             }

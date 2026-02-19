@@ -5,14 +5,12 @@ use thiserror::Error;
 pub enum CompileError {
     #[error("Parse error")]
     ParseError {
-        src: String,
         span: SourceSpan,
         message: String,
     },
 
     #[error("Validation error: {message}")]
     ValidationError {
-        src: String,
         span: SourceSpan,
         message: String,
     },
