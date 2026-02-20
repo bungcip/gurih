@@ -12,22 +12,11 @@ pub fn resize_image(data: &[u8], size_str: &str) -> Result<Vec<u8>, String> {
 
     let img = image::load_from_memory(data).map_err(|e| e.to_string())?;
 
-    // Using resize_to_fill or resize? resize maintains aspect ratio and fits within.
-    // resize_exact stretches.
-    // resize_to_fill crops.
-    // Usually "resize" implies fitting or filling. Let's assume `resize` (fit within box) for now,
-    // or maybe `resize_to_fill` is better for thumbnails.
-    // Given typical use cases (avatars), `resize_to_fill` is often preferred if they want square.
-    // But if they ask for `resize`, `img.resize` is the safest default.
-
+    // Use resize to fit within dimensions while maintaining aspect ratio
     let resized = img.resize(width, height, FilterType::Lanczos3);
 
     let mut out = Cursor::new(Vec::new());
-    // Convert to PNG for consistency or keep original format?
-    // image crate `load_from_memory` detects format.
-    // `write_to` requires format.
-    // We should probably preserve format if possible, but simplest is to standardize on PNG or JPEG.
-    // Let's use PNG for lossless.
+    // Standardize on PNG for lossless output
     resized
         .write_to(&mut out, image::ImageFormat::Png)
         .map_err(|e| e.to_string())?;

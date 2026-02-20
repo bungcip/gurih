@@ -65,7 +65,6 @@ impl ActionEngine {
                 let id = resolve_param(id_raw, params);
 
                 // Call DataEngine delete
-                println!("Executing Delete on {} with ID {}", target_entity, id);
                 data_engine
                     .delete(target_entity.as_str(), &id, ctx)
                     .await
@@ -113,7 +112,6 @@ impl ActionEngine {
                     }
                 }
 
-                println!("Executing Update on {} with ID {}", target_entity, id);
                 data_engine
                     .update(target_entity.as_str(), &id, Value::Object(update_data), ctx)
                     .await
@@ -132,7 +130,7 @@ impl ActionEngine {
                     }
                 }
                 if !handled {
-                    println!("Action step custom '{}' not handled by any plugin", name);
+                    // Action step custom '{}' not handled by any plugin
                     // Optionally return error if strict
                     // return Err(format!("Action step custom '{}' not handled", name));
                 }

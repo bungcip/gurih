@@ -1573,9 +1573,23 @@ fn parse_section(node: &KdlNode) -> Result<FormSectionDef, CompileError> {
                 }
             } else if child.name().value() == "grid" {
                 let field_name = get_arg_string(child, 0)?;
+                let mut columns = None;
+
+                if let Some(grid_children) = child.children() {
+                    let mut cols = vec![];
+                    for col in grid_children.nodes() {
+                        if col.name().value() == "column" {
+                            cols.push(get_arg_string(col, 0)?);
+                        }
+                    }
+                    if !cols.is_empty() {
+                        columns = Some(cols);
+                    }
+                }
+
                 items.push(FormItemDef::Grid(FormGridDef {
                     field: field_name,
-                    columns: None,
+                    columns,
                     span: child.span().into(),
                 }));
             }

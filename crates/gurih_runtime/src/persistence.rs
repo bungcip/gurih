@@ -406,8 +406,17 @@ impl SchemaManager {
         let db_kind = &self.db_kind;
         let mut tables_to_drop = Vec::new();
 
+        // Include explicit tables
         for name in self.schema.tables.keys() {
-            tables_to_drop.push(*name);
+            tables_to_drop.push(name.to_string());
+        }
+
+        // Include implicit tables from entities (fallback for manual schemas)
+        for entity in self.schema.entities.values() {
+            let t = entity.table_name.to_string();
+            if !tables_to_drop.contains(&t) {
+                tables_to_drop.push(t);
+            }
         }
 
         for table in tables_to_drop {
