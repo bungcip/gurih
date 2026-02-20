@@ -181,22 +181,39 @@ impl FormEngine {
 
         let mut columns = vec![];
 
-        // 1. Regular fields
-        for field in &target_entity.fields {
-            if field.name == Symbol::from("id") {
-                continue;
+        if let Some(cols) = &grid_def.columns {
+            // Use specified columns
+            for col_name in cols {
+                if let Some(field) = target_entity.fields.iter().find(|f| &f.name == col_name) {
+                    columns.push(self.create_field_widget(field));
+                } else if let Some(rel) = target_entity.relationships.iter().find(|r| &r.name == col_name) {
+                    columns.push(self.create_relation_widget(rel));
+                } else {
+                    return Err(format!(
+                        "Column {} not found in entity {}",
+                        col_name, target_entity_name
+                    ));
+                }
             }
-            columns.push(self.create_field_widget(field));
-        }
-
-        // 2. Relationships
-        for rel in &target_entity.relationships {
-            if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
-                // Skip if it points back to parent
-                if rel.target_entity == parent_entity.name {
+        } else {
+            // Default behavior: All fields + relationships
+            // 1. Regular fields
+            for field in &target_entity.fields {
+                if field.name == Symbol::from("id") {
                     continue;
                 }
-                columns.push(self.create_relation_widget(rel));
+                columns.push(self.create_field_widget(field));
+            }
+
+            // 2. Relationships
+            for rel in &target_entity.relationships {
+                if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
+                    // Skip if it points back to parent
+                    if rel.target_entity == parent_entity.name {
+                        continue;
+                    }
+                    columns.push(self.create_relation_widget(rel));
+                }
             }
         }
 
