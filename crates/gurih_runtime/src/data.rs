@@ -1377,8 +1377,16 @@ impl DataEngine {
             .map(|e| e.table_name.as_str())
             .unwrap_or("Account");
 
+        let has_system_tag = self
+            .schema
+            .entities
+            .get(&Symbol::from("Account"))
+            .map(|e| e.fields.iter().any(|f| f.name == Symbol::from("system_tag")))
+            .unwrap_or(false);
+
         let mut code_map = HashMap::new();
         let mut name_map = HashMap::new();
+        let mut tag_map = HashMap::new();
 
         // Batch Fetch if DB is configured
         if let Some(db_config) = &self.schema.database {
@@ -1390,17 +1398,22 @@ impl DataEngine {
                 let mut params = Vec::new();
                 let mut placeholders_code = Vec::new();
                 let mut placeholders_name = Vec::new();
+                let mut placeholders_tag = Vec::new();
 
                 for (i, term) in chunk.iter().enumerate() {
                     params.push(Value::String(term.to_string()));
                     placeholders_code.push(gurih_ir::utils::get_db_placeholder(&db_config.db_type, i + 1));
                 }
 
-                // For name clause placeholders
+                // For name/tag clause placeholders
                 if db_config.db_type == gurih_ir::DatabaseType::Postgres {
                     // Postgres can reuse params $1..$N
                     for i in 0..chunk.len() {
-                        placeholders_name.push(format!("${}", i + 1));
+                        let p = format!("${}", i + 1);
+                        placeholders_name.push(p.clone());
+                        if has_system_tag {
+                            placeholders_tag.push(p);
+                        }
                     }
                 } else {
                     // SQLite needs params to be repeated
@@ -1410,14 +1423,33 @@ impl DataEngine {
                     for _ in 0..chunk.len() {
                         placeholders_name.push("?".to_string());
                     }
+                    if has_system_tag {
+                        for term in chunk {
+                            params.push(Value::String(term.to_string()));
+                        }
+                        for _ in 0..chunk.len() {
+                            placeholders_tag.push("?".to_string());
+                        }
+                    }
                 }
 
-                let sql = format!(
-                    "SELECT id, code, name FROM {} WHERE code IN ({}) OR name IN ({})",
-                    account_table,
+                let cols = if has_system_tag {
+                    "id, code, name, system_tag"
+                } else {
+                    "id, code, name"
+                };
+
+                let mut where_clause = format!(
+                    "code IN ({}) OR name IN ({})",
                     placeholders_code.join(", "),
                     placeholders_name.join(", ")
                 );
+
+                if has_system_tag {
+                    where_clause.push_str(&format!(" OR system_tag IN ({})", placeholders_tag.join(", ")));
+                }
+
+                let sql = format!("SELECT {} FROM {} WHERE {}", cols, account_table, where_clause);
 
                 if let Ok(rows) = self.datastore.query_with_params(&sql, params).await {
                     for row in rows {
@@ -1430,7 +1462,14 @@ impl DataEngine {
                                 code_map.insert(code, id.clone());
                             }
                             if !name.is_empty() {
-                                name_map.insert(name, id);
+                                name_map.insert(name, id.clone());
+                            }
+                            if has_system_tag {
+                                if let Some(tag) = obj.get("system_tag").and_then(|v| v.as_str()) {
+                                    if !tag.is_empty() {
+                                        tag_map.insert(tag.to_string(), id);
+                                    }
+                                }
                             }
                         }
                     }
@@ -1438,7 +1477,6 @@ impl DataEngine {
             }
         } else {
             // Parallel Fetch Optimization for non-SQL stores
-            // Instead of N+1 sequential queries, we run them in parallel
             let terms_vec: Vec<&str> = unique_terms.iter().cloned().collect();
 
             // 1. Find by Code
@@ -1450,7 +1488,6 @@ impl DataEngine {
             }
 
             let results = join_all(futures).await;
-
             for (i, result) in results.into_iter().enumerate() {
                 if let Ok(Some(account)) = result {
                     if let Some(obj) = account.as_object() {
@@ -1459,22 +1496,52 @@ impl DataEngine {
                             .and_then(|v| v.as_str())
                             .unwrap_or_default()
                             .to_string();
-                        // We found it by code
                         code_map.insert(terms_vec[i].to_string(), id);
                     }
                 }
             }
 
-            // 2. Find by Name (for those not found)
+            // 2. Find by System Tag (if applicable)
+            if has_system_tag {
+                let mut tag_futures = Vec::new();
+                let mut pending_terms_tag = Vec::new();
+
+                for term in &terms_vec {
+                    if !code_map.contains_key(*term) {
+                        let mut filters = HashMap::new();
+                        filters.insert("system_tag".to_string(), term.to_string());
+                        tag_futures.push(self.datastore.find_first(account_table, filters));
+                        pending_terms_tag.push(*term);
+                    }
+                }
+
+                if !tag_futures.is_empty() {
+                    let results = join_all(tag_futures).await;
+                    for (i, result) in results.into_iter().enumerate() {
+                        if let Ok(Some(account)) = result {
+                            if let Some(obj) = account.as_object() {
+                                let id = obj
+                                    .get("id")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or_default()
+                                    .to_string();
+                                tag_map.insert(pending_terms_tag[i].to_string(), id);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Find by Name (last resort)
             let mut name_futures = Vec::new();
-            let mut pending_terms = Vec::new();
+            let mut pending_terms_name = Vec::new();
 
             for term in &terms_vec {
-                if !code_map.contains_key(*term) {
+                if !code_map.contains_key(*term) && !tag_map.contains_key(*term) {
                     let mut filters = HashMap::new();
                     filters.insert("name".to_string(), term.to_string());
                     name_futures.push(self.datastore.find_first(account_table, filters));
-                    pending_terms.push(*term);
+                    pending_terms_name.push(*term);
                 }
             }
 
@@ -1488,7 +1555,7 @@ impl DataEngine {
                                 .and_then(|v| v.as_str())
                                 .unwrap_or_default()
                                 .to_string();
-                            name_map.insert(pending_terms[i].to_string(), id);
+                            name_map.insert(pending_terms_name[i].to_string(), id);
                         }
                     }
                 }
@@ -1498,38 +1565,44 @@ impl DataEngine {
         for line in &rule.lines {
             let mut line_obj = serde_json::Map::new();
 
-            // Resolve Account (Optimized Lookup with Fallback)
+            // Resolve Account (Priority: System Tag > Code > Name)
             let account_term = line.account.as_str();
 
-            let account_id = if let Some(id) = code_map.get(account_term) {
+            let account_id = if let Some(id) = tag_map.get(account_term) {
+                id.clone()
+            } else if let Some(id) = code_map.get(account_term) {
                 id.clone()
             } else if let Some(id) = name_map.get(account_term) {
                 id.clone()
             } else {
-                // Fallback to individual find (MemoryStore or missing from batch)
-                let mut filters = HashMap::new();
-                filters.insert("code".to_string(), account_term.to_string());
-                let mut accounts = self
-                    .datastore
-                    .find(account_table, filters)
-                    .await
-                    .map_err(|e| e.to_string())?;
+                // Fallback to individual find
+                let mut found_id = None;
 
-                if accounts.is_empty() {
+                if has_system_tag {
                     let mut filters = HashMap::new();
-                    filters.insert("name".to_string(), account_term.to_string());
-                    accounts = self
-                        .datastore
-                        .find(account_table, filters)
-                        .await
-                        .map_err(|e| e.to_string())?;
+                    filters.insert("system_tag".to_string(), account_term.to_string());
+                    if let Ok(Some(acc)) = self.datastore.find_first(account_table, filters).await {
+                         found_id = acc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
+                    }
                 }
 
-                accounts
-                    .first()
-                    .and_then(|row| row.get("id").and_then(|v| v.as_str()))
-                    .ok_or_else(|| format!("Account '{}' not found", account_term))?
-                    .to_string()
+                if found_id.is_none() {
+                     let mut filters = HashMap::new();
+                     filters.insert("code".to_string(), account_term.to_string());
+                     if let Ok(Some(acc)) = self.datastore.find_first(account_table, filters).await {
+                         found_id = acc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
+                     }
+                }
+
+                if found_id.is_none() {
+                     let mut filters = HashMap::new();
+                     filters.insert("name".to_string(), account_term.to_string());
+                     if let Ok(Some(acc)) = self.datastore.find_first(account_table, filters).await {
+                         found_id = acc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
+                     }
+                }
+
+                found_id.ok_or_else(|| format!("Account '{}' not found", account_term))?
             };
 
             line_obj.insert("account".to_string(), Value::String(account_id));

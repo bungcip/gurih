@@ -37,24 +37,35 @@ account "Cash" {
     code "101"
     type "Asset"
     normal_balance "Debit"
+    system_tag "cash"
 }
 
 account "Accounts Receivable" {
     code "102"
     type "Asset"
     normal_balance "Debit"
+    system_tag "accounts_receivable"
 }
 
 account "Inventory" {
     code "103"
     type "Asset"
     normal_balance "Debit"
+    system_tag "inventory"
 }
 
 account "Accounts Payable" {
     code "201"
     type "Liability"
     normal_balance "Credit"
+    system_tag "accounts_payable"
+}
+
+account "Tax Payable" {
+    code "202"
+    type "Liability"
+    normal_balance "Credit"
+    system_tag "tax_payable"
 }
 
 account "Retained Earnings" {
@@ -68,12 +79,21 @@ account "Sales Revenue" {
     code "401"
     type "Revenue"
     normal_balance "Credit"
+    system_tag "sales_revenue"
 }
 
 account "Cost of Goods Sold" {
     code "501"
     type "Expense"
     normal_balance "Debit"
+    system_tag "cogs"
+}
+
+account "Salaries Expense" {
+    code "502"
+    type "Expense"
+    normal_balance "Debit"
+    system_tag "salaries_expense"
 }
 
 page "CoAList" {

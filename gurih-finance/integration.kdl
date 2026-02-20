@@ -5,12 +5,12 @@ posting_rule "InvoicePosting" for="Invoice" {
     date "doc.date"
 
     entry {
-        account "Accounts Receivable"
+        account "accounts_receivable"
         debit "doc.total_amount"
     }
 
     entry {
-        account "Sales Revenue"
+        account "sales_revenue"
         credit "doc.total_amount"
     }
 }
@@ -20,17 +20,17 @@ posting_rule "PayrollPosting" for="PayrollRun" {
     date "doc.payment_date"
 
     entry {
-        account "Salaries Expense"
+        account "salaries_expense"
         debit "doc.total_gross_pay"
     }
 
     entry {
-        account "Tax Payable"
+        account "tax_payable"
         credit "doc.total_tax"
     }
 
     entry {
-        account "Cash"
+        account "cash"
         credit "doc.total_net_pay"
     }
 }
