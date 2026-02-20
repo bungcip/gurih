@@ -236,27 +236,28 @@ impl AuthEngine {
             // Remove expired entries first
             attempts.retain(|_, (_, time)| time.elapsed() < Duration::from_secs(300));
 
-            // Sentinel: If still over limit, prioritize keeping banned users
+            // Sentinel: If still over limit, use priority eviction
+            // Previous vulnerability: Aggressively removing count < 5 allowed bypassing rate limits
+            // by flooding with count=1 entries.
+            // Fix: Prioritize removing lowest counts (noise) first, then oldest entries.
             if attempts.len() >= MAX_LOGIN_ATTEMPTS {
-                // 1. Remove non-banned entries (count < 5) first.
-                // This resets failed attempts for users who haven't been banned yet,
-                // which is acceptable degradation under attack.
-                attempts.retain(|_, (count, _)| *count >= 5);
-            }
+                // Collect keys, counts, and times
+                let mut entries: Vec<(String, u32, Instant)> = attempts
+                    .iter()
+                    .map(|(k, (c, t))| (k.clone(), *c, *t))
+                    .collect();
 
-            // 2. If STILL full (attacker created 1000 banned users), remove oldest entries.
-            // This is O(N) but necessary to prevent OOM while keeping as many bans as possible.
-            if attempts.len() >= MAX_LOGIN_ATTEMPTS {
-                // Collect keys and times to sort (only if strictly necessary)
-                let mut entries: Vec<(String, Instant)> =
-                    attempts.iter().map(|(k, (_, time))| (k.clone(), *time)).collect();
+                // Sort Priority:
+                // 1. Count (Ascending) -> Remove lowest counts first (noise)
+                // 2. Time (Ascending) -> Remove oldest timestamp first
+                entries.sort_by(|a, b| match a.1.cmp(&b.1) {
+                    std::cmp::Ordering::Equal => a.2.cmp(&b.2),
+                    other => other,
+                });
 
-                // Sort by time (oldest first)
-                entries.sort_by(|a, b| a.1.cmp(&b.1));
-
-                // Remove oldest 10% to make space
+                // Remove bottom 10% (lowest priority to keep = highest priority to remove)
                 let remove_count = (MAX_LOGIN_ATTEMPTS / 10).max(1);
-                for (k, _) in entries.iter().take(remove_count) {
+                for (k, _, _) in entries.iter().take(remove_count) {
                     attempts.remove(k);
                 }
             }
@@ -426,11 +427,14 @@ mod tests {
 
         let attempts = auth.login_attempts.lock().unwrap();
 
-        // Expectation: Non-banned users removed first
+        // Expectation: Low count users (count=1) are removed first.
+        // Banned user (count=5) should be retained because it has higher priority to keep.
         assert!(attempts.contains_key("banned_user"), "Banned user should be retained");
         assert!(attempts.len() < MAX_LOGIN_ATTEMPTS, "Size should be reduced");
-        // Specifically, all innocent users should be gone because count < 5
-        assert_eq!(attempts.len(), 1);
+
+        // We remove 10% (100). So size should be 900.
+        // Initial: 1000. Removed: 100.
+        assert_eq!(attempts.len(), 900);
     }
 
     #[test]
@@ -464,5 +468,37 @@ mod tests {
             attempts.len() >= 900 && attempts.len() <= 1000,
             "Should remove approx 10%"
         );
+    }
+
+    #[test]
+    fn test_rate_limit_bypass_eviction() {
+        let store = Arc::new(MemoryDataStore::new());
+        let auth = AuthEngine::new(store.clone(), None, None);
+
+        // Populate with:
+        // 1. Target user (count=4) - High priority to keep
+        // 2. MAX users (count=1) - Noise
+        {
+            let mut attempts = auth.login_attempts.lock().unwrap();
+
+            // Insert target
+            attempts.insert("target_user".to_string(), (4, Instant::now()));
+
+            // Insert noise
+            for i in 0..(MAX_LOGIN_ATTEMPTS) {
+                attempts.insert(format!("noise_{}", i), (1, Instant::now()));
+            }
+        }
+
+        // Trigger cleanup
+        auth.cleanup_login_attempts();
+
+        let attempts = auth.login_attempts.lock().unwrap();
+
+        // Vulnerability Check:
+        // Current implementation removes ALL count < 5.
+        // So target_user (count=4) is evicted.
+        // We assert valid behavior (it SHOULD be there), so this test SHOULD FAIL before fix.
+        assert!(attempts.contains_key("target_user"), "Target user (count=4) should be preserved over noise (count=1)");
     }
 }
