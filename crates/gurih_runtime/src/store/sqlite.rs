@@ -15,6 +15,24 @@ impl SqliteDataStore {
         Self { pool }
     }
 
+    fn handle_error(e: sqlx::Error) -> String {
+        match e {
+            sqlx::Error::Database(err) => {
+                let msg = err.message();
+                if msg.contains("UNIQUE constraint failed") {
+                    let field = msg.split(": ").last().unwrap_or("unknown");
+                    return format!("Duplicate entry: {}", field);
+                }
+                eprintln!("Database Error: {}", err.message());
+                "Database operation failed".to_string()
+            }
+            _ => {
+                eprintln!("Internal Database Error: {}", e);
+                "Internal system error".to_string()
+            }
+        }
+    }
+
     fn build_where_clause(filters: &HashMap<String, String>) -> Result<(String, Vec<&String>), String> {
         if filters.is_empty() {
             return Ok((String::new(), vec![]));
@@ -163,7 +181,7 @@ impl DataStore for SqliteDataStore {
             }
         }
 
-        let row = q.fetch_one(&self.pool).await.map_err(|e| e.to_string())?;
+        let row = q.fetch_one(&self.pool).await.map_err(Self::handle_error)?;
         let id: String = row
             .try_get("id")
             .unwrap_or_else(|_| row.try_get::<i64, _>("id").map(|i| i.to_string()).unwrap_or_default());
@@ -254,7 +272,7 @@ impl DataStore for SqliteDataStore {
                 }
             }
 
-            q.execute(&self.pool).await.map_err(|e| e.to_string())?;
+            q.execute(&self.pool).await.map_err(Self::handle_error)?;
         }
 
         Ok(ids)
@@ -267,7 +285,7 @@ impl DataStore for SqliteDataStore {
             .bind(id)
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(Self::handle_error)?;
 
         if let Some(row) = row {
             Ok(Some(Arc::new(Self::row_to_json(&row))))
@@ -318,7 +336,7 @@ impl DataStore for SqliteDataStore {
         }
         q = q.bind(id);
 
-        q.execute(&self.pool).await.map_err(|e| e.to_string())?;
+        q.execute(&self.pool).await.map_err(Self::handle_error)?;
         Ok(())
     }
 
@@ -329,7 +347,7 @@ impl DataStore for SqliteDataStore {
             .bind(id)
             .execute(&self.pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(Self::handle_error)?;
         Ok(())
     }
 
@@ -347,7 +365,7 @@ impl DataStore for SqliteDataStore {
         let rows = sqlx::query(&query)
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(Self::handle_error)?;
         Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
     }
 
@@ -363,7 +381,7 @@ impl DataStore for SqliteDataStore {
             q = q.bind(p);
         }
 
-        let rows = q.fetch_all(&self.pool).await.map_err(|e| e.to_string())?;
+        let rows = q.fetch_all(&self.pool).await.map_err(Self::handle_error)?;
         Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
     }
 
@@ -381,7 +399,7 @@ impl DataStore for SqliteDataStore {
             q = q.bind(p);
         }
 
-        let row = q.fetch_optional(&self.pool).await.map_err(|e| e.to_string())?;
+        let row = q.fetch_optional(&self.pool).await.map_err(Self::handle_error)?;
         if let Some(r) = row {
             Ok(Some(Arc::new(Self::row_to_json(&r))))
         } else {
@@ -401,7 +419,7 @@ impl DataStore for SqliteDataStore {
             q = q.bind(p);
         }
 
-        let count: i64 = q.fetch_one(&self.pool).await.map_err(|e| e.to_string())?;
+        let count: i64 = q.fetch_one(&self.pool).await.map_err(Self::handle_error)?;
         Ok(count)
     }
 
@@ -425,7 +443,7 @@ impl DataStore for SqliteDataStore {
             q = q.bind(p);
         }
 
-        let rows = q.fetch_all(&self.pool).await.map_err(|e| e.to_string())?;
+        let rows = q.fetch_all(&self.pool).await.map_err(Self::handle_error)?;
 
         let mut results = vec![];
         for row in rows {
@@ -443,7 +461,7 @@ impl DataStore for SqliteDataStore {
         let rows = sqlx::query(sql)
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(Self::handle_error)?;
         Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
     }
 
@@ -466,7 +484,7 @@ impl DataStore for SqliteDataStore {
                 _ => q = q.bind(p.to_string()),
             }
         }
-        let rows = q.fetch_all(&self.pool).await.map_err(|e| e.to_string())?;
+        let rows = q.fetch_all(&self.pool).await.map_err(Self::handle_error)?;
         Ok(rows.iter().map(|r| Arc::new(Self::row_to_json(r))).collect())
     }
 }
