@@ -242,10 +242,8 @@ impl AuthEngine {
             // Fix: Prioritize removing lowest counts (noise) first, then oldest entries.
             if attempts.len() >= MAX_LOGIN_ATTEMPTS {
                 // Collect keys, counts, and times
-                let mut entries: Vec<(String, u32, Instant)> = attempts
-                    .iter()
-                    .map(|(k, (c, t))| (k.clone(), *c, *t))
-                    .collect();
+                let mut entries: Vec<(String, u32, Instant)> =
+                    attempts.iter().map(|(k, (c, t))| (k.clone(), *c, *t)).collect();
 
                 // Sort Priority:
                 // 1. Count (Ascending) -> Remove lowest counts first (noise)
@@ -499,6 +497,9 @@ mod tests {
         // Current implementation removes ALL count < 5.
         // So target_user (count=4) is evicted.
         // We assert valid behavior (it SHOULD be there), so this test SHOULD FAIL before fix.
-        assert!(attempts.contains_key("target_user"), "Target user (count=4) should be preserved over noise (count=1)");
+        assert!(
+            attempts.contains_key("target_user"),
+            "Target user (count=4) should be preserved over noise (count=1)"
+        );
     }
 }

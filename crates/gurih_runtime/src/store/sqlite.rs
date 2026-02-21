@@ -47,30 +47,22 @@ impl SqliteDataStore {
             let type_name = col.type_info().name();
 
             let val = match type_name {
-                "TEXT" | "VARCHAR" | "CHAR" | "CLOB" => {
-                    match row.try_get::<Option<String>, _>(i) {
-                        Ok(Some(v)) => Value::String(v),
-                        _ => Value::Null,
-                    }
-                }
-                "INTEGER" | "INT" | "BIGINT" | "TINYINT" | "SMALLINT" => {
-                    match row.try_get::<Option<i64>, _>(i) {
-                        Ok(Some(v)) => Value::Number(Number::from(v)),
-                        _ => Value::Null,
-                    }
-                }
-                "REAL" | "FLOAT" | "DOUBLE" | "NUMERIC" => {
-                    match row.try_get::<Option<f64>, _>(i) {
-                        Ok(Some(v)) => Number::from_f64(v).map(Value::Number).unwrap_or(Value::Null),
-                        _ => Value::Null,
-                    }
-                }
-                "BOOLEAN" => {
-                    match row.try_get::<Option<bool>, _>(i) {
-                        Ok(Some(v)) => Value::Bool(v),
-                        _ => Value::Null,
-                    }
-                }
+                "TEXT" | "VARCHAR" | "CHAR" | "CLOB" => match row.try_get::<Option<String>, _>(i) {
+                    Ok(Some(v)) => Value::String(v),
+                    _ => Value::Null,
+                },
+                "INTEGER" | "INT" | "BIGINT" | "TINYINT" | "SMALLINT" => match row.try_get::<Option<i64>, _>(i) {
+                    Ok(Some(v)) => Value::Number(Number::from(v)),
+                    _ => Value::Null,
+                },
+                "REAL" | "FLOAT" | "DOUBLE" | "NUMERIC" => match row.try_get::<Option<f64>, _>(i) {
+                    Ok(Some(v)) => Number::from_f64(v).map(Value::Number).unwrap_or(Value::Null),
+                    _ => Value::Null,
+                },
+                "BOOLEAN" => match row.try_get::<Option<bool>, _>(i) {
+                    Ok(Some(v)) => Value::Bool(v),
+                    _ => Value::Null,
+                },
                 "DATE" => {
                     // SQLite doesn't have a native DATE type, but we might have declared it as DATE.
                     // SQLx maps DATE to chrono::NaiveDate if the column type is "DATE".

@@ -31,7 +31,10 @@ fn test_parser_grid_columns() {
     let schema = compile(kdl, None).expect("Failed to compile");
 
     // The form name will be "OrderForm" (if name provided) or constructed.
-    let form = schema.forms.get(&gurih_ir::Symbol::from("OrderForm")).expect("Form not found");
+    let form = schema
+        .forms
+        .get(&gurih_ir::Symbol::from("OrderForm"))
+        .expect("Form not found");
     let section = &form.sections[0];
     let item = &section.items[0];
 

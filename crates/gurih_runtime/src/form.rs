@@ -37,19 +37,13 @@ impl FormEngine {
                 for item in &section.items {
                     match item {
                         gurih_ir::FormItem::Field(field_name) => {
-                            let ui_field = if let Some(field_def) =
-                                entity.fields.iter().find(|f| &f.name == field_name)
+                            let ui_field = if let Some(field_def) = entity.fields.iter().find(|f| &f.name == field_name)
                             {
                                 self.create_field_widget(field_def)
-                            } else if let Some(rel_def) =
-                                entity.relationships.iter().find(|r| &r.name == field_name)
-                            {
+                            } else if let Some(rel_def) = entity.relationships.iter().find(|r| &r.name == field_name) {
                                 self.create_relation_widget(rel_def)
                             } else {
-                                return Err(format!(
-                                    "Field {} not found in entity {}",
-                                    field_name, form.entity
-                                ));
+                                return Err(format!("Field {} not found in entity {}", field_name, form.entity));
                             };
                             ui_fields.push(ui_field);
                         }
@@ -159,18 +153,10 @@ impl FormEngine {
             .relationships
             .iter()
             .find(|r| &r.name == field_name)
-            .ok_or_else(|| {
-                format!(
-                    "Relationship {} not found in entity {}",
-                    field_name, parent_entity.name
-                )
-            })?;
+            .ok_or_else(|| format!("Relationship {} not found in entity {}", field_name, parent_entity.name))?;
 
         if rel_def.rel_type != gurih_ir::RelationshipType::HasMany {
-            return Err(format!(
-                "Field {} is not a has_many relationship",
-                field_name
-            ));
+            return Err(format!("Field {} is not a has_many relationship", field_name));
         }
 
         let target_entity_name = &rel_def.target_entity;

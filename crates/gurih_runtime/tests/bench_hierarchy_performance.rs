@@ -165,14 +165,21 @@ async fn test_hierarchy_performance() {
         "value": "1.0"
     });
     for i in 1..=50 {
-        root_obj.as_object_mut().unwrap().insert(format!("col_{}", i), json!(filler));
+        root_obj
+            .as_object_mut()
+            .unwrap()
+            .insert(format!("col_{}", i), json!(filler));
     }
     records.push(root_obj);
 
     let mut prev_id = "root".to_string();
     for i in 1..2000 {
         let id = format!("node_{}", i);
-        let parent = if i % 10 == 0 { "root".to_string() } else { prev_id.clone() };
+        let parent = if i % 10 == 0 {
+            "root".to_string()
+        } else {
+            prev_id.clone()
+        };
 
         let mut obj = json!({
             "id": id.clone(),
@@ -200,7 +207,10 @@ async fn test_hierarchy_performance() {
 
     assert_eq!(result.len(), 20); // Limit works
 
-    let root_node = result.iter().find(|r| r.as_object().unwrap().get("id").unwrap().as_str().unwrap() == "root").unwrap();
+    let root_node = result
+        .iter()
+        .find(|r| r.as_object().unwrap().get("id").unwrap().as_str().unwrap() == "root")
+        .unwrap();
     let root_val = root_node.as_object().unwrap().get("value").unwrap().as_f64().unwrap();
     println!("Root value: {}", root_val);
 }

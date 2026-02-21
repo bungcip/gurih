@@ -99,10 +99,7 @@ impl MemoryDataStore {
     }
 
     fn compile_filters(filters: HashMap<String, String>) -> Vec<CompiledFilter> {
-        filters
-            .into_iter()
-            .map(|(k, v)| CompiledFilter::new(k, v))
-            .collect()
+        filters.into_iter().map(|(k, v)| CompiledFilter::new(k, v)).collect()
     }
 }
 

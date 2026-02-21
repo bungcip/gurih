@@ -80,5 +80,9 @@ async fn test_delete_requires_read_permission() {
     // This should FAIL if we enforce read permission
     assert!(result.is_err(), "Delete should fail if user lacks read permission");
     let err = result.err().unwrap();
-    assert!(err.contains("Missing permission 'read:TestEntity'"), "Error message should mention missing read permission. Got: {}", err);
+    assert!(
+        err.contains("Missing permission 'read:TestEntity'"),
+        "Error message should mention missing read permission. Got: {}",
+        err
+    );
 }

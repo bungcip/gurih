@@ -123,8 +123,8 @@ impl S3FileDriver {
         let credentials = Credentials::new(access_key.as_deref(), secret_key.as_deref(), None, None, None)
             .map_err(|e| format!("Failed to create S3 credentials: {}", e))?;
 
-        let mut bucket = Bucket::new(&bucket_name, region, credentials)
-            .map_err(|e| format!("Failed to create S3 bucket: {}", e))?;
+        let mut bucket =
+            Bucket::new(&bucket_name, region, credentials).map_err(|e| format!("Failed to create S3 bucket: {}", e))?;
 
         // If it's a custom endpoint, often we need path style (e.g. Minio)
         if props.contains_key("endpoint") {

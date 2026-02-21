@@ -182,28 +182,51 @@ async fn test_decimal_precision_posting() {
     // Since we use Decimal and check is_zero(), it should pass.
 
     // Debit 0.1
-    engine.create("JournalLine", json!({
-        "journal_entry": journal_id,
-        "debit": "0.1",
-        "credit": "0.0"
-    }), &ctx).await.unwrap();
+    engine
+        .create(
+            "JournalLine",
+            json!({
+                "journal_entry": journal_id,
+                "debit": "0.1",
+                "credit": "0.0"
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
 
     // Debit 0.2
-    engine.create("JournalLine", json!({
-        "journal_entry": journal_id,
-        "debit": "0.2",
-        "credit": "0.0"
-    }), &ctx).await.unwrap();
+    engine
+        .create(
+            "JournalLine",
+            json!({
+                "journal_entry": journal_id,
+                "debit": "0.2",
+                "credit": "0.0"
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
 
     // Credit 0.3
-    engine.create("JournalLine", json!({
-        "journal_entry": journal_id,
-        "debit": "0.0",
-        "credit": "0.3"
-    }), &ctx).await.unwrap();
+    engine
+        .create(
+            "JournalLine",
+            json!({
+                "journal_entry": journal_id,
+                "debit": "0.0",
+                "credit": "0.3"
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
 
     // 3. Post
-    let res = engine.update("JournalEntry", &journal_id, json!({"status": "Posted"}), &ctx).await;
+    let res = engine
+        .update("JournalEntry", &journal_id, json!({"status": "Posted"}), &ctx)
+        .await;
 
     assert!(res.is_ok(), "Posting should succeed with decimal arithmetic");
 }
@@ -215,25 +238,44 @@ async fn test_tiny_imbalance_should_fail() {
     let engine = DataEngine::new(Arc::new(schema), datastore).with_plugins(vec![Box::new(FinancePlugin)]);
     let ctx = RuntimeContext::system();
 
-    let journal_id = engine.create("JournalEntry", json!({ "status": "Draft", "date": "2024-01-01" }), &ctx).await.unwrap();
+    let journal_id = engine
+        .create("JournalEntry", json!({ "status": "Draft", "date": "2024-01-01" }), &ctx)
+        .await
+        .unwrap();
 
     // Debit 100.00
-    engine.create("JournalLine", json!({
-        "journal_entry": journal_id,
-        "debit": "100.00",
-        "credit": "0.0"
-    }), &ctx).await.unwrap();
+    engine
+        .create(
+            "JournalLine",
+            json!({
+                "journal_entry": journal_id,
+                "debit": "100.00",
+                "credit": "0.0"
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
 
     // Credit 99.99 (Diff 0.01)
     // Previously we checked diff > 0.01, so 0.01 diff might have passed?
     // Now we check is_zero(), so ANY diff fails.
-    engine.create("JournalLine", json!({
-        "journal_entry": journal_id,
-        "debit": "0.0",
-        "credit": "99.99"
-    }), &ctx).await.unwrap();
+    engine
+        .create(
+            "JournalLine",
+            json!({
+                "journal_entry": journal_id,
+                "debit": "0.0",
+                "credit": "99.99"
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
 
-    let res = engine.update("JournalEntry", &journal_id, json!({"status": "Posted"}), &ctx).await;
+    let res = engine
+        .update("JournalEntry", &journal_id, json!({"status": "Posted"}), &ctx)
+        .await;
 
     assert!(res.is_err(), "Tiny imbalance of 0.01 should fail");
 }

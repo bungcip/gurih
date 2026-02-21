@@ -474,17 +474,14 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                                 .items
                                 .iter()
                                 .map(|item| match item {
-                                    ast::FormItemDef::Field(f) => {
-                                        gurih_ir::FormItem::Field(Symbol::from(f.as_str()))
-                                    }
-                                    ast::FormItemDef::Grid(g) => {
-                                        gurih_ir::FormItem::Grid(gurih_ir::GridDef {
-                                            field: Symbol::from(g.field.as_str()),
-                                            columns: g.columns.as_ref().map(|cols| {
-                                                cols.iter().map(|c| Symbol::from(c.as_str())).collect()
-                                            }),
-                                        })
-                                    }
+                                    ast::FormItemDef::Field(f) => gurih_ir::FormItem::Field(Symbol::from(f.as_str())),
+                                    ast::FormItemDef::Grid(g) => gurih_ir::FormItem::Grid(gurih_ir::GridDef {
+                                        field: Symbol::from(g.field.as_str()),
+                                        columns: g
+                                            .columns
+                                            .as_ref()
+                                            .map(|cols| cols.iter().map(|c| Symbol::from(c.as_str())).collect()),
+                                    }),
                                 })
                                 .collect(),
                         })

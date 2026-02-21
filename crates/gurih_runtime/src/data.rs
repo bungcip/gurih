@@ -7,12 +7,12 @@ use crate::traits::DataAccess;
 use crate::workflow::WorkflowEngine;
 use async_trait::async_trait;
 use chrono::Local;
+use futures::future::join_all;
 use gurih_ir::{FieldType, QueryJoin, Schema, Symbol};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
-use futures::future::join_all;
 
 pub struct DataEngine {
     schema: Arc<Schema>,
@@ -1048,14 +1048,8 @@ impl DataEngine {
                     }
 
                     // 3. Recursive Rollup & Flatten (returns structure + rollups)
-                    let page_results = self.build_hierarchy(
-                        &roots,
-                        &records_map,
-                        &children_map,
-                        &rollup_fields,
-                        limit,
-                        offset,
-                    )?;
+                    let page_results =
+                        self.build_hierarchy(&roots, &records_map, &children_map, &rollup_fields, limit, offset)?;
 
                     if page_results.is_empty() {
                         return Ok(vec![]);
@@ -1109,9 +1103,7 @@ impl DataEngine {
                     let details_map: std::collections::HashMap<String, Arc<Value>> = details
                         .into_iter()
                         .filter_map(|d| {
-                            let id = d.get("id")
-                                .and_then(|v| v.as_str())
-                                .map(|s| s.to_string());
+                            let id = d.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
                             id.map(|i| (i, d))
                         })
                         .collect();
@@ -1161,11 +1153,7 @@ impl DataEngine {
         }
     }
 
-    fn check_query_permissions_recursive(
-        &self,
-        joins: &[QueryJoin],
-        ctx: &RuntimeContext,
-    ) -> Result<(), String> {
+    fn check_query_permissions_recursive(&self, joins: &[QueryJoin], ctx: &RuntimeContext) -> Result<(), String> {
         for join in joins {
             let target_entity = join.target_entity.as_str();
             if let Some(entity_schema) = self.schema.entities.get(&join.target_entity) {
@@ -1491,11 +1479,7 @@ impl DataEngine {
             for (i, result) in results.into_iter().enumerate() {
                 if let Ok(Some(account)) = result {
                     if let Some(obj) = account.as_object() {
-                        let id = obj
-                            .get("id")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or_default()
-                            .to_string();
+                        let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
                         code_map.insert(terms_vec[i].to_string(), id);
                     }
                 }
@@ -1520,11 +1504,7 @@ impl DataEngine {
                     for (i, result) in results.into_iter().enumerate() {
                         if let Ok(Some(account)) = result {
                             if let Some(obj) = account.as_object() {
-                                let id = obj
-                                    .get("id")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or_default()
-                                    .to_string();
+                                let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
                                 tag_map.insert(pending_terms_tag[i].to_string(), id);
                             }
                         }
@@ -1550,11 +1530,7 @@ impl DataEngine {
                 for (i, result) in results.into_iter().enumerate() {
                     if let Ok(Some(account)) = result {
                         if let Some(obj) = account.as_object() {
-                            let id = obj
-                                .get("id")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or_default()
-                                .to_string();
+                            let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
                             name_map.insert(pending_terms_name[i].to_string(), id);
                         }
                     }
@@ -1582,24 +1558,24 @@ impl DataEngine {
                     let mut filters = HashMap::new();
                     filters.insert("system_tag".to_string(), account_term.to_string());
                     if let Ok(Some(acc)) = self.datastore.find_first(account_table, filters).await {
-                         found_id = acc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
+                        found_id = acc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
                     }
                 }
 
                 if found_id.is_none() {
-                     let mut filters = HashMap::new();
-                     filters.insert("code".to_string(), account_term.to_string());
-                     if let Ok(Some(acc)) = self.datastore.find_first(account_table, filters).await {
-                         found_id = acc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
-                     }
+                    let mut filters = HashMap::new();
+                    filters.insert("code".to_string(), account_term.to_string());
+                    if let Ok(Some(acc)) = self.datastore.find_first(account_table, filters).await {
+                        found_id = acc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
+                    }
                 }
 
                 if found_id.is_none() {
-                     let mut filters = HashMap::new();
-                     filters.insert("name".to_string(), account_term.to_string());
-                     if let Ok(Some(acc)) = self.datastore.find_first(account_table, filters).await {
-                         found_id = acc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
-                     }
+                    let mut filters = HashMap::new();
+                    filters.insert("name".to_string(), account_term.to_string());
+                    if let Ok(Some(acc)) = self.datastore.find_first(account_table, filters).await {
+                        found_id = acc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
+                    }
                 }
 
                 found_id.ok_or_else(|| format!("Account '{}' not found", account_term))?

@@ -79,8 +79,8 @@ async fn test_posting_rule_system_tag() {
 
     use async_trait::async_trait;
     use gurih_ir::{ActionStep, Expression, Schema, Symbol};
-    use gurih_runtime::plugins::Plugin;
     use gurih_runtime::errors::RuntimeError;
+    use gurih_runtime::plugins::Plugin;
     use gurih_runtime::traits::DataAccess;
     use std::collections::HashMap;
 
@@ -88,9 +88,30 @@ async fn test_posting_rule_system_tag() {
 
     #[async_trait]
     impl Plugin for MockFinancePlugin {
-        fn name(&self) -> &str { "MockFinancePlugin" }
-        async fn check_precondition(&self, _: &str, _: &[Expression], _: &HashMap<String, String>, _: &serde_json::Value, _: &Schema, _: Option<&Arc<dyn DataStore>>) -> Result<(), RuntimeError> { Ok(()) }
-        async fn apply_effect(&self, name: &str, args: &[Expression], _: &HashMap<String, String>, _: &Schema, _: Option<&Arc<dyn DataStore>>, _: &str, _: &serde_json::Value) -> Result<(serde_json::Value, Vec<String>, Vec<Symbol>), RuntimeError> {
+        fn name(&self) -> &str {
+            "MockFinancePlugin"
+        }
+        async fn check_precondition(
+            &self,
+            _: &str,
+            _: &[Expression],
+            _: &HashMap<String, String>,
+            _: &serde_json::Value,
+            _: &Schema,
+            _: Option<&Arc<dyn DataStore>>,
+        ) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+        async fn apply_effect(
+            &self,
+            name: &str,
+            args: &[Expression],
+            _: &HashMap<String, String>,
+            _: &Schema,
+            _: Option<&Arc<dyn DataStore>>,
+            _: &str,
+            _: &serde_json::Value,
+        ) -> Result<(serde_json::Value, Vec<String>, Vec<Symbol>), RuntimeError> {
             if name == "post_journal" {
                 if let Some(Expression::StringLiteral(rule)) = args.first() {
                     return Ok((serde_json::Value::Null, vec![], vec![Symbol::from(rule.as_str())]));
@@ -98,26 +119,49 @@ async fn test_posting_rule_system_tag() {
             }
             Ok((serde_json::Value::Null, vec![], vec![]))
         }
-        async fn execute_action_step(&self, _: &str, _: &ActionStep, _: &HashMap<String, String>, _: &dyn DataAccess, _: &RuntimeContext) -> Result<bool, RuntimeError> { Ok(false) }
+        async fn execute_action_step(
+            &self,
+            _: &str,
+            _: &ActionStep,
+            _: &HashMap<String, String>,
+            _: &dyn DataAccess,
+            _: &RuntimeContext,
+        ) -> Result<bool, RuntimeError> {
+            Ok(false)
+        }
     }
 
     let engine = engine.with_plugins(vec![Box::new(MockFinancePlugin)]);
     let ctx = RuntimeContext::system();
 
     // 3. Create Accounts with System Tags
-    engine.create("Account", json!({
-        "code": "101",
-        "name": "Accounts Receivable Name", // Name is different from tag
-        "system_tag": "accounts_receivable",
-        "type": "Asset"
-    }), &ctx).await.expect("Failed to create AR account");
+    engine
+        .create(
+            "Account",
+            json!({
+                "code": "101",
+                "name": "Accounts Receivable Name", // Name is different from tag
+                "system_tag": "accounts_receivable",
+                "type": "Asset"
+            }),
+            &ctx,
+        )
+        .await
+        .expect("Failed to create AR account");
 
-    engine.create("Account", json!({
-        "code": "401",
-        "name": "Sales Revenue Name", // Name is different from tag
-        "system_tag": "sales_revenue",
-        "type": "Revenue"
-    }), &ctx).await.expect("Failed to create Revenue account");
+    engine
+        .create(
+            "Account",
+            json!({
+                "code": "401",
+                "name": "Sales Revenue Name", // Name is different from tag
+                "system_tag": "sales_revenue",
+                "type": "Revenue"
+            }),
+            &ctx,
+        )
+        .await
+        .expect("Failed to create Revenue account");
 
     // 4. Create Invoice
     let invoice_data = json!({
@@ -125,7 +169,10 @@ async fn test_posting_rule_system_tag() {
         "date": "2024-01-01",
         "total_amount": "1000.00"
     });
-    let invoice_id = engine.create("Invoice", invoice_data, &ctx).await.expect("Failed to create Invoice");
+    let invoice_id = engine
+        .create("Invoice", invoice_data, &ctx)
+        .await
+        .expect("Failed to create Invoice");
 
     // 5. Trigger Workflow (Post)
     let update_data = json!({
@@ -133,7 +180,10 @@ async fn test_posting_rule_system_tag() {
     });
 
     // This should trigger the posting rule using system_tags.
-    engine.update("Invoice", &invoice_id, update_data, &ctx).await.expect("Failed to post Invoice with system_tag lookup");
+    engine
+        .update("Invoice", &invoice_id, update_data, &ctx)
+        .await
+        .expect("Failed to post Invoice with system_tag lookup");
 
     // 6. Verify Journal Entry
     let journals = engine

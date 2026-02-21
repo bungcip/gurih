@@ -28,7 +28,7 @@ fn parse_decimal_opt(v: Option<&Value>) -> Decimal {
             } else {
                 Decimal::ZERO
             }
-        },
+        }
         None => Decimal::ZERO,
     }
 }
@@ -435,8 +435,7 @@ async fn check_period_overlap(
     schema: &Schema,
     datastore: Option<&Arc<dyn DataStore>>,
 ) -> Result<(), RuntimeError> {
-    let ds = datastore
-        .ok_or_else(|| RuntimeError::WorkflowError("Datastore not available".to_string()))?;
+    let ds = datastore.ok_or_else(|| RuntimeError::WorkflowError("Datastore not available".to_string()))?;
 
     // 1. Get dates from current entity
     let start_date_s = entity_data
@@ -491,14 +490,8 @@ async fn check_period_overlap(
             }
         }
 
-        let p_start_s = period
-            .get("start_date")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let p_end_s = period
-            .get("end_date")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let p_start_s = period.get("start_date").and_then(|v| v.as_str()).unwrap_or("");
+        let p_end_s = period.get("end_date").and_then(|v| v.as_str()).unwrap_or("");
 
         if let (Ok(p_start), Ok(p_end)) = (
             NaiveDate::parse_from_str(p_start_s, "%Y-%m-%d"),
@@ -717,19 +710,105 @@ async fn execute_generate_closing_entry(
         Value::String(end_date.to_string()),
     ];
 
-    let results = data_access
-        .datastore()
-        .query_with_params(&sql, params_vec)
-        .await
-        .map_err(RuntimeError::WorkflowError)?;
+    let query_result = data_access.datastore().query_with_params(&sql, params_vec).await;
 
     // Aggregate in memory using Decimal
     let mut account_balances: HashMap<String, (Decimal, Decimal)> = HashMap::new(); // AccountID -> (TotalDebit, TotalCredit)
     let mut account_types: HashMap<String, String> = HashMap::new();
 
-    for row in results {
+    let rows_to_process = match query_result {
+        Ok(rows) => rows,
+        Err(e) if e.contains("not supported") => {
+            // Fallback for MemoryDataStore / No-SQL
+            let mut fallback_rows = Vec::new();
+
+            // 1. Fetch All Posted JournalEntries (filter by status)
+            let mut je_filters = HashMap::new();
+            je_filters.insert("status".to_string(), "Posted".to_string());
+
+            let journals = data_access
+                .datastore()
+                .find(journal_entry_table, je_filters)
+                .await
+                .map_err(RuntimeError::WorkflowError)?;
+
+            // 2. Filter by Date Range in Memory
+            let p_start_date = NaiveDate::parse_from_str(start_date, "%Y-%m-%d").unwrap_or_default();
+            let p_end_date = NaiveDate::parse_from_str(end_date, "%Y-%m-%d").unwrap_or_default();
+
+            let mut journal_ids = Vec::new();
+            for je in journals {
+                if let Some(d_str) = je.get("date").and_then(|v| v.as_str()) {
+                    if let Ok(d) = NaiveDate::parse_from_str(d_str, "%Y-%m-%d") {
+                        if d >= p_start_date && d <= p_end_date {
+                            if let Some(id) = je.get("id").and_then(|v| v.as_str()) {
+                                journal_ids.push(id.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !journal_ids.is_empty() {
+                // 3. Fetch Accounts to map ID -> Type
+                let all_accounts = data_access
+                    .datastore()
+                    .list(account_table, None, None)
+                    .await
+                    .map_err(RuntimeError::WorkflowError)?;
+
+                let mut acc_type_map = HashMap::new();
+                for acc in all_accounts {
+                    if let (Some(id), Some(typ)) = (
+                        acc.get("id").and_then(|v| v.as_str()),
+                        acc.get("type").and_then(|v| v.as_str()),
+                    ) {
+                        acc_type_map.insert(id.to_string(), typ.to_string());
+                    }
+                }
+
+                // 4. Fetch Lines for these journals
+                for jid in journal_ids {
+                    let mut line_filters = HashMap::new();
+                    line_filters.insert("journal_entry".to_string(), jid);
+                    let lines = data_access
+                        .datastore()
+                        .find(journal_line_table, line_filters)
+                        .await
+                        .map_err(RuntimeError::WorkflowError)?;
+
+                    for line in lines {
+                        if let Some(acc_id) = line.get("account").and_then(|v| v.as_str()) {
+                            if let Some(typ) = acc_type_map.get(acc_id) {
+                                if typ == "Revenue" || typ == "Expense" {
+                                    // Construct a pseudo-row for aggregation
+                                    let mut row_map = serde_json::Map::new();
+                                    row_map.insert("account_id".to_string(), Value::String(acc_id.to_string()));
+                                    row_map.insert("account_type".to_string(), Value::String(typ.to_string()));
+                                    row_map
+                                        .insert("debit".to_string(), line.get("debit").cloned().unwrap_or(Value::Null));
+                                    row_map.insert(
+                                        "credit".to_string(),
+                                        line.get("credit").cloned().unwrap_or(Value::Null),
+                                    );
+                                    fallback_rows.push(Arc::new(Value::Object(row_map)));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            fallback_rows
+        }
+        Err(e) => return Err(RuntimeError::WorkflowError(e)),
+    };
+
+    for row in rows_to_process {
         let account_id = row.get("account_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        if account_id.is_empty() { continue; }
+        if account_id.is_empty() {
+            continue;
+        }
 
         let debit = parse_decimal_opt(row.get("debit"));
         let credit = parse_decimal_opt(row.get("credit"));
@@ -738,7 +817,9 @@ async fn execute_generate_closing_entry(
             account_types.insert(account_id.clone(), t.to_string());
         }
 
-        let entry = account_balances.entry(account_id).or_insert((Decimal::ZERO, Decimal::ZERO));
+        let entry = account_balances
+            .entry(account_id)
+            .or_insert((Decimal::ZERO, Decimal::ZERO));
         entry.0 += debit;
         entry.1 += credit;
     }
