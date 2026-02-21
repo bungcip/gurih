@@ -2,8 +2,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn get_npm_cmd() -> &'static str {
-    let use_pnpm = std::path::Path::new("web/pnpm-lock.yaml").exists();
-    if use_pnpm {
+    if std::path::Path::new("web/pnpm-lock.yaml").exists() {
         if cfg!(windows) { "pnpm.cmd" } else { "pnpm" }
     } else {
         if cfg!(windows) { "npm.cmd" } else { "npm" }
@@ -27,7 +26,8 @@ pub fn rebuild_frontend() {
 
     match status {
         Ok(s) if s.success() => println!("✅ Frontend rebuilt."),
-        _ => eprintln!("❌ Frontend build failed."),
+        Ok(s) => eprintln!("❌ Frontend build failed with status: {}", s),
+        Err(e) => eprintln!("❌ Failed to execute build command: {}", e),
     }
 }
 

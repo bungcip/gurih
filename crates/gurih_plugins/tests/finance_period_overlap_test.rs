@@ -1,4 +1,4 @@
-use gurih_ir::{EntitySchema, Expression, Schema, Symbol};
+use gurih_ir::{EntitySchema, Schema, Symbol};
 use gurih_plugins::finance::FinancePlugin;
 use gurih_runtime::datastore::{DataStore, MemoryDataStore};
 use gurih_runtime::plugins::Plugin;

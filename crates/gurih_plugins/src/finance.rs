@@ -11,7 +11,6 @@ use gurih_runtime::traits::DataAccess;
 use rust_decimal::Decimal;
 use serde_json::{Value, json};
 use std::collections::HashMap;
-use std::str::FromStr;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -21,7 +20,7 @@ fn parse_decimal_opt(v: Option<&Value>) -> Decimal {
     match v {
         Some(val) => {
             if let Some(s) = val.as_str() {
-                Decimal::from_str(s).unwrap_or(Decimal::ZERO)
+                s.parse().unwrap_or(Decimal::ZERO)
             } else if let Some(n) = val.as_f64() {
                 // Best effort conversion from float
                 Decimal::from_f64_retain(n).unwrap_or(Decimal::ZERO)
