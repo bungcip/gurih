@@ -1,9 +1,9 @@
 use gurih_dsl::compiler::compile;
 use gurih_ir::{BinaryOperator, Expression};
-use gurih_runtime::query_engine::{QueryEngine, QueryPlan};
-use std::collections::HashMap;
-use serde_json::json;
 use gurih_runtime::evaluator::evaluate;
+use gurih_runtime::query_engine::{QueryEngine, QueryPlan};
+use serde_json::json;
+use std::collections::HashMap;
 
 #[test]
 fn test_verify_user_example() {
@@ -21,7 +21,10 @@ fn test_verify_user_example() {
     "#;
 
     let schema = compile(src, None).expect("Failed to compile schema");
-    let query = schema.queries.get(&gurih_ir::Symbol::from("BookQuery")).expect("Query not found");
+    let query = schema
+        .queries
+        .get(&gurih_ir::Symbol::from("BookQuery"))
+        .expect("Query not found");
 
     // Verify filter expression structure
     assert_eq!(query.filters.len(), 1);
@@ -91,7 +94,10 @@ fn test_like_ilike_sql_generation() {
     let schema = compile(src, None).expect("Failed to compile schema");
 
     // Check LIKE
-    let query_like = schema.queries.get(&gurih_ir::Symbol::from("BookLikeQuery")).expect("Query not found");
+    let query_like = schema
+        .queries
+        .get(&gurih_ir::Symbol::from("BookLikeQuery"))
+        .expect("Query not found");
     assert_eq!(query_like.filters.len(), 1);
     if let Expression::BinaryOp { op, .. } = &query_like.filters[0] {
         match op {
@@ -110,7 +116,10 @@ fn test_like_ilike_sql_generation() {
     }
 
     // Check ILIKE
-    let query_ilike = schema.queries.get(&gurih_ir::Symbol::from("BookILikeQuery")).expect("Query not found");
+    let query_ilike = schema
+        .queries
+        .get(&gurih_ir::Symbol::from("BookILikeQuery"))
+        .expect("Query not found");
     if let Expression::BinaryOp { op, .. } = &query_ilike.filters[0] {
         match op {
             BinaryOperator::ILike => (),

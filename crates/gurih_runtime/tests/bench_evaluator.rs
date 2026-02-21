@@ -1,7 +1,7 @@
 use gurih_ir::{BinaryOperator, Expression};
+use gurih_runtime::evaluator::evaluate;
 use serde_json::json;
 use std::time::Instant;
-use gurih_runtime::evaluator::evaluate;
 
 fn build_deep_expression(depth: usize) -> Expression {
     if depth == 0 {
@@ -35,6 +35,11 @@ async fn bench_evaluate_deep() {
     }
     let duration = start.elapsed();
 
-    println!("BENCHMARK_RESULT: Depth={}, Iterations={}, TotalTime={:?}, AvgTime={:?}",
-             depth, iterations, duration, duration / iterations as u32);
+    println!(
+        "BENCHMARK_RESULT: Depth={}, Iterations={}, TotalTime={:?}, AvgTime={:?}",
+        depth,
+        iterations,
+        duration,
+        duration / iterations as u32
+    );
 }

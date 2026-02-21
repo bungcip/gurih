@@ -2,9 +2,9 @@ use crate::store::validate_identifier;
 use gurih_ir::{BinaryOperator, DatabaseType, Expression, QueryJoin, Schema, UnaryOperator};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::cell::RefCell;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum QueryPlan {
@@ -138,9 +138,14 @@ impl QueryEngine {
 
             for rf in &h.rollup_fields {
                 if let Some(form) = query.formulas.iter().find(|f| f.name == *rf) {
-                    let expr_sql = Self::expression_to_sql(&form.expression, &mut struct_params, &db_type, runtime_params);
+                    let expr_sql =
+                        Self::expression_to_sql(&form.expression, &mut struct_params, &db_type, runtime_params);
                     struct_selects.push(format!("{} AS {}", expr_sql, rf));
-                } else if let Some(sel) = query.selections.iter().find(|s| s.alias.as_ref() == Some(rf) || s.field == *rf) {
+                } else if let Some(sel) = query
+                    .selections
+                    .iter()
+                    .find(|s| s.alias.as_ref() == Some(rf) || s.field == *rf)
+                {
                     let col_sql = format!("{}.{}", root_table, sel.field);
                     struct_selects.push(format!("{} AS {}", col_sql, rf));
                 } else {
@@ -158,7 +163,12 @@ impl QueryEngine {
                 runtime_params,
             };
 
-            Self::process_joins(&query.joins, &root_table, &query.root_entity.to_string(), &mut struct_state)?;
+            Self::process_joins(
+                &query.joins,
+                &root_table,
+                &query.root_entity.to_string(),
+                &mut struct_state,
+            )?;
 
             let struct_join_clause = struct_join_parts.join(" ");
 
@@ -174,7 +184,11 @@ impl QueryEngine {
 
             let structure_sql = format!(
                 "SELECT {} FROM {} {} {} {}",
-                struct_selects.join(", "), root_table, struct_join_clause, struct_where_clause, group_by_clause
+                struct_selects.join(", "),
+                root_table,
+                struct_join_clause,
+                struct_where_clause,
+                group_by_clause
             )
             .trim()
             .to_string();

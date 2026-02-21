@@ -4,16 +4,10 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum CompileError {
     #[error("Parse error")]
-    ParseError {
-        span: SourceSpan,
-        message: String,
-    },
+    ParseError { span: SourceSpan, message: String },
 
     #[error("Validation error: {message}")]
-    ValidationError {
-        span: SourceSpan,
-        message: String,
-    },
+    ValidationError { span: SourceSpan, message: String },
 
     #[error("KDL error: {0}")]
     KdlError(#[from] kdl::KdlError),

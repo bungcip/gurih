@@ -31,7 +31,7 @@ pub async fn evaluate(
             } else {
                 evaluate_sync(inner, context, schema)
             }
-        },
+        }
         Expression::UnaryOp { op, expr } => {
             let val = if needs_async(expr) {
                 Box::pin(evaluate(expr, context, schema, datastore)).await?
@@ -124,11 +124,7 @@ fn needs_async(expr: &Expression) -> bool {
     }
 }
 
-fn evaluate_sync(
-    expr: &Expression,
-    context: &Value,
-    schema: Option<&Schema>,
-) -> Result<Value, RuntimeError> {
+fn evaluate_sync(expr: &Expression, context: &Value, schema: Option<&Schema>) -> Result<Value, RuntimeError> {
     match expr {
         Expression::Field(name) => eval_field(name.as_str(), context),
         Expression::Literal(n) => {
@@ -176,7 +172,10 @@ fn evaluate_sync(
             if let Some(val) = eval_function_sync(name.as_str(), &eval_args)? {
                 Ok(val)
             } else {
-                Err(RuntimeError::EvaluationError(format!("Async function call in sync context: {}", name)))
+                Err(RuntimeError::EvaluationError(format!(
+                    "Async function call in sync context: {}",
+                    name
+                )))
             }
         }
     }

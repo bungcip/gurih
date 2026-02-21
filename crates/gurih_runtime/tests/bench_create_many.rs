@@ -1,4 +1,4 @@
-use gurih_ir::{EntitySchema, FieldSchema, FieldType, RuleSchema, Symbol, Schema};
+use gurih_ir::{EntitySchema, FieldSchema, FieldType, RuleSchema, Schema, Symbol};
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::MemoryDataStore;

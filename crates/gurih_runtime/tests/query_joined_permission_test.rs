@@ -43,9 +43,7 @@ async fn test_query_joined_permission_check() {
             },
         ],
         relationships: vec![],
-        options: HashMap::from([
-            ("read_permission".to_string(), "read:User".to_string()),
-        ]),
+        options: HashMap::from([("read_permission".to_string(), "read:User".to_string())]),
         seeds: None,
     };
     schema.entities.insert(user_sym.clone(), user_entity);
@@ -94,9 +92,7 @@ async fn test_query_joined_permission_check() {
             },
         ],
         relationships: vec![],
-        options: HashMap::from([
-            ("read_permission".to_string(), "read:Post".to_string()),
-        ]),
+        options: HashMap::from([("read_permission".to_string(), "read:Post".to_string())]),
         seeds: None,
     };
     schema.entities.insert(post_sym.clone(), post_entity);
@@ -108,21 +104,21 @@ async fn test_query_joined_permission_check() {
         params: vec![],
         root_entity: user_sym.clone(),
         query_type: QueryType::Flat,
-        selections: vec![
-            QuerySelection { field: Symbol::from("name"), alias: None },
-        ],
+        selections: vec![QuerySelection {
+            field: Symbol::from("name"),
+            alias: None,
+        }],
         formulas: vec![],
         filters: vec![],
-        joins: vec![
-            QueryJoin {
-                target_entity: post_sym.clone(),
-                selections: vec![
-                    QuerySelection { field: Symbol::from("title"), alias: None },
-                ],
-                formulas: vec![],
-                joins: vec![],
-            }
-        ],
+        joins: vec![QueryJoin {
+            target_entity: post_sym.clone(),
+            selections: vec![QuerySelection {
+                field: Symbol::from("title"),
+                alias: None,
+            }],
+            formulas: vec![],
+            joins: vec![],
+        }],
         group_by: vec![],
         hierarchy: None,
     };
@@ -150,7 +146,11 @@ async fn test_query_joined_permission_check() {
         Ok(_) => panic!("SECURITY FAILURE: Query succeeded despite missing permission for joined entity 'Post'"),
         Err(e) => {
             assert!(e.contains("Missing permission"), "Unexpected error: {}", e);
-            assert!(e.contains("read:Post"), "Error should mention missing 'read:Post' permission, got: {}", e);
+            assert!(
+                e.contains("read:Post"),
+                "Error should mention missing 'read:Post' permission, got: {}",
+                e
+            );
         }
     }
 }

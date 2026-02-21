@@ -62,14 +62,16 @@ async fn test_period_overlap_check() {
     // check_precondition doesn't care about status of the object being checked,
     // it checks if *other* periods overlap with its dates.
 
-    let res = plugin.check_precondition(
-        "no_period_overlap",
-        &[],
-        &kwargs,
-        &new_period_overlap,
-        &schema,
-        Some(&(datastore.clone() as Arc<dyn DataStore>))
-    ).await;
+    let res = plugin
+        .check_precondition(
+            "no_period_overlap",
+            &[],
+            &kwargs,
+            &new_period_overlap,
+            &schema,
+            Some(&(datastore.clone() as Arc<dyn DataStore>)),
+        )
+        .await;
 
     assert!(res.is_err(), "Should fail due to overlap with Jan 2024");
     let err = res.err().unwrap().to_string();
@@ -84,16 +86,21 @@ async fn test_period_overlap_check() {
         "end_date": "2024-02-20"
     });
 
-    let res = plugin.check_precondition(
-        "no_period_overlap",
-        &[],
-        &kwargs,
-        &new_period_overlap_draft,
-        &schema,
-        Some(&(datastore.clone() as Arc<dyn DataStore>))
-    ).await;
+    let res = plugin
+        .check_precondition(
+            "no_period_overlap",
+            &[],
+            &kwargs,
+            &new_period_overlap_draft,
+            &schema,
+            Some(&(datastore.clone() as Arc<dyn DataStore>)),
+        )
+        .await;
 
-    assert!(res.is_ok(), "Should pass because overlap is only with Draft period (Feb 2024)");
+    assert!(
+        res.is_ok(),
+        "Should pass because overlap is only with Draft period (Feb 2024)"
+    );
 
     // Test Case 3: No overlap (March 2024)
     let new_period_ok = json!({
@@ -103,14 +110,16 @@ async fn test_period_overlap_check() {
         "end_date": "2024-03-31"
     });
 
-    let res = plugin.check_precondition(
-        "no_period_overlap",
-        &[],
-        &kwargs,
-        &new_period_ok,
-        &schema,
-        Some(&(datastore.clone() as Arc<dyn DataStore>))
-    ).await;
+    let res = plugin
+        .check_precondition(
+            "no_period_overlap",
+            &[],
+            &kwargs,
+            &new_period_ok,
+            &schema,
+            Some(&(datastore.clone() as Arc<dyn DataStore>)),
+        )
+        .await;
 
     assert!(res.is_ok(), "Should pass (no overlap)");
 
@@ -121,14 +130,16 @@ async fn test_period_overlap_check() {
         "end_date": "2024-04-01"
     });
 
-    let res = plugin.check_precondition(
-        "no_period_overlap",
-        &[],
-        &kwargs,
-        &invalid_dates,
-        &schema,
-        Some(&(datastore.clone() as Arc<dyn DataStore>))
-    ).await;
+    let res = plugin
+        .check_precondition(
+            "no_period_overlap",
+            &[],
+            &kwargs,
+            &invalid_dates,
+            &schema,
+            Some(&(datastore.clone() as Arc<dyn DataStore>)),
+        )
+        .await;
 
     assert!(res.is_err());
     assert!(res.err().unwrap().to_string().contains("Start date must be before"));

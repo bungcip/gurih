@@ -18,7 +18,7 @@ fn test_compile_finance_module() {
         let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
         let path = PathBuf::from(manifest_dir).join("../../gurih-finance/gurih.kdl");
         if !path.exists() {
-             panic!("Could not find gurih-finance/gurih.kdl at {:?}", path);
+            panic!("Could not find gurih-finance/gurih.kdl at {:?}", path);
         }
     }
 
@@ -31,10 +31,22 @@ fn test_compile_finance_module() {
             println!("Compile Success! Found {} entities.", schema.entities.len());
 
             // Validate critical features are present
-            assert!(schema.queries.contains_key(&gurih_ir::Symbol::from("TrialBalanceQuery")));
-            assert!(schema.queries.contains_key(&gurih_ir::Symbol::from("BalanceSheetQuery")));
-            assert!(schema.queries.contains_key(&gurih_ir::Symbol::from("IncomeStatementQuery")));
-        },
+            assert!(
+                schema
+                    .queries
+                    .contains_key(&gurih_ir::Symbol::from("TrialBalanceQuery"))
+            );
+            assert!(
+                schema
+                    .queries
+                    .contains_key(&gurih_ir::Symbol::from("BalanceSheetQuery"))
+            );
+            assert!(
+                schema
+                    .queries
+                    .contains_key(&gurih_ir::Symbol::from("IncomeStatementQuery"))
+            );
+        }
         Err(e) => {
             panic!("Compile Error: {:?}", e);
         }
