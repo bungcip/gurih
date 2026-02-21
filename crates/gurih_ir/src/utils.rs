@@ -51,19 +51,6 @@ pub fn resolve_param(val: &str, params: &HashMap<String, String>) -> String {
     }
 }
 
-/// Parses a JSON value into a f64.
-/// Handles Numbers directly, and tries to parse Strings.
-/// Returns 0.0 if parsing fails or value is null/other.
-pub fn parse_numeric(v: &Value) -> f64 {
-    if let Some(f) = v.as_f64() {
-        f
-    } else if let Some(s) = v.as_str() {
-        s.parse().unwrap_or(0.0)
-    } else {
-        0.0
-    }
-}
-
 /// Parses a JSON value into a f64 strictly.
 /// Returns Ok(f64) if successful, otherwise Err with description.
 pub fn parse_numeric_strict(v: &Value) -> Result<f64, String> {
@@ -79,7 +66,7 @@ pub fn parse_numeric_strict(v: &Value) -> Result<f64, String> {
 /// Helper to parse optional reference to Value
 pub fn parse_numeric_opt(v: Option<&Value>) -> f64 {
     match v {
-        Some(val) => parse_numeric(val),
+        Some(val) => parse_numeric_strict(val).unwrap_or(0.0),
         None => 0.0,
     }
 }
