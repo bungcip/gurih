@@ -124,7 +124,7 @@ fn needs_async(expr: &Expression) -> bool {
     }
 }
 
-fn evaluate_sync(expr: &Expression, context: &Value, schema: Option<&Schema>) -> Result<Value, RuntimeError> {
+fn evaluate_sync(expr: &Expression, context: &Value, _schema: Option<&Schema>) -> Result<Value, RuntimeError> {
     match expr {
         Expression::Field(name) => eval_field(name.as_str(), context),
         Expression::Literal(n) => {
@@ -134,40 +134,40 @@ fn evaluate_sync(expr: &Expression, context: &Value, schema: Option<&Schema>) ->
         }
         Expression::StringLiteral(s) => Ok(Value::String(s.clone())),
         Expression::BoolLiteral(b) => Ok(Value::Bool(*b)),
-        Expression::Grouping(inner) => evaluate_sync(inner, context, schema),
+        Expression::Grouping(inner) => evaluate_sync(inner, context, _schema),
         Expression::UnaryOp { op, expr } => {
-            let val = evaluate_sync(expr, context, schema)?;
+            let val = evaluate_sync(expr, context, _schema)?;
             eval_unary_op(op, val)
         }
         Expression::BinaryOp { left, op, right } => match op {
             BinaryOperator::And => {
-                let l = evaluate_sync(left, context, schema)?;
+                let l = evaluate_sync(left, context, _schema)?;
                 if !as_bool(&l)? {
                     return Ok(Value::Bool(false));
                 }
-                let r = evaluate_sync(right, context, schema)?;
+                let r = evaluate_sync(right, context, _schema)?;
                 let r_bool = as_bool(&r)?;
                 Ok(Value::Bool(r_bool))
             }
             BinaryOperator::Or => {
-                let l = evaluate_sync(left, context, schema)?;
+                let l = evaluate_sync(left, context, _schema)?;
                 if as_bool(&l)? {
                     return Ok(Value::Bool(true));
                 }
-                let r = evaluate_sync(right, context, schema)?;
+                let r = evaluate_sync(right, context, _schema)?;
                 let r_bool = as_bool(&r)?;
                 Ok(Value::Bool(r_bool))
             }
             _ => {
-                let l = evaluate_sync(left, context, schema)?;
-                let r = evaluate_sync(right, context, schema)?;
+                let l = evaluate_sync(left, context, _schema)?;
+                let r = evaluate_sync(right, context, _schema)?;
                 eval_binary_op(op, l, r)
             }
         },
         Expression::FunctionCall { name, args } => {
             let mut eval_args = Vec::with_capacity(args.len());
             for arg in args {
-                eval_args.push(evaluate_sync(arg, context, schema)?);
+                eval_args.push(evaluate_sync(arg, context, _schema)?);
             }
             if let Some(val) = eval_function_sync(name.as_str(), &eval_args)? {
                 Ok(val)

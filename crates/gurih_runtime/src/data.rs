@@ -1452,12 +1452,11 @@ impl DataEngine {
                             if !name.is_empty() {
                                 name_map.insert(name, id.clone());
                             }
-                            if has_system_tag {
-                                if let Some(tag) = obj.get("system_tag").and_then(|v| v.as_str()) {
-                                    if !tag.is_empty() {
-                                        tag_map.insert(tag.to_string(), id);
-                                    }
-                                }
+                            if has_system_tag
+                                && let Some(tag) = obj.get("system_tag").and_then(|v| v.as_str())
+                                && !tag.is_empty()
+                            {
+                                tag_map.insert(tag.to_string(), id);
                             }
                         }
                     }
@@ -1477,11 +1476,11 @@ impl DataEngine {
 
             let results = join_all(futures).await;
             for (i, result) in results.into_iter().enumerate() {
-                if let Ok(Some(account)) = result {
-                    if let Some(obj) = account.as_object() {
-                        let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
-                        code_map.insert(terms_vec[i].to_string(), id);
-                    }
+                if let Ok(Some(account)) = result
+                    && let Some(obj) = account.as_object()
+                {
+                    let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+                    code_map.insert(terms_vec[i].to_string(), id);
                 }
             }
 
@@ -1502,11 +1501,11 @@ impl DataEngine {
                 if !tag_futures.is_empty() {
                     let results = join_all(tag_futures).await;
                     for (i, result) in results.into_iter().enumerate() {
-                        if let Ok(Some(account)) = result {
-                            if let Some(obj) = account.as_object() {
-                                let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
-                                tag_map.insert(pending_terms_tag[i].to_string(), id);
-                            }
+                        if let Ok(Some(account)) = result
+                            && let Some(obj) = account.as_object()
+                        {
+                            let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+                            tag_map.insert(pending_terms_tag[i].to_string(), id);
                         }
                     }
                 }
@@ -1528,11 +1527,11 @@ impl DataEngine {
             if !name_futures.is_empty() {
                 let results = join_all(name_futures).await;
                 for (i, result) in results.into_iter().enumerate() {
-                    if let Ok(Some(account)) = result {
-                        if let Some(obj) = account.as_object() {
-                            let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
-                            name_map.insert(pending_terms_name[i].to_string(), id);
-                        }
+                    if let Ok(Some(account)) = result
+                        && let Some(obj) = account.as_object()
+                    {
+                        let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+                        name_map.insert(pending_terms_name[i].to_string(), id);
                     }
                 }
             }

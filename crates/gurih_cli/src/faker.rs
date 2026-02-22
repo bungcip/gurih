@@ -42,29 +42,28 @@ impl FakerEngine {
 
                 // 1. Explicit fields with references
                 for field in &entity_schema.fields {
-                    if let Some(target_entity) = &field.references {
-                        if schema.entities.contains_key(target_entity) {
-                            if let Some(target_schema) = schema.entities.get(target_entity) {
-                                // Fetch IDs from the target entity using its table_name
-                                // We use list with a large limit. In a real scenario, we might want to optimize this.
-                                let records = datastore
-                                    .list(&target_schema.table_name.to_string(), Some(1000), None)
-                                    .await?;
-                                let ids: Vec<String> = records
-                                    .iter()
-                                    .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(|s| s.to_string()))
-                                    .collect();
+                    if let Some(target_entity) = &field.references
+                        && schema.entities.contains_key(target_entity)
+                        && let Some(target_schema) = schema.entities.get(target_entity)
+                    {
+                        // Fetch IDs from the target entity using its table_name
+                        // We use list with a large limit. In a real scenario, we might want to optimize this.
+                        let records = datastore
+                            .list(&target_schema.table_name.to_string(), Some(1000), None)
+                            .await?;
+                        let ids: Vec<String> = records
+                            .iter()
+                            .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(|s| s.to_string()))
+                            .collect();
 
-                                if ids.is_empty() {
-                                    println!(
-                                        "Warning: No records found for referenced entity '{}'. Field '{}' might fail or be null.",
-                                        target_entity, field.name
-                                    );
-                                }
-
-                                foreign_keys.insert(field.name.to_string(), ids);
-                            }
+                        if ids.is_empty() {
+                            println!(
+                                "Warning: No records found for referenced entity '{}'. Field '{}' might fail or be null.",
+                                target_entity, field.name
+                            );
                         }
+
+                        foreign_keys.insert(field.name.to_string(), ids);
                     }
                 }
 
