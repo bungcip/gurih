@@ -171,3 +171,50 @@ async fn test_xml_xss_prevention() {
 
     let _ = fs::remove_dir_all(&temp_dir);
 }
+
+#[tokio::test]
+async fn test_rce_vectors_and_config() {
+    let temp_dir = std::env::temp_dir().join("gurih_test_storage_rce");
+    let base_path = temp_dir.join("safe_zone");
+    let _ = fs::remove_dir_all(&temp_dir);
+
+    let driver = LocalFileDriver::new(base_path.to_str().unwrap());
+
+    // These extensions are currently allowed but SHOULD be blocked
+    let dangerous_files = vec![
+        "exploit.php7",
+        "exploit.php8",
+        "exploit.pht",
+        "web.config",
+        "file.env",
+        "script.vbe",
+        "script.jse",
+        "script.wsh",
+        "malware.hta",
+        "shell.cer",
+        "shell.asa",
+        "shell.asax",
+        "module.wasm",
+    ];
+
+    for filename in dangerous_files {
+        let payload = Bytes::from("malicious content");
+        let result = driver.put(filename, payload).await;
+
+        assert!(
+            result.is_err(),
+            "Dangerous extension {} should be rejected",
+            filename
+        );
+
+        let err = result.err().unwrap();
+        assert!(
+            err.contains("File extension not allowed"),
+            "Unexpected error for {}: {}",
+            filename,
+            err
+        );
+    }
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
