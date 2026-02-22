@@ -46,6 +46,8 @@ pub struct PostingLineSchema {
     pub account: Symbol,
     pub debit_expr: Option<Expression>,
     pub credit_expr: Option<Expression>,
+    #[serde(default)]
+    pub fields: HashMap<Symbol, Expression>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

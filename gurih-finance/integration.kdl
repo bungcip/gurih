@@ -7,6 +7,10 @@ posting_rule "InvoicePosting" for="Invoice" {
     entry {
         account "accounts_receivable"
         debit "doc.total_amount"
+
+        // Link to Customer Sub-ledger
+        set "party_type" "'Customer'"
+        set "party_id" "doc.customer_id"
     }
 
     entry {
