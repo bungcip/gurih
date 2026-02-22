@@ -4,8 +4,10 @@ use std::process::Command;
 fn get_npm_cmd() -> &'static str {
     if std::path::Path::new("web/pnpm-lock.yaml").exists() {
         if cfg!(windows) { "pnpm.cmd" } else { "pnpm" }
+    } else if cfg!(windows) {
+        "npm.cmd"
     } else {
-        if cfg!(windows) { "npm.cmd" } else { "npm" }
+        "npm"
     }
 }
 

@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 pub fn to_title_case(s: &str) -> String {
-    s.split(|c| c == '_' || c == '-')
+    s.split(['_', '-'])
         .filter(|s| !s.is_empty())
         .map(|word| {
             if word.eq_ignore_ascii_case("id") {
