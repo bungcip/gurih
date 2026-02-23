@@ -998,6 +998,7 @@ fn parse_posting_line(node: &KdlNode) -> Result<PostingLineDef, CompileError> {
     let mut account = String::new();
     let mut debit_expr = None;
     let mut credit_expr = None;
+    let mut fields = std::collections::HashMap::new();
 
     if let Some(children) = node.children() {
         for child in children.nodes() {
@@ -1021,6 +1022,17 @@ fn parse_posting_line(node: &KdlNode) -> Result<PostingLineDef, CompileError> {
                         .unwrap_or(child.span().offset());
                     credit_expr = Some(parse_expression(&s, offset)?);
                 }
+                "set" => {
+                    let field_name = get_arg_string(child, 0)?;
+                    let expr_str = get_arg_string(child, 1)?;
+                    let offset = child
+                        .entries()
+                        .get(1)
+                        .map(|e| e.span().offset())
+                        .unwrap_or(child.span().offset());
+                    let expr = parse_expression(&expr_str, offset)?;
+                    fields.insert(field_name, expr);
+                }
                 _ => {}
             }
         }
@@ -1030,6 +1042,7 @@ fn parse_posting_line(node: &KdlNode) -> Result<PostingLineDef, CompileError> {
         account,
         debit_expr,
         credit_expr,
+        fields,
         span: node.span().into(),
     })
 }

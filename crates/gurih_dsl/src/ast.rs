@@ -58,6 +58,7 @@ pub struct PostingLineDef {
     pub account: String,
     pub debit_expr: Option<Expr>,
     pub credit_expr: Option<Expr>,
+    pub fields: std::collections::HashMap<String, Expr>,
     pub span: SourceSpan,
 }
 

@@ -192,6 +192,7 @@ fn create_schema(num_accounts: usize) -> Schema {
             account: Symbol::from(format!("ACC-{:03}", i)),
             debit_expr: Some(Expression::Literal(10.0)),
             credit_expr: None,
+            fields: HashMap::new(),
         });
     }
 

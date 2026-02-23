@@ -1607,6 +1607,19 @@ impl DataEngine {
                 line_obj.insert("debit".to_string(), Value::String("0.00".to_string()));
             }
 
+            // Process arbitrary fields
+            for (field_name, expr) in &line.fields {
+                let val = crate::evaluator::evaluate(
+                    expr,
+                    &context,
+                    Some(&self.schema),
+                    Some(&self.datastore),
+                )
+                .await
+                .map_err(|e| format!("Failed to evaluate field '{}': {}", field_name, e))?;
+                line_obj.insert(field_name.to_string(), val);
+            }
+
             journal_lines.push(Value::Object(line_obj));
         }
 
