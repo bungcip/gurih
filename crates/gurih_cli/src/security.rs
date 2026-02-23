@@ -5,10 +5,7 @@ use axum::{
     response::Response,
 };
 
-pub async fn dev_security_headers(req: Request<Body>, next: Next) -> Response {
-    let mut response = next.run(req).await;
-    let headers = response.headers_mut();
-
+fn apply_common_headers(headers: &mut axum::http::HeaderMap) {
     headers.insert("X-Content-Type-Options", HeaderValue::from_static("nosniff"));
     headers.insert("X-Frame-Options", HeaderValue::from_static("SAMEORIGIN"));
     headers.insert("X-XSS-Protection", HeaderValue::from_static("1; mode=block"));
@@ -16,6 +13,14 @@ pub async fn dev_security_headers(req: Request<Body>, next: Next) -> Response {
         "Referrer-Policy",
         HeaderValue::from_static("strict-origin-when-cross-origin"),
     );
+}
+
+pub async fn dev_security_headers(req: Request<Body>, next: Next) -> Response {
+    let mut response = next.run(req).await;
+    let headers = response.headers_mut();
+
+    apply_common_headers(headers);
+
     // Sentinel: Dev Mode (Permissive) - Allow 'unsafe-inline' for Vue runtime/dev tools.
     headers.insert(
         "Content-Security-Policy",
@@ -29,13 +34,8 @@ pub async fn prod_security_headers(req: Request<Body>, next: Next) -> Response {
     let mut response = next.run(req).await;
     let headers = response.headers_mut();
 
-    headers.insert("X-Content-Type-Options", HeaderValue::from_static("nosniff"));
-    headers.insert("X-Frame-Options", HeaderValue::from_static("SAMEORIGIN"));
-    headers.insert("X-XSS-Protection", HeaderValue::from_static("1; mode=block"));
-    headers.insert(
-        "Referrer-Policy",
-        HeaderValue::from_static("strict-origin-when-cross-origin"),
-    );
+    apply_common_headers(headers);
+
     // Sentinel: Production Mode (Strict) - No 'unsafe-inline'.
     // Removed 'unsafe-inline' from script-src and style-src.
     // Added object-src 'none' and base-uri 'self'.
@@ -72,6 +72,9 @@ mod tests {
 
         // Dev headers MUST contain unsafe-inline
         assert!(csp.contains("script-src 'self' 'unsafe-inline'"));
+
+        // Verify common headers are present
+        assert_eq!(headers.get("X-Frame-Options").unwrap(), "SAMEORIGIN");
     }
 
     #[tokio::test]
@@ -94,5 +97,8 @@ mod tests {
         assert!(!csp.contains("'unsafe-inline'"));
         assert!(csp.contains("script-src 'self'"));
         assert!(csp.contains("object-src 'none'"));
+
+        // Verify common headers are present
+        assert_eq!(headers.get("X-Frame-Options").unwrap(), "SAMEORIGIN");
     }
 }
