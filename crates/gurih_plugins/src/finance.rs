@@ -713,7 +713,6 @@ async fn execute_generate_closing_entry(
 
     // Aggregate in memory using Decimal
     let mut account_balances: HashMap<String, (Decimal, Decimal)> = HashMap::new(); // AccountID -> (TotalDebit, TotalCredit)
-    let mut account_types: HashMap<String, String> = HashMap::new();
 
     let rows_to_process = match query_result {
         Ok(rows) => rows,
@@ -812,10 +811,6 @@ async fn execute_generate_closing_entry(
 
         let debit = parse_decimal_opt(row.get("debit"));
         let credit = parse_decimal_opt(row.get("credit"));
-
-        if let Some(t) = row.get("account_type").and_then(|v| v.as_str()) {
-            account_types.insert(account_id.clone(), t.to_string());
-        }
 
         let entry = account_balances
             .entry(account_id)
