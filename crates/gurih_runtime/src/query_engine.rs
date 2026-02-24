@@ -370,6 +370,18 @@ impl QueryEngine {
                             expr, partition, order
                         );
                     }
+                } else if name.as_str() == "days_between" {
+                    // days_between(end_date, start_date)
+                    if args.len() == 2 {
+                        let end = Self::expression_to_sql(&args[0], params, db_type, runtime_params);
+                        let start = Self::expression_to_sql(&args[1], params, db_type, runtime_params);
+                        if *db_type == DatabaseType::Postgres {
+                            return format!("({}::DATE - {}::DATE)", end, start);
+                        } else {
+                            // SQLite: julianday returns float, subtract, cast to int
+                            return format!("CAST(julianday({}) - julianday({}) AS INTEGER)", end, start);
+                        }
+                    }
                 }
 
                 let args_sql: Vec<String> = args

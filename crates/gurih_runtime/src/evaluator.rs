@@ -511,6 +511,21 @@ fn eval_function_sync(name: &str, args: &[Value]) -> Result<Option<Value>, Runti
             let valid = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").is_ok();
             Ok(Some(Value::Bool(valid)))
         }
+        "days_between" => {
+            if args.len() != 2 {
+                return Err(RuntimeError::EvaluationError("days_between() takes 2 arguments".into()));
+            }
+            let end_str = as_str(&args[0])?;
+            let start_str = as_str(&args[1])?;
+
+            let end_date = NaiveDate::parse_from_str(end_str, "%Y-%m-%d")
+                .map_err(|_| RuntimeError::EvaluationError("Invalid end date format YYYY-MM-DD".into()))?;
+            let start_date = NaiveDate::parse_from_str(start_str, "%Y-%m-%d")
+                .map_err(|_| RuntimeError::EvaluationError("Invalid start date format YYYY-MM-DD".into()))?;
+
+            let days = (end_date - start_date).num_days();
+            Ok(Some(Value::Number(serde_json::Number::from(days))))
+        }
         _ => Ok(None),
     }
 }
