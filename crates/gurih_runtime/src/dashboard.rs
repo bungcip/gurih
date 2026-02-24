@@ -64,14 +64,7 @@ impl DashboardEngine {
 
             if let Some(val_str) = &w.value {
                 if let Some(rest) = val_str.strip_prefix("count:") {
-                    // Parse count:Entity[k=v]
-                    let (entity, filter_str) = if let Some(idx) = rest.find('[') {
-                        let entity = &rest[..idx];
-                        let filter_part = &rest[idx + 1..rest.len() - 1]; // remove [ and ]
-                        (entity, Some(filter_part))
-                    } else {
-                        (rest, None)
-                    };
+                    let (entity, filter_str) = Self::parse_directive(rest);
 
                     let mut filters = HashMap::new();
                     if let Some(f) = filter_str {
@@ -86,14 +79,7 @@ impl DashboardEngine {
                     let count = datastore.count(entity, filters).await?;
                     evaluated_value = json!(count);
                 } else if let Some(rest) = val_str.strip_prefix("group:") {
-                    // Parse group:Entity[field]
-                    let (entity, group_by) = if let Some(idx) = rest.find('[') {
-                        let entity = &rest[..idx];
-                        let group_part = &rest[idx + 1..rest.len() - 1];
-                        (entity, Some(group_part))
-                    } else {
-                        (rest, None)
-                    };
+                    let (entity, group_by) = Self::parse_directive(rest);
 
                     if let Some(field) = group_by {
                         let results = datastore.aggregate(entity, field, HashMap::new()).await?;
@@ -121,5 +107,15 @@ impl DashboardEngine {
             "layout": "Grid",
             "widgets": widgets
         }))
+    }
+
+    fn parse_directive(rest: &str) -> (&str, Option<&str>) {
+        if let Some(idx) = rest.find('[') {
+            let entity = &rest[..idx];
+            let inner = &rest[idx + 1..rest.len() - 1]; // remove [ and ]
+            (entity, Some(inner))
+        } else {
+            (rest, None)
+        }
     }
 }
