@@ -1147,6 +1147,27 @@ impl DataEngine {
 
             self.validate_permission(ctx, &read_perm, "read", entity)?;
 
+            // Sentinel: Fix filter bypass vulnerability
+            // Previous implementation ignored filters for entities, potentially exposing restricted data.
+            // Now we use `find` if filters are present, with in-memory pagination fallback.
+            if let Some(f) = filters {
+                if !f.is_empty() {
+                    let all_results = self.datastore.find(schema.table_name.as_str(), f).await?;
+                    // Manual Pagination (since find doesn't support limit/offset)
+                    let skip = offset.unwrap_or(0);
+                    if skip >= all_results.len() {
+                        return Ok(vec![]);
+                    }
+                    let take = limit.unwrap_or(usize::MAX);
+                    let end = if take == usize::MAX {
+                        all_results.len()
+                    } else {
+                        std::cmp::min(skip.saturating_add(take), all_results.len())
+                    };
+                    return Ok(all_results[skip..end].to_vec());
+                }
+            }
+
             self.datastore.list(schema.table_name.as_str(), limit, offset).await
         } else {
             Err(format!("Entity or Query '{}' not defined", entity))
