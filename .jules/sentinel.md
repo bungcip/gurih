@@ -34,3 +34,8 @@
 **Vulnerability:** The `QueryEngine` trusted entity names and field identifiers from the schema to be safe, directly interpolating them into SQL queries. A malicious schema (e.g., entity name `User; DROP TABLE users; --`) could execute arbitrary SQL.
 **Learning:** In DSL/Schema-driven architectures, the schema definition itself must be treated as untrusted input if it can be influenced by users or if the system aims to be robust against configuration errors. "Internal" names are not always safe.
 **Prevention:** Implemented mandatory identifier validation (`validate_identifier`) in `QueryEngine` for table names and `group_by` fields before SQL construction, rejecting any non-alphanumeric identifiers.
+
+## 2024-05-30 - [HIGH] Stack Overflow in Expression Evaluator (DoS)
+**Vulnerability:** The recursive expression evaluator lacked a depth limit, allowing a maliciously crafted, deeply nested expression (e.g., `1+(1+(1+...))`) to crash the server with a stack overflow.
+**Learning:** Recursive algorithms on user-controlled input must always have explicit depth limits, even in memory-safe languages like Rust, as stack space is finite.
+**Prevention:** Implemented a strict `MAX_RECURSION_DEPTH` (250) check in `evaluate` and `needs_async` functions, returning a controlled error instead of crashing.

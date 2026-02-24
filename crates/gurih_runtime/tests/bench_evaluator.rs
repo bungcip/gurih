@@ -16,10 +16,9 @@ fn build_deep_expression(depth: usize) -> Expression {
 
 #[tokio::test]
 async fn bench_evaluate_deep() {
-    // 2000 depth is enough to show recursion overhead
-    // If stack overflow happens, we know recursion is too deep for stack, but async recursion uses heap (Box::pin).
-    // So 2000 should be fine on heap.
-    let depth = 2000;
+    // 200 depth is enough to show recursion overhead
+    // Max depth is now 250, so we use 200 to stay within limits.
+    let depth = 200;
     let expr = build_deep_expression(depth);
     let ctx = json!({});
 
