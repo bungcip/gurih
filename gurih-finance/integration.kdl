@@ -3,6 +3,7 @@
 posting_rule "InvoicePosting" for="Invoice" {
     description "\"Invoice #\" + doc.invoice_number"
     date "doc.date"
+    auto_post #true
 
     entry {
         account "accounts_receivable"
@@ -22,6 +23,7 @@ posting_rule "InvoicePosting" for="Invoice" {
 posting_rule "PayrollPosting" for="PayrollRun" {
     description "\"Payroll for \" + doc.period_name"
     date "doc.payment_date"
+    auto_post #true
 
     entry {
         account "salaries_expense"

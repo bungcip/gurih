@@ -50,6 +50,7 @@ pub struct PostingRuleDef {
     pub description_expr: Expr,
     pub date_expr: Expr,
     pub lines: Vec<PostingLineDef>,
+    pub auto_post: bool,
     pub span: SourceSpan,
 }
 

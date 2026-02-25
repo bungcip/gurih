@@ -1658,6 +1658,19 @@ impl DataEngine {
         // Use create_many() to ensure validation logic runs efficiently in batch
         self.create_many("JournalLine", journal_lines, ctx).await?;
 
+        if rule.auto_post {
+            let mut update_data = serde_json::Map::new();
+            update_data.insert("status".to_string(), Value::String("Posted".to_string()));
+
+            // Recursion break: Box the future to avoid infinite size
+            if let Err(e) = Box::pin(self.update("JournalEntry", &journal_id, Value::Object(update_data), ctx)).await {
+                // Rollback: Delete the draft journal to prevent clutter and ensure consistency
+                // We ignore delete errors (best effort)
+                self.delete("JournalEntry", &journal_id, ctx).await.ok();
+                return Err(format!("Auto-post failed: {}", e));
+            }
+        }
+
         Ok(())
     }
 }

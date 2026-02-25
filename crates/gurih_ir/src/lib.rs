@@ -39,6 +39,8 @@ pub struct PostingRuleSchema {
     pub description_expr: Expression,
     pub date_expr: Expression,
     pub lines: Vec<PostingLineSchema>,
+    #[serde(default)]
+    pub auto_post: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
