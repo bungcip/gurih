@@ -359,29 +359,39 @@ fn eval_binary_op(op: &BinaryOperator, left: Value, right: Value) -> Result<Valu
 fn match_like(s: &str, p: &str) -> bool {
     let s_chars: Vec<char> = s.chars().collect();
     let p_chars: Vec<char> = p.chars().collect();
-    match_like_recursive(&s_chars, 0, &p_chars, 0)
-}
 
-fn match_like_recursive(s: &[char], si: usize, p: &[char], pi: usize) -> bool {
-    if pi == p.len() {
-        return si == s.len();
-    }
-    if p[pi] == '%' {
-        // Match zero or more characters
-        // Skip % in pattern
-        if match_like_recursive(s, si, p, pi + 1) {
-            return true;
+    let mut s_idx = 0;
+    let mut p_idx = 0;
+    let mut last_wildcard_idx = None;
+    let mut s_backtrack_idx = 0;
+
+    while s_idx < s_chars.len() {
+        if p_idx < p_chars.len() && (p_chars[p_idx] == '_' || p_chars[p_idx] == s_chars[s_idx]) {
+            // Exact match or single char wildcard
+            s_idx += 1;
+            p_idx += 1;
+        } else if p_idx < p_chars.len() && p_chars[p_idx] == '%' {
+            // Wildcard found
+            last_wildcard_idx = Some(p_idx);
+            p_idx += 1; // Try matching 0 characters first
+            s_backtrack_idx = s_idx;
+        } else if let Some(wildcard_idx) = last_wildcard_idx {
+            // Mismatch, backtrack
+            p_idx = wildcard_idx + 1;
+            s_backtrack_idx += 1;
+            s_idx = s_backtrack_idx;
+        } else {
+            // Mismatch and no wildcard to backtrack to
+            return false;
         }
-        // Consume character in string
-        if si < s.len() {
-            return match_like_recursive(s, si + 1, p, pi);
-        }
-        return false;
     }
-    if si < s.len() && (p[pi] == '_' || p[pi] == s[si]) {
-        return match_like_recursive(s, si + 1, p, pi + 1);
+
+    // Consume remaining % at the end of pattern
+    while p_idx < p_chars.len() && p_chars[p_idx] == '%' {
+        p_idx += 1;
     }
-    false
+
+    p_idx == p_chars.len()
 }
 
 fn eval_function_sync(name: &str, args: &[Value]) -> Result<Option<Value>, RuntimeError> {
