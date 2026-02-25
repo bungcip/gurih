@@ -199,10 +199,13 @@ async fn test_posting_rule_arbitrary_fields() {
         .expect("Failed to list journal lines");
 
     // Find the debit line (AR)
-    let ar_line = lines.iter().find(|l| {
-        let debit = l.get("debit").and_then(|v| v.as_str()).unwrap_or("0");
-        debit == "1000.00" || debit == "1000.0"
-    }).expect("AR line not found");
+    let ar_line = lines
+        .iter()
+        .find(|l| {
+            let debit = l.get("debit").and_then(|v| v.as_str()).unwrap_or("0");
+            debit == "1000.00" || debit == "1000.0"
+        })
+        .expect("AR line not found");
 
     // Assert arbitrary fields are set
     let party_type = ar_line.get("party_type").and_then(|v| v.as_str());

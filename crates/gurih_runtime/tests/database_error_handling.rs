@@ -15,14 +15,20 @@ async fn test_database_error_sanitization() {
     let store = SqliteDataStore::new(pool);
 
     // Create table with unique constraint
-    store.query("CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT UNIQUE)").await.expect("Failed to create table");
+    store
+        .query("CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT UNIQUE)")
+        .await
+        .expect("Failed to create table");
 
     let user1 = serde_json::json!({
         "id": "1",
         "email": "test@example.com"
     });
 
-    store.insert("users", user1.clone()).await.expect("First insert should succeed");
+    store
+        .insert("users", user1.clone())
+        .await
+        .expect("First insert should succeed");
 
     // Insert duplicate
     let user2 = serde_json::json!({
@@ -30,14 +36,25 @@ async fn test_database_error_sanitization() {
         "email": "test@example.com"
     });
 
-    let err = store.insert("users", user2).await.expect_err("Duplicate insert should fail");
+    let err = store
+        .insert("users", user2)
+        .await
+        .expect_err("Duplicate insert should fail");
 
     let err_msg = err.to_string();
     println!("Received error: {}", err_msg);
 
     // Assert that we DO NOT expose raw unique constraint error
-    assert!(!err_msg.contains("UNIQUE constraint failed"), "Error should be sanitized: {}", err_msg);
+    assert!(
+        !err_msg.contains("UNIQUE constraint failed"),
+        "Error should be sanitized: {}",
+        err_msg
+    );
 
     // Assert we return a friendly message
-    assert!(err_msg.contains("Duplicate entry"), "Error should contain friendly message: {}", err_msg);
+    assert!(
+        err_msg.contains("Duplicate entry"),
+        "Error should contain friendly message: {}",
+        err_msg
+    );
 }

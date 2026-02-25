@@ -21,19 +21,25 @@ async fn test_dashboard_parsing_logic() {
                     name: Symbol::from("CountWidget"),
                     widget_type: WidgetType::Stat,
                     value: Some("count:Entity[status=Active]".to_string()),
-                    label: None, icon: None, roles: None,
+                    label: None,
+                    icon: None,
+                    roles: None,
                 },
                 WidgetSchema {
                     name: Symbol::from("GroupWidget"),
                     widget_type: WidgetType::Chart,
                     value: Some("group:Entity[category]".to_string()),
-                    label: None, icon: None, roles: None,
+                    label: None,
+                    icon: None,
+                    roles: None,
                 },
                 WidgetSchema {
                     name: Symbol::from("StaticWidget"),
                     widget_type: WidgetType::Stat,
                     value: Some("static_value".to_string()),
-                    label: None, icon: None, roles: None,
+                    label: None,
+                    icon: None,
+                    roles: None,
                 },
             ],
         },
@@ -48,9 +54,18 @@ async fn test_dashboard_parsing_logic() {
     let datastore = Arc::new(MemoryDataStore::new());
 
     // Seed Data
-    datastore.insert("Entity", json!({"status": "Active", "category": "A"})).await.unwrap();
-    datastore.insert("Entity", json!({"status": "Active", "category": "B"})).await.unwrap();
-    datastore.insert("Entity", json!({"status": "Inactive", "category": "A"})).await.unwrap();
+    datastore
+        .insert("Entity", json!({"status": "Active", "category": "A"}))
+        .await
+        .unwrap();
+    datastore
+        .insert("Entity", json!({"status": "Active", "category": "B"}))
+        .await
+        .unwrap();
+    datastore
+        .insert("Entity", json!({"status": "Inactive", "category": "A"}))
+        .await
+        .unwrap();
 
     // Evaluate
     let result = engine
@@ -69,8 +84,16 @@ async fn test_dashboard_parsing_logic() {
     let group_data = group_widget["value"].as_array().unwrap();
 
     // Check Group Data content
-    let count_a = group_data.iter().find(|d| d["label"] == "A").map(|d| d["value"].as_i64().unwrap()).unwrap_or(0);
-    let count_b = group_data.iter().find(|d| d["label"] == "B").map(|d| d["value"].as_i64().unwrap()).unwrap_or(0);
+    let count_a = group_data
+        .iter()
+        .find(|d| d["label"] == "A")
+        .map(|d| d["value"].as_i64().unwrap())
+        .unwrap_or(0);
+    let count_b = group_data
+        .iter()
+        .find(|d| d["label"] == "B")
+        .map(|d| d["value"].as_i64().unwrap())
+        .unwrap_or(0);
 
     // Note: In MemoryDataStore aggregate, if I group by 'category', I get counts.
     // 'A': 2 (Active + Inactive), 'B': 1

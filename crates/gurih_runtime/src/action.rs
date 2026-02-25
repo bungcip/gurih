@@ -118,21 +118,14 @@ impl ActionEngine {
                     .map_err(|e| e.to_string())?;
             }
             ActionStepType::Custom(name) => {
-                let mut handled = false;
                 for plugin in &self.plugins {
                     if plugin
                         .execute_action_step(name, step, params, data_engine, ctx)
                         .await
                         .map_err(|e| e.to_string())?
                     {
-                        handled = true;
                         break;
                     }
-                }
-                if !handled {
-                    // Action step custom '{}' not handled by any plugin
-                    // Optionally return error if strict
-                    // return Err(format!("Action step custom '{}' not handled", name));
                 }
             }
         }

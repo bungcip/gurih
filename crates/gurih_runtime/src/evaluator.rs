@@ -36,37 +36,23 @@ async fn evaluate_internal(
 
     match expr {
         Expression::Field(name) => eval_field(name.as_str(), context),
-        Expression::Literal(n) => Ok(Value::Number(
-            serde_json::Number::from_f64(*n).ok_or_else(|| {
+        Expression::Literal(n) => {
+            Ok(Value::Number(serde_json::Number::from_f64(*n).ok_or_else(|| {
                 RuntimeError::EvaluationError("Invalid float literal".to_string())
-            })?,
-        )),
+            })?))
+        }
         Expression::StringLiteral(s) => Ok(Value::String(s.clone())),
         Expression::BoolLiteral(b) => Ok(Value::Bool(*b)),
         Expression::Grouping(inner) => {
             if needs_async_checked(inner, depth + 1)? {
-                Box::pin(evaluate_internal(
-                    inner,
-                    context,
-                    schema,
-                    datastore,
-                    depth + 1,
-                ))
-                .await
+                Box::pin(evaluate_internal(inner, context, schema, datastore, depth + 1)).await
             } else {
                 evaluate_sync_checked(inner, context, schema, depth + 1)
             }
         }
         Expression::UnaryOp { op, expr } => {
             let val = if needs_async_checked(expr, depth + 1)? {
-                Box::pin(evaluate_internal(
-                    expr,
-                    context,
-                    schema,
-                    datastore,
-                    depth + 1,
-                ))
-                .await?
+                Box::pin(evaluate_internal(expr, context, schema, datastore, depth + 1)).await?
             } else {
                 evaluate_sync_checked(expr, context, schema, depth + 1)?
             };
@@ -75,14 +61,7 @@ async fn evaluate_internal(
         Expression::BinaryOp { left, op, right } => match op {
             BinaryOperator::And => {
                 let l = if needs_async_checked(left, depth + 1)? {
-                    Box::pin(evaluate_internal(
-                        left,
-                        context,
-                        schema,
-                        datastore,
-                        depth + 1,
-                    ))
-                    .await?
+                    Box::pin(evaluate_internal(left, context, schema, datastore, depth + 1)).await?
                 } else {
                     evaluate_sync_checked(left, context, schema, depth + 1)?
                 };
@@ -90,14 +69,7 @@ async fn evaluate_internal(
                     return Ok(Value::Bool(false));
                 }
                 let r = if needs_async_checked(right, depth + 1)? {
-                    Box::pin(evaluate_internal(
-                        right,
-                        context,
-                        schema,
-                        datastore,
-                        depth + 1,
-                    ))
-                    .await?
+                    Box::pin(evaluate_internal(right, context, schema, datastore, depth + 1)).await?
                 } else {
                     evaluate_sync_checked(right, context, schema, depth + 1)?
                 };
@@ -106,14 +78,7 @@ async fn evaluate_internal(
             }
             BinaryOperator::Or => {
                 let l = if needs_async_checked(left, depth + 1)? {
-                    Box::pin(evaluate_internal(
-                        left,
-                        context,
-                        schema,
-                        datastore,
-                        depth + 1,
-                    ))
-                    .await?
+                    Box::pin(evaluate_internal(left, context, schema, datastore, depth + 1)).await?
                 } else {
                     evaluate_sync_checked(left, context, schema, depth + 1)?
                 };
@@ -121,14 +86,7 @@ async fn evaluate_internal(
                     return Ok(Value::Bool(true));
                 }
                 let r = if needs_async_checked(right, depth + 1)? {
-                    Box::pin(evaluate_internal(
-                        right,
-                        context,
-                        schema,
-                        datastore,
-                        depth + 1,
-                    ))
-                    .await?
+                    Box::pin(evaluate_internal(right, context, schema, datastore, depth + 1)).await?
                 } else {
                     evaluate_sync_checked(right, context, schema, depth + 1)?
                 };
@@ -137,26 +95,12 @@ async fn evaluate_internal(
             }
             _ => {
                 let l = if needs_async_checked(left, depth + 1)? {
-                    Box::pin(evaluate_internal(
-                        left,
-                        context,
-                        schema,
-                        datastore,
-                        depth + 1,
-                    ))
-                    .await?
+                    Box::pin(evaluate_internal(left, context, schema, datastore, depth + 1)).await?
                 } else {
                     evaluate_sync_checked(left, context, schema, depth + 1)?
                 };
                 let r = if needs_async_checked(right, depth + 1)? {
-                    Box::pin(evaluate_internal(
-                        right,
-                        context,
-                        schema,
-                        datastore,
-                        depth + 1,
-                    ))
-                    .await?
+                    Box::pin(evaluate_internal(right, context, schema, datastore, depth + 1)).await?
                 } else {
                     evaluate_sync_checked(right, context, schema, depth + 1)?
                 };
@@ -167,16 +111,7 @@ async fn evaluate_internal(
             let mut eval_args = Vec::with_capacity(args.len());
             for arg in args {
                 if needs_async_checked(arg, depth + 1)? {
-                    eval_args.push(
-                        Box::pin(evaluate_internal(
-                            arg,
-                            context,
-                            schema,
-                            datastore,
-                            depth + 1,
-                        ))
-                        .await?,
-                    );
+                    eval_args.push(Box::pin(evaluate_internal(arg, context, schema, datastore, depth + 1)).await?);
                 } else {
                     eval_args.push(evaluate_sync_checked(arg, context, schema, depth + 1)?);
                 }
@@ -235,11 +170,11 @@ fn evaluate_sync_checked(
     }
     match expr {
         Expression::Field(name) => eval_field(name.as_str(), context),
-        Expression::Literal(n) => Ok(Value::Number(
-            serde_json::Number::from_f64(*n).ok_or_else(|| {
+        Expression::Literal(n) => {
+            Ok(Value::Number(serde_json::Number::from_f64(*n).ok_or_else(|| {
                 RuntimeError::EvaluationError("Invalid float literal".to_string())
-            })?,
-        )),
+            })?))
+        }
         Expression::StringLiteral(s) => Ok(Value::String(s.clone())),
         Expression::BoolLiteral(b) => Ok(Value::Bool(*b)),
         Expression::Grouping(inner) => evaluate_sync_checked(inner, context, _schema, depth + 1),
