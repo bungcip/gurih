@@ -1630,14 +1630,9 @@ impl DataEngine {
 
             // Process arbitrary fields
             for (field_name, expr) in &line.fields {
-                let val = crate::evaluator::evaluate(
-                    expr,
-                    &context,
-                    Some(&self.schema),
-                    Some(&self.datastore),
-                )
-                .await
-                .map_err(|e| format!("Failed to evaluate field '{}': {}", field_name, e))?;
+                let val = crate::evaluator::evaluate(expr, &context, Some(&self.schema), Some(&self.datastore))
+                    .await
+                    .map_err(|e| format!("Failed to evaluate field '{}': {}", field_name, e))?;
                 line_obj.insert(field_name.to_string(), val);
             }
 

@@ -46,8 +46,12 @@ async fn test_data_engine_list_respects_filters() {
         seeds: None,
     };
     // Allow read permissions for everyone for this test
-    user_entity.options.insert("read_permission".to_string(), "public".to_string());
-    user_entity.options.insert("create_permission".to_string(), "public".to_string());
+    user_entity
+        .options
+        .insert("read_permission".to_string(), "public".to_string());
+    user_entity
+        .options
+        .insert("create_permission".to_string(), "public".to_string());
 
     schema.entities.insert(Symbol::from(entity_name), user_entity);
 
@@ -63,15 +67,29 @@ async fn test_data_engine_list_respects_filters() {
     };
 
     // 2. Insert Data
-    engine.create(entity_name, json!({
-        "username": "alice",
-        "role": "admin"
-    }), &ctx).await.unwrap();
+    engine
+        .create(
+            entity_name,
+            json!({
+                "username": "alice",
+                "role": "admin"
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
 
-    engine.create(entity_name, json!({
-        "username": "bob",
-        "role": "user"
-    }), &ctx).await.unwrap();
+    engine
+        .create(
+            entity_name,
+            json!({
+                "username": "bob",
+                "role": "user"
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
 
     // 3. List with Filter
     let mut filters = HashMap::new();
@@ -83,7 +101,8 @@ async fn test_data_engine_list_respects_filters() {
     // Filters should be respected
     assert_eq!(results.len(), 1, "Filters should be respected");
 
-    let usernames: Vec<String> = results.iter()
+    let usernames: Vec<String> = results
+        .iter()
         .map(|r| r.get("username").and_then(|v| v.as_str()).unwrap().to_string())
         .collect();
     assert!(usernames.contains(&"alice".to_string()));

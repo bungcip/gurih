@@ -201,11 +201,7 @@ async fn test_rce_vectors_and_config() {
         let payload = Bytes::from("malicious content");
         let result = driver.put(filename, payload).await;
 
-        assert!(
-            result.is_err(),
-            "Dangerous extension {} should be rejected",
-            filename
-        );
+        assert!(result.is_err(), "Dangerous extension {} should be rejected", filename);
 
         let err = result.err().unwrap();
         assert!(
