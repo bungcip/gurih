@@ -60,6 +60,7 @@ routes {
         route "/reports/balance-sheet" to="BalanceSheetReport"
         route "/reports/income-statement" to="IncomeStatementReport"
         route "/reports/income-statement-by-cost-center" to="IncomeStatementByCostCenterReport"
+        route "/reports/aged-receivables" to="AgedReceivablesReport"
     }
 }
 
@@ -78,6 +79,7 @@ menu "FinanceMenu" {
         item "Balance Sheet" to="/finance/reports/balance-sheet"
         item "Income Statement" to="/finance/reports/income-statement"
         item "Income Statement (By Cost Center)" to="/finance/reports/income-statement-by-cost-center"
+        item "Aged Receivables" to="/finance/reports/aged-receivables"
     }
 }
 
