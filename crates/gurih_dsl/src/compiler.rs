@@ -449,7 +449,6 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                     .collect(),
             }),
             ast::PageContent::Form(f) => PageContentSchema::Form(f.name.as_str().into()),
-            ast::PageContent::Dashboard => PageContentSchema::Dashboard(Symbol::from("")),
             ast::PageContent::None => PageContentSchema::None,
         };
 

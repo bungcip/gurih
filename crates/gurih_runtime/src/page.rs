@@ -68,10 +68,6 @@ impl PageEngine {
                        "actions": actions
                     }));
                 }
-                gurih_ir::PageContentSchema::Dashboard(name) => {
-                    let engine = crate::dashboard::DashboardEngine::new();
-                    return engine.generate_ui_schema(schema, *name);
-                }
                 gurih_ir::PageContentSchema::Form(name) => {
                     let engine = crate::form::FormEngine::new();
                     return engine.generate_ui_schema(schema, *name);

@@ -522,7 +522,6 @@ pub struct PageSchema {
 pub enum PageContentSchema {
     Datatable(DatatableSchema),
     Form(Symbol),
-    Dashboard(Symbol),
     None,
 }
 
