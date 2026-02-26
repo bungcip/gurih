@@ -297,7 +297,6 @@ pub struct PageDef {
 pub enum PageContent {
     Datatable(DatatableDef),
     Form(FormDef),
-    Dashboard,
     None,
 }
 
