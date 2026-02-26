@@ -44,6 +44,9 @@ entity "JournalLine" {
     field:string "party_type" // e.g. "Customer", "Vendor"
     field:uuid "party_id"
     field:string "party_name" required=#false
+
+    // Reconciliation Status
+    has_one "status" "JournalLineStatus"
 }
 
 workflow "JournalWorkflow" for="JournalEntry" field="status" {
@@ -62,6 +65,7 @@ workflow "JournalWorkflow" for="JournalEntry" field="status" {
         effects {
             // Immutable once posted
             snapshot_parties #true
+            init_line_status #true
         }
     }
 
