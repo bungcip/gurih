@@ -63,9 +63,9 @@ impl QueryEngine {
 
         // Process Root Selections & Formulas
         for sel in &query.selections {
-            let col_sql = format!("{}.{}", root_table, sel.field);
+            let col_sql = format!("\"{}\".\"{}\"", root_table, sel.field);
             if let Some(alias) = &sel.alias {
-                select_parts.push(format!("{} AS {}", col_sql, alias));
+                select_parts.push(format!("{} AS \"{}\"", col_sql, alias));
             } else {
                 select_parts.push(col_sql);
             }
@@ -110,12 +110,12 @@ impl QueryEngine {
             for s in &query.group_by {
                 validate_identifier(s.as_str())?;
             }
-            let group_parts: Vec<String> = query.group_by.iter().map(|s| format!("[{}]", s)).collect();
+            let group_parts: Vec<String> = query.group_by.iter().map(|s| format!("\"{}\"", s)).collect();
             group_by_clause = format!("GROUP BY {}", group_parts.join(", "));
         }
 
         let sql = format!(
-            "SELECT {} FROM {} {} {} {}",
+            "SELECT {} FROM \"{}\" {} {} {}",
             select_clause, root_table, join_clause, where_clause, group_by_clause
         )
         .trim()
@@ -133,23 +133,23 @@ impl QueryEngine {
             let mut struct_join_parts = vec![];
 
             // Force ID and Parent
-            struct_selects.push(format!("{}.id", root_table));
-            struct_selects.push(format!("{}.{}", root_table, h.parent_field));
+            struct_selects.push(format!("\"{}\".\"id\"", root_table));
+            struct_selects.push(format!("\"{}\".\"{}\"", root_table, h.parent_field));
 
             for rf in &h.rollup_fields {
                 if let Some(form) = query.formulas.iter().find(|f| f.name == *rf) {
                     let expr_sql =
                         Self::expression_to_sql(&form.expression, &mut struct_params, &db_type, runtime_params);
-                    struct_selects.push(format!("{} AS {}", expr_sql, rf));
+                    struct_selects.push(format!("{} AS \"{}\"", expr_sql, rf));
                 } else if let Some(sel) = query
                     .selections
                     .iter()
                     .find(|s| s.alias.as_ref() == Some(rf) || s.field == *rf)
                 {
-                    let col_sql = format!("{}.{}", root_table, sel.field);
-                    struct_selects.push(format!("{} AS {}", col_sql, rf));
+                    let col_sql = format!("\"{}\".\"{}\"", root_table, sel.field);
+                    struct_selects.push(format!("{} AS \"{}\"", col_sql, rf));
                 } else {
-                    struct_selects.push(format!("{}.{}", root_table, rf));
+                    struct_selects.push(format!("\"{}\".\"{}\"", root_table, rf));
                 }
             }
 
@@ -183,7 +183,7 @@ impl QueryEngine {
             }
 
             let structure_sql = format!(
-                "SELECT {} FROM {} {} {} {}",
+                "SELECT {} FROM \"{}\" {} {} {}",
                 struct_selects.join(", "),
                 root_table,
                 struct_join_clause,
@@ -234,27 +234,27 @@ impl QueryEngine {
             {
                 if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
                     // Parent has FK: parent.rel_id = target.id
-                    join_condition = format!("{}.{}_id = {}.id", parent_table, rel.name, target_table);
+                    join_condition = format!("\"{}\".\"{}_id\" = \"{}\".\"id\"", parent_table, rel.name, target_table);
                 } else {
                     // Target has FK: target.parent_id = parent.id
                     // Assuming standard naming convention for back-ref
-                    join_condition = format!("{}.{}_id = {}.id", target_table, parent_table, parent_table);
+                    join_condition = format!("\"{}\".\"{}_id\" = \"{}\".\"id\"", target_table, parent_table, parent_table);
                 }
             }
 
             // Fallback: Default heuristic (HasMany style)
             if join_condition.is_empty() {
-                join_condition = format!("{}.{}_id = {}.id", target_table, parent_table, parent_table);
+                join_condition = format!("\"{}\".\"{}_id\" = \"{}\".\"id\"", target_table, parent_table, parent_table);
             }
 
             state
                 .join_parts
-                .push(format!("LEFT JOIN {} ON {}", target_table, join_condition));
+                .push(format!("LEFT JOIN \"{}\" ON {}", target_table, join_condition));
 
             for sel in &join.selections {
-                let col_sql = format!("{}.{}", target_table, sel.field);
+                let col_sql = format!("\"{}\".\"{}\"", target_table, sel.field);
                 if let Some(alias) = &sel.alias {
-                    state.select_parts.push(format!("{} AS {}", col_sql, alias));
+                    state.select_parts.push(format!("{} AS \"{}\"", col_sql, alias));
                 } else {
                     state.select_parts.push(col_sql);
                 }
@@ -314,11 +314,11 @@ impl QueryEngine {
                 let s = f.as_str();
                 if s.contains('.') {
                     s.split('.')
-                        .map(|part| format!("[{}]", part))
+                        .map(|part| format!("\"{}\"", part))
                         .collect::<Vec<_>>()
                         .join(".")
                 } else {
-                    format!("[{}]", f)
+                    format!("\"{}\"", f)
                 }
             }
             Expression::Literal(n) => n.to_string(),
@@ -517,11 +517,11 @@ mod tests {
             panic!("Expected ExecuteSql");
         };
         println!("Generated SQL: {}", sql);
-        assert!(sql.contains("SELECT course_entity.title"));
-        assert!(sql.contains("SUM([duration]) AS total_duration"));
-        assert!(sql.contains("FROM course_entity"));
-        assert!(sql.contains("LEFT JOIN section_entity"));
-        assert!(sql.contains("LEFT JOIN meeting_entity"));
+        assert!(sql.contains("SELECT \"course_entity\".\"title\""));
+        assert!(sql.contains("SUM(\"duration\") AS total_duration"));
+        assert!(sql.contains("FROM \"course_entity\""));
+        assert!(sql.contains("LEFT JOIN \"section_entity\""));
+        assert!(sql.contains("LEFT JOIN \"meeting_entity\""));
     }
 
     #[test]
@@ -574,11 +574,11 @@ mod tests {
         };
         println!("Flat SQL: {}", sql);
 
-        assert!(sql.contains("SELECT book_entity.title, book_entity.price"));
-        assert!(sql.contains("people_entity.name AS author"));
-        assert!(sql.contains("FROM book_entity"));
-        assert!(sql.contains("LEFT JOIN people_entity"));
-        assert!(sql.contains("WHERE [published_at] < DATE()"));
+        assert!(sql.contains("SELECT \"book_entity\".\"title\", \"book_entity\".\"price\""));
+        assert!(sql.contains("\"people_entity\".\"name\" AS \"author\""));
+        assert!(sql.contains("FROM \"book_entity\""));
+        assert!(sql.contains("LEFT JOIN \"people_entity\""));
+        assert!(sql.contains("WHERE \"published_at\" < DATE()"));
     }
 
     #[test]
@@ -621,7 +621,7 @@ mod tests {
         println!("SQL: {}", sql);
         println!("Params: {:?}", params);
 
-        assert!(sql.contains("WHERE [price] >="));
+        assert!(sql.contains("WHERE \"price\" >="));
         // Check placeholder
         // Default db_type is Sqlite -> ?
         assert!(sql.contains("?"));
@@ -663,8 +663,8 @@ mod tests {
 
         println!("Nested SQL: {}", sql);
 
-        // Verify that user.profile.age is converted to [user].[profile].[age]
-        assert!(sql.contains("[user].[profile].[age]"));
+        // Verify that user.profile.age is converted to "user"."profile"."age"
+        assert!(sql.contains("\"user\".\"profile\".\"age\""));
     }
 
     #[test]
@@ -722,7 +722,7 @@ mod tests {
 
         assert!(sql.contains("CASE WHEN TRUE THEN 100 ELSE 0 END AS conditional_balance"));
         assert!(sql.contains(
-            "SUM([amount]) OVER (PARTITION BY [account_id] ORDER BY [date] ROWS UNBOUNDED PRECEDING) AS running_balance"
+            "SUM(\"amount\") OVER (PARTITION BY \"account_id\" ORDER BY \"date\" ROWS UNBOUNDED PRECEDING) AS running_balance"
         ));
     }
 }

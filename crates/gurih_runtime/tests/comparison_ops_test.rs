@@ -66,7 +66,7 @@ fn test_verify_user_example() {
 
     if let QueryPlan::ExecuteSql { sql, .. } = &strategy.plans[0] {
         println!("Generated SQL: {}", sql);
-        assert!(sql.contains("WHERE [published_at] < DATE("));
+        assert!(sql.contains("WHERE \"published_at\" < DATE("));
     } else {
         panic!("Expected ExecuteSql plan");
     }
