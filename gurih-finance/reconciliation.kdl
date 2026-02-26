@@ -1,0 +1,31 @@
+entity "JournalLineStatus" {
+    field:pk id
+    belongs_to "JournalLine" required=#true unique=#true
+    field:money "amount_residual" default=0
+    field:boolean "is_fully_reconciled" default="false"
+}
+
+entity "Reconciliation" {
+    field:pk id
+    field:date "date"
+    field:money "amount"
+
+    // Relationships
+    belongs_to "debit_line" entity="JournalLine"
+    belongs_to "credit_line" entity="JournalLine"
+
+    options {
+        track_changes #true
+    }
+}
+
+action "ReconcileEntries" {
+    params "debit_line_id" "credit_line_id" "amount"
+    step "finance:reconcile_entries" debit_line_id="param('debit_line_id')" credit_line_id="param('credit_line_id')" amount="param('amount')"
+}
+
+routes {
+    group "/finance/reconciliation" {
+        route:post "/reconcile" action="ReconcileEntries"
+    }
+}

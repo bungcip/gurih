@@ -225,11 +225,18 @@ query:flat "AgedReceivablesQuery" for="JournalLine" {
     params "end_date"
     select "party_name"
 
-    formula "current" "SUM(if(days_between(param('end_date'), [journal_entry.date]) <= 30, [debit] - [credit], 0))"
-    formula "30_60" "SUM(if(days_between(param('end_date'), [journal_entry.date]) > 30 && days_between(param('end_date'), [journal_entry.date]) <= 60, [debit] - [credit], 0))"
-    formula "60_90" "SUM(if(days_between(param('end_date'), [journal_entry.date]) > 60 && days_between(param('end_date'), [journal_entry.date]) <= 90, [debit] - [credit], 0))"
-    formula "90_plus" "SUM(if(days_between(param('end_date'), [journal_entry.date]) > 90, [debit] - [credit], 0))"
-    formula "total" "SUM([debit] - [credit])"
+    // Residual Calculation (Matching aware)
+    // If Debit > 0: +residual
+    // If Credit > 0: -residual
+    // Use COALESCE to handle historical data where JournalLineStatus is missing (NULL).
+    // ABS is used to calculate magnitude if status is missing.
+    formula "residual_signed" "if([debit] > 0, COALESCE([journal_line_status.amount_residual], ABS([debit] - [credit])), 0 - COALESCE([journal_line_status.amount_residual], ABS([debit] - [credit])))"
+
+    formula "current" "SUM(if(days_between(param('end_date'), [journal_entry.date]) <= 30, [residual_signed], 0))"
+    formula "30_60" "SUM(if(days_between(param('end_date'), [journal_entry.date]) > 30 && days_between(param('end_date'), [journal_entry.date]) <= 60, [residual_signed], 0))"
+    formula "60_90" "SUM(if(days_between(param('end_date'), [journal_entry.date]) > 60 && days_between(param('end_date'), [journal_entry.date]) <= 90, [residual_signed], 0))"
+    formula "90_plus" "SUM(if(days_between(param('end_date'), [journal_entry.date]) > 90, [residual_signed], 0))"
+    formula "total" "SUM([residual_signed])"
 
     join "JournalEntry" {
         // to access date and status
@@ -237,6 +244,10 @@ query:flat "AgedReceivablesQuery" for="JournalLine" {
 
     join "Account" {
         // to filter by system_tag
+    }
+
+    join "JournalLineStatus" {
+        select "amount_residual"
     }
 
     filter "[account.system_tag] == 'accounts_receivable'"
