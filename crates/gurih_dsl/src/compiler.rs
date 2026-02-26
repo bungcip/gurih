@@ -747,6 +747,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
                 description_expr: convert_expr(desc_expr),
                 date_expr: convert_expr(date_expr),
                 lines,
+                auto_post: pr_def.auto_post,
             },
         );
     }

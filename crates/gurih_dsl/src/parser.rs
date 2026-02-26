@@ -944,6 +944,7 @@ fn parse_rule(node: &KdlNode) -> Result<RuleDef, CompileError> {
 fn parse_posting_rule(node: &KdlNode) -> Result<PostingRuleDef, CompileError> {
     let name = get_arg_string(node, 0)?;
     let source_entity = get_prop_string(node, "for")?;
+    let mut auto_post = false;
     let mut description_expr = None;
     let mut date_expr = None;
     let mut lines = vec![];
@@ -951,6 +952,7 @@ fn parse_posting_rule(node: &KdlNode) -> Result<PostingRuleDef, CompileError> {
     if let Some(children) = node.children() {
         for child in children.nodes() {
             match child.name().value() {
+                "auto_post" => auto_post = get_arg_bool(child, 0).unwrap_or(true),
                 "description" => {
                     let s = get_arg_string(child, 0)?;
                     let offset = child
@@ -990,6 +992,7 @@ fn parse_posting_rule(node: &KdlNode) -> Result<PostingRuleDef, CompileError> {
         description_expr,
         date_expr,
         lines,
+        auto_post,
         span: node.span().into(),
     })
 }
