@@ -1,5 +1,6 @@
 use gurih_ir::{Expression, Symbol};
-use gurih_runtime::datastore::{DataStore, MemoryDataStore};
+use gurih_runtime::datastore::DataStore;
+use gurih_runtime::store::MemoryDataStore;
 use gurih_runtime::evaluator::evaluate;
 use serde_json::json;
 use std::sync::Arc;

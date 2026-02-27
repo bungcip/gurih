@@ -1,4 +1,5 @@
-use gurih_runtime::datastore::{DataStore, MemoryDataStore};
+use gurih_runtime::datastore::DataStore;
+use gurih_runtime::store::MemoryDataStore;
 use serde_json::json;
 use std::collections::HashMap;
 use std::time::Instant;

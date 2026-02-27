@@ -1,7 +1,7 @@
 use gurih_dsl::compile;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
-use gurih_runtime::datastore::init_datastore;
+use gurih_runtime::store::init_datastore;
 use serde_json::json;
 use std::sync::Arc;
 

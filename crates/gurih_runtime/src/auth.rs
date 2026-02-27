@@ -282,7 +282,7 @@ impl AuthEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::datastore::MemoryDataStore;
+    use crate::store::MemoryDataStore;
     use serde_json::json;
 
     #[tokio::test]

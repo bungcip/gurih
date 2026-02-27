@@ -6,7 +6,7 @@ use gurih_ir::{
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::DataStore;
-use gurih_runtime::datastore::init_datastore;
+use gurih_runtime::store::init_datastore;
 use gurih_runtime::errors::RuntimeError;
 use gurih_runtime::plugins::Plugin;
 use gurih_runtime::traits::DataAccess;
@@ -202,6 +202,7 @@ fn create_schema(num_accounts: usize) -> Schema {
         description_expr: Expression::StringLiteral("Posting".to_string()),
         date_expr: Expression::StringLiteral("2024-01-01".to_string()),
         lines,
+        auto_post: false,
     };
     schema.posting_rules.insert(Symbol::from("PR1"), rule);
 

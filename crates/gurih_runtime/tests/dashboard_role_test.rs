@@ -1,6 +1,6 @@
 use gurih_ir::{DashboardSchema, Schema, Symbol, WidgetSchema, WidgetType};
 use gurih_runtime::dashboard::DashboardEngine;
-use gurih_runtime::datastore::MemoryDataStore;
+use gurih_runtime::store::MemoryDataStore;
 use std::collections::HashMap;
 use std::sync::Arc;
 

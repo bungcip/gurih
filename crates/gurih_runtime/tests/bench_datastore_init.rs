@@ -1,5 +1,5 @@
 use gurih_ir::{DatabaseSchema, DatabaseType, Schema};
-use gurih_runtime::datastore::init_datastore;
+use gurih_runtime::store::init_datastore;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::fs;

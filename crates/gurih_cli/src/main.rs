@@ -450,7 +450,7 @@ async fn create_datastore(schema: Arc<gurih_ir::Schema>, file: &std::path::Path)
         println!("🔌 Connecting to database...");
     }
 
-    gurih_runtime::datastore::init_datastore(schema.clone(), file.parent())
+    gurih_runtime::store::init_datastore(schema.clone(), file.parent())
         .await
         .expect("Failed to initialize datastore")
 }

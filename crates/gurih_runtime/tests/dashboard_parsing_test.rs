@@ -1,6 +1,7 @@
 use gurih_ir::{DashboardSchema, Schema, Symbol, WidgetSchema, WidgetType};
 use gurih_runtime::dashboard::DashboardEngine;
-use gurih_runtime::datastore::{DataStore, MemoryDataStore};
+use gurih_runtime::datastore::DataStore;
+use gurih_runtime::store::MemoryDataStore;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -45,10 +46,8 @@ async fn test_dashboard_parsing_logic() {
         },
     );
 
-    let schema = Schema {
-        dashboards,
-        ..Default::default()
-    };
+    let mut schema = Schema::default();
+    schema.dashboards = dashboards;
 
     let engine = DashboardEngine::new();
     let datastore = Arc::new(MemoryDataStore::new());
@@ -95,11 +94,6 @@ async fn test_dashboard_parsing_logic() {
         .map(|d| d["value"].as_i64().unwrap())
         .unwrap_or(0);
 
-    // Note: In MemoryDataStore aggregate, if I group by 'category', I get counts.
-    // 'A': 2 (Active + Inactive), 'B': 1
-    // Wait, my group directive is `group:Entity[category]`.
-    // It has no filters.
-    // So A should be 2, B should be 1.
     assert_eq!(count_a, 2, "Category A should have 2");
     assert_eq!(count_b, 1, "Category B should have 1");
 

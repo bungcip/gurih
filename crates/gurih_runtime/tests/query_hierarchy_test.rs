@@ -3,7 +3,7 @@ use gurih_ir::{
     QuerySchema, QueryType, Schema, Symbol, TableSchema,
 };
 use gurih_runtime::data::DataEngine;
-use gurih_runtime::datastore::init_datastore;
+use gurih_runtime::store::init_datastore;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
