@@ -25,6 +25,11 @@ fn validate_filename(filename: &str) -> Result<(), String> {
         return Err("Filename contains invalid characters".to_string());
     }
 
+    // Sentinel: Reject filenames with leading/trailing whitespace
+    if filename.trim() != filename {
+        return Err("Filename cannot have leading or trailing whitespace".to_string());
+    }
+
     // Sentinel: Reject hidden files (e.g. .htaccess) and empty names
     if filename.starts_with('.') || filename.is_empty() {
         return Err("Hidden files or empty filenames are not allowed".to_string());

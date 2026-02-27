@@ -202,6 +202,7 @@ fn create_schema(num_accounts: usize) -> Schema {
         description_expr: Expression::StringLiteral("Posting".to_string()),
         date_expr: Expression::StringLiteral("2024-01-01".to_string()),
         lines,
+        auto_post: false,
     };
     schema.posting_rules.insert(Symbol::from("PR1"), rule);
 
