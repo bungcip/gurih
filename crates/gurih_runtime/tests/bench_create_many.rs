@@ -1,7 +1,7 @@
 use gurih_ir::{EntitySchema, FieldSchema, FieldType, RuleSchema, Schema, Symbol};
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
-use gurih_runtime::datastore::MemoryDataStore;
+use gurih_runtime::store::MemoryDataStore;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Instant;

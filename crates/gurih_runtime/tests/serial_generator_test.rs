@@ -3,7 +3,7 @@ use gurih_ir::{
 };
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
-use gurih_runtime::datastore::init_datastore;
+use gurih_runtime::store::init_datastore;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;

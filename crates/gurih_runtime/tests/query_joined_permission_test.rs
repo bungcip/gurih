@@ -3,7 +3,7 @@ use gurih_ir::{
 };
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
-use gurih_runtime::datastore::MemoryDataStore;
+use gurih_runtime::store::MemoryDataStore;
 use std::collections::HashMap;
 use std::sync::Arc;
 

@@ -2,7 +2,7 @@ use gurih_ir::{ActionStep, ActionStepType, EntitySchema, FieldSchema, FieldType,
 use gurih_plugins::finance::FinancePlugin;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
-use gurih_runtime::datastore::init_datastore;
+use gurih_runtime::store::init_datastore;
 use gurih_runtime::plugins::Plugin;
 use serde_json::json;
 use std::collections::HashMap;
