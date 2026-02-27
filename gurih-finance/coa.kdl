@@ -20,6 +20,7 @@ entity "Account" {
     field:boolean "is_active" default="true"
     field:boolean "is_group" default="false"
     field:boolean "requires_party" default="false"
+    field:boolean "is_tax_account" default="false"
 
     // System identifier for special accounts (e.g. "retained_earnings")
     field:string "system_tag" unique=#true required=#false
@@ -66,6 +67,7 @@ account "Tax Payable" {
     type "Liability"
     normal_balance "Credit"
     system_tag "tax_payable"
+    is_tax_account "true"
 }
 
 account "Retained Earnings" {

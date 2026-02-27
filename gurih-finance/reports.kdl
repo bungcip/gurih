@@ -268,3 +268,46 @@ page "AgedReceivablesReport" {
         column "total" label="Total Outstanding"
     }
 }
+
+// Tax Report
+query:flat "TaxReportQuery" for="JournalLine" {
+    params "start_date" "end_date"
+    select "tax_code.code"
+    select "tax_code.rate"
+
+    // Base Amount (Net movement excluding tax account itself)
+    // Typically base amount is on sales (credit) or purchase (debit).
+    // If account is NOT a tax account, it is the base.
+    formula "base_amount" "SUM(if([account.is_tax_account] == false, [credit] - [debit], 0))"
+
+    // Tax Amount (Net movement on tax account)
+    formula "tax_amount" "SUM(if([account.is_tax_account] == true, [credit] - [debit], 0))"
+
+    join "Account" {
+        // to access is_tax_account
+    }
+
+    join "JournalEntry" {
+        // Filter only
+    }
+
+    join "TaxCode" {
+        // Grouping key
+    }
+
+    filter "[tax_code] != null"
+    filter "[journal_entry.status] == 'Posted'"
+    filter "[journal_entry.date] >= param('start_date') && [journal_entry.date] <= param('end_date')"
+
+    group_by "tax_code"
+}
+
+page "TaxReport" {
+    title "Tax Report"
+    datatable query="TaxReportQuery" {
+        column "tax_code.code" label="Tax Code"
+        column "tax_code.rate" label="Rate"
+        column "base_amount" label="Base Amount"
+        column "tax_amount" label="Tax Amount"
+    }
+}

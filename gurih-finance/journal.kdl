@@ -39,6 +39,7 @@ entity "JournalLine" {
 
     // Cost Center / Dimension
     belongs_to "cost_center" "CostCenter" required=#false
+    belongs_to "tax_code" "TaxCode" required=#false
 
     // Sub-ledger / Party support
     field:string "party_type" // e.g. "Customer", "Vendor"
