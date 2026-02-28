@@ -2,8 +2,8 @@ use gurih_ir::{ActionStep, ActionStepType, EntitySchema, FieldSchema, FieldType,
 use gurih_plugins::finance::FinancePlugin;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
-use gurih_runtime::store::init_datastore;
 use gurih_runtime::plugins::Plugin;
+use gurih_runtime::store::init_datastore;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -32,11 +32,13 @@ fn create_field(name: &str, field_type: FieldType, pk: bool) -> FieldSchema {
 #[tokio::test]
 async fn bench_reverse_journal() {
     // 1. Setup Schema
-    let mut schema = Schema::default();
-    schema.database = Some(gurih_ir::DatabaseSchema {
-        db_type: gurih_ir::DatabaseType::Sqlite,
-        url: "sqlite::memory:".to_string(),
-    });
+    let mut schema = Schema {
+        database: Some(gurih_ir::DatabaseSchema {
+            db_type: gurih_ir::DatabaseType::Sqlite,
+            url: "sqlite::memory:".to_string(),
+        }),
+        ..Default::default()
+    };
 
     // JournalEntry
     let je = EntitySchema {
@@ -246,11 +248,13 @@ async fn bench_reverse_journal() {
 #[tokio::test]
 async fn bench_generate_closing_entry() {
     // 1. Setup Schema
-    let mut schema = Schema::default();
-    schema.database = Some(gurih_ir::DatabaseSchema {
-        db_type: gurih_ir::DatabaseType::Sqlite,
-        url: "sqlite::memory:".to_string(),
-    });
+    let mut schema = Schema {
+        database: Some(gurih_ir::DatabaseSchema {
+            db_type: gurih_ir::DatabaseType::Sqlite,
+            url: "sqlite::memory:".to_string(),
+        }),
+        ..Default::default()
+    };
 
     // Account
     schema.entities.insert(

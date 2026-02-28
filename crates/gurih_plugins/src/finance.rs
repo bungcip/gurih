@@ -486,7 +486,9 @@ async fn execute_init_line_status(
                 .map(|e| e.table_name.as_str())
                 .unwrap_or("journal_line_status");
 
-            ds.insert_many(status_table, status_records).await.map_err(RuntimeError::WorkflowError)?;
+            ds.insert_many(status_table, status_records)
+                .await
+                .map_err(RuntimeError::WorkflowError)?;
         }
     }
     Ok(())
@@ -498,56 +500,116 @@ async fn execute_reconcile_entries(
     data_access: &dyn DataAccess,
     ctx: &RuntimeContext,
 ) -> Result<bool, RuntimeError> {
-    let debit_line_id = resolve_param(step.args.get("debit_line_id").ok_or(RuntimeError::WorkflowError("Missing debit_line_id".to_string()))?, params);
-    let credit_line_id = resolve_param(step.args.get("credit_line_id").ok_or(RuntimeError::WorkflowError("Missing credit_line_id".to_string()))?, params);
-    let amount_str = resolve_param(step.args.get("amount").ok_or(RuntimeError::WorkflowError("Missing amount".to_string()))?, params);
+    let debit_line_id = resolve_param(
+        step.args
+            .get("debit_line_id")
+            .ok_or(RuntimeError::WorkflowError("Missing debit_line_id".to_string()))?,
+        params,
+    );
+    let credit_line_id = resolve_param(
+        step.args
+            .get("credit_line_id")
+            .ok_or(RuntimeError::WorkflowError("Missing credit_line_id".to_string()))?,
+        params,
+    );
+    let amount_str = resolve_param(
+        step.args
+            .get("amount")
+            .ok_or(RuntimeError::WorkflowError("Missing amount".to_string()))?,
+        params,
+    );
     let amount = amount_str.parse::<Decimal>().unwrap_or(Decimal::ZERO);
 
     if amount <= Decimal::ZERO {
-        return Err(RuntimeError::ValidationError("Reconciliation amount must be positive".to_string()));
+        return Err(RuntimeError::ValidationError(
+            "Reconciliation amount must be positive".to_string(),
+        ));
     }
 
     // 1. Fetch Lines
     let line_entity = "JournalLine";
-    let debit_line_arc = data_access.read(line_entity, &debit_line_id, ctx).await.map_err(RuntimeError::WorkflowError)?.ok_or(RuntimeError::ValidationError("Debit line not found".to_string()))?;
-    let credit_line_arc = data_access.read(line_entity, &credit_line_id, ctx).await.map_err(RuntimeError::WorkflowError)?.ok_or(RuntimeError::ValidationError("Credit line not found".to_string()))?;
+    let debit_line_arc = data_access
+        .read(line_entity, &debit_line_id, ctx)
+        .await
+        .map_err(RuntimeError::WorkflowError)?
+        .ok_or(RuntimeError::ValidationError("Debit line not found".to_string()))?;
+    let credit_line_arc = data_access
+        .read(line_entity, &credit_line_id, ctx)
+        .await
+        .map_err(RuntimeError::WorkflowError)?
+        .ok_or(RuntimeError::ValidationError("Credit line not found".to_string()))?;
 
     let debit_line = debit_line_arc.as_ref();
     let credit_line = credit_line_arc.as_ref();
 
     // 2. Validate Match (Account & Party)
-    let d_acc = debit_line.get("account").or_else(|| debit_line.get("account_id")).and_then(|v| v.as_str()).unwrap_or("");
-    let c_acc = credit_line.get("account").or_else(|| credit_line.get("account_id")).and_then(|v| v.as_str()).unwrap_or("");
+    let d_acc = debit_line
+        .get("account")
+        .or_else(|| debit_line.get("account_id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let c_acc = credit_line
+        .get("account")
+        .or_else(|| credit_line.get("account_id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
 
     if d_acc != c_acc {
-        return Err(RuntimeError::ValidationError("Cannot reconcile lines from different accounts".to_string()));
+        return Err(RuntimeError::ValidationError(
+            "Cannot reconcile lines from different accounts".to_string(),
+        ));
     }
 
     let d_party = debit_line.get("party_id").and_then(|v| v.as_str()).unwrap_or("");
     let c_party = credit_line.get("party_id").and_then(|v| v.as_str()).unwrap_or("");
 
     if d_party != c_party {
-        return Err(RuntimeError::ValidationError("Cannot reconcile lines from different parties".to_string()));
+        return Err(RuntimeError::ValidationError(
+            "Cannot reconcile lines from different parties".to_string(),
+        ));
     }
 
     // 3. Fetch Statuses
-    let status_table = data_access.get_schema().entities.get(&Symbol::from("JournalLineStatus")).map(|e| e.table_name.as_str()).unwrap_or("journal_line_status");
+    let status_table = data_access
+        .get_schema()
+        .entities
+        .get(&Symbol::from("JournalLineStatus"))
+        .map(|e| e.table_name.as_str())
+        .unwrap_or("journal_line_status");
     let ds = data_access.datastore();
 
-    let mut d_filters = HashMap::new(); d_filters.insert("journal_line".to_string(), debit_line_id.clone());
-    let d_status_arc = ds.find_first(status_table, d_filters).await.map_err(RuntimeError::WorkflowError)?.ok_or(RuntimeError::ValidationError("Debit line status not found".to_string()))?;
+    let mut d_filters = HashMap::new();
+    d_filters.insert("journal_line".to_string(), debit_line_id.clone());
+    let d_status_arc = ds
+        .find_first(status_table, d_filters)
+        .await
+        .map_err(RuntimeError::WorkflowError)?
+        .ok_or(RuntimeError::ValidationError("Debit line status not found".to_string()))?;
 
-    let mut c_filters = HashMap::new(); c_filters.insert("journal_line".to_string(), credit_line_id.clone());
-    let c_status_arc = ds.find_first(status_table, c_filters).await.map_err(RuntimeError::WorkflowError)?.ok_or(RuntimeError::ValidationError("Credit line status not found".to_string()))?;
+    let mut c_filters = HashMap::new();
+    c_filters.insert("journal_line".to_string(), credit_line_id.clone());
+    let c_status_arc = ds
+        .find_first(status_table, c_filters)
+        .await
+        .map_err(RuntimeError::WorkflowError)?
+        .ok_or(RuntimeError::ValidationError(
+            "Credit line status not found".to_string(),
+        ))?;
 
     let d_residual = parse_decimal_opt(d_status_arc.get("amount_residual"));
     let c_residual = parse_decimal_opt(c_status_arc.get("amount_residual"));
 
     if amount > d_residual {
-        return Err(RuntimeError::ValidationError(format!("Amount {} exceeds debit residual {}", amount, d_residual)));
+        return Err(RuntimeError::ValidationError(format!(
+            "Amount {} exceeds debit residual {}",
+            amount, d_residual
+        )));
     }
     if amount > c_residual {
-        return Err(RuntimeError::ValidationError(format!("Amount {} exceeds credit residual {}", amount, c_residual)));
+        return Err(RuntimeError::ValidationError(format!(
+            "Amount {} exceeds credit residual {}",
+            amount, c_residual
+        )));
     }
 
     // 4. Update Statuses
@@ -562,19 +624,37 @@ async fn execute_reconcile_entries(
     };
 
     let d_update = update_status(d_residual, amount);
-    ds.update(status_table, d_status_arc.get("id").and_then(|v| v.as_str()).unwrap(), Value::Object(d_update)).await.map_err(RuntimeError::WorkflowError)?;
+    ds.update(
+        status_table,
+        d_status_arc.get("id").and_then(|v| v.as_str()).unwrap(),
+        Value::Object(d_update),
+    )
+    .await
+    .map_err(RuntimeError::WorkflowError)?;
 
     let c_update = update_status(c_residual, amount);
-    ds.update(status_table, c_status_arc.get("id").and_then(|v| v.as_str()).unwrap(), Value::Object(c_update)).await.map_err(RuntimeError::WorkflowError)?;
+    ds.update(
+        status_table,
+        c_status_arc.get("id").and_then(|v| v.as_str()).unwrap(),
+        Value::Object(c_update),
+    )
+    .await
+    .map_err(RuntimeError::WorkflowError)?;
 
     // 5. Create Reconciliation Record
     let mut rec = serde_json::Map::new();
     rec.insert("debit_line".to_string(), Value::String(debit_line_id));
     rec.insert("credit_line".to_string(), Value::String(credit_line_id));
     rec.insert("amount".to_string(), Value::String(amount.to_string()));
-    rec.insert("date".to_string(), Value::String(Local::now().format("%Y-%m-%d").to_string()));
+    rec.insert(
+        "date".to_string(),
+        Value::String(Local::now().format("%Y-%m-%d").to_string()),
+    );
 
-    data_access.create("Reconciliation", Value::Object(rec), ctx).await.map_err(RuntimeError::WorkflowError)?;
+    data_access
+        .create("Reconciliation", Value::Object(rec), ctx)
+        .await
+        .map_err(RuntimeError::WorkflowError)?;
 
     Ok(true)
 }
@@ -626,15 +706,17 @@ async fn check_period_overlap(
         // Skip self
         if let Some(pid) = period.get("id").and_then(|v| v.as_str())
             && let Some(cid) = current_id
-                && pid == cid {
-                    continue;
-                }
+            && pid == cid
+        {
+            continue;
+        }
 
         // Skip Draft
         if let Some(status) = period.get("status").and_then(|v| v.as_str())
-            && status == "Draft" {
-                continue;
-            }
+            && status == "Draft"
+        {
+            continue;
+        }
 
         let p_start_s = period.get("start_date").and_then(|v| v.as_str()).unwrap_or("");
         let p_end_s = period.get("end_date").and_then(|v| v.as_str()).unwrap_or("");
@@ -885,10 +967,12 @@ async fn execute_generate_closing_entry(
             for je in journals {
                 if let Some(d_str) = je.get("date").and_then(|v| v.as_str())
                     && let Ok(d) = NaiveDate::parse_from_str(d_str, "%Y-%m-%d")
-                        && d >= p_start_date && d <= p_end_date
-                            && let Some(id) = je.get("id").and_then(|v| v.as_str()) {
-                                journal_ids.push(id.to_string());
-                            }
+                    && d >= p_start_date
+                    && d <= p_end_date
+                    && let Some(id) = je.get("id").and_then(|v| v.as_str())
+                {
+                    journal_ids.push(id.to_string());
+                }
             }
 
             if !journal_ids.is_empty() {
@@ -922,19 +1006,16 @@ async fn execute_generate_closing_entry(
                     for line in lines {
                         if let Some(acc_id) = line.get("account").and_then(|v| v.as_str())
                             && let Some(typ) = acc_type_map.get(acc_id)
-                                && (typ == "Revenue" || typ == "Expense") {
-                                    // Construct a pseudo-row for aggregation
-                                    let mut row_map = serde_json::Map::new();
-                                    row_map.insert("account_id".to_string(), Value::String(acc_id.to_string()));
-                                    row_map.insert("account_type".to_string(), Value::String(typ.to_string()));
-                                    row_map
-                                        .insert("debit".to_string(), line.get("debit").cloned().unwrap_or(Value::Null));
-                                    row_map.insert(
-                                        "credit".to_string(),
-                                        line.get("credit").cloned().unwrap_or(Value::Null),
-                                    );
-                                    fallback_rows.push(Arc::new(Value::Object(row_map)));
-                                }
+                            && (typ == "Revenue" || typ == "Expense")
+                        {
+                            // Construct a pseudo-row for aggregation
+                            let mut row_map = serde_json::Map::new();
+                            row_map.insert("account_id".to_string(), Value::String(acc_id.to_string()));
+                            row_map.insert("account_type".to_string(), Value::String(typ.to_string()));
+                            row_map.insert("debit".to_string(), line.get("debit").cloned().unwrap_or(Value::Null));
+                            row_map.insert("credit".to_string(), line.get("credit").cloned().unwrap_or(Value::Null));
+                            fallback_rows.push(Arc::new(Value::Object(row_map)));
+                        }
                     }
                 }
             }
@@ -1079,30 +1160,31 @@ async fn execute_snapshot_parties(
 
                 // Only update if party_id exists AND party_name is missing/empty
                 if let (Some(pt), Some(pid)) = (party_type, party_id)
-                    && (current_name.is_none() || current_name.unwrap().is_empty()) {
-                        // Fetch Party Name
-                        if let Some(target_entity) = schema.entities.get(&Symbol::from(pt)) {
-                            let target_table = target_entity.table_name.as_str();
-                            if let Some(party_record) =
-                                ds.get(target_table, pid).await.map_err(RuntimeError::WorkflowError)?
-                            {
-                                let name = party_record
-                                    .get("name")
-                                    .or_else(|| party_record.get("full_name")) // Try common name fields
-                                    .or_else(|| party_record.get("description"))
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("Unknown");
+                    && (current_name.is_none() || current_name.unwrap().is_empty())
+                {
+                    // Fetch Party Name
+                    if let Some(target_entity) = schema.entities.get(&Symbol::from(pt)) {
+                        let target_table = target_entity.table_name.as_str();
+                        if let Some(party_record) =
+                            ds.get(target_table, pid).await.map_err(RuntimeError::WorkflowError)?
+                        {
+                            let name = party_record
+                                .get("name")
+                                .or_else(|| party_record.get("full_name")) // Try common name fields
+                                .or_else(|| party_record.get("description"))
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("Unknown");
 
-                                // Update JournalLine
-                                let mut update_data = serde_json::Map::new();
-                                update_data.insert("party_name".to_string(), Value::String(name.to_string()));
+                            // Update JournalLine
+                            let mut update_data = serde_json::Map::new();
+                            update_data.insert("party_name".to_string(), Value::String(name.to_string()));
 
-                                ds.update(table_name, lid, Value::Object(update_data))
-                                    .await
-                                    .map_err(RuntimeError::WorkflowError)?;
-                            }
+                            ds.update(table_name, lid, Value::Object(update_data))
+                                .await
+                                .map_err(RuntimeError::WorkflowError)?;
                         }
                     }
+                }
             }
         }
     }

@@ -114,9 +114,10 @@ async fn test_posting_rule_system_tag() {
             _: &serde_json::Value,
         ) -> Result<(serde_json::Value, Vec<String>, Vec<Symbol>), RuntimeError> {
             if name == "post_journal"
-                && let Some(Expression::StringLiteral(rule)) = args.first() {
-                    return Ok((serde_json::Value::Null, vec![], vec![Symbol::from(rule.as_str())]));
-                }
+                && let Some(Expression::StringLiteral(rule)) = args.first()
+            {
+                return Ok((serde_json::Value::Null, vec![], vec![Symbol::from(rule.as_str())]));
+            }
             Ok((serde_json::Value::Null, vec![], vec![]))
         }
         async fn execute_action_step(

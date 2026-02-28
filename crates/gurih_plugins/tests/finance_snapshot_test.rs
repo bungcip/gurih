@@ -1,7 +1,7 @@
 use gurih_ir::{EntitySchema, FieldSchema, FieldType, Schema, Symbol};
 use gurih_plugins::finance::FinancePlugin;
-use gurih_runtime::store::{DataStore, MemoryDataStore};
 use gurih_runtime::plugins::Plugin;
+use gurih_runtime::store::{DataStore, MemoryDataStore};
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -9,8 +9,10 @@ use std::sync::Arc;
 #[tokio::test]
 async fn test_snapshot_parties() {
     // 1. Setup Schema
-    let mut schema = Schema::default();
-    schema.database = None; // Use Memory
+    let mut schema = Schema {
+        database: None,
+        ..Default::default()
+    }; // Use Memory
 
     // Helper to create basic field
     fn field(name: &str, ftype: FieldType) -> FieldSchema {

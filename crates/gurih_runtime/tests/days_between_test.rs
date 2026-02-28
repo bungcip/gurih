@@ -5,11 +5,13 @@ use serde_json::json;
 
 #[test]
 fn test_days_between_sql_sqlite() {
-    let mut schema = Schema::default();
-    schema.database = Some(gurih_ir::DatabaseSchema {
-        db_type: DatabaseType::Sqlite,
-        url: "sqlite::memory:".to_string(),
-    });
+    let mut schema = Schema {
+        database: Some(gurih_ir::DatabaseSchema {
+            db_type: DatabaseType::Sqlite,
+            url: "sqlite::memory:".to_string(),
+        }),
+        ..Default::default()
+    };
 
     let query = QuerySchema {
         name: "DaysQuery".into(),
@@ -48,11 +50,13 @@ fn test_days_between_sql_sqlite() {
 
 #[test]
 fn test_days_between_sql_postgres() {
-    let mut schema = Schema::default();
-    schema.database = Some(gurih_ir::DatabaseSchema {
-        db_type: DatabaseType::Postgres,
-        url: "postgres://host".to_string(),
-    });
+    let mut schema = Schema {
+        database: Some(gurih_ir::DatabaseSchema {
+            db_type: DatabaseType::Postgres,
+            url: "postgres://host".to_string(),
+        }),
+        ..Default::default()
+    };
 
     let query = QuerySchema {
         name: "DaysQuery".into(),

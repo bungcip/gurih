@@ -1,19 +1,19 @@
 use sqlx::{PgPool, SqlitePool};
-use std::sync::Arc;
 use std::path::Path;
+use std::sync::Arc;
 
+pub mod memory;
 pub mod postgres;
 pub mod sqlite;
-pub mod memory;
 
 pub use crate::datastore::DataStore;
+use crate::persistence::SchemaManager;
+use gurih_ir::{DatabaseType, Schema};
 pub use memory::MemoryDataStore;
 pub use postgres::PostgresDataStore;
 pub use sqlite::SqliteDataStore;
-use gurih_ir::{DatabaseType, Schema};
-use crate::persistence::SchemaManager;
-use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::postgres::PgPoolOptions;
+use sqlx::sqlite::SqlitePoolOptions;
 
 #[derive(Clone)]
 pub enum DbPool {

@@ -27,8 +27,8 @@ async fn test_trailing_whitespace_bypass() {
 
     let err_msg = result.err().unwrap_or_default();
     assert!(
-        err_msg.contains("Filename cannot have leading or trailing whitespace") ||
-        err_msg.contains("File extension not allowed"),
+        err_msg.contains("Filename cannot have leading or trailing whitespace")
+            || err_msg.contains("File extension not allowed"),
         "Unexpected error message: {}",
         err_msg
     );

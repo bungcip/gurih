@@ -1,7 +1,7 @@
 use gurih_ir::{EntitySchema, FieldSchema, FieldType, Schema, Symbol};
 use gurih_plugins::finance::FinancePlugin;
-use gurih_runtime::store::{DataStore, MemoryDataStore};
 use gurih_runtime::plugins::Plugin;
+use gurih_runtime::store::{DataStore, MemoryDataStore};
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -10,8 +10,10 @@ use uuid::Uuid;
 #[tokio::test]
 async fn test_finance_memory_store_compatibility() {
     // 1. Setup Schema (No database config -> MemoryDataStore)
-    let mut schema = Schema::default();
-    schema.database = None;
+    let mut schema = Schema {
+        database: None,
+        ..Default::default()
+    };
 
     // Helper to create basic field
     fn field(name: &str, ftype: FieldType) -> FieldSchema {

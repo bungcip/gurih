@@ -58,40 +58,52 @@ impl PostgresDataStore {
     }
 
     fn row_to_json(row: &sqlx::postgres::PgRow) -> Value {
-        let mut map = serde_json::Map::new();
-        for col in row.columns() {
+        use serde_json::Number;
+
+        let cols = row.columns();
+        let mut map = serde_json::Map::with_capacity(cols.len());
+
+        for col in cols {
             let name = col.name();
             let type_name = col.type_info().name();
 
             let val = match type_name {
-                "TEXT" | "VARCHAR" | "CHAR" | "NAME" => {
-                    let v: Option<String> = row.try_get(name).unwrap_or(None);
-                    serde_json::to_value(v).unwrap()
-                }
-                "INT4" | "INT8" | "INTEGER" | "BIGINT" => {
-                    let v: Option<i64> = row.try_get(name).unwrap_or(None);
-                    serde_json::to_value(v).unwrap()
-                }
-                "FLOAT4" | "FLOAT8" | "REAL" | "DOUBLE PRECISION" => {
-                    let v: Option<f64> = row.try_get(name).unwrap_or(None);
-                    serde_json::to_value(v).unwrap()
-                }
-                "BOOL" | "BOOLEAN" => {
-                    let v: Option<bool> = row.try_get(name).unwrap_or(None);
-                    serde_json::to_value(v).unwrap()
-                }
+                "TEXT" | "VARCHAR" | "CHAR" | "NAME" => match row.try_get::<Option<String>, _>(name) {
+                    Ok(Some(v)) => Value::String(v),
+                    _ => Value::Null,
+                },
+                "INT4" | "INT8" | "INTEGER" | "BIGINT" => match row.try_get::<Option<i64>, _>(name) {
+                    Ok(Some(v)) => Value::Number(Number::from(v)),
+                    _ => Value::Null,
+                },
+                "FLOAT4" | "FLOAT8" | "REAL" | "DOUBLE PRECISION" => match row.try_get::<Option<f64>, _>(name) {
+                    Ok(Some(v)) => Number::from_f64(v).map(Value::Number).unwrap_or(Value::Null),
+                    _ => Value::Null,
+                },
+                "BOOL" | "BOOLEAN" => match row.try_get::<Option<bool>, _>(name) {
+                    Ok(Some(v)) => Value::Bool(v),
+                    _ => Value::Null,
+                },
                 "DATE" => {
                     let v: Option<NaiveDate> = row.try_get(name).unwrap_or(None);
-                    serde_json::to_value(v).unwrap()
+                    match v {
+                        Some(d) => Value::String(d.to_string()),
+                        None => Value::Null,
+                    }
                 }
                 "TIMESTAMP" | "TIMESTAMPTZ" => {
                     let v: Option<chrono::NaiveDateTime> = row.try_get(name).unwrap_or(None);
-                    serde_json::to_value(v).unwrap()
+                    match v {
+                        Some(dt) => Value::String(dt.format("%Y-%m-%dT%H:%M:%S").to_string()),
+                        None => Value::Null,
+                    }
                 }
                 _ => {
                     // Fallback
-                    let v: Option<String> = row.try_get(name).ok();
-                    serde_json::to_value(v).unwrap_or(Value::Null)
+                    match row.try_get::<Option<String>, _>(name) {
+                        Ok(Some(v)) => Value::String(v),
+                        _ => Value::Null,
+                    }
                 }
             };
             map.insert(name.to_string(), val);

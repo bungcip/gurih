@@ -238,13 +238,19 @@ impl QueryEngine {
                 } else {
                     // Target has FK: target.parent_id = parent.id
                     // Assuming standard naming convention for back-ref
-                    join_condition = format!("\"{}\".\"{}_id\" = \"{}\".\"id\"", target_table, parent_table, parent_table);
+                    join_condition = format!(
+                        "\"{}\".\"{}_id\" = \"{}\".\"id\"",
+                        target_table, parent_table, parent_table
+                    );
                 }
             }
 
             // Fallback: Default heuristic (HasMany style)
             if join_condition.is_empty() {
-                join_condition = format!("\"{}\".\"{}_id\" = \"{}\".\"id\"", target_table, parent_table, parent_table);
+                join_condition = format!(
+                    "\"{}\".\"{}_id\" = \"{}\".\"id\"",
+                    target_table, parent_table, parent_table
+                );
             }
 
             state
