@@ -140,8 +140,8 @@ async fn test_query_joined_permission_check() {
     let result = engine.list("UserPosts", None, None, None, &ctx).await;
 
     // 6. Assert Failure
-    // If bug exists, this result will be OK (because only root entity checked).
-    // If fixed, this result will be Err("Missing permission 'read:Post'").
+    // The query should fail because the user lacks permission for the joined entity 'Post'.
+    // If it succeeds, it indicates a security regression where only the root entity is checked.
     match result {
         Ok(_) => panic!("SECURITY FAILURE: Query succeeded despite missing permission for joined entity 'Post'"),
         Err(e) => {
