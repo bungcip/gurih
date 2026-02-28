@@ -942,6 +942,33 @@ impl DataEngine {
         Ok(())
     }
 
+    #[allow(clippy::collapsible_if)]
+    pub async fn count(
+        &self,
+        entity: &str,
+        filters: Option<std::collections::HashMap<String, String>>,
+        ctx: &RuntimeContext,
+    ) -> Result<i64, String> {
+        if let Some(schema) = self.schema.entities.get(&Symbol::from(entity)) {
+            // Validate read permission
+            let read_perm = schema
+                .options
+                .get("read_permission")
+                .cloned()
+                .unwrap_or_else(|| format!("read:{}", entity));
+
+            self.validate_permission(ctx, &read_perm, "read", entity)?;
+
+            let filters = filters.unwrap_or_default();
+            self.datastore.count(schema.table_name.as_str(), filters).await
+        } else if self.schema.queries.contains_key(&Symbol::from(entity)) {
+            let list_result = self.list(entity, None, None, filters, ctx).await?;
+            Ok(list_result.len() as i64)
+        } else {
+            Err(format!("Entity or Query \"{}\" not defined", entity))
+        }
+    }
+
     pub async fn list(
         &self,
         entity: &str,

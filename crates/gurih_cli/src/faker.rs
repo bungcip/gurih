@@ -289,7 +289,8 @@ impl FakerEngine {
 mod tests {
     use super::*;
     use gurih_dsl::compile;
-    use gurih_runtime::datastore::{DataStore, MemoryDataStore};
+    use gurih_runtime::datastore::DataStore;
+    use gurih_runtime::store::MemoryDataStore;
     use std::sync::Arc;
 
     #[tokio::test]

@@ -319,6 +319,7 @@ async fn start_server(
             let storage_engine = Arc::new(gurih_runtime::storage::StorageEngine::new(&schema.storages).await);
 
             let mut app = Router::new()
+                .route("/api/{entity}/count", get(count_entities))
                 .route("/api/auth/login", post(login_handler))
                 .route("/api/{entity}", post(create_entity).get(list_entities))
                 .route(
@@ -542,6 +543,22 @@ struct ListParams {
     offset: Option<usize>,
     #[serde(flatten)]
     filters: HashMap<String, String>,
+}
+
+async fn count_entities(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(entity): Path<String>,
+    Query(params): Query<ListParams>,
+) -> impl IntoResponse {
+    let ctx = match check_auth(headers, &state).await {
+        Ok(c) => c,
+        Err(e) => return e.into_response(),
+    };
+    match state.data_engine.count(&entity, Some(params.filters), &ctx).await {
+        Ok(count) => (StatusCode::OK, Json(serde_json::json!({ "count": count }))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))).into_response(),
+    }
 }
 
 async fn list_entities(

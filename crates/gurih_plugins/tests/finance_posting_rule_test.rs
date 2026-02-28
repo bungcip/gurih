@@ -2,7 +2,8 @@ use gurih_dsl::compiler::compile;
 use gurih_plugins::finance::FinancePlugin;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
-use gurih_runtime::datastore::{DataStore, MemoryDataStore};
+use gurih_runtime::datastore::DataStore;
+use gurih_runtime::store::MemoryDataStore;
 use serde_json::json;
 use std::sync::Arc;
 

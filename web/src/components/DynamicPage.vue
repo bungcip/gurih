@@ -5,6 +5,7 @@ import ConfirmModal from './ConfirmModal.vue'
 import DataTable from './DataTable.vue'
 import Button from './Button.vue'
 import Dashboard from './Dashboard.vue'
+import Pagination from './Pagination.vue'
 
 const props = defineProps(['entity'])
 const emit = defineEmits(['edit', 'create'])
@@ -13,6 +14,9 @@ const currentUser = inject('currentUser')
 
 const config = ref(null)
 const data = ref([])
+const currentPage = ref(1)
+const perPage = ref(10)
+const totalRecords = ref(0)
 const loading = ref(false)
 
 const pageActions = computed(() => {
@@ -51,8 +55,12 @@ async function fetchData() {
     if (!config.value || !config.value.entity) return
     loading.value = true
     try {
-        const res = await request(`/${config.value.entity}`)
+        const offset = (currentPage.value - 1) * perPage.value;
+        const res = await request(`/${config.value.entity}?limit=${perPage.value}&offset=${offset}`);
         data.value = await res.json()
+        const countRes = await request(`/${config.value.entity}/count`);
+        const countJson = await countRes.json();
+        totalRecords.value = countJson.count || 0;
     } catch (e) {
         console.error("Failed to fetch data", e)
     } finally {
@@ -215,6 +223,9 @@ onMounted(() => {
                         <template v-if="config.layout === 'TableView'">
                             <DataTable :columns="config.columns" :data="data" :actions="rowActions"
                                 @action="handleCustomAction" />
+                            <div class="p-4 border-t border-border bg-[--color-surface] shrink-0">
+                                <Pagination v-model="currentPage" :total="totalRecords" :per-page="perPage" @change="fetchData" />
+                            </div>
                         </template>
                     </div>
                 </div>
