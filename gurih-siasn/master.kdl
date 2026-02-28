@@ -161,9 +161,9 @@ page "FormJabatan" {
 // --- UNOR UI ---
 page "DaftarUnor" {
     title "Master Unit Organisasi"
-    datatable for="Unor" {
+    datatable query="UnorQuery" {
         column "nama" label="Nama Unit"
-        column "unor_id" label="Induk Unit ID" // Displaying ID for now as joining self requires query
+        column "nama_induk" label="Induk Unit"
 
         action "Edit" icon="pencil" to="/master/unor/:id"
         action "Hapus" icon="trash" variant="danger" to="/master/unor/:id" method="DELETE"
@@ -219,4 +219,11 @@ page "FormJenisSertifikasi" {
             field "kategori"
         }
     }
+}
+
+// --- QUERIES ---
+query:flat "UnorQuery" for="Unor" {
+    select "id"
+    select "nama"
+    join "Unor" { select "nama" as="nama_induk" }
 }
