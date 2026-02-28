@@ -357,41 +357,51 @@ fn eval_binary_op(op: &BinaryOperator, left: Value, right: Value) -> Result<Valu
 }
 
 fn match_like(s: &str, p: &str) -> bool {
-    let s_chars: Vec<char> = s.chars().collect();
-    let p_chars: Vec<char> = p.chars().collect();
-
     let mut s_idx = 0;
     let mut p_idx = 0;
-    let mut last_wildcard_idx = None;
+    let mut last_wildcard_idx: Option<usize> = None;
     let mut s_backtrack_idx = 0;
 
-    while s_idx < s_chars.len() {
-        if p_idx < p_chars.len() && (p_chars[p_idx] == '_' || p_chars[p_idx] == s_chars[s_idx]) {
-            // Exact match or single char wildcard
-            s_idx += 1;
-            p_idx += 1;
-        } else if p_idx < p_chars.len() && p_chars[p_idx] == '%' {
-            // Wildcard found
-            last_wildcard_idx = Some(p_idx);
-            p_idx += 1; // Try matching 0 characters first
-            s_backtrack_idx = s_idx;
-        } else if let Some(wildcard_idx) = last_wildcard_idx {
-            // Mismatch, backtrack
-            p_idx = wildcard_idx + 1;
-            s_backtrack_idx += 1;
+    while s_idx < s.len() {
+        if p_idx < p.len() {
+            let p_char = p[p_idx..].chars().next().unwrap();
+
+            if p_char == '%' {
+                last_wildcard_idx = Some(p_idx);
+                p_idx += p_char.len_utf8();
+                s_backtrack_idx = s_idx;
+                continue;
+            }
+
+            let s_char = s[s_idx..].chars().next().unwrap();
+
+            if p_char == '_' || p_char == s_char {
+                s_idx += s_char.len_utf8();
+                p_idx += p_char.len_utf8();
+                continue;
+            }
+        }
+
+        if let Some(wildcard_idx) = last_wildcard_idx {
+            p_idx = wildcard_idx + '%'.len_utf8();
+            let s_backtrack_char = s[s_backtrack_idx..].chars().next().unwrap();
+            s_backtrack_idx += s_backtrack_char.len_utf8();
             s_idx = s_backtrack_idx;
         } else {
-            // Mismatch and no wildcard to backtrack to
             return false;
         }
     }
 
-    // Consume remaining % at the end of pattern
-    while p_idx < p_chars.len() && p_chars[p_idx] == '%' {
-        p_idx += 1;
+    while p_idx < p.len() {
+        let p_char = p[p_idx..].chars().next().unwrap();
+        if p_char == '%' {
+            p_idx += p_char.len_utf8();
+        } else {
+            break;
+        }
     }
 
-    p_idx == p_chars.len()
+    p_idx == p.len()
 }
 
 fn eval_function_sync(name: &str, args: &[Value]) -> Result<Option<Value>, RuntimeError> {
