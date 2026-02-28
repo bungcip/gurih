@@ -39,3 +39,8 @@
 **Vulnerability:** The recursive expression evaluator lacked a depth limit, allowing a maliciously crafted, deeply nested expression (e.g., `1+(1+(1+...))`) to crash the server with a stack overflow.
 **Learning:** Recursive algorithms on user-controlled input must always have explicit depth limits, even in memory-safe languages like Rust, as stack space is finite.
 **Prevention:** Implemented a strict `MAX_RECURSION_DEPTH` (250) check in `evaluate` and `needs_async` functions, returning a controlled error instead of crashing.
+
+## 2024-05-31 - [HIGH] Plaintext Passwords in Data Seeder
+**Vulnerability:** The CLI data seeder (`FakerEngine`) bypassed authentication logic and inserted default passwords into the database in plaintext ("password123"). While `DataEngine` properly handled hashing for standard user creation, the seeder created insecure records that could be used or accidentally exposed in staging/demo environments.
+**Learning:** Security controls must be applied consistently across all data entry points, including development or administrative tools like data seeders or CLI utilities. Bypassing application-layer security (like `DataEngine`) means you must manually replicate its security measures.
+**Prevention:** Imported and applied the `hash_password` function directly in `FakerEngine` when generating fields of `FieldType::Password` to ensure seeded data maintains the same security posture as application-generated data.
