@@ -235,10 +235,9 @@ impl AuthEngine {
             // Remove expired entries first
             attempts.retain(|_, (_, time)| time.elapsed() < Duration::from_secs(300));
 
-            // Sentinel: If still over limit, use priority eviction
-            // Previous vulnerability: Aggressively removing count < 5 allowed bypassing rate limits
-            // by flooding with count=1 entries.
-            // Fix: Prioritize removing lowest counts (noise) first, then oldest entries.
+            // Sentinel: If still over limit, use priority eviction.
+            // We prioritize removing lowest counts (noise) first, then oldest entries.
+            // This prevents bypassing rate limits by flooding with count=1 entries.
             if attempts.len() >= MAX_LOGIN_ATTEMPTS {
                 // Collect keys, counts, and times
                 let mut entries: Vec<(String, u32, Instant)> =
