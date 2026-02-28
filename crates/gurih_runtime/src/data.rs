@@ -1147,27 +1147,52 @@ impl DataEngine {
 
             self.validate_permission(ctx, &read_perm, "read", entity)?;
 
+            let mut f = filters.unwrap_or_default();
+            let search_query = f.remove("_search");
+
+            let filters_opt = if f.is_empty() { None } else { Some(f) };
+
             // Sentinel: Fix filter bypass vulnerability
             // Previous implementation ignored filters for entities, potentially exposing restricted data.
             // Now we use `find` if filters are present, with in-memory pagination fallback.
-            if let Some(f) = filters
-                && !f.is_empty() {
-                    let all_results = self.datastore.find(schema.table_name.as_str(), f).await?;
-                    // Manual Pagination (since find doesn't support limit/offset)
-                    let skip = offset.unwrap_or(0);
-                    if skip >= all_results.len() {
-                        return Ok(vec![]);
-                    }
-                    let take = limit.unwrap_or(usize::MAX);
-                    let end = if take == usize::MAX {
-                        all_results.len()
-                    } else {
-                        std::cmp::min(skip.saturating_add(take), all_results.len())
-                    };
-                    return Ok(all_results[skip..end].to_vec());
+            let mut all_results = if let Some(filters) = filters_opt {
+                self.datastore.find(schema.table_name.as_str(), filters).await?
+            } else {
+                if search_query.is_none() {
+                    return self.datastore.list(schema.table_name.as_str(), limit, offset).await;
                 }
+                self.datastore.list(schema.table_name.as_str(), None, None).await?
+            };
 
-            self.datastore.list(schema.table_name.as_str(), limit, offset).await
+            if let Some(q) = search_query {
+                let q_lower = q.to_lowercase();
+                all_results.retain(|record| {
+                    if let Some(obj) = record.as_object() {
+                        for (_, v) in obj {
+                            if let Some(s) = v.as_str() {
+                                if s.to_lowercase().contains(&q_lower) {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                    false
+                });
+            }
+
+            // Manual Pagination (since find or in-memory search doesn't support limit/offset)
+            let skip = offset.unwrap_or(0);
+            if skip >= all_results.len() {
+                return Ok(vec![]);
+            }
+            let take = limit.unwrap_or(usize::MAX);
+            let end = if take == usize::MAX {
+                all_results.len()
+            } else {
+                std::cmp::min(skip.saturating_add(take), all_results.len())
+            };
+            return Ok(all_results[skip..end].to_vec());
+
         } else {
             Err(format!("Entity or Query '{}' not defined", entity))
         }

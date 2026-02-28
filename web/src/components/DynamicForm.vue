@@ -76,9 +76,14 @@ async function fetchSchema() {
     }
 }
 
-async function fetchRelations(targetEntity, items) {
+async function fetchRelations(targetEntity, items, query = "") {
     try {
-        const res = await request(`/${targetEntity}`)
+        let url = `/${targetEntity}?limit=50`
+        if (query) {
+            url += `&_search=${encodeURIComponent(query)}`
+        }
+
+        const res = await request(url)
         if (res.ok) {
             const list = await res.json()
             const options = list.map(item => ({
@@ -97,6 +102,17 @@ async function fetchRelations(targetEntity, items) {
         }
     } catch (e) {
         errors.value.push(`Could not fetch relation for ${targetEntity}`)
+    }
+}
+
+function onSearchRelation(field, query) {
+    let target = field.target_entity
+    if (!target && field.name.endsWith("_id")) {
+        target = field.name.replace("_id", "")
+        target = target.charAt(0).toUpperCase() + target.slice(1)
+    }
+    if (target) {
+        fetchRelations(target, [{ fieldName: field.name, fieldRef: field }], query)
     }
 }
 
@@ -293,7 +309,8 @@ onMounted(() => {
                                             <SelectInput :id="field.name" v-model="formData[field.name]"
                                                 :options="field.options || relationOptions[field.name] || []"
                                                 :placeholder="'Select ' + field.label + '...'"
-                                                :required="field.required" />
+                                                :required="field.required"
+                                                @search="(q) => onSearchRelation(field, q)" />
                                         </div>
 
                                         <div v-if="field.widget === 'InputGrid'" class="col-span-1 md:col-span-2">
