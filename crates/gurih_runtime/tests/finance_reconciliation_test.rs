@@ -38,52 +38,64 @@ impl DataStore for MockDataStore {
     }
 
     async fn update(&self, entity: &str, id: &str, data: Value) -> Result<(), String> {
-         if entity == "JournalLineStatus" || entity == "journal_line_status" {
+        if entity == "JournalLineStatus" || entity == "journal_line_status" {
             let mut statuses = self.statuses.lock().unwrap();
             if let Some(existing) = statuses.get_mut(id)
                 && let Some(obj) = existing.as_object_mut()
-                    && let Some(update_obj) = data.as_object() {
-                        for (k, v) in update_obj {
-                            obj.insert(k.clone(), v.clone());
-                        }
-                    }
+                && let Some(update_obj) = data.as_object()
+            {
+                for (k, v) in update_obj {
+                    obj.insert(k.clone(), v.clone());
+                }
+            }
         }
         Ok(())
     }
 
-    async fn delete(&self, _entity: &str, _id: &str) -> Result<(), String> { Ok(()) }
+    async fn delete(&self, _entity: &str, _id: &str) -> Result<(), String> {
+        Ok(())
+    }
 
     async fn get(&self, entity: &str, id: &str) -> Result<Option<Arc<Value>>, String> {
         if entity == "JournalLine" || entity == "journal_line" {
-             let lines = self.lines.lock().unwrap();
-             return Ok(lines.get(id).map(|v| Arc::new(v.clone())));
+            let lines = self.lines.lock().unwrap();
+            return Ok(lines.get(id).map(|v| Arc::new(v.clone())));
         }
         Ok(None)
     }
 
-    async fn list(&self, _entity: &str, _limit: Option<usize>, _offset: Option<usize>) -> Result<Vec<Arc<Value>>, String> { Ok(vec![]) }
+    async fn list(
+        &self,
+        _entity: &str,
+        _limit: Option<usize>,
+        _offset: Option<usize>,
+    ) -> Result<Vec<Arc<Value>>, String> {
+        Ok(vec![])
+    }
 
     async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
         if (entity == "JournalLine" || entity == "journal_line")
-            && let Some(jid) = filters.get("journal_entry") {
-                let lines = self.lines.lock().unwrap();
-                let mut res = vec![];
-                for val in lines.values() {
-                     if val.get("journal_entry").and_then(|v| v.as_str()) == Some(jid) {
-                         res.push(Arc::new(val.clone()));
-                     }
+            && let Some(jid) = filters.get("journal_entry")
+        {
+            let lines = self.lines.lock().unwrap();
+            let mut res = vec![];
+            for val in lines.values() {
+                if val.get("journal_entry").and_then(|v| v.as_str()) == Some(jid) {
+                    res.push(Arc::new(val.clone()));
                 }
-                return Ok(res);
             }
+            return Ok(res);
+        }
         if (entity == "JournalLineStatus" || entity == "journal_line_status")
-            && let Some(lid) = filters.get("journal_line") {
-                let statuses = self.statuses.lock().unwrap();
-                for val in statuses.values() {
-                     if val.get("journal_line").and_then(|v| v.as_str()) == Some(lid) {
-                         return Ok(vec![Arc::new(val.clone())]);
-                     }
+            && let Some(lid) = filters.get("journal_line")
+        {
+            let statuses = self.statuses.lock().unwrap();
+            for val in statuses.values() {
+                if val.get("journal_line").and_then(|v| v.as_str()) == Some(lid) {
+                    return Ok(vec![Arc::new(val.clone())]);
                 }
             }
+        }
         Ok(vec![])
     }
 
@@ -96,10 +108,23 @@ impl DataStore for MockDataStore {
         }
     }
 
-    async fn count(&self, _entity: &str, _filters: HashMap<String, String>) -> Result<i64, String> { Ok(0) }
-    async fn aggregate(&self, _entity: &str, _group_by: &str, _filters: HashMap<String, String>) -> Result<Vec<(String, i64)>, String> { Ok(vec![]) }
-    async fn query(&self, _sql: &str) -> Result<Vec<Arc<Value>>, String> { Ok(vec![]) }
-    async fn query_with_params(&self, _sql: &str, _params: Vec<Value>) -> Result<Vec<Arc<Value>>, String> { Ok(vec![]) }
+    async fn count(&self, _entity: &str, _filters: HashMap<String, String>) -> Result<i64, String> {
+        Ok(0)
+    }
+    async fn aggregate(
+        &self,
+        _entity: &str,
+        _group_by: &str,
+        _filters: HashMap<String, String>,
+    ) -> Result<Vec<(String, i64)>, String> {
+        Ok(vec![])
+    }
+    async fn query(&self, _sql: &str) -> Result<Vec<Arc<Value>>, String> {
+        Ok(vec![])
+    }
+    async fn query_with_params(&self, _sql: &str, _params: Vec<Value>) -> Result<Vec<Arc<Value>>, String> {
+        Ok(vec![])
+    }
 }
 
 #[tokio::test]
@@ -112,18 +137,39 @@ async fn test_finance_reconciliation() {
 
     // Setup Schema
     let mut schema = Schema::default();
-    schema.entities.insert(Symbol::from("JournalLine"), EntitySchema {
-        name: Symbol::from("JournalLine"), table_name: Symbol::from("journal_line"),
-        fields: vec![], relationships: vec![], options: HashMap::new(), seeds: None,
-    });
-    schema.entities.insert(Symbol::from("JournalLineStatus"), EntitySchema {
-        name: Symbol::from("JournalLineStatus"), table_name: Symbol::from("journal_line_status"),
-        fields: vec![], relationships: vec![], options: HashMap::new(), seeds: None,
-    });
-    schema.entities.insert(Symbol::from("Reconciliation"), EntitySchema {
-        name: Symbol::from("Reconciliation"), table_name: Symbol::from("reconciliation"),
-        fields: vec![], relationships: vec![], options: HashMap::new(), seeds: None,
-    });
+    schema.entities.insert(
+        Symbol::from("JournalLine"),
+        EntitySchema {
+            name: Symbol::from("JournalLine"),
+            table_name: Symbol::from("journal_line"),
+            fields: vec![],
+            relationships: vec![],
+            options: HashMap::new(),
+            seeds: None,
+        },
+    );
+    schema.entities.insert(
+        Symbol::from("JournalLineStatus"),
+        EntitySchema {
+            name: Symbol::from("JournalLineStatus"),
+            table_name: Symbol::from("journal_line_status"),
+            fields: vec![],
+            relationships: vec![],
+            options: HashMap::new(),
+            seeds: None,
+        },
+    );
+    schema.entities.insert(
+        Symbol::from("Reconciliation"),
+        EntitySchema {
+            name: Symbol::from("Reconciliation"),
+            table_name: Symbol::from("reconciliation"),
+            fields: vec![],
+            relationships: vec![],
+            options: HashMap::new(),
+            seeds: None,
+        },
+    );
 
     // Setup Data
     // Invoice Line (Debit 100)
@@ -135,7 +181,11 @@ async fn test_finance_reconciliation() {
         "debit": "100.00",
         "credit": "0.00"
     });
-    mock_ds.lines.lock().unwrap().insert("inv_line_1".to_string(), inv_line.clone());
+    mock_ds
+        .lines
+        .lock()
+        .unwrap()
+        .insert("inv_line_1".to_string(), inv_line.clone());
 
     // Payment Line (Credit 60)
     let pay_line = json!({
@@ -146,7 +196,11 @@ async fn test_finance_reconciliation() {
         "debit": "0.00",
         "credit": "60.00"
     });
-    mock_ds.lines.lock().unwrap().insert("pay_line_1".to_string(), pay_line.clone());
+    mock_ds
+        .lines
+        .lock()
+        .unwrap()
+        .insert("pay_line_1".to_string(), pay_line.clone());
 
     let plugin = FinancePlugin;
     let engine = DataEngine::new(Arc::new(schema.clone()), mock_ds.clone());
@@ -155,7 +209,18 @@ async fn test_finance_reconciliation() {
     // 1. Init Status for Invoice
     let args = vec![]; // no args needed
     let mock_ds_dyn: Arc<dyn DataStore> = mock_ds.clone();
-    plugin.apply_effect("init_line_status", &args, &HashMap::new(), &schema, Some(&mock_ds_dyn), "JournalEntry", &json!({"id": "inv_je_1"})).await.unwrap();
+    plugin
+        .apply_effect(
+            "init_line_status",
+            &args,
+            &HashMap::new(),
+            &schema,
+            Some(&mock_ds_dyn),
+            "JournalEntry",
+            &json!({"id": "inv_je_1"}),
+        )
+        .await
+        .unwrap();
 
     // Verify Invoice Status
     {
@@ -166,7 +231,18 @@ async fn test_finance_reconciliation() {
     }
 
     // 2. Init Status for Payment
-    plugin.apply_effect("init_line_status", &args, &HashMap::new(), &schema, Some(&mock_ds_dyn), "JournalEntry", &json!({"id": "pay_je_1"})).await.unwrap();
+    plugin
+        .apply_effect(
+            "init_line_status",
+            &args,
+            &HashMap::new(),
+            &schema,
+            Some(&mock_ds_dyn),
+            "JournalEntry",
+            &json!({"id": "pay_je_1"}),
+        )
+        .await
+        .unwrap();
 
     // Verify Payment Status
     {
@@ -182,11 +258,13 @@ async fn test_finance_reconciliation() {
         args: HashMap::from([
             ("debit_line_id".to_string(), "inv_line_1".to_string()),
             ("credit_line_id".to_string(), "pay_line_1".to_string()),
-            ("amount".to_string(), "60.00".to_string())
+            ("amount".to_string(), "60.00".to_string()),
         ]),
     };
 
-    let res = plugin.execute_action_step("finance:reconcile_entries", &step, &HashMap::new(), &engine, &ctx).await;
+    let res = plugin
+        .execute_action_step("finance:reconcile_entries", &step, &HashMap::new(), &engine, &ctx)
+        .await;
 
     if let Err(e) = &res {
         println!("Error: {:?}", e);

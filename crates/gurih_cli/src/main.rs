@@ -772,11 +772,12 @@ fn create_response_with_etag<T: serde::Serialize>(
 
     if let Some(if_none_match) = headers.get("If-None-Match")
         && let Ok(client_etag) = if_none_match.to_str()
-            && client_etag == etag {
-                let mut response_headers = HeaderMap::new();
-                response_headers.insert("ETag", etag.parse().unwrap());
-                return (StatusCode::NOT_MODIFIED, response_headers).into_response();
-            }
+        && client_etag == etag
+    {
+        let mut response_headers = HeaderMap::new();
+        response_headers.insert("ETag", etag.parse().unwrap());
+        return (StatusCode::NOT_MODIFIED, response_headers).into_response();
+    }
 
     let mut response_headers = HeaderMap::new();
     response_headers.insert("ETag", etag.parse().unwrap());

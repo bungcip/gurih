@@ -8,6 +8,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 // Mock DataStore that spies on query calls
+
+#[allow(clippy::type_complexity)]
 struct SpyDataStore {
     pub query_params_calls: Arc<Mutex<Vec<(String, Vec<Value>)>>>,
     pub query_raw_calls: Arc<Mutex<Vec<String>>>,

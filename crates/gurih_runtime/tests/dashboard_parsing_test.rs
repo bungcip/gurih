@@ -46,8 +46,10 @@ async fn test_dashboard_parsing_logic() {
         },
     );
 
-    let mut schema = Schema::default();
-    schema.dashboards = dashboards;
+    let schema = Schema {
+        dashboards,
+        ..Default::default()
+    };
 
     let engine = DashboardEngine::new();
     let datastore = Arc::new(MemoryDataStore::new());

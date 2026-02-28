@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use gurih_runtime::evaluator::evaluate;
     use gurih_ir::{BinaryOperator, Expression};
+    use gurih_runtime::evaluator::evaluate;
     use serde_json::json;
 
     #[tokio::test]

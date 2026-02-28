@@ -5,8 +5,8 @@ use gurih_ir::{
 use gurih_plugins::finance::FinancePlugin;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
-use gurih_runtime::store::init_datastore;
 use gurih_runtime::plugins::Plugin; // Import Plugin trait
+use gurih_runtime::store::init_datastore;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -34,13 +34,13 @@ fn create_field(name: &str, field_type: FieldType, pk: bool) -> FieldSchema {
 #[tokio::test]
 async fn test_generate_closing_entry() {
     // 1. Setup Schema
-    let mut schema = Schema::default();
-
-    // Database Config (SQLite Memory)
-    schema.database = Some(DatabaseSchema {
-        db_type: DatabaseType::Sqlite,
-        url: "sqlite::memory:".to_string(),
-    });
+    let mut schema = Schema {
+        database: Some(DatabaseSchema {
+            db_type: DatabaseType::Sqlite,
+            url: "sqlite::memory:".to_string(),
+        }),
+        ..Default::default()
+    };
 
     // Account Entity
     let account_fields = vec![
