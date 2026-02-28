@@ -19,6 +19,17 @@ const rows = computed({
   set: (val) => emit('update:modelValue', val)
 })
 
+const rowKeys = new WeakMap()
+let keyCounter = 0
+
+const getRowKey = (row) => {
+  if (typeof row !== 'object' || row === null) return keyCounter++
+  if (!rowKeys.has(row)) {
+    rowKeys.set(row, `row-${keyCounter++}`)
+  }
+  return rowKeys.get(row)
+}
+
 const addRow = () => {
   const newRow = {}
   props.columns.forEach(col => {
@@ -58,7 +69,7 @@ const removeRow = (index) => {
           </tr>
         </thead>
         <tbody class="divide-y divide-border">
-          <tr v-for="(row, index) in rows" :key="index" class="group hover:bg-gray-50/50 dark:hover:bg-gray-800/50">
+          <tr v-for="(row, index) in rows" :key="getRowKey(row)" class="group hover:bg-gray-50/50 dark:hover:bg-gray-800/50">
             <td v-for="col in columns" :key="col.name" class="p-2 align-top min-w-[150px]">
 
                 <div v-if="col.widget === 'TextInput'">
