@@ -40,15 +40,13 @@ impl DataStore for MockDataStore {
     async fn update(&self, entity: &str, id: &str, data: Value) -> Result<(), String> {
          if entity == "JournalLineStatus" || entity == "journal_line_status" {
             let mut statuses = self.statuses.lock().unwrap();
-            if let Some(existing) = statuses.get_mut(id) {
-                if let Some(obj) = existing.as_object_mut() {
-                    if let Some(update_obj) = data.as_object() {
+            if let Some(existing) = statuses.get_mut(id)
+                && let Some(obj) = existing.as_object_mut()
+                    && let Some(update_obj) = data.as_object() {
                         for (k, v) in update_obj {
                             obj.insert(k.clone(), v.clone());
                         }
                     }
-                }
-            }
         }
         Ok(())
     }
@@ -66,8 +64,8 @@ impl DataStore for MockDataStore {
     async fn list(&self, _entity: &str, _limit: Option<usize>, _offset: Option<usize>) -> Result<Vec<Arc<Value>>, String> { Ok(vec![]) }
 
     async fn find(&self, entity: &str, filters: HashMap<String, String>) -> Result<Vec<Arc<Value>>, String> {
-        if entity == "JournalLine" || entity == "journal_line" {
-            if let Some(jid) = filters.get("journal_entry") {
+        if (entity == "JournalLine" || entity == "journal_line")
+            && let Some(jid) = filters.get("journal_entry") {
                 let lines = self.lines.lock().unwrap();
                 let mut res = vec![];
                 for val in lines.values() {
@@ -77,9 +75,8 @@ impl DataStore for MockDataStore {
                 }
                 return Ok(res);
             }
-        }
-        if entity == "JournalLineStatus" || entity == "journal_line_status" {
-            if let Some(lid) = filters.get("journal_line") {
+        if (entity == "JournalLineStatus" || entity == "journal_line_status")
+            && let Some(lid) = filters.get("journal_line") {
                 let statuses = self.statuses.lock().unwrap();
                 for val in statuses.values() {
                      if val.get("journal_line").and_then(|v| v.as_str()) == Some(lid) {
@@ -87,7 +84,6 @@ impl DataStore for MockDataStore {
                      }
                 }
             }
-        }
         Ok(vec![])
     }
 

@@ -23,7 +23,7 @@ fn test_compile_finance_module() {
     }
 
     let path = std::env::current_dir().unwrap().join("../../gurih-finance/gurih.kdl");
-    let content = std::fs::read_to_string(&path).expect(&format!("Failed to read {:?}", path));
+    let content = std::fs::read_to_string(&path).unwrap_or_else(|_| panic!("Failed to read {:?}", path));
     let base = path.parent();
 
     match compile(&content, base) {

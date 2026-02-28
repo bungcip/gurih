@@ -343,7 +343,7 @@ async fn test_action_execution_update() {
     let initial = data_engine.read("Product", &id, &ctx).await.unwrap().unwrap();
     assert_eq!(initial.get("name").unwrap().as_str().unwrap(), "Old Product");
     assert_eq!(initial.get("price").unwrap().as_f64().unwrap(), 10.0);
-    assert_eq!(initial.get("active").unwrap().as_bool().unwrap(), false);
+    assert!(!initial.get("active").unwrap().as_bool().unwrap());
     assert_eq!(initial.get("stock").unwrap().as_i64().unwrap(), 5);
 
     // 5. Execute Update Action
@@ -361,6 +361,6 @@ async fn test_action_execution_update() {
     let updated = data_engine.read("Product", &id, &ctx).await.unwrap().unwrap();
     assert_eq!(updated.get("name").unwrap().as_str().unwrap(), "New Product");
     assert_eq!(updated.get("price").unwrap().as_f64().unwrap(), 15.5);
-    assert_eq!(updated.get("active").unwrap().as_bool().unwrap(), true);
+    assert!(updated.get("active").unwrap().as_bool().unwrap());
     assert_eq!(updated.get("stock").unwrap().as_i64().unwrap(), 20);
 }

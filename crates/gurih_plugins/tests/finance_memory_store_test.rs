@@ -1,6 +1,6 @@
 use gurih_ir::{EntitySchema, FieldSchema, FieldType, Schema, Symbol};
 use gurih_plugins::finance::FinancePlugin;
-use gurih_runtime::datastore::{DataStore, MemoryDataStore};
+use gurih_runtime::store::{DataStore, MemoryDataStore};
 use gurih_runtime::plugins::Plugin;
 use serde_json::json;
 use std::collections::HashMap;

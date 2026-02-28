@@ -41,7 +41,7 @@ async fn test_delete_requires_read_permission() {
     ];
 
     let entity = EntitySchema {
-        name: entity_sym.clone(),
+        name: entity_sym,
         table_name: Symbol::from("test_entities"),
         fields,
         relationships: vec![],
@@ -49,7 +49,7 @@ async fn test_delete_requires_read_permission() {
         seeds: None,
     };
 
-    schema.entities.insert(entity_sym.clone(), entity);
+    schema.entities.insert(entity_sym, entity);
 
     let schema_arc = Arc::new(schema);
     let datastore = Arc::new(MemoryDataStore::new());

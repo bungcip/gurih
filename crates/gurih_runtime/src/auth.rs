@@ -459,7 +459,7 @@ mod tests {
         // Removed: 100
         // Result: 950
         // Verify it didn't clear everything
-        assert!(attempts.len() > 0, "Should not clear all banned users");
+        assert!(!attempts.is_empty(), "Should not clear all banned users");
         assert!(attempts.len() < MAX_LOGIN_ATTEMPTS + 50, "Should reduce size");
         // Verify rough size (approx 950)
         assert!(

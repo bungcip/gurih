@@ -1,7 +1,7 @@
-use gurih_ir::{DatabaseType, Expression, QueryFormula, QuerySchema, QuerySelection, QueryType, Schema};
+use gurih_ir::{DatabaseType, Expression, QueryFormula, QuerySchema, QueryType, Schema};
 use gurih_runtime::evaluator::evaluate;
 use gurih_runtime::query_engine::{QueryEngine, QueryPlan};
-use serde_json::{Value, json};
+use serde_json::json;
 
 #[test]
 fn test_days_between_sql_sqlite() {

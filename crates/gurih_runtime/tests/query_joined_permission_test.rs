@@ -14,7 +14,7 @@ async fn test_query_joined_permission_check() {
     // 1. Define 'User' Entity (Perm: read:User)
     let user_sym = Symbol::from("User");
     let user_entity = EntitySchema {
-        name: user_sym.clone(),
+        name: user_sym,
         table_name: Symbol::from("users"),
         fields: vec![
             FieldSchema {
@@ -46,12 +46,12 @@ async fn test_query_joined_permission_check() {
         options: HashMap::from([("read_permission".to_string(), "read:User".to_string())]),
         seeds: None,
     };
-    schema.entities.insert(user_sym.clone(), user_entity);
+    schema.entities.insert(user_sym, user_entity);
 
     // 2. Define 'Post' Entity (Perm: read:Post)
     let post_sym = Symbol::from("Post");
     let post_entity = EntitySchema {
-        name: post_sym.clone(),
+        name: post_sym,
         table_name: Symbol::from("posts"),
         fields: vec![
             FieldSchema {
@@ -72,7 +72,7 @@ async fn test_query_joined_permission_check() {
                 required: true,
                 unique: false,
                 default: None,
-                references: Some(user_sym.clone()),
+                references: Some(user_sym),
                 serial_generator: None,
                 storage: None,
                 resize: None,
@@ -95,14 +95,14 @@ async fn test_query_joined_permission_check() {
         options: HashMap::from([("read_permission".to_string(), "read:Post".to_string())]),
         seeds: None,
     };
-    schema.entities.insert(post_sym.clone(), post_entity);
+    schema.entities.insert(post_sym, post_entity);
 
     // 3. Define Query 'UserPosts' that joins User -> Post
     let query_sym = Symbol::from("UserPosts");
     let query = QuerySchema {
-        name: query_sym.clone(),
+        name: query_sym,
         params: vec![],
-        root_entity: user_sym.clone(),
+        root_entity: user_sym,
         query_type: QueryType::Flat,
         selections: vec![QuerySelection {
             field: Symbol::from("name"),
@@ -111,7 +111,7 @@ async fn test_query_joined_permission_check() {
         formulas: vec![],
         filters: vec![],
         joins: vec![QueryJoin {
-            target_entity: post_sym.clone(),
+            target_entity: post_sym,
             selections: vec![QuerySelection {
                 field: Symbol::from("title"),
                 alias: None,
@@ -122,7 +122,7 @@ async fn test_query_joined_permission_check() {
         group_by: vec![],
         hierarchy: None,
     };
-    schema.queries.insert(query_sym.clone(), query);
+    schema.queries.insert(query_sym, query);
 
     let schema_arc = Arc::new(schema);
     let datastore = Arc::new(MemoryDataStore::new());

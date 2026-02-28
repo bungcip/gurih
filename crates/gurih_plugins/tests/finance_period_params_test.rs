@@ -85,7 +85,7 @@ async fn test_period_check_uses_params() {
     let mut schema = Schema::default();
     let entity_name = Symbol::from("AccountingPeriod");
     schema.entities.insert(
-        entity_name.clone(),
+        entity_name,
         EntitySchema {
             name: entity_name,
             table_name: Symbol::from("accounting_period"),
