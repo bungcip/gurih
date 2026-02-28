@@ -36,6 +36,7 @@ include "journal.kdl"
 include "reports.kdl"
 include "integration.kdl"
 include "dimensions.kdl"
+include "tax.kdl"
 
 routes {
     route "/" to="FinanceDashboard" layout="FinanceLayout"
@@ -56,11 +57,16 @@ routes {
         route "/cost-centers/new" to="CostCenterForm"
         route "/cost-centers/:id" to="CostCenterForm"
 
+        route "/tax-codes" to="TaxCodeList"
+        route "/tax-codes/new" to="TaxCodeForm"
+        route "/tax-codes/:id" to="TaxCodeForm"
+
         route "/reports/trial-balance" to="TrialBalanceReport"
         route "/reports/balance-sheet" to="BalanceSheetReport"
         route "/reports/income-statement" to="IncomeStatementReport"
         route "/reports/income-statement-by-cost-center" to="IncomeStatementByCostCenterReport"
         route "/reports/aged-receivables" to="AgedReceivablesReport"
+        route "/reports/tax" to="TaxReport"
     }
 }
 
@@ -72,6 +78,7 @@ menu "FinanceMenu" {
         item "Journal Entries" to="/finance/journals"
         item "Accounting Periods" to="/finance/periods"
         item "Cost Centers" to="/finance/cost-centers"
+        item "Tax Codes" to="/finance/tax-codes"
     }
 
     group "Reports" icon="chart" {
@@ -80,6 +87,7 @@ menu "FinanceMenu" {
         item "Income Statement" to="/finance/reports/income-statement"
         item "Income Statement (By Cost Center)" to="/finance/reports/income-statement-by-cost-center"
         item "Aged Receivables" to="/finance/reports/aged-receivables"
+        item "Tax Report" to="/finance/reports/tax"
     }
 }
 

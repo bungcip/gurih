@@ -1,0 +1,39 @@
+entity "TaxCode" {
+    field:pk id
+    field:string "code" unique=#true
+    field:string "name"
+    field:decimal "rate"
+
+    belongs_to "sales_tax_account" "Account" required=#false
+    belongs_to "purchase_tax_account" "Account" required=#false
+
+    options {
+        track_changes #true
+    }
+}
+
+page "TaxCodeList" {
+    title "Tax Codes"
+    datatable for="TaxCode" {
+        column "code"
+        column "name"
+        column "rate"
+
+        action "Edit" icon="pencil" to="/finance/tax-codes/:id"
+    }
+}
+
+page "TaxCodeForm" {
+    title "Tax Code"
+    form for="TaxCode" {
+        section "Details" {
+            field "code"
+            field "name"
+            field "rate"
+        }
+        section "Accounts" {
+            field "sales_tax_account"
+            field "purchase_tax_account"
+        }
+    }
+}
