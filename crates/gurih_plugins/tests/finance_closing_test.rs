@@ -134,7 +134,7 @@ async fn test_generate_closing_entry() {
             args: closing_args,
         }],
     };
-    schema.actions.insert(action.name.clone(), action);
+    schema.actions.insert(action.name, action);
 
     let schema_arc = Arc::new(schema);
 

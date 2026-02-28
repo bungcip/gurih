@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use chrono::{Local, NaiveDate};
 use gurih_ir::utils::{get_db_range_placeholders, parse_numeric_opt, resolve_param};
-use std::str::FromStr;
 use gurih_ir::{ActionStep, Expression, Schema, Symbol};
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::datastore::DataStore;
@@ -625,20 +624,17 @@ async fn check_period_overlap(
     // 3. Check Overlap
     for period in all_periods {
         // Skip self
-        if let Some(pid) = period.get("id").and_then(|v| v.as_str()) {
-            if let Some(cid) = current_id {
-                if pid == cid {
+        if let Some(pid) = period.get("id").and_then(|v| v.as_str())
+            && let Some(cid) = current_id
+                && pid == cid {
                     continue;
                 }
-            }
-        }
 
         // Skip Draft
-        if let Some(status) = period.get("status").and_then(|v| v.as_str()) {
-            if status == "Draft" {
+        if let Some(status) = period.get("status").and_then(|v| v.as_str())
+            && status == "Draft" {
                 continue;
             }
-        }
 
         let p_start_s = period.get("start_date").and_then(|v| v.as_str()).unwrap_or("");
         let p_end_s = period.get("end_date").and_then(|v| v.as_str()).unwrap_or("");
@@ -887,15 +883,12 @@ async fn execute_generate_closing_entry(
 
             let mut journal_ids = Vec::new();
             for je in journals {
-                if let Some(d_str) = je.get("date").and_then(|v| v.as_str()) {
-                    if let Ok(d) = NaiveDate::parse_from_str(d_str, "%Y-%m-%d") {
-                        if d >= p_start_date && d <= p_end_date {
-                            if let Some(id) = je.get("id").and_then(|v| v.as_str()) {
+                if let Some(d_str) = je.get("date").and_then(|v| v.as_str())
+                    && let Ok(d) = NaiveDate::parse_from_str(d_str, "%Y-%m-%d")
+                        && d >= p_start_date && d <= p_end_date
+                            && let Some(id) = je.get("id").and_then(|v| v.as_str()) {
                                 journal_ids.push(id.to_string());
                             }
-                        }
-                    }
-                }
             }
 
             if !journal_ids.is_empty() {
@@ -927,9 +920,9 @@ async fn execute_generate_closing_entry(
                         .map_err(RuntimeError::WorkflowError)?;
 
                     for line in lines {
-                        if let Some(acc_id) = line.get("account").and_then(|v| v.as_str()) {
-                            if let Some(typ) = acc_type_map.get(acc_id) {
-                                if typ == "Revenue" || typ == "Expense" {
+                        if let Some(acc_id) = line.get("account").and_then(|v| v.as_str())
+                            && let Some(typ) = acc_type_map.get(acc_id)
+                                && (typ == "Revenue" || typ == "Expense") {
                                     // Construct a pseudo-row for aggregation
                                     let mut row_map = serde_json::Map::new();
                                     row_map.insert("account_id".to_string(), Value::String(acc_id.to_string()));
@@ -942,8 +935,6 @@ async fn execute_generate_closing_entry(
                                     );
                                     fallback_rows.push(Arc::new(Value::Object(row_map)));
                                 }
-                            }
-                        }
                     }
                 }
             }
@@ -1087,8 +1078,8 @@ async fn execute_snapshot_parties(
                 let current_name = line.get("party_name").and_then(|v| v.as_str());
 
                 // Only update if party_id exists AND party_name is missing/empty
-                if let (Some(pt), Some(pid)) = (party_type, party_id) {
-                    if current_name.is_none() || current_name.unwrap().is_empty() {
+                if let (Some(pt), Some(pid)) = (party_type, party_id)
+                    && (current_name.is_none() || current_name.unwrap().is_empty()) {
                         // Fetch Party Name
                         if let Some(target_entity) = schema.entities.get(&Symbol::from(pt)) {
                             let target_table = target_entity.table_name.as_str();
@@ -1112,7 +1103,6 @@ async fn execute_snapshot_parties(
                             }
                         }
                     }
-                }
             }
         }
     }

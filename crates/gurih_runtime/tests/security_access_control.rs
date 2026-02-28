@@ -3,7 +3,6 @@ use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
 use gurih_runtime::datastore::DataStore;
 use gurih_runtime::store::MemoryDataStore;
-use gurih_runtime::traits::DataAccess;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -42,7 +41,7 @@ async fn test_access_control_vulnerability() {
     ];
 
     let user_entity = EntitySchema {
-        name: user_sym.clone(),
+        name: user_sym,
         table_name: Symbol::from("users"),
         fields,
         relationships: vec![],
@@ -51,7 +50,7 @@ async fn test_access_control_vulnerability() {
     };
 
     // Default permissions are read:User, update:User, delete:User
-    schema.entities.insert(user_sym.clone(), user_entity);
+    schema.entities.insert(user_sym, user_entity);
 
     let schema_arc = Arc::new(schema);
     let datastore = Arc::new(MemoryDataStore::new());

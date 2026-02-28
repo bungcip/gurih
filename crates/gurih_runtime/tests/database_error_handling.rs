@@ -1,9 +1,6 @@
 use gurih_runtime::datastore::DataStore;
 use gurih_runtime::store::sqlite::SqliteDataStore;
-use serde_json::Value;
 use sqlx::sqlite::SqlitePoolOptions;
-use std::collections::HashMap;
-use std::sync::Arc;
 
 #[tokio::test]
 async fn test_database_error_sanitization() {

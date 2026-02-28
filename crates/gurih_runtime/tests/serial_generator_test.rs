@@ -6,7 +6,6 @@ use gurih_runtime::data::DataEngine;
 use gurih_runtime::store::init_datastore;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::Arc;
 
 #[tokio::test]
@@ -26,7 +25,7 @@ async fn test_serial_generation() {
     );
 
     // 2. Define Entity
-    let mut fields = vec![
+    let fields = vec![
         FieldSchema {
             name: Symbol::from("id"),
             field_type: FieldType::Pk,

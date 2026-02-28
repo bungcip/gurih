@@ -2,7 +2,7 @@ use gurih_ir::{Schema, StateSchema, Symbol, Transition, TransitionPrecondition, 
 use gurih_plugins::finance::FinancePlugin;
 use gurih_runtime::context::RuntimeContext;
 use gurih_runtime::data::DataEngine;
-use gurih_runtime::datastore::MemoryDataStore;
+use gurih_runtime::store::MemoryDataStore;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;

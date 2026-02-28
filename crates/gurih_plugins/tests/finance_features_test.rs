@@ -282,5 +282,5 @@ fn test_query_group_by() {
     } else {
         panic!("Expected ExecuteSql");
     };
-    assert!(sql.contains("GROUP BY [f]"));
+    assert!(sql.contains("GROUP BY \"f\""));
 }
