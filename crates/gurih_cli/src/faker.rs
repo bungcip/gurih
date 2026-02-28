@@ -6,6 +6,7 @@ use fake::faker::name::en::Name;
 use fake::faker::phone_number::en::PhoneNumber;
 use fake::{Fake, Faker};
 use gurih_ir::{FieldType, Schema, Symbol};
+use gurih_runtime::auth::hash_password;
 use gurih_runtime::datastore::DataStore;
 use rand::Rng;
 use rand::prelude::IndexedRandom;
@@ -236,7 +237,7 @@ impl FakerEngine {
                 BuildingNumber().fake::<String>(),
                 StreetName().fake::<String>()
             )),
-            FieldType::Password => Value::String("password123".to_string()), // Default password
+            FieldType::Password => Value::String(hash_password("password123")), // Default password
             FieldType::Enum(options) => {
                 if options.is_empty() {
                     Value::Null
