@@ -119,37 +119,19 @@ page "JournalForm" {
 // RULES
 // -----------------------------------------------------------------------------
 rule "PositiveDebit" {
-    on:create "JournalLine"
+    on:save "JournalLine"
     assert "debit >= 0"
     message "Debit must be positive"
 }
 
 rule "PositiveCredit" {
-    on:create "JournalLine"
+    on:save "JournalLine"
     assert "credit >= 0"
     message "Credit must be positive"
 }
 
 rule "LeafAccountOnly" {
-    on:create "JournalLine"
+    on:save "JournalLine"
     assert "lookup_field('Account', account, 'is_group') == false"
     message "Cannot post to a group account"
-}
-
-rule "LeafAccountOnlyUpdate" {
-    on:update "JournalLine"
-    assert "lookup_field('Account', account, 'is_group') == false"
-    message "Cannot post to a group account"
-}
-
-rule "PositiveDebitUpdate" {
-    on:update "JournalLine"
-    assert "debit >= 0"
-    message "Debit must be positive"
-}
-
-rule "PositiveCreditUpdate" {
-    on:update "JournalLine"
-    assert "credit >= 0"
-    message "Credit must be positive"
 }
