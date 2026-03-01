@@ -104,6 +104,11 @@ impl DataEngine {
     ) -> Result<(), String> {
         let event = format!("{}:{}", entity_name, action);
         let event_sym = Symbol::from(&event);
+        let save_sym = if action == "create" || action == "update" {
+            Some(Symbol::from(&format!("{}:save", entity_name)))
+        } else {
+            None
+        };
 
         // Construct context with self and old
         let mut context_map = if let Some(obj) = new_data.as_object() {
@@ -121,7 +126,8 @@ impl DataEngine {
         let context = Value::Object(context_map);
 
         for rule in self.schema.rules.values() {
-            if rule.on_event == event_sym {
+            let is_match = rule.on_event == event_sym || Some(rule.on_event) == save_sym;
+            if is_match {
                 let result =
                     crate::evaluator::evaluate(&rule.assertion, &context, Some(&self.schema), Some(&self.datastore))
                         .await
@@ -589,7 +595,8 @@ impl DataEngine {
 
         let update_event = format!("{}:update", entity_name);
         let update_event_sym = Symbol::from(&update_event);
-        let has_update_rules = self.schema.rules.values().any(|r| r.on_event == update_event_sym);
+        let save_event_sym = Symbol::from(&format!("{}:save", entity_name));
+        let has_update_rules = self.schema.rules.values().any(|r| r.on_event == update_event_sym || r.on_event == save_event_sym);
 
         let track_changes = entity_schema
             .options
