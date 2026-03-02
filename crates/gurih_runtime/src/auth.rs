@@ -143,7 +143,7 @@ impl AuthEngine {
             if let Some(pwd) = user_arc.get("password").and_then(|v| v.as_str()) {
                 stored_password_owned = pwd.to_string();
             }
-            user_ref = Some(user_arc.clone());
+            user_ref = Some(user_arc);
         }
 
         // Always verify password to prevent timing attacks
@@ -403,7 +403,7 @@ mod tests {
     #[test]
     fn test_cleanup_login_attempts_priority() {
         let store = Arc::new(MemoryDataStore::new());
-        let auth = AuthEngine::new(store.clone(), None, None);
+        let auth = AuthEngine::new(store, None, None);
 
         // Populate with MAX entries
         // 1. One "banned" user (count=5)
@@ -437,7 +437,7 @@ mod tests {
     #[test]
     fn test_cleanup_login_attempts_overflow_banned() {
         let store = Arc::new(MemoryDataStore::new());
-        let auth = AuthEngine::new(store.clone(), None, None);
+        let auth = AuthEngine::new(store, None, None);
 
         // Populate with MAX + 50 entries, all banned
         {
@@ -470,7 +470,7 @@ mod tests {
     #[test]
     fn test_rate_limit_bypass_eviction() {
         let store = Arc::new(MemoryDataStore::new());
-        let auth = AuthEngine::new(store.clone(), None, None);
+        let auth = AuthEngine::new(store, None, None);
 
         // Populate with:
         // 1. Target user (count=4) - High priority to keep

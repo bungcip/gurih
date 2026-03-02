@@ -65,10 +65,7 @@ impl ActionEngine {
                 let id = resolve_param(id_raw, params);
 
                 // Call DataEngine delete
-                data_engine
-                    .delete(target_entity.as_str(), &id, ctx)
-                    .await
-                    .map_err(|e| e.to_string())?;
+                data_engine.delete(target_entity.as_str(), &id, ctx).await?;
             }
             ActionStepType::EntityUpdate => {
                 let id_raw = step.args.get("id").ok_or("Missing 'id' argument for entity:update")?;
@@ -114,8 +111,7 @@ impl ActionEngine {
 
                 data_engine
                     .update(target_entity.as_str(), &id, Value::Object(update_data), ctx)
-                    .await
-                    .map_err(|e| e.to_string())?;
+                    .await?;
             }
             ActionStepType::Custom(name) => {
                 for plugin in &self.plugins {

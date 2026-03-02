@@ -175,6 +175,6 @@ impl ErrorFormatter {
         }
 
         let report = vec![group];
-        renderer.render(&report).to_string()
+        renderer.render(&report)
     }
 }
