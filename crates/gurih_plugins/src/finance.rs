@@ -239,6 +239,10 @@ async fn check_valid_parties(
             .collect::<Vec<_>>()
             .join(", ");
 
+        if let Err(e) = validate_identifier(account_table) {
+            return Err(RuntimeError::WorkflowError(format!("Invalid account_table: {}", e)));
+        }
+
         let sql = format!("SELECT * FROM {} WHERE id IN ({})", account_table, placeholders);
         let params: Vec<Value> = ids.iter().map(|s| Value::String(s.clone())).collect();
 
@@ -273,6 +277,10 @@ async fn check_valid_parties(
                 .map(|i| gurih_ir::utils::get_db_placeholder(&db_type, i))
                 .collect::<Vec<_>>()
                 .join(", ");
+
+            if let Err(e) = validate_identifier(table) {
+                return Err(RuntimeError::WorkflowError(format!("Invalid party table: {}", e)));
+            }
 
             let sql = format!("SELECT id FROM {} WHERE id IN ({})", table, placeholders);
             let params: Vec<Value> = ids.iter().map(|s| Value::String(s.clone())).collect();
@@ -402,6 +410,10 @@ async fn check_period_open(
                 .unwrap_or(gurih_ir::DatabaseType::Sqlite);
 
             let (p_start, p_end) = get_db_range_placeholders(&db_type);
+
+            if let Err(e) = validate_identifier(table_name) {
+                return Err(RuntimeError::WorkflowError(format!("Invalid table_name: {}", e)));
+            }
 
             let sql = format!(
                 "SELECT id FROM {} WHERE status = 'Open' AND start_date <= {} AND end_date >= {}",
@@ -914,6 +926,16 @@ async fn execute_generate_closing_entry(
         .get(&Symbol::from("Account"))
         .map(|e| e.table_name.as_str())
         .unwrap_or("account");
+
+    if let Err(e) = validate_identifier(journal_line_table) {
+        return Err(RuntimeError::WorkflowError(format!("Invalid journal_line_table: {}", e)));
+    }
+    if let Err(e) = validate_identifier(journal_entry_table) {
+        return Err(RuntimeError::WorkflowError(format!("Invalid journal_entry_table: {}", e)));
+    }
+    if let Err(e) = validate_identifier(account_table) {
+        return Err(RuntimeError::WorkflowError(format!("Invalid account_table: {}", e)));
+    }
 
     let sql = format!(
         r#"
