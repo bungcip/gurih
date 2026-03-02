@@ -17,7 +17,7 @@ async fn setup_test_env() -> (DataEngine, RuntimeContext) {
     let schema_arc = Arc::new(schema);
 
     let datastore = Arc::new(MemoryDataStore::new());
-    let engine = DataEngine::new(schema_arc.clone(), datastore.clone());
+    let engine = DataEngine::new(schema_arc, datastore);
     let ctx = RuntimeContext::system();
 
     (engine, ctx)

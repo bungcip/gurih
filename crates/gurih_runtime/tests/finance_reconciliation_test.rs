@@ -22,9 +22,9 @@ impl DataStore for MockDataStore {
     async fn insert(&self, entity: &str, data: Value) -> Result<String, String> {
         let id = data.get("id").and_then(|v| v.as_str()).unwrap_or("gen_id").to_string();
         if entity == "Reconciliation" || entity == "reconciliation" {
-            self.reconciliations.lock().unwrap().push(data.clone());
+            self.reconciliations.lock().unwrap().push(data);
         } else if entity == "JournalLineStatus" || entity == "journal_line_status" {
-            self.statuses.lock().unwrap().insert(id.clone(), data.clone());
+            self.statuses.lock().unwrap().insert(id.clone(), data);
         }
         Ok(id)
     }

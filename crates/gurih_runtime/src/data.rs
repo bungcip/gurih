@@ -596,7 +596,11 @@ impl DataEngine {
         let update_event = format!("{}:update", entity_name);
         let update_event_sym = Symbol::from(&update_event);
         let save_event_sym = Symbol::from(&format!("{}:save", entity_name));
-        let has_update_rules = self.schema.rules.values().any(|r| r.on_event == update_event_sym || r.on_event == save_event_sym);
+        let has_update_rules = self
+            .schema
+            .rules
+            .values()
+            .any(|r| r.on_event == update_event_sym || r.on_event == save_event_sym);
 
         let track_changes = entity_schema
             .options
@@ -1024,8 +1028,7 @@ impl DataEngine {
                     let records = self
                         .datastore
                         .query_with_params(&structure_sql, structure_params)
-                        .await
-                        .map_err(|e| e.to_string())?;
+                        .await?;
 
                     // 2. Build Tree Maps
                     let mut records_map: std::collections::HashMap<String, Arc<Value>> =

@@ -26,7 +26,7 @@ impl DataStore for MockDataStore {
                 .unwrap_or("new_j_id")
                 .to_string())
         } else if entity == "journal_line" {
-            self.created_lines.lock().unwrap().push(data.clone());
+            self.created_lines.lock().unwrap().push(data);
             Ok("new_l_id".to_string())
         } else {
             Ok("1".to_string())

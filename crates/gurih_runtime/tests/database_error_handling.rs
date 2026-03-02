@@ -38,7 +38,7 @@ async fn test_database_error_sanitization() {
         .await
         .expect_err("Duplicate insert should fail");
 
-    let err_msg = err.to_string();
+    let err_msg = err;
     println!("Received error: {}", err_msg);
 
     // Assert that we DO NOT expose raw unique constraint error
