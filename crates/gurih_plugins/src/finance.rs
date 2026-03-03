@@ -928,10 +928,16 @@ async fn execute_generate_closing_entry(
         .unwrap_or("account");
 
     if let Err(e) = validate_identifier(journal_line_table) {
-        return Err(RuntimeError::WorkflowError(format!("Invalid journal_line_table: {}", e)));
+        return Err(RuntimeError::WorkflowError(format!(
+            "Invalid journal_line_table: {}",
+            e
+        )));
     }
     if let Err(e) = validate_identifier(journal_entry_table) {
-        return Err(RuntimeError::WorkflowError(format!("Invalid journal_entry_table: {}", e)));
+        return Err(RuntimeError::WorkflowError(format!(
+            "Invalid journal_entry_table: {}",
+            e
+        )));
     }
     if let Err(e) = validate_identifier(account_table) {
         return Err(RuntimeError::WorkflowError(format!("Invalid account_table: {}", e)));

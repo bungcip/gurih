@@ -16,20 +16,17 @@ impl SqliteDataStore {
     }
 
     fn handle_error(e: sqlx::Error) -> String {
-        match e {
-            sqlx::Error::Database(err) => {
-                let msg = err.message();
-                if msg.contains("UNIQUE constraint failed") {
-                    let field = msg.split(": ").last().unwrap_or("unknown");
-                    return format!("Duplicate entry: {}", field);
-                }
-                eprintln!("Database Error: {}", err.message());
-                "Database operation failed".to_string()
+        if let sqlx::Error::Database(err) = e {
+            let msg = err.message();
+            if msg.contains("UNIQUE constraint failed") {
+                let field = msg.split(": ").last().unwrap_or("unknown");
+                return format!("Duplicate entry: {}", field);
             }
-            _ => {
-                eprintln!("Internal Database Error: {}", e);
-                "Internal system error".to_string()
-            }
+            eprintln!("Database Error: {}", err.message());
+            "Database operation failed".to_string()
+        } else {
+            eprintln!("Internal Database Error: {}", e);
+            "Internal system error".to_string()
         }
     }
 

@@ -862,20 +862,17 @@ fn register_routes<'a>(
                 handle_dynamic_action(state, headers, params, query, action_name.to_string())
             };
 
-            match route_def.verb {
-                gurih_ir::RouteVerb::All => {
-                    app = app.route(&path, axum::routing::any(handler));
-                }
-                _ => {
-                    let verb_filter = match route_def.verb {
-                        gurih_ir::RouteVerb::Get => MethodFilter::GET,
-                        gurih_ir::RouteVerb::Post => MethodFilter::POST,
-                        gurih_ir::RouteVerb::Put => MethodFilter::PUT,
-                        gurih_ir::RouteVerb::Delete => MethodFilter::DELETE,
-                        _ => MethodFilter::GET,
-                    };
-                    app = app.route(&path, on(verb_filter, handler));
-                }
+            if route_def.verb == gurih_ir::RouteVerb::All {
+                app = app.route(&path, axum::routing::any(handler));
+            } else {
+                let verb_filter = match route_def.verb {
+                    gurih_ir::RouteVerb::Get => MethodFilter::GET,
+                    gurih_ir::RouteVerb::Post => MethodFilter::POST,
+                    gurih_ir::RouteVerb::Put => MethodFilter::PUT,
+                    gurih_ir::RouteVerb::Delete => MethodFilter::DELETE,
+                    _ => MethodFilter::GET,
+                };
+                app = app.route(&path, on(verb_filter, handler));
             }
         }
 
