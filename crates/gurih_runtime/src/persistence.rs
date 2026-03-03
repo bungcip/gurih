@@ -1,5 +1,5 @@
 use crate::auth::hash_password;
-use crate::store::DbPool;
+use crate::store::{validate_identifier, DbPool};
 use gurih_ir::utils::get_db_placeholder;
 use gurih_ir::{ColumnType, DatabaseType, EntitySchema, FieldType, Schema, Symbol, TableSchema};
 use sha2::{Digest, Sha256};
@@ -420,6 +420,7 @@ impl SchemaManager {
         }
 
         for table in tables_to_drop {
+            validate_identifier(&table)?;
             let sql = if *db_kind == DatabaseType::Postgres {
                 format!("DROP TABLE IF EXISTS \"{}\" CASCADE", table)
             } else {
@@ -476,10 +477,12 @@ impl SchemaManager {
     }
 
     async fn create_explicit_table(&self, table: &TableSchema) -> Result<(), String> {
+        validate_identifier(&table.name.to_string())?;
         let mut sql = format!("CREATE TABLE IF NOT EXISTS \"{}\" (", table.name);
         let mut defs = vec![];
 
         for col in &table.columns {
+            validate_identifier(&col.name.to_string())?;
             let sql_type = match &col.type_name {
                 ColumnType::Varchar | ColumnType::Text => "TEXT".to_string(),
                 ColumnType::Integer => self.get_sql_type("integer"),
@@ -520,10 +523,12 @@ impl SchemaManager {
     }
 
     async fn create_entity_table(&self, entity: &EntitySchema) -> Result<(), String> {
+        validate_identifier(&entity.table_name.to_string())?;
         let mut sql = format!("CREATE TABLE IF NOT EXISTS \"{}\" (", entity.table_name);
         let mut defs = vec![];
 
         for field in &entity.fields {
+            validate_identifier(&field.name.to_string())?;
             let sql_type = match &field.field_type {
                 FieldType::Pk => self.get_sql_type("pk"),
                 FieldType::Serial => "TEXT".to_string(),
@@ -573,6 +578,7 @@ impl SchemaManager {
         for rel in &entity.relationships {
             if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
                 let fk_field = format!("{}_id", rel.name);
+                validate_identifier(&fk_field)?;
                 defs.push(format!("\"{}\" TEXT", fk_field));
             }
         }
