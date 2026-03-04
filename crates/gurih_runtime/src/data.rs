@@ -1396,6 +1396,9 @@ impl DataEngine {
             .map(|e| e.table_name.as_str())
             .unwrap_or("Account");
 
+        crate::store::validate_identifier(account_table)
+            .map_err(|e| format!("Invalid Account table name: {}", e))?;
+
         let has_system_tag = self
             .schema
             .entities
