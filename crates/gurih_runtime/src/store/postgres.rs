@@ -16,21 +16,18 @@ impl PostgresDataStore {
     }
 
     fn handle_error(e: sqlx::Error) -> String {
-        match e {
-            sqlx::Error::Database(err) => {
-                if let Some(code) = err.code()
-                    && code == "23505"
-                {
-                    // Unique violation
-                    return "Duplicate entry".to_string();
-                }
-                eprintln!("Database Error: {}", err.message());
-                "Database operation failed".to_string()
+        if let sqlx::Error::Database(err) = e {
+            if let Some(code) = err.code()
+                && code == "23505"
+            {
+                // Unique violation
+                return "Duplicate entry".to_string();
             }
-            _ => {
-                eprintln!("Internal Database Error: {}", e);
-                "Internal system error".to_string()
-            }
+            eprintln!("Database Error: {}", err.message());
+            "Database operation failed".to_string()
+        } else {
+            eprintln!("Internal Database Error: {}", e);
+            "Internal system error".to_string()
         }
     }
 

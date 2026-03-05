@@ -351,9 +351,8 @@ impl QueryEngine {
                         params.push(val.clone());
                         if *db_type == DatabaseType::Postgres {
                             return format!("${}", params.len());
-                        } else {
-                            return "?".to_string();
                         }
+                        return "?".to_string();
                     }
                     return "NULL".to_string();
                 } else if name.as_str() == "if" {
@@ -362,9 +361,8 @@ impl QueryEngine {
                         let true_val = Self::expression_to_sql(&args[1], params, db_type, runtime_params);
                         let false_val = Self::expression_to_sql(&args[2], params, db_type, runtime_params);
                         return format!("CASE WHEN {} THEN {} ELSE {} END", cond, true_val, false_val);
-                    } else {
-                        return "NULL".to_string();
                     }
+                    return "NULL".to_string();
                 } else if name.as_str() == "running_sum" {
                     // running_sum(expr, partition_by, order_by)
                     if args.len() >= 3 {
@@ -383,10 +381,9 @@ impl QueryEngine {
                         let start = Self::expression_to_sql(&args[1], params, db_type, runtime_params);
                         if *db_type == DatabaseType::Postgres {
                             return format!("({}::DATE - {}::DATE)", end, start);
-                        } else {
-                            // SQLite: julianday returns float, subtract, cast to int
-                            return format!("CAST(julianday({}) - julianday({}) AS INTEGER)", end, start);
                         }
+                        // SQLite: julianday returns float, subtract, cast to int
+                        return format!("CAST(julianday({}) - julianday({}) AS INTEGER)", end, start);
                     }
                 }
 

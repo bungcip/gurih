@@ -70,9 +70,8 @@ pub fn ensure_frontend_built() -> Option<PathBuf> {
         if dist_dir.exists() {
             println!("🚀 Serving frontend from {}", dist_dir.display());
             return Some(dist_dir);
-        } else {
-            eprintln!("⚠️ Frontend build not found. Dashboard will not be available.");
         }
+        eprintln!("⚠️ Frontend build not found. Dashboard will not be available.");
     }
     None
 }
