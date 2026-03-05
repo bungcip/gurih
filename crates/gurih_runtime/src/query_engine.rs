@@ -71,8 +71,9 @@ impl QueryEngine {
             }
         }
         for form in &query.formulas {
+            validate_identifier(form.name.as_str())?;
             let expr_sql = Self::expression_to_sql(&form.expression, &mut params, &db_type, runtime_params);
-            select_parts.push(format!("{} AS {}", expr_sql, form.name));
+            select_parts.push(format!("{} AS \"{}\"", expr_sql, form.name));
         }
 
         // Process Joins (Recursive)
@@ -266,9 +267,10 @@ impl QueryEngine {
                 }
             }
             for form in &join.formulas {
+                validate_identifier(form.name.as_str())?;
                 let expr_sql =
                     Self::expression_to_sql(&form.expression, state.params, state.db_type, state.runtime_params);
-                state.select_parts.push(format!("{} AS {}", expr_sql, form.name));
+                state.select_parts.push(format!("{} AS \"{}\"", expr_sql, form.name));
             }
 
             Self::process_joins(&join.joins, &target_table, &target_entity_name.to_string(), state)?;
@@ -524,7 +526,7 @@ mod tests {
         };
         println!("Generated SQL: {}", sql);
         assert!(sql.contains("SELECT \"course_entity\".\"title\""));
-        assert!(sql.contains("SUM(\"duration\") AS total_duration"));
+        assert!(sql.contains("SUM(\"duration\") AS \"total_duration\""));
         assert!(sql.contains("FROM \"course_entity\""));
         assert!(sql.contains("LEFT JOIN \"section_entity\""));
         assert!(sql.contains("LEFT JOIN \"meeting_entity\""));
@@ -726,9 +728,9 @@ mod tests {
 
         println!("Report SQL: {}", sql);
 
-        assert!(sql.contains("CASE WHEN TRUE THEN 100 ELSE 0 END AS conditional_balance"));
+        assert!(sql.contains("CASE WHEN TRUE THEN 100 ELSE 0 END AS \"conditional_balance\""));
         assert!(sql.contains(
-            "SUM(\"amount\") OVER (PARTITION BY \"account_id\" ORDER BY \"date\" ROWS UNBOUNDED PRECEDING) AS running_balance"
+            "SUM(\"amount\") OVER (PARTITION BY \"account_id\" ORDER BY \"date\" ROWS UNBOUNDED PRECEDING) AS \"running_balance\""
         ));
     }
 }
