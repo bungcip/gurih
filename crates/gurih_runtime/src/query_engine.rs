@@ -65,12 +65,14 @@ impl QueryEngine {
         for sel in &query.selections {
             let col_sql = format!("\"{}\".\"{}\"", root_table, sel.field);
             if let Some(alias) = &sel.alias {
+                validate_identifier(alias.as_str())?;
                 select_parts.push(format!("{} AS \"{}\"", col_sql, alias));
             } else {
                 select_parts.push(col_sql);
             }
         }
         for form in &query.formulas {
+            validate_identifier(form.name.as_str())?;
             let expr_sql = Self::expression_to_sql(&form.expression, &mut params, &db_type, runtime_params);
             select_parts.push(format!("{} AS {}", expr_sql, form.name));
         }
@@ -137,6 +139,7 @@ impl QueryEngine {
             struct_selects.push(format!("\"{}\".\"{}\"", root_table, h.parent_field));
 
             for rf in &h.rollup_fields {
+                validate_identifier(rf.as_str())?;
                 if let Some(form) = query.formulas.iter().find(|f| f.name == *rf) {
                     let expr_sql =
                         Self::expression_to_sql(&form.expression, &mut struct_params, &db_type, runtime_params);
