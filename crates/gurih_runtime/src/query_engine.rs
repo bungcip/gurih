@@ -65,12 +65,14 @@ impl QueryEngine {
         for sel in &query.selections {
             let col_sql = format!("\"{}\".\"{}\"", root_table, sel.field);
             if let Some(alias) = &sel.alias {
+                validate_identifier(alias.as_str())?;
                 select_parts.push(format!("{} AS \"{}\"", col_sql, alias));
             } else {
                 select_parts.push(col_sql);
             }
         }
         for form in &query.formulas {
+            validate_identifier(form.name.as_str())?;
             let expr_sql = Self::expression_to_sql(&form.expression, &mut params, &db_type, runtime_params);
             select_parts.push(format!("{} AS {}", expr_sql, form.name));
         }
@@ -260,12 +262,14 @@ impl QueryEngine {
             for sel in &join.selections {
                 let col_sql = format!("\"{}\".\"{}\"", target_table, sel.field);
                 if let Some(alias) = &sel.alias {
+                    validate_identifier(alias.as_str())?;
                     state.select_parts.push(format!("{} AS \"{}\"", col_sql, alias));
                 } else {
                     state.select_parts.push(col_sql);
                 }
             }
             for form in &join.formulas {
+                validate_identifier(form.name.as_str())?;
                 let expr_sql =
                     Self::expression_to_sql(&form.expression, state.params, state.db_type, state.runtime_params);
                 state.select_parts.push(format!("{} AS {}", expr_sql, form.name));
