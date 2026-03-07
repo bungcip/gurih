@@ -73,7 +73,7 @@ impl QueryEngine {
         }
         for form in &query.formulas {
             validate_identifier(form.name.as_str())?;
-            let expr_sql = Self::expression_to_sql(&form.expression, &mut params, &db_type, runtime_params);
+            let expr_sql = Self::expression_to_sql(&form.expression, &mut params, &db_type, runtime_params)?;
             select_parts.push(format!("{} AS {}", expr_sql, form.name));
         }
 
@@ -99,11 +99,10 @@ impl QueryEngine {
 
         let mut where_clause = String::new();
         if !query.filters.is_empty() {
-            let filter_parts: Vec<String> = query
-                .filters
-                .iter()
-                .map(|e| Self::expression_to_sql(e, &mut params, &db_type, runtime_params))
-                .collect();
+            let mut filter_parts = Vec::new();
+            for e in &query.filters {
+                filter_parts.push(Self::expression_to_sql(e, &mut params, &db_type, runtime_params)?);
+            }
             where_clause = format!("WHERE {}", filter_parts.join(" AND "));
         }
 
@@ -141,7 +140,7 @@ impl QueryEngine {
             for rf in &h.rollup_fields {
                 if let Some(form) = query.formulas.iter().find(|f| f.name == *rf) {
                     let expr_sql =
-                        Self::expression_to_sql(&form.expression, &mut struct_params, &db_type, runtime_params);
+                        Self::expression_to_sql(&form.expression, &mut struct_params, &db_type, runtime_params)?;
                     struct_selects.push(format!("{} AS \"{}\"", expr_sql, rf));
                 } else if let Some(sel) = query
                     .selections
@@ -176,11 +175,10 @@ impl QueryEngine {
 
             let mut struct_where_clause = String::new();
             if !query.filters.is_empty() {
-                let filter_parts: Vec<String> = query
-                    .filters
-                    .iter()
-                    .map(|e| Self::expression_to_sql(e, &mut struct_params, &db_type, runtime_params))
-                    .collect();
+                let mut filter_parts = Vec::new();
+                for e in &query.filters {
+                    filter_parts.push(Self::expression_to_sql(e, &mut struct_params, &db_type, runtime_params)?);
+                }
                 struct_where_clause = format!("WHERE {}", filter_parts.join(" AND "));
             }
 
@@ -271,7 +269,7 @@ impl QueryEngine {
             for form in &join.formulas {
                 validate_identifier(form.name.as_str())?;
                 let expr_sql =
-                    Self::expression_to_sql(&form.expression, state.params, state.db_type, state.runtime_params);
+                    Self::expression_to_sql(&form.expression, state.params, state.db_type, state.runtime_params)?;
                 state.select_parts.push(format!("{} AS {}", expr_sql, form.name));
             }
 
@@ -318,90 +316,96 @@ impl QueryEngine {
         params: &mut Vec<Value>,
         db_type: &DatabaseType,
         runtime_params: &std::collections::HashMap<String, Value>,
-    ) -> String {
+    ) -> Result<String, String> {
         match expr {
             Expression::Field(f) => {
                 let s = f.as_str();
                 if s.contains('.') {
-                    s.split('.')
-                        .map(|part| format!("\"{}\"", part))
-                        .collect::<Vec<_>>()
-                        .join(".")
+                    let parts: Result<Vec<String>, String> = s
+                        .split('.')
+                        .map(|part| {
+                            validate_identifier(part)?;
+                            Ok(format!("\"{}\"", part))
+                        })
+                        .collect();
+                    Ok(parts?.join("."))
                 } else {
-                    format!("\"{}\"", f)
+                    validate_identifier(s)?;
+                    Ok(format!("\"{}\"", f))
                 }
             }
-            Expression::Literal(n) => n.to_string(),
+            Expression::Literal(n) => Ok(n.to_string()),
             Expression::BoolLiteral(b) => {
                 if *b {
-                    "TRUE".to_string()
+                    Ok("TRUE".to_string())
                 } else {
-                    "FALSE".to_string()
+                    Ok("FALSE".to_string())
                 }
             }
             Expression::StringLiteral(s) => {
                 params.push(Value::String(s.clone()));
                 if *db_type == DatabaseType::Postgres {
-                    format!("${}", params.len())
+                    Ok(format!("${}", params.len()))
                 } else {
-                    "?".to_string()
+                    Ok("?".to_string())
                 }
             }
             Expression::FunctionCall { name, args } => {
+                validate_identifier(name.as_str())?;
                 if name.as_str() == "param" {
                     if let Some(Expression::StringLiteral(key)) = args.first()
                         && let Some(val) = runtime_params.get(key)
                     {
                         params.push(val.clone());
                         if *db_type == DatabaseType::Postgres {
-                            return format!("${}", params.len());
+                            return Ok(format!("${}", params.len()));
                         }
-                        return "?".to_string();
+                        return Ok("?".to_string());
                     }
-                    return "NULL".to_string();
+                    return Ok("NULL".to_string());
                 } else if name.as_str() == "if" {
                     if args.len() == 3 {
-                        let cond = Self::expression_to_sql(&args[0], params, db_type, runtime_params);
-                        let true_val = Self::expression_to_sql(&args[1], params, db_type, runtime_params);
-                        let false_val = Self::expression_to_sql(&args[2], params, db_type, runtime_params);
-                        return format!("CASE WHEN {} THEN {} ELSE {} END", cond, true_val, false_val);
+                        let cond = Self::expression_to_sql(&args[0], params, db_type, runtime_params)?;
+                        let true_val = Self::expression_to_sql(&args[1], params, db_type, runtime_params)?;
+                        let false_val = Self::expression_to_sql(&args[2], params, db_type, runtime_params)?;
+                        return Ok(format!("CASE WHEN {} THEN {} ELSE {} END", cond, true_val, false_val));
                     }
-                    return "NULL".to_string();
+                    return Ok("NULL".to_string());
                 } else if name.as_str() == "running_sum" {
                     // running_sum(expr, partition_by, order_by)
                     if args.len() >= 3 {
-                        let expr = Self::expression_to_sql(&args[0], params, db_type, runtime_params);
-                        let partition = Self::expression_to_sql(&args[1], params, db_type, runtime_params);
-                        let order = Self::expression_to_sql(&args[2], params, db_type, runtime_params);
-                        return format!(
+                        let expr = Self::expression_to_sql(&args[0], params, db_type, runtime_params)?;
+                        let partition = Self::expression_to_sql(&args[1], params, db_type, runtime_params)?;
+                        let order = Self::expression_to_sql(&args[2], params, db_type, runtime_params)?;
+                        return Ok(format!(
                             "SUM({}) OVER (PARTITION BY {} ORDER BY {} ROWS UNBOUNDED PRECEDING)",
                             expr, partition, order
-                        );
+                        ));
                     }
                 } else if name.as_str() == "days_between" {
                     // days_between(end_date, start_date)
                     if args.len() == 2 {
-                        let end = Self::expression_to_sql(&args[0], params, db_type, runtime_params);
-                        let start = Self::expression_to_sql(&args[1], params, db_type, runtime_params);
+                        let end = Self::expression_to_sql(&args[0], params, db_type, runtime_params)?;
+                        let start = Self::expression_to_sql(&args[1], params, db_type, runtime_params)?;
                         if *db_type == DatabaseType::Postgres {
-                            return format!("({}::DATE - {}::DATE)", end, start);
+                            return Ok(format!("({}::DATE - {}::DATE)", end, start));
                         }
                         // SQLite: julianday returns float, subtract, cast to int
-                        return format!("CAST(julianday({}) - julianday({}) AS INTEGER)", end, start);
+                        return Ok(format!("CAST(julianday({}) - julianday({}) AS INTEGER)", end, start));
                     }
                 }
 
-                let args_sql: Vec<String> = args
-                    .iter()
-                    .map(|a| Self::expression_to_sql(a, params, db_type, runtime_params))
-                    .collect();
-                format!("{}({})", name, args_sql.join(", "))
+                let mut args_sql = Vec::new();
+                for a in args {
+                    args_sql.push(Self::expression_to_sql(a, params, db_type, runtime_params)?);
+                }
+                Ok(format!("{}({})", name, args_sql.join(", ")))
             }
             Expression::UnaryOp { op, expr } => {
-                let expr_sql = Self::expression_to_sql(expr, params, db_type, runtime_params);
+                let expr_sql = Self::expression_to_sql(expr, params, db_type, runtime_params)?;
                 match op {
-                    UnaryOperator::Not => format!("NOT ({})", expr_sql),
-                    UnaryOperator::Neg => format!("-({})", expr_sql),
+                    UnaryOperator::Not => Ok(format!("NOT ({})", expr_sql)),
+                    UnaryOperator::Neg => Ok(format!("-({})", expr_sql)),
                 }
             }
             Expression::BinaryOp { left, op, right } => {
@@ -427,15 +431,15 @@ impl QueryEngine {
                     BinaryOperator::And => "AND",
                     BinaryOperator::Or => "OR",
                 };
-                format!(
+                Ok(format!(
                     "{} {} {}",
-                    Self::expression_to_sql(left, params, db_type, runtime_params),
+                    Self::expression_to_sql(left, params, db_type, runtime_params)?,
                     op_str,
-                    Self::expression_to_sql(right, params, db_type, runtime_params)
-                )
+                    Self::expression_to_sql(right, params, db_type, runtime_params)?
+                ))
             }
             Expression::Grouping(inner) => {
-                format!("({})", Self::expression_to_sql(inner, params, db_type, runtime_params))
+                Ok(format!("({})", Self::expression_to_sql(inner, params, db_type, runtime_params)?))
             }
         }
     }
