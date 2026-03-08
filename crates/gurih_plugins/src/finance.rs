@@ -1188,7 +1188,7 @@ async fn execute_snapshot_parties(
 
                 // Only update if party_id exists AND party_name is missing/empty
                 if let (Some(pt), Some(pid)) = (party_type, party_id)
-                    && (current_name.is_none() || current_name.unwrap().is_empty())
+                    && current_name.unwrap_or("").is_empty()
                 {
                     // Fetch Party Name
                     if let Some(target_entity) = schema.entities.get(&Symbol::from(pt)) {

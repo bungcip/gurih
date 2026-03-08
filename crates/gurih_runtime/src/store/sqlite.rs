@@ -205,7 +205,7 @@ impl DataStore for SqliteDataStore {
         let cols_count = keys.len();
 
         // Chunking: SQLite limit is typically 999 parameters.
-        let chunk_size = if cols_count > 0 { 900 / cols_count } else { 100 };
+        let chunk_size = 900usize.checked_div(cols_count).unwrap_or(100);
         let chunk_size = std::cmp::max(1, chunk_size);
 
         for chunk in prepared_records.chunks(chunk_size) {
