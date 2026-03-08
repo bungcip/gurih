@@ -135,3 +135,9 @@ rule "LeafAccountOnly" {
     assert "lookup_field('Account', account, 'is_group') == false"
     message "Cannot post to a group account"
 }
+
+rule "SingleSidedLine" {
+    on:save "JournalLine"
+    assert "(debit > 0 && (credit == 0 || credit == \"0\" || credit == \"0.00\")) || (credit > 0 && (debit == 0 || debit == \"0\" || debit == \"0.00\"))"
+    message "A journal line must have either a debit or a credit exclusively, but never both or neither"
+}
