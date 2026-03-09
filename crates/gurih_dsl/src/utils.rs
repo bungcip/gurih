@@ -4,7 +4,7 @@ use kdl::{KdlNode, KdlValue};
 
 pub fn get_arg_string(node: &KdlNode, index: usize) -> Result<String, CompileError> {
     node.entry(index)
-        .and_then(|val| val.value().as_string().map(|s| s.to_string()))
+        .and_then(|val| val.value().as_string().map(std::string::ToString::to_string))
         .ok_or_else(|| CompileError::ParseError {
             span: node.span().into(),
             message: format!(
@@ -17,7 +17,7 @@ pub fn get_arg_string(node: &KdlNode, index: usize) -> Result<String, CompileErr
 
 pub fn get_prop_string(node: &KdlNode, key: &str) -> Result<String, CompileError> {
     node.get(key)
-        .and_then(|val| val.as_string().map(|s| s.to_string()))
+        .and_then(|val| val.as_string().map(std::string::ToString::to_string))
         .ok_or_else(|| CompileError::ParseError {
             span: node.span().into(),
             message: format!("Missing property '{}'", key),

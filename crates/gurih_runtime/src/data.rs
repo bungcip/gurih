@@ -197,7 +197,7 @@ impl DataEngine {
             match self.datastore.query_with_params(sql, params).await {
                 Ok(rows) => {
                     if let Some(row) = rows.first() {
-                        if let Some(val) = row.get("value").and_then(|v| v.as_i64()) {
+                        if let Some(val) = row.get("value").and_then(serde_json::Value::as_i64) {
                             return Ok(val);
                         } else if let Some(val) = row.get("value").and_then(|v| v.as_str()) {
                             // SQLite sometimes returns numbers as strings if mapped incorrectly or dynamic
@@ -227,7 +227,7 @@ impl DataEngine {
         filters.insert("context".to_string(), context.to_string());
 
         if let Some(existing) = self.datastore.find_first("_gurih_sequences", filters.clone()).await? {
-            let current = existing.get("value").and_then(|v| v.as_i64()).unwrap_or(0);
+            let current = existing.get("value").and_then(serde_json::Value::as_i64).unwrap_or(0);
             let next = current + 1;
             let id = existing
                 .get("id")
@@ -304,7 +304,7 @@ impl DataEngine {
                         || obj
                             .get(field.name.as_str())
                             .and_then(|v| v.as_str())
-                            .map(|s| s.is_empty())
+                            .map(str::is_empty)
                             .unwrap_or(true);
 
                     #[allow(clippy::collapsible_if)]
@@ -418,7 +418,7 @@ impl DataEngine {
                             || obj
                                 .get(field.name.as_str())
                                 .and_then(|v| v.as_str())
-                                .map(|s| s.is_empty())
+                                .map(str::is_empty)
                                 .unwrap_or(true);
 
                         #[allow(clippy::collapsible_if)]
@@ -1043,7 +1043,7 @@ impl DataEngine {
                         {
                             records_map.insert(id.to_string(), record.clone());
 
-                            let parent_id = obj.get(&parent_field).and_then(|v| v.as_str()).map(|s| s.to_string());
+                            let parent_id = obj.get(&parent_field).and_then(|v| v.as_str()).map(std::string::ToString::to_string);
 
                             if let Some(pid) = parent_id {
                                 if !pid.is_empty() {
@@ -1113,7 +1113,7 @@ impl DataEngine {
                     let details_map: std::collections::HashMap<String, Arc<Value>> = details
                         .into_iter()
                         .filter_map(|d| {
-                            let id = d.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
+                            let id = d.get("id").and_then(|v| v.as_str()).map(std::string::ToString::to_string);
                             id.map(|i| (i, d))
                         })
                         .collect();
@@ -1292,8 +1292,8 @@ impl DataEngine {
                 let child_vals =
                     self.compute_rollups(child, records_map, children_map, rollup_fields, cache, visited)?;
                 for field in rollup_fields {
-                    let cur = current_rollup.get(field).and_then(|v| v.as_f64()).unwrap_or(0.0);
-                    let child = child_vals.get(field).and_then(|v| v.as_f64()).unwrap_or(0.0);
+                    let cur = current_rollup.get(field).and_then(serde_json::Value::as_f64).unwrap_or(0.0);
+                    let child = child_vals.get(field).and_then(serde_json::Value::as_f64).unwrap_or(0.0);
                     current_rollup.insert(field.clone(), Value::from(cur + child));
                 }
             }
@@ -1591,7 +1591,7 @@ impl DataEngine {
                     let mut filters = HashMap::new();
                     filters.insert("system_tag".to_string(), account_term.to_string());
                     if let Ok(Some(acc)) = self.datastore.find_first(account_table, filters).await {
-                        found_id = acc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
+                        found_id = acc.get("id").and_then(|v| v.as_str()).map(std::string::ToString::to_string);
                     }
                 }
 
@@ -1599,7 +1599,7 @@ impl DataEngine {
                     let mut filters = HashMap::new();
                     filters.insert("code".to_string(), account_term.to_string());
                     if let Ok(Some(acc)) = self.datastore.find_first(account_table, filters).await {
-                        found_id = acc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
+                        found_id = acc.get("id").and_then(|v| v.as_str()).map(std::string::ToString::to_string);
                     }
                 }
 
@@ -1607,7 +1607,7 @@ impl DataEngine {
                     let mut filters = HashMap::new();
                     filters.insert("name".to_string(), account_term.to_string());
                     if let Ok(Some(acc)) = self.datastore.find_first(account_table, filters).await {
-                        found_id = acc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
+                        found_id = acc.get("id").and_then(|v| v.as_str()).map(std::string::ToString::to_string);
                     }
                 }
 

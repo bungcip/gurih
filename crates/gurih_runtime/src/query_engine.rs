@@ -200,7 +200,7 @@ impl QueryEngine {
                     structure_sql,
                     structure_params: struct_params,
                     parent_field: h.parent_field.to_string(),
-                    rollup_fields: h.rollup_fields.iter().map(|s| s.to_string()).collect(),
+                    rollup_fields: h.rollup_fields.iter().map(std::string::ToString::to_string).collect(),
                 }],
             })
         } else {
