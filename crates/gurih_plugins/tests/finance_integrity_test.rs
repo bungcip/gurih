@@ -77,11 +77,11 @@ async fn test_prevent_account_delete_in_use() {
 }
 
 #[tokio::test]
-async fn test_allow_account_delete_unused() {
+async fn test_allow_account_delete_without_entries() {
     let (engine, ctx) = setup_test_env().await;
 
-    // 1. Create Unused Account
-    let unused_acc_data = json!({
+    // 1. Create Account Without Entries
+    let acc_data_no_entries = json!({
         "code": "102",
         "name": "Bank",
         "type": "Asset",
@@ -89,12 +89,12 @@ async fn test_allow_account_delete_unused() {
         "is_group": false,
         "is_active": true
     });
-    let unused_acc_id = engine
-        .create("Account", unused_acc_data, &ctx)
+    let acc_id_no_entries = engine
+        .create("Account", acc_data_no_entries, &ctx)
         .await
-        .expect("Failed to create unused account");
+        .expect("Failed to create account without entries");
 
-    // 2. Try Delete Unused Account (Should Succeed)
-    let delete_res = engine.delete("Account", &unused_acc_id, &ctx).await;
-    assert!(delete_res.is_ok(), "Should allow deleting unused account");
+    // 2. Try Delete Account Without Entries (Should Succeed)
+    let delete_res = engine.delete("Account", &acc_id_no_entries, &ctx).await;
+    assert!(delete_res.is_ok(), "Should allow deleting account without entries");
 }

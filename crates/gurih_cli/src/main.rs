@@ -651,7 +651,7 @@ async fn upload_handler(
     let storage_name_string = field
         .storage
         .as_ref()
-        .map(|s| s.to_string())
+        .map(std::string::ToString::to_string)
         .unwrap_or_else(|| "default".to_string());
     let storage_name = storage_name_string.as_str();
 

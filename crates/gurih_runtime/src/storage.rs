@@ -21,7 +21,7 @@ fn validate_filename(filename: &str) -> Result<(), String> {
     }
 
     // Check for control characters
-    if filename.chars().any(|c| c.is_control()) {
+    if filename.chars().any(char::is_control) {
         return Err("Filename contains invalid characters".to_string());
     }
 

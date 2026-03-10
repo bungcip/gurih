@@ -325,7 +325,7 @@ async fn check_valid_parties(
             .get(account_id)
             .ok_or_else(|| RuntimeError::ValidationError(format!("Account not found: {}", account_id)))?;
 
-        let requires_party = account.get("requires_party").and_then(|v| v.as_bool()).unwrap_or(false);
+        let requires_party = account.get("requires_party").and_then(serde_json::Value::as_bool).unwrap_or(false);
 
         let party_type = line.get("party_type").and_then(|v| v.as_str());
         let party_id = line.get("party_id").and_then(|v| v.as_str());

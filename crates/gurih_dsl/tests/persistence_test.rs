@@ -36,5 +36,5 @@ fn test_compile_table_and_database() {
     let col_code = table.columns.iter().find(|c| c.name == Symbol::from("code")).unwrap();
     assert_eq!(col_code.type_name, ColumnType::Varchar);
     assert!(col_code.unique);
-    assert_eq!(col_code.props.get("len").map(|s| s.as_str()), Some("50"));
+    assert_eq!(col_code.props.get("len").map(std::string::String::as_str), Some("50"));
 }

@@ -23,7 +23,7 @@ impl PageEngine {
         if target_page.is_none() {
             target_page = schema.pages.values().find(|p| match &p.content {
                 gurih_ir::PageContentSchema::Datatable(dt) => {
-                    dt.entity.as_ref().map(|s| s.as_str()) == Some(entity.as_str())
+                    dt.entity.as_ref().map(gurih_ir::Symbol::as_str) == Some(entity.as_str())
                 }
                 _ => false,
             });

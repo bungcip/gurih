@@ -13,8 +13,8 @@ fn test_finance_dsl_parsing() {
         .expect("Account entity missing");
     let seeds = account.seeds.as_ref().expect("Seeds missing");
     assert_eq!(seeds.len(), 1);
-    assert_eq!(seeds[0].get("name").map(|s| s.as_str()), Some("Cash"));
-    assert_eq!(seeds[0].get("code").map(|s| s.as_str()), Some("101"));
+    assert_eq!(seeds[0].get("name").map(std::string::String::as_str), Some("Cash"));
+    assert_eq!(seeds[0].get("code").map(std::string::String::as_str), Some("101"));
 
     // Verify Workflow Preconditions
     let wf = schema
