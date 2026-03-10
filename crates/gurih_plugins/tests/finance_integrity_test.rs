@@ -57,7 +57,7 @@ async fn test_prevent_account_delete_in_use() {
         "journal_entry": journal_id,
         "account": acc_id,
         "debit": "100.00",
-        "credit": "0.00"
+        "credit": "0"
     });
     engine
         .create("JournalLine", line, &ctx)
