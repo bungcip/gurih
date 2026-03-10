@@ -63,6 +63,7 @@ impl QueryEngine {
 
         // Process Root Selections & Formulas
         for sel in &query.selections {
+            validate_identifier(sel.field.as_str())?;
             let col_sql = format!("\"{}\".\"{}\"", root_table, sel.field);
             if let Some(alias) = &sel.alias {
                 validate_identifier(alias.as_str())?;
@@ -135,9 +136,11 @@ impl QueryEngine {
 
             // Force ID and Parent
             struct_selects.push(format!("\"{}\".\"id\"", root_table));
+            validate_identifier(h.parent_field.as_str())?;
             struct_selects.push(format!("\"{}\".\"{}\"", root_table, h.parent_field));
 
             for rf in &h.rollup_fields {
+                validate_identifier(rf.as_str())?;
                 if let Some(form) = query.formulas.iter().find(|f| f.name == *rf) {
                     let expr_sql =
                         Self::expression_to_sql(&form.expression, &mut struct_params, &db_type, runtime_params)?;
@@ -258,6 +261,7 @@ impl QueryEngine {
                 .push(format!("LEFT JOIN \"{}\" ON {}", target_table, join_condition));
 
             for sel in &join.selections {
+                validate_identifier(sel.field.as_str())?;
                 let col_sql = format!("\"{}\".\"{}\"", target_table, sel.field);
                 if let Some(alias) = &sel.alias {
                     validate_identifier(alias.as_str())?;
