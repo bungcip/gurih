@@ -143,14 +143,13 @@ impl Validator {
         span: SourceSpan,
     ) -> Result<(), CompileError> {
         match expr {
-            Expr::Field(name, _) => {
-                if !fields.contains(name) {
-                    return Err(CompileError::ValidationError {
-                        span,
-                        message: format!("Field '{}' not found in entity", name),
-                    });
-                }
+            Expr::Field(name, _) if !fields.contains(name) => {
+                return Err(CompileError::ValidationError {
+                    span,
+                    message: format!("Field '{}' not found in entity", name),
+                });
             }
+            Expr::Field(_, _) => {}
             Expr::FunctionCall { args, .. } => {
                 for arg in args {
                     self.validate_expression_fields(arg, fields, span)?;

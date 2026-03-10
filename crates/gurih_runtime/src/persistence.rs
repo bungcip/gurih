@@ -200,12 +200,11 @@ impl SchemaManager {
                                 query = query.bind(v.to_string());
                             }
                         }
+                        Some(FieldType::Password) if !v.starts_with("v3$") => {
+                            query = query.bind(hash_password(v));
+                        }
                         Some(FieldType::Password) => {
-                            if !v.starts_with("v3$") {
-                                query = query.bind(hash_password(v));
-                            } else {
-                                query = query.bind(v.to_string());
-                            }
+                            query = query.bind(v.to_string());
                         }
                         _ => {
                             query = query.bind(v.to_string());
@@ -242,12 +241,11 @@ impl SchemaManager {
                             let f = v.parse::<f64>().unwrap_or(0.0);
                             query = query.bind(f);
                         }
+                        Some(FieldType::Password) if !v.starts_with("v3$") => {
+                            query = query.bind(hash_password(v));
+                        }
                         Some(FieldType::Password) => {
-                            if !v.starts_with("v3$") {
-                                query = query.bind(hash_password(v));
-                            } else {
-                                query = query.bind(v.to_string());
-                            }
+                            query = query.bind(v.to_string());
                         }
                         _ => {
                             query = query.bind(v.to_string());

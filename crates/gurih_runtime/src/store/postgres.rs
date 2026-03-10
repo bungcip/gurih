@@ -191,7 +191,7 @@ impl DataStore for PostgresDataStore {
         let cols_count = keys.len();
 
         // Chunking: Postgres limit is 65535 parameters.
-        let chunk_size = if cols_count > 0 { 65000 / cols_count } else { 2000 };
+        let chunk_size = 65000usize.checked_div(cols_count).unwrap_or(2000);
         let chunk_size = std::cmp::max(1, chunk_size);
 
         for chunk in prepared_records.chunks(chunk_size) {
