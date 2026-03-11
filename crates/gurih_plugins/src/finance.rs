@@ -689,9 +689,9 @@ async fn check_period_overlap(
         .ok_or_else(|| RuntimeError::ValidationError("Missing end_date".to_string()))?;
 
     let start_date = NaiveDate::parse_from_str(start_date_s, "%Y-%m-%d")
-        .map_err(|_| RuntimeError::ValidationError("Invalid start_date format".to_string()))?;
+        .map_err(|_| RuntimeError::ValidationError(format!("Invalid start_date format: '{}'", start_date_s)))?;
     let end_date = NaiveDate::parse_from_str(end_date_s, "%Y-%m-%d")
-        .map_err(|_| RuntimeError::ValidationError("Invalid end_date format".to_string()))?;
+        .map_err(|_| RuntimeError::ValidationError(format!("Invalid end_date format: '{}'", end_date_s)))?;
 
     if start_date > end_date {
         return Err(RuntimeError::ValidationError(
