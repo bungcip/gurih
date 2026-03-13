@@ -19,8 +19,6 @@ tokio = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 rust-s3 = "0.37"
-base64 = "0.22"
-symbol_table = {workspace = true }
 bytes = { workspace = true }
 
 [dev-dependencies]
