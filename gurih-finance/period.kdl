@@ -49,6 +49,12 @@ workflow "PeriodWorkflow" for="AccountingPeriod" field="status" {
     }
 }
 
+rule "ValidPeriodDates" {
+    on:save "AccountingPeriod"
+    assert "start_date <= end_date"
+    message "Start date must be before or equal to end date"
+}
+
 page "PeriodList" {
     title "Accounting Periods"
     datatable for="AccountingPeriod" {

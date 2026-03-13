@@ -19,6 +19,12 @@ entity "Reconciliation" {
     }
 }
 
+rule "PositiveReconciliationAmount" {
+    on:save "Reconciliation"
+    assert "amount > 0"
+    message "Reconciliation amount must be positive"
+}
+
 action "ReconcileEntries" {
     params "debit_line_id" "credit_line_id" "amount"
     step "finance:reconcile_entries" debit_line_id="param('debit_line_id')" credit_line_id="param('credit_line_id')" amount="param('amount')"
