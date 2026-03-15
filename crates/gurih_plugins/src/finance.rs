@@ -653,18 +653,24 @@ async fn execute_reconcile_entries(
     };
 
     let d_update = update_status(d_residual, amount);
+    let d_status_id = d_status_arc.get("id").and_then(|v| v.as_str()).ok_or_else(|| {
+        RuntimeError::ValidationError("Debit line status missing id".to_string())
+    })?;
     ds.update(
         status_table,
-        d_status_arc.get("id").and_then(|v| v.as_str()).unwrap(),
+        d_status_id,
         Value::Object(d_update),
     )
     .await
     .map_err(RuntimeError::WorkflowError)?;
 
     let c_update = update_status(c_residual, amount);
+    let c_status_id = c_status_arc.get("id").and_then(|v| v.as_str()).ok_or_else(|| {
+        RuntimeError::ValidationError("Credit line status missing id".to_string())
+    })?;
     ds.update(
         status_table,
-        c_status_arc.get("id").and_then(|v| v.as_str()).unwrap(),
+        c_status_id,
         Value::Object(c_update),
     )
     .await
