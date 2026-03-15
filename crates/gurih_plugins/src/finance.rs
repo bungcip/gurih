@@ -423,11 +423,31 @@ async fn check_period_open(
 
             let params = vec![Value::String(date_s.to_string()), Value::String(date_s.to_string())];
 
-            let periods = ds
-                .query_with_params(&sql, params)
-                .await
-                .map_err(RuntimeError::WorkflowError)?;
-            if periods.is_empty() {
+            let is_empty = match ds.query_with_params(&sql, params.clone()).await {
+                Ok(periods) => periods.is_empty(),
+                Err(e) if e.contains("Raw SQL query not supported") => {
+                    // Fallback for MemoryDataStore
+                    let all_periods = ds.list(table_name, None, None).await.map_err(RuntimeError::WorkflowError)?;
+                    let mut found = false;
+                    for p in all_periods {
+                        if p.get("status").and_then(|v| v.as_str()) == Some("Open") {
+                            if let (Some(start), Some(end)) = (
+                                p.get("start_date").and_then(|v| v.as_str()),
+                                p.get("end_date").and_then(|v| v.as_str())
+                            ) {
+                                if start <= date_s && end >= date_s {
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    !found
+                }
+                Err(e) => return Err(RuntimeError::WorkflowError(e)),
+            };
+
+            if is_empty {
                 return Err(RuntimeError::ValidationError(format!(
                     "No open {} found for date {}",
                     target_entity, date_s
