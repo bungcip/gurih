@@ -124,25 +124,23 @@ async fn fetch_journal_lines(
 
     // 2. If not in payload, fetch from Datastore
     if !found_lines_in_payload {
-        if let Some(ds) = datastore {
-            if let Some(id) = entity_data.get("id").and_then(|v| v.as_str()) {
-                let table_name = schema
-                    .entities
-                    .get(&Symbol::from("JournalLine"))
-                    .map(|e| e.table_name.as_str())
-                    .unwrap_or("journal_line");
+        if let (Some(ds), Some(id)) = (datastore, entity_data.get("id").and_then(|v| v.as_str())) {
+            let table_name = schema
+                .entities
+                .get(&Symbol::from("JournalLine"))
+                .map(|e| e.table_name.as_str())
+                .unwrap_or("journal_line");
 
-                let mut filters = HashMap::new();
-                filters.insert("journal_entry".to_string(), id.to_string());
+            let mut filters = HashMap::new();
+            filters.insert("journal_entry".to_string(), id.to_string());
 
-                let db_lines = ds
-                    .find(table_name, filters)
-                    .await
-                    .map_err(RuntimeError::WorkflowError)?;
+            let db_lines = ds
+                .find(table_name, filters)
+                .await
+                .map_err(RuntimeError::WorkflowError)?;
 
-                for line in db_lines {
-                    lines.push(line.as_ref().clone());
-                }
+            for line in db_lines {
+                lines.push(line.as_ref().clone());
             }
         }
     }
@@ -451,14 +449,13 @@ async fn execute_init_line_status(
     schema: &Schema,
     datastore: Option<&Arc<dyn DataStore>>,
 ) -> Result<(), RuntimeError> {
-    if let Some(ds) = datastore {
-        if let Some(journal_id) = entity_data.get("id").and_then(|v| v.as_str()) {
-            // 1. Fetch Journal Lines
-            let table_name = schema
-                .entities
-                .get(&Symbol::from("JournalLine"))
-                .map(|e| e.table_name.as_str())
-                .unwrap_or("journal_line");
+    if let (Some(ds), Some(journal_id)) = (datastore, entity_data.get("id").and_then(|v| v.as_str())) {
+        // 1. Fetch Journal Lines
+        let table_name = schema
+            .entities
+            .get(&Symbol::from("JournalLine"))
+            .map(|e| e.table_name.as_str())
+            .unwrap_or("journal_line");
 
             let mut filters = HashMap::new();
             filters.insert("journal_entry".to_string(), journal_id.to_string());
@@ -491,17 +488,16 @@ async fn execute_init_line_status(
                 }
             }
 
-            if !status_records.is_empty() {
-                let status_table = schema
-                    .entities
-                    .get(&Symbol::from("JournalLineStatus"))
-                    .map(|e| e.table_name.as_str())
-                    .unwrap_or("journal_line_status");
+        if !status_records.is_empty() {
+            let status_table = schema
+                .entities
+                .get(&Symbol::from("JournalLineStatus"))
+                .map(|e| e.table_name.as_str())
+                .unwrap_or("journal_line_status");
 
-                ds.insert_many(status_table, status_records)
-                    .await
-                    .map_err(RuntimeError::WorkflowError)?;
-            }
+            ds.insert_many(status_table, status_records)
+                .await
+                .map_err(RuntimeError::WorkflowError)?;
         }
     }
     Ok(())
@@ -717,19 +713,22 @@ async fn check_period_overlap(
     // 3. Check Overlap
     for period in all_periods {
         // Skip self
-        if let Some(pid) = period.get("id").and_then(|v| v.as_str()) {
-            if let Some(cid) = current_id {
-                if pid == cid {
-                    continue;
-                }
-            }
+        let pid_opt = period.get("id").and_then(|v| v.as_str());
+        let is_same = match (pid_opt, current_id) {
+            (Some(pid), Some(cid)) => pid == cid,
+            _ => false,
+        };
+        if is_same {
+            continue;
         }
 
         // Skip Draft
-        if let Some(status) = period.get("status").and_then(|v| v.as_str()) {
-            if status == "Draft" {
-                continue;
-            }
+        let is_draft = match period.get("status").and_then(|v| v.as_str()) {
+            Some(s) => s == "Draft",
+            _ => false,
+        };
+        if is_draft {
+            continue;
         }
 
         let p_start_s = period.get("start_date").and_then(|v| v.as_str()).unwrap_or("");
@@ -995,12 +994,12 @@ async fn execute_generate_closing_entry(
 
             let mut journal_ids = Vec::new();
             for je in journals {
-                if let Some(d_str) = je.get("date").and_then(|v| v.as_str()) {
+                let d_str_opt = je.get("date").and_then(|v| v.as_str());
+                let id_opt = je.get("id").and_then(|v| v.as_str());
+                if let (Some(d_str), Some(id)) = (d_str_opt, id_opt) {
                     if let Ok(d) = NaiveDate::parse_from_str(d_str, "%Y-%m-%d") {
                         if d >= p_start_date && d <= p_end_date {
-                            if let Some(id) = je.get("id").and_then(|v| v.as_str()) {
-                                journal_ids.push(id.to_string());
-                            }
+                            journal_ids.push(id.to_string());
                         }
                     }
                 }
@@ -1035,9 +1034,14 @@ async fn execute_generate_closing_entry(
                         .map_err(RuntimeError::WorkflowError)?;
 
                     for line in lines {
-                        if let Some(acc_id) = line.get("account").and_then(|v| v.as_str()) {
+                        let acc_id_opt = line.get("account").and_then(|v| v.as_str());
+                        if let Some(acc_id) = acc_id_opt {
                             if let Some(typ) = acc_type_map.get(acc_id) {
-                                if typ == "Revenue" || typ == "Expense" {
+                                let is_rev_exp = match typ.as_str() {
+                                    "Revenue" | "Expense" => true,
+                                    _ => false,
+                                };
+                                if is_rev_exp {
                                     // Construct a pseudo-row for aggregation
                                     let mut row_map = serde_json::Map::new();
                                     row_map.insert("account_id".to_string(), Value::String(acc_id.to_string()));
@@ -1162,17 +1166,16 @@ async fn execute_snapshot_parties(
     schema: &Schema,
     datastore: Option<&Arc<dyn DataStore>>,
 ) -> Result<(), RuntimeError> {
-    if let Some(ds) = datastore {
-        if let Some(journal_id) = entity_data.get("id").and_then(|v| v.as_str()) {
-            // 1. Fetch Journal Lines
-            let table_name = schema
-                .entities
-                .get(&Symbol::from("JournalLine"))
-                .map(|e| e.table_name.as_str())
-                .unwrap_or("journal_line");
+    if let (Some(ds), Some(journal_id)) = (datastore, entity_data.get("id").and_then(|v| v.as_str())) {
+        // 1. Fetch Journal Lines
+        let table_name = schema
+            .entities
+            .get(&Symbol::from("JournalLine"))
+            .map(|e| e.table_name.as_str())
+            .unwrap_or("journal_line");
 
-            let mut filters = HashMap::new();
-            filters.insert("journal_entry".to_string(), journal_id.to_string());
+        let mut filters = HashMap::new();
+        filters.insert("journal_entry".to_string(), journal_id.to_string());
 
             let lines = ds
                 .find(table_name, filters)
@@ -1190,35 +1193,33 @@ async fn execute_snapshot_parties(
                     let current_name = line.get("party_name").and_then(|v| v.as_str());
 
                     // Only update if party_id exists AND party_name is missing/empty
-                    if let (Some(pt), Some(pid)) = (party_type, party_id) {
-                        if current_name.unwrap_or("").is_empty() {
-                            // Fetch Party Name
-                            if let Some(target_entity) = schema.entities.get(&Symbol::from(pt)) {
-                                let target_table = target_entity.table_name.as_str();
-                                if let Some(party_record) =
-                                    ds.get(target_table, pid).await.map_err(RuntimeError::WorkflowError)?
-                                {
-                                    let name = party_record
-                                        .get("name")
-                                        .or_else(|| party_record.get("full_name")) // Try common name fields
-                                        .or_else(|| party_record.get("description"))
-                                        .and_then(|v| v.as_str())
-                                        .unwrap_or("Unknown");
+                    let is_empty = current_name.unwrap_or("").is_empty();
+                    if let (Some(pt), Some(pid), true) = (party_type, party_id, is_empty) {
+                        // Fetch Party Name
+                        if let Some(target_entity) = schema.entities.get(&Symbol::from(pt)) {
+                            let target_table = target_entity.table_name.as_str();
+                            if let Some(party_record) =
+                                ds.get(target_table, pid).await.map_err(RuntimeError::WorkflowError)?
+                            {
+                                let name = party_record
+                                    .get("name")
+                                    .or_else(|| party_record.get("full_name")) // Try common name fields
+                                    .or_else(|| party_record.get("description"))
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("Unknown");
 
-                                    // Update JournalLine
-                                    let mut update_data = serde_json::Map::new();
-                                    update_data.insert("party_name".to_string(), Value::String(name.to_string()));
+                                // Update JournalLine
+                                let mut update_data = serde_json::Map::new();
+                                update_data.insert("party_name".to_string(), Value::String(name.to_string()));
 
-                                    ds.update(table_name, lid, Value::Object(update_data))
-                                        .await
-                                        .map_err(RuntimeError::WorkflowError)?;
-                                }
+                                ds.update(table_name, lid, Value::Object(update_data))
+                                    .await
+                                    .map_err(RuntimeError::WorkflowError)?;
                             }
                         }
                     }
                 }
             }
-        }
     }
     Ok(())
 }
