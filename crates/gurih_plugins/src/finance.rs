@@ -1057,10 +1057,7 @@ async fn execute_generate_closing_entry(
                         let acc_id_opt = line.get("account").and_then(|v| v.as_str());
                         if let Some(acc_id) = acc_id_opt {
                             if let Some(typ) = acc_type_map.get(acc_id) {
-                                let is_rev_exp = match typ.as_str() {
-                                    "Revenue" | "Expense" => true,
-                                    _ => false,
-                                };
+                                let is_rev_exp = matches!(typ.as_str(), "Revenue" | "Expense");
                                 if is_rev_exp {
                                     // Construct a pseudo-row for aggregation
                                     let mut row_map = serde_json::Map::new();
