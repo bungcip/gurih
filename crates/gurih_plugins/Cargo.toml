@@ -7,7 +7,6 @@ edition = "2024"
 async-trait = { workspace = true }
 gurih_ir = { workspace = true }
 gurih_runtime = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }

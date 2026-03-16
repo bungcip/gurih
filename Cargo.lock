@@ -1275,7 +1275,6 @@ dependencies = [
  "gurih_ir",
  "gurih_runtime",
  "rust_decimal",
- "serde",
  "serde_json",
  "tokio",
  "uuid",
