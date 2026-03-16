@@ -147,7 +147,9 @@ impl SchemaManager {
         self.execute_query(sql).await
     }
 
-    async fn insert_seed(&self, entity: &EntitySchema, seed: &HashMap<String, String>) -> Result<(), String> {
+    pub async fn insert_seed(&self, entity: &EntitySchema, seed: &HashMap<String, String>) -> Result<(), String> {
+        validate_identifier(&entity.table_name.to_string())?;
+
         let mut cols = vec![];
         let mut placeholders = vec![];
         let mut values_str = vec![]; // Keep values to bind later
@@ -157,6 +159,7 @@ impl SchemaManager {
         sorted_seed.sort_by_key(|(k, _)| *k);
 
         for (k, v) in sorted_seed {
+            validate_identifier(k)?;
             cols.push(format!("\"{}\"", k));
             values_str.push((k, v));
         }
