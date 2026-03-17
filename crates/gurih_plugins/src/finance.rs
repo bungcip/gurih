@@ -547,7 +547,8 @@ async fn execute_reconcile_entries(
             .ok_or(RuntimeError::WorkflowError("Missing amount".to_string()))?,
         params,
     );
-    let amount = amount_str.parse::<Decimal>().unwrap_or(Decimal::ZERO);
+    let amount = amount_str.parse::<Decimal>()
+        .map_err(|_| RuntimeError::ValidationError(format!("Invalid reconciliation amount: '{}'", amount_str)))?;
 
     if amount <= Decimal::ZERO {
         return Err(RuntimeError::ValidationError(
@@ -760,18 +761,18 @@ async fn check_period_overlap(
         let p_start_s = period.get("start_date").and_then(|v| v.as_str()).unwrap_or("");
         let p_end_s = period.get("end_date").and_then(|v| v.as_str()).unwrap_or("");
 
-        if let (Ok(p_start), Ok(p_end)) = (
-            NaiveDate::parse_from_str(p_start_s, "%Y-%m-%d"),
-            NaiveDate::parse_from_str(p_end_s, "%Y-%m-%d"),
-        ) {
-            // Overlap logic: start1 <= end2 AND end1 >= start2
-            if start_date <= p_end && end_date >= p_start {
-                let name = period.get("name").and_then(|v| v.as_str()).unwrap_or("?");
-                return Err(RuntimeError::ValidationError(format!(
-                    "Period overlaps with existing period '{}'",
-                    name
-                )));
-            }
+        let p_start = NaiveDate::parse_from_str(p_start_s, "%Y-%m-%d")
+            .map_err(|_| RuntimeError::ValidationError(format!("Invalid start_date format in existing period: '{}'", p_start_s)))?;
+        let p_end = NaiveDate::parse_from_str(p_end_s, "%Y-%m-%d")
+            .map_err(|_| RuntimeError::ValidationError(format!("Invalid end_date format in existing period: '{}'", p_end_s)))?;
+
+        // Overlap logic: start1 <= end2 AND end1 >= start2
+        if start_date <= p_end && end_date >= p_start {
+            let name = period.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+            return Err(RuntimeError::ValidationError(format!(
+                "Period overlaps with existing period '{}'",
+                name
+            )));
         }
     }
 
@@ -806,7 +807,11 @@ async fn execute_reverse_journal(
         .entities
         .get(&Symbol::from("JournalLine"))
         .map(|e| e.table_name.as_str())
-        .unwrap_or("JournalLine");
+        .unwrap_or("journal_line");
+
+    if let Err(e) = validate_identifier(table_name) {
+        return Err(RuntimeError::WorkflowError(format!("Invalid table_name for JournalLine: {}", e)));
+    }
 
     let lines = data_access
         .datastore()
@@ -898,8 +903,10 @@ async fn execute_generate_closing_entry(
         .map_err(RuntimeError::WorkflowError)?
         .ok_or(RuntimeError::WorkflowError("AccountingPeriod not found".to_string()))?;
 
-    let start_date = period_arc.get("start_date").and_then(|v| v.as_str()).unwrap_or("");
-    let end_date = period_arc.get("end_date").and_then(|v| v.as_str()).unwrap_or("");
+    let start_date = period_arc.get("start_date").and_then(|v| v.as_str())
+        .ok_or(RuntimeError::ValidationError("Missing start_date in period".to_string()))?;
+    let end_date = period_arc.get("end_date").and_then(|v| v.as_str())
+        .ok_or(RuntimeError::ValidationError("Missing end_date in period".to_string()))?;
     let period_name = period_arc.get("name").and_then(|v| v.as_str()).unwrap_or("");
 
     // 2. Find Retained Earnings Account
@@ -1015,18 +1022,20 @@ async fn execute_generate_closing_entry(
                 .map_err(RuntimeError::WorkflowError)?;
 
             // 2. Filter by Date Range in Memory
-            let p_start_date = NaiveDate::parse_from_str(start_date, "%Y-%m-%d").unwrap_or_default();
-            let p_end_date = NaiveDate::parse_from_str(end_date, "%Y-%m-%d").unwrap_or_default();
+            let p_start_date = NaiveDate::parse_from_str(start_date, "%Y-%m-%d")
+                .map_err(|_| RuntimeError::ValidationError(format!("Invalid start_date format: '{}'", start_date)))?;
+            let p_end_date = NaiveDate::parse_from_str(end_date, "%Y-%m-%d")
+                .map_err(|_| RuntimeError::ValidationError(format!("Invalid end_date format: '{}'", end_date)))?;
 
             let mut journal_ids = Vec::new();
             for je in journals {
                 let d_str_opt = je.get("date").and_then(|v| v.as_str());
                 let id_opt = je.get("id").and_then(|v| v.as_str());
                 if let (Some(d_str), Some(id)) = (d_str_opt, id_opt) {
-                    if let Ok(d) = NaiveDate::parse_from_str(d_str, "%Y-%m-%d") {
-                        if d >= p_start_date && d <= p_end_date {
-                            journal_ids.push(id.to_string());
-                        }
+                    let d = NaiveDate::parse_from_str(d_str, "%Y-%m-%d")
+                        .map_err(|_| RuntimeError::ValidationError(format!("Invalid journal entry date format: '{}'", d_str)))?;
+                    if d >= p_start_date && d <= p_end_date {
+                        journal_ids.push(id.to_string());
                     }
                 }
             }
