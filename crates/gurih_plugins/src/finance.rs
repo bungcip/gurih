@@ -16,19 +16,21 @@ use uuid::Uuid;
 
 pub struct FinancePlugin;
 
-fn parse_decimal_opt(v: Option<&Value>) -> Decimal {
+fn parse_decimal_opt(v: Option<&Value>) -> Result<Decimal, RuntimeError> {
     match v {
         Some(val) => {
             if let Some(s) = val.as_str() {
-                s.parse().unwrap_or(Decimal::ZERO)
+                s.parse().map_err(|_| RuntimeError::ValidationError(format!("Invalid decimal amount: '{}'", s)))
             } else if let Some(n) = val.as_f64() {
                 // Best effort conversion from float
-                Decimal::from_f64_retain(n).unwrap_or(Decimal::ZERO)
+                Decimal::from_f64_retain(n).ok_or_else(|| RuntimeError::ValidationError(format!("Invalid float amount: '{}'", n)))
+            } else if val.is_null() {
+                Ok(Decimal::ZERO)
             } else {
-                Decimal::ZERO
+                Err(RuntimeError::ValidationError(format!("Invalid decimal amount type: '{}'", val)))
             }
         }
-        None => Decimal::ZERO,
+        None => Ok(Decimal::ZERO),
     }
 }
 
@@ -160,8 +162,8 @@ async fn check_balanced_transaction(
 
     for line in lines {
         if let Some(line_obj) = line.as_object() {
-            total_debit += parse_decimal_opt(line_obj.get("debit"));
-            total_credit += parse_decimal_opt(line_obj.get("credit"));
+            total_debit += parse_decimal_opt(line_obj.get("debit"))?;
+            total_credit += parse_decimal_opt(line_obj.get("credit"))?;
         }
     }
 
@@ -490,8 +492,8 @@ async fn execute_init_line_status(
             for line_arc in lines {
                 let line = line_arc.as_ref();
                 if let Some(lid) = line.get("id").and_then(|v| v.as_str()) {
-                    let debit = parse_decimal_opt(line.get("debit"));
-                    let credit = parse_decimal_opt(line.get("credit"));
+                    let debit = parse_decimal_opt(line.get("debit"))?;
+                    let credit = parse_decimal_opt(line.get("credit"))?;
 
                     // Residual is the amount (debit or credit)
                     let amount = (debit - credit).abs();
@@ -626,8 +628,8 @@ async fn execute_reconcile_entries(
             "Credit line status not found".to_string(),
         ))?;
 
-    let d_residual = parse_decimal_opt(d_status_arc.get("amount_residual"));
-    let c_residual = parse_decimal_opt(c_status_arc.get("amount_residual"));
+    let d_residual = parse_decimal_opt(d_status_arc.get("amount_residual"))?;
+    let c_residual = parse_decimal_opt(c_status_arc.get("amount_residual"))?;
 
     if amount > d_residual {
         return Err(RuntimeError::ValidationError(format!(
@@ -1099,8 +1101,8 @@ async fn execute_generate_closing_entry(
             continue;
         }
 
-        let debit = parse_decimal_opt(row.get("debit"));
-        let credit = parse_decimal_opt(row.get("credit"));
+        let debit = parse_decimal_opt(row.get("debit"))?;
+        let credit = parse_decimal_opt(row.get("credit"))?;
 
         let entry = account_balances
             .entry(account_id)
