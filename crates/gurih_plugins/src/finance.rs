@@ -113,6 +113,7 @@ async fn fetch_journal_lines(
         for (_key, val) in obj {
             if let Some(val_lines) = val.as_array() {
                 for line in val_lines {
+                    #[allow(clippy::collapsible_if)]
                     if let Some(line_obj) = line.as_object() {
                         if line_obj.contains_key("debit") || line_obj.contains_key("credit") {
                             lines.push(line.clone());
@@ -125,6 +126,7 @@ async fn fetch_journal_lines(
     }
 
     // 2. If not in payload, fetch from Datastore
+    #[allow(clippy::collapsible_if)]
     if !found_lines_in_payload {
         if let (Some(ds), Some(id)) = (datastore, entity_data.get("id").and_then(|v| v.as_str())) {
             let table_name = schema
@@ -430,7 +432,9 @@ async fn check_period_open(
                     let all_periods = ds.list(table_name, None, None).await.map_err(RuntimeError::WorkflowError)?;
                     let mut found = false;
                     for p in all_periods {
+                        #[allow(clippy::collapsible_if)]
                         if p.get("status").and_then(|v| v.as_str()) == Some("Open") {
+                            #[allow(clippy::collapsible_if)]
                             if let (Some(start), Some(end)) = (
                                 p.get("start_date").and_then(|v| v.as_str()),
                                 p.get("end_date").and_then(|v| v.as_str())
@@ -1072,6 +1076,7 @@ async fn execute_generate_closing_entry(
 
                     for line in lines {
                         let acc_id_opt = line.get("account").and_then(|v| v.as_str());
+                        #[allow(clippy::collapsible_if)]
                         if let Some(acc_id) = acc_id_opt {
                             if let Some(typ) = acc_type_map.get(acc_id) {
                                 let is_rev_exp = matches!(typ.as_str(), "Revenue" | "Expense");
