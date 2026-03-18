@@ -180,7 +180,12 @@ impl QueryEngine {
             if !query.filters.is_empty() {
                 let mut filter_parts = Vec::new();
                 for e in &query.filters {
-                    filter_parts.push(Self::expression_to_sql(e, &mut struct_params, &db_type, runtime_params)?);
+                    filter_parts.push(Self::expression_to_sql(
+                        e,
+                        &mut struct_params,
+                        &db_type,
+                        runtime_params,
+                    )?);
                 }
                 struct_where_clause = format!("WHERE {}", filter_parts.join(" AND "));
             }
@@ -442,9 +447,10 @@ impl QueryEngine {
                     Self::expression_to_sql(right, params, db_type, runtime_params)?
                 ))
             }
-            Expression::Grouping(inner) => {
-                Ok(format!("({})", Self::expression_to_sql(inner, params, db_type, runtime_params)?))
-            }
+            Expression::Grouping(inner) => Ok(format!(
+                "({})",
+                Self::expression_to_sql(inner, params, db_type, runtime_params)?
+            )),
         }
     }
 }
