@@ -58,11 +58,14 @@ fn test_employee_status_desugaring() {
                 }
             }
             TransitionPrecondition::Custom { name, kwargs, .. } => {
-                if name.as_str() == "min_years_of_service" && kwargs.get("from").map(std::string::String::as_str) == Some("tmt_cpns")
+                if name.as_str() == "min_years_of_service"
+                    && kwargs.get("from").map(std::string::String::as_str) == Some("tmt_cpns")
                 {
                     found_service = true;
                 }
-                if name.as_str() == "min_age" && kwargs.get("from").map(std::string::String::as_str) == Some("tanggal_lahir") {
+                if name.as_str() == "min_age"
+                    && kwargs.get("from").map(std::string::String::as_str) == Some("tanggal_lahir")
+                {
                     found_age = true;
                 }
             }

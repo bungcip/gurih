@@ -54,7 +54,11 @@ impl FakerEngine {
                             .await?;
                         let ids: Vec<String> = records
                             .iter()
-                            .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(std::string::ToString::to_string))
+                            .filter_map(|r| {
+                                r.get("id")
+                                    .and_then(|v| v.as_str())
+                                    .map(std::string::ToString::to_string)
+                            })
                             .collect();
 
                         if ids.is_empty() {
@@ -81,7 +85,11 @@ impl FakerEngine {
                                     .await?;
                                 let ids: Vec<String> = records
                                     .iter()
-                                    .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(std::string::ToString::to_string))
+                                    .filter_map(|r| {
+                                        r.get("id")
+                                            .and_then(|v| v.as_str())
+                                            .map(std::string::ToString::to_string)
+                                    })
                                     .collect();
                                 e.insert(ids);
                             }

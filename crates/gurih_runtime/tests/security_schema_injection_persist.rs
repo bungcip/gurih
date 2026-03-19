@@ -1,9 +1,9 @@
+use gurih_ir::EntitySchema;
 use gurih_ir::{ColumnSchema, ColumnType, DatabaseType, Schema, Symbol, TableSchema};
 use gurih_runtime::persistence::SchemaManager;
 use gurih_runtime::store::DbPool;
 use sqlx::sqlite::SqlitePoolOptions;
 use std::collections::HashMap;
-use gurih_ir::EntitySchema;
 use std::sync::Arc;
 
 #[tokio::test]
@@ -21,15 +21,13 @@ async fn test_sql_injection_in_schema_table_name() {
         Symbol::from("malicious"),
         TableSchema {
             name: Symbol::from(malicious_table_name),
-            columns: vec![
-                ColumnSchema {
-                    name: Symbol::from("id"),
-                    type_name: ColumnType::Text,
-                    props: HashMap::new(),
-                    primary: true,
-                    unique: true,
-                },
-            ],
+            columns: vec![ColumnSchema {
+                name: Symbol::from("id"),
+                type_name: ColumnType::Text,
+                props: HashMap::new(),
+                primary: true,
+                unique: true,
+            }],
         },
     );
 
@@ -45,7 +43,10 @@ async fn test_sql_injection_in_schema_table_name() {
 
     // With validate_identifier, this should immediately fail with "Invalid identifier"
     assert!(result.is_err(), "Migration should fail on invalid table name");
-    assert!(result.unwrap_err().contains("Invalid identifier"), "Should fail due to identifier validation");
+    assert!(
+        result.unwrap_err().contains("Invalid identifier"),
+        "Should fail due to identifier validation"
+    );
 }
 
 #[tokio::test]
@@ -76,7 +77,10 @@ async fn test_insert_seed_sql_injection_table_name() {
     let result = manager.insert_seed(&entity, &seed).await;
 
     assert!(result.is_err(), "insert_seed should fail on invalid table name");
-    assert!(result.unwrap_err().contains("Invalid identifier"), "Should fail due to identifier validation");
+    assert!(
+        result.unwrap_err().contains("Invalid identifier"),
+        "Should fail due to identifier validation"
+    );
 }
 
 #[tokio::test]
@@ -106,5 +110,8 @@ async fn test_insert_seed_sql_injection_seed_key() {
     let result = manager.insert_seed(&entity, &seed).await;
 
     assert!(result.is_err(), "insert_seed should fail on invalid seed key");
-    assert!(result.unwrap_err().contains("Invalid identifier"), "Should fail due to identifier validation");
+    assert!(
+        result.unwrap_err().contains("Invalid identifier"),
+        "Should fail due to identifier validation"
+    );
 }

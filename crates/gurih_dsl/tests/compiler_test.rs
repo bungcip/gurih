@@ -39,7 +39,10 @@ fn test_compile_golden_master() {
     assert_eq!(emp.relationships.len(), 3);
 
     // Check Options
-    assert_eq!(emp.options.get("track_changes").map(std::string::String::as_str), Some("true"));
+    assert_eq!(
+        emp.options.get("track_changes").map(std::string::String::as_str),
+        Some("true")
+    );
 
     // Check Serials Definition
     assert!(schema.serial_generators.contains_key(&Symbol::from("EmpCode")));

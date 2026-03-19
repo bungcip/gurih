@@ -1,5 +1,5 @@
 use crate::auth::hash_password;
-use crate::store::{validate_identifier, DbPool};
+use crate::store::{DbPool, validate_identifier};
 use gurih_ir::utils::get_db_placeholder;
 use gurih_ir::{ColumnType, DatabaseType, EntitySchema, FieldType, Schema, Symbol, TableSchema};
 use sha2::{Digest, Sha256};
