@@ -242,6 +242,7 @@ impl QueryEngine {
             {
                 if rel.rel_type == gurih_ir::RelationshipType::BelongsTo {
                     // Parent has FK: parent.rel_id = target.id
+                    validate_identifier(rel.name.as_str())?;
                     join_condition = format!("\"{}\".\"{}_id\" = \"{}\".\"id\"", parent_table, rel.name, target_table);
                 } else {
                     // Target has FK: target.parent_id = parent.id
