@@ -252,7 +252,8 @@ impl AuthEngine {
                 });
 
                 // Remove bottom 10% (lowest priority to keep = highest priority to remove)
-                let remove_count = (MAX_LOGIN_ATTEMPTS / 10).max(1);
+                let target_size = (MAX_LOGIN_ATTEMPTS * 9) / 10;
+                let remove_count = attempts.len().saturating_sub(target_size).max(1);
                 for (k, _, _) in entries.iter().take(remove_count) {
                     attempts.remove(k);
                 }
@@ -269,7 +270,9 @@ impl AuthEngine {
             // Sentinel: If still over limit, remove arbitrary sessions to prevent OOM
             if sessions.len() >= MAX_SESSIONS {
                 // Remove ~10% randomly to make space
-                let keys_to_remove: Vec<String> = sessions.keys().take(MAX_SESSIONS / 10).cloned().collect();
+                let target_size = (MAX_SESSIONS * 9) / 10;
+                let remove_count = sessions.len().saturating_sub(target_size).max(1);
+                let keys_to_remove: Vec<String> = sessions.keys().take(remove_count).cloned().collect();
                 for k in keys_to_remove {
                     sessions.remove(&k);
                 }
