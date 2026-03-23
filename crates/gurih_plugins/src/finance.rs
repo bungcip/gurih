@@ -39,6 +39,38 @@ fn parse_decimal_opt(v: Option<&Value>) -> Result<Decimal, RuntimeError> {
     }
 }
 
+fn get_validated_table_name<'a>(
+    schema: &'a Schema,
+    entity_name: &str,
+    default_table_name: &'a str,
+) -> Result<&'a str, RuntimeError> {
+    let table_name = schema
+        .entities
+        .get(&Symbol::from(entity_name))
+        .map(|e| e.table_name.as_str())
+        .unwrap_or(default_table_name);
+    validate_identifier(table_name).map_err(|e| RuntimeError::WorkflowError(format!("Invalid table_name for {}: {}", entity_name, e)))?;
+    Ok(table_name)
+}
+
+fn get_validated_table_name_strict<'a>(
+    schema: &'a Schema,
+    entity_name: &str,
+) -> Result<&'a str, RuntimeError> {
+    let table_name = schema
+        .entities
+        .get(&Symbol::from(entity_name))
+        .map(|e| e.table_name.as_str())
+        .ok_or_else(|| {
+            RuntimeError::WorkflowError(format!(
+                "Entity '{}' not defined in schema",
+                entity_name
+            ))
+        })?;
+    validate_identifier(table_name).map_err(|e| RuntimeError::WorkflowError(format!("Invalid table_name for {}: {}", entity_name, e)))?;
+    Ok(table_name)
+}
+
 #[async_trait]
 impl Plugin for FinancePlugin {
     fn name(&self) -> &str {
@@ -132,11 +164,7 @@ async fn fetch_journal_lines(
     // 2. If not in payload, fetch from Datastore
     if !found_lines_in_payload && let (Some(ds), Some(id)) = (datastore, entity_data.get("id").and_then(|v| v.as_str()))
     {
-        let table_name = schema
-            .entities
-            .get(&Symbol::from("JournalLine"))
-            .map(|e| e.table_name.as_str())
-            .unwrap_or("journal_line");
+        let table_name = get_validated_table_name(schema, "JournalLine", "journal_line")?;
 
         let mut filters = HashMap::new();
         filters.insert("journal_entry".to_string(), id.to_string());
@@ -232,21 +260,13 @@ async fn check_valid_parties(
 
     // 1. Batch Fetch Accounts
     if !account_ids.is_empty() {
-        let account_table = schema
-            .entities
-            .get(&Symbol::from("Account"))
-            .map(|e| e.table_name.as_str())
-            .unwrap_or("account");
+        let account_table = get_validated_table_name(schema, "Account", "account")?;
 
         let ids: Vec<String> = account_ids.into_iter().collect();
         let placeholders = (1..=ids.len())
             .map(|i| gurih_ir::utils::get_db_placeholder(&db_type, i))
             .collect::<Vec<_>>()
             .join(", ");
-
-        if let Err(e) = validate_identifier(account_table) {
-            return Err(RuntimeError::WorkflowError(format!("Invalid account_table: {}", e)));
-        }
 
         let sql = format!("SELECT * FROM {} WHERE id IN ({})", account_table, placeholders);
         let params: Vec<Value> = ids.iter().map(|s| Value::String(s.clone())).collect();
@@ -275,17 +295,14 @@ async fn check_valid_parties(
     // 2. Batch Fetch Parties
     for (pt, pids) in parties_to_check {
         let target_entity = schema.entities.get(&Symbol::from(pt.as_str()));
-        if let Some(entity_schema) = target_entity {
-            let table = entity_schema.table_name.as_str();
+        if target_entity.is_some() {
+            let fallback_table = pt.to_lowercase();
+            let table = get_validated_table_name(schema, pt.as_str(), fallback_table.as_str())?;
             let ids: Vec<String> = pids.into_iter().collect();
             let placeholders = (1..=ids.len())
                 .map(|i| gurih_ir::utils::get_db_placeholder(&db_type, i))
                 .collect::<Vec<_>>()
                 .join(", ");
-
-            if let Err(e) = validate_identifier(table) {
-                return Err(RuntimeError::WorkflowError(format!("Invalid party table: {}", e)));
-            }
 
             let sql = format!("SELECT id FROM {} WHERE id IN ({})", table, placeholders);
             let params: Vec<Value> = ids.iter().map(|s| Value::String(s.clone())).collect();
@@ -393,23 +410,17 @@ async fn check_period_open(
                 "AccountingPeriod"
             };
 
-            if let Err(e) = validate_identifier(target_entity) {
-                return Err(RuntimeError::WorkflowError(format!(
-                    "Invalid entity name for period check: {}",
-                    e
-                )));
-            }
-
-            let table_name = schema
-                .entities
-                .get(&Symbol::from(target_entity))
-                .map(|e| e.table_name.as_str())
-                .ok_or_else(|| {
-                    RuntimeError::WorkflowError(format!(
-                        "Entity '{}' not defined in schema for period check",
-                        target_entity
-                    ))
-                })?;
+            let table_name = get_validated_table_name_strict(schema, target_entity).map_err(|e| {
+                if let RuntimeError::WorkflowError(ref msg) = e {
+                    if msg.starts_with("Invalid table_name for") {
+                        return RuntimeError::WorkflowError(format!("Invalid entity name for period check: {}", msg));
+                    }
+                    if msg.starts_with("Entity '") && msg.ends_with("' not defined in schema") {
+                        return RuntimeError::WorkflowError(format!("Entity '{}' not defined in schema for period check", target_entity));
+                    }
+                }
+                e
+            })?;
 
             let db_type = schema
                 .database
@@ -418,10 +429,6 @@ async fn check_period_open(
                 .unwrap_or(gurih_ir::DatabaseType::Sqlite);
 
             let (p_start, p_end) = get_db_range_placeholders(&db_type);
-
-            if let Err(e) = validate_identifier(table_name) {
-                return Err(RuntimeError::WorkflowError(format!("Invalid table_name: {}", e)));
-            }
 
             let sql = format!(
                 "SELECT id FROM {} WHERE status = 'Open' AND start_date <= {} AND end_date >= {}",
@@ -483,11 +490,7 @@ async fn execute_init_line_status(
 ) -> Result<(), RuntimeError> {
     if let (Some(ds), Some(journal_id)) = (datastore, entity_data.get("id").and_then(|v| v.as_str())) {
         // 1. Fetch Journal Lines
-        let table_name = schema
-            .entities
-            .get(&Symbol::from("JournalLine"))
-            .map(|e| e.table_name.as_str())
-            .unwrap_or("journal_line");
+        let table_name = get_validated_table_name(schema, "JournalLine", "journal_line")?;
 
         let mut filters = HashMap::new();
         filters.insert("journal_entry".to_string(), journal_id.to_string());
@@ -521,11 +524,7 @@ async fn execute_init_line_status(
         }
 
         if !status_records.is_empty() {
-            let status_table = schema
-                .entities
-                .get(&Symbol::from("JournalLineStatus"))
-                .map(|e| e.table_name.as_str())
-                .unwrap_or("journal_line_status");
+            let status_table = get_validated_table_name(schema, "JournalLineStatus", "journal_line_status")?;
 
             ds.insert_many(status_table, status_records)
                 .await
@@ -613,12 +612,7 @@ async fn execute_reconcile_entries(
     }
 
     // 3. Fetch Statuses
-    let status_table = data_access
-        .get_schema()
-        .entities
-        .get(&Symbol::from("JournalLineStatus"))
-        .map(|e| e.table_name.as_str())
-        .unwrap_or("journal_line_status");
+    let status_table = get_validated_table_name(data_access.get_schema(), "JournalLineStatus", "journal_line_status")?;
     let ds = data_access.datastore();
 
     let mut d_filters = HashMap::new();
@@ -733,11 +727,7 @@ async fn check_period_overlap(
     let current_id = entity_data.get("id").and_then(|v| v.as_str());
 
     // 2. Fetch all periods
-    let table_name = schema
-        .entities
-        .get(&Symbol::from("AccountingPeriod"))
-        .map(|e| e.table_name.as_str())
-        .unwrap_or("accounting_period");
+    let table_name = get_validated_table_name(schema, "AccountingPeriod", "accounting_period")?;
 
     let all_periods = ds
         .list(table_name, None, None)
@@ -812,18 +802,7 @@ async fn execute_reverse_journal(
     filters.insert("journal_entry".to_string(), id.clone());
 
     let schema = data_access.get_schema();
-    let table_name = schema
-        .entities
-        .get(&Symbol::from("JournalLine"))
-        .map(|e| e.table_name.as_str())
-        .unwrap_or("journal_line");
-
-    if let Err(e) = validate_identifier(table_name) {
-        return Err(RuntimeError::WorkflowError(format!(
-            "Invalid table_name for JournalLine: {}",
-            e
-        )));
-    }
+    let table_name = get_validated_table_name(schema, "JournalLine", "journal_line")?;
 
     let lines = data_access
         .datastore()
@@ -931,12 +910,7 @@ async fn execute_generate_closing_entry(
     let mut filters = HashMap::new();
     filters.insert("system_tag".to_string(), "retained_earnings".to_string());
 
-    let account_table = data_access
-        .get_schema()
-        .entities
-        .get(&Symbol::from("Account"))
-        .map(|e| e.table_name.as_str())
-        .unwrap_or("account");
+    let account_table = get_validated_table_name(data_access.get_schema(), "Account", "account")?;
 
     let accounts = data_access
         .datastore()
@@ -963,37 +937,9 @@ async fn execute_generate_closing_entry(
     let (p_start, p_end) = get_db_range_placeholders(&db_type);
 
     let schema = data_access.get_schema();
-    let journal_line_table = schema
-        .entities
-        .get(&Symbol::from("JournalLine"))
-        .map(|e| e.table_name.as_str())
-        .unwrap_or("journal_line");
-    let journal_entry_table = schema
-        .entities
-        .get(&Symbol::from("JournalEntry"))
-        .map(|e| e.table_name.as_str())
-        .unwrap_or("journal_entry");
-    let account_table = schema
-        .entities
-        .get(&Symbol::from("Account"))
-        .map(|e| e.table_name.as_str())
-        .unwrap_or("account");
-
-    if let Err(e) = validate_identifier(journal_line_table) {
-        return Err(RuntimeError::WorkflowError(format!(
-            "Invalid journal_line_table: {}",
-            e
-        )));
-    }
-    if let Err(e) = validate_identifier(journal_entry_table) {
-        return Err(RuntimeError::WorkflowError(format!(
-            "Invalid journal_entry_table: {}",
-            e
-        )));
-    }
-    if let Err(e) = validate_identifier(account_table) {
-        return Err(RuntimeError::WorkflowError(format!("Invalid account_table: {}", e)));
-    }
+    let journal_line_table = get_validated_table_name(schema, "JournalLine", "journal_line")?;
+    let journal_entry_table = get_validated_table_name(schema, "JournalEntry", "journal_entry")?;
+    // account_table is already validated above
 
     let sql = format!(
         r#"
@@ -1220,11 +1166,7 @@ async fn execute_snapshot_parties(
 ) -> Result<(), RuntimeError> {
     if let (Some(ds), Some(journal_id)) = (datastore, entity_data.get("id").and_then(|v| v.as_str())) {
         // 1. Fetch Journal Lines
-        let table_name = schema
-            .entities
-            .get(&Symbol::from("JournalLine"))
-            .map(|e| e.table_name.as_str())
-            .unwrap_or("journal_line");
+        let table_name = get_validated_table_name(schema, "JournalLine", "journal_line")?;
 
         let mut filters = HashMap::new();
         filters.insert("journal_entry".to_string(), journal_id.to_string());
@@ -1248,8 +1190,7 @@ async fn execute_snapshot_parties(
                 let is_empty = current_name.unwrap_or("").is_empty();
                 if let (Some(pt), Some(pid), true) = (party_type, party_id, is_empty) {
                     // Fetch Party Name
-                    if let Some(target_entity) = schema.entities.get(&Symbol::from(pt)) {
-                        let target_table = target_entity.table_name.as_str();
+                    if let Ok(target_table) = get_validated_table_name_strict(schema, pt) {
                         if let Some(party_record) =
                             ds.get(target_table, pid).await.map_err(RuntimeError::WorkflowError)?
                         {
