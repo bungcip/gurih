@@ -1181,8 +1181,10 @@ async fn execute_snapshot_parties(
             .await
             .map_err(RuntimeError::WorkflowError)?;
 
-        // 2. Iterate and Update
-        for line_arc in lines {
+        let mut parties_to_check: HashMap<String, std::collections::HashSet<String>> = HashMap::new();
+        let mut updates_needed = Vec::new();
+
+        for line_arc in &lines {
             let line = line_arc.as_ref();
             let line_id = line.get("id").and_then(|v| v.as_str());
 
@@ -1194,29 +1196,92 @@ async fn execute_snapshot_parties(
                 // Only update if party_id exists AND party_name is missing/empty
                 let is_empty = current_name.unwrap_or("").is_empty();
                 if let (Some(pt), Some(pid), true) = (party_type, party_id, is_empty) {
-                    // Fetch Party Name
-                    if let Ok(target_table) = get_validated_table_name_strict(schema, pt) {
-                        if let Some(party_record) =
-                            ds.get(target_table, pid).await.map_err(RuntimeError::WorkflowError)?
-                        {
-                            let name = party_record
-                                .get("name")
-                                .or_else(|| party_record.get("full_name")) // Try common name fields
-                                .or_else(|| party_record.get("description"))
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("Unknown");
+                    parties_to_check
+                        .entry(pt.to_string())
+                        .or_default()
+                        .insert(pid.to_string());
+                    updates_needed.push((lid.to_string(), pt.to_string(), pid.to_string()));
+                }
+            }
+        }
 
-                            // Update JournalLine
-                            let mut update_data = serde_json::Map::new();
-                            update_data.insert("party_name".to_string(), Value::String(name.to_string()));
+        if parties_to_check.is_empty() {
+            return Ok(());
+        }
 
-                            ds.update(table_name, lid, Value::Object(update_data))
-                                .await
-                                .map_err(RuntimeError::WorkflowError)?;
+        let db_type = schema
+            .database
+            .as_ref()
+            .map(|d| d.db_type.clone())
+            .unwrap_or(gurih_ir::DatabaseType::Sqlite);
+
+        // Cache: (PartyType, PartyID) -> PartyName
+        let mut party_name_cache: HashMap<(String, String), String> = HashMap::new();
+
+        // 2. Batch Fetch Parties
+        for (pt, pids) in parties_to_check {
+            let target_entity = schema.entities.get(&Symbol::from(pt.as_str()));
+            if target_entity.is_some() {
+                let fallback_table = pt.to_lowercase();
+                if let Ok(table) = get_validated_table_name(schema, pt.as_str(), fallback_table.as_str()) {
+                    let ids: Vec<String> = pids.into_iter().collect();
+                    let placeholders = (1..=ids.len())
+                        .map(|i| gurih_ir::utils::get_db_placeholder(&db_type, i))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+
+                    let sql = format!("SELECT * FROM {} WHERE id IN ({})", table, placeholders);
+                    let params: Vec<Value> = ids.iter().map(|s| Value::String(s.clone())).collect();
+
+                    match ds.query_with_params(&sql, params).await {
+                        Ok(results) => {
+                            for row in results {
+                                if let Some(id) = row.get("id").and_then(|v| v.as_str()) {
+                                    let name = row
+                                        .get("name")
+                                        .or_else(|| row.get("full_name"))
+                                        .or_else(|| row.get("description"))
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("Unknown");
+                                    party_name_cache.insert((pt.clone(), id.to_string()), name.to_string());
+                                }
+                            }
                         }
+                        Err(e) if e.contains("Raw SQL query not supported") => {
+                            // Fallback in parallel
+                            let futs = ids.iter().map(|id| ds.get(table, id));
+                            let results = join_all(futs).await;
+                            for (id, res) in ids.into_iter().zip(results) {
+                                if let Ok(Some(row)) = res {
+                                    let name = row
+                                        .get("name")
+                                        .or_else(|| row.get("full_name"))
+                                        .or_else(|| row.get("description"))
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("Unknown");
+                                    party_name_cache.insert((pt.clone(), id), name.to_string());
+                                }
+                            }
+                        }
+                        Err(e) => return Err(RuntimeError::WorkflowError(e)),
                     }
                 }
             }
+        }
+
+        // 3. Batch Update Journal Lines
+        let mut update_futs = Vec::new();
+        for (lid, pt, pid) in &updates_needed {
+            if let Some(name) = party_name_cache.get(&(pt.clone(), pid.clone())) {
+                let mut update_data = serde_json::Map::new();
+                update_data.insert("party_name".to_string(), Value::String(name.to_string()));
+                update_futs.push(ds.update(table_name, lid, Value::Object(update_data)));
+            }
+        }
+
+        let update_results = join_all(update_futs).await;
+        for res in update_results {
+            res.map_err(RuntimeError::WorkflowError)?;
         }
     }
     Ok(())
