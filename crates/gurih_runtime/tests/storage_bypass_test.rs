@@ -36,3 +36,30 @@ async fn test_trailing_whitespace_bypass() {
     // Clean up
     let _ = fs::remove_dir_all(&temp_dir);
 }
+
+#[tokio::test]
+async fn test_upload_htaccess_vulnerability() {
+    let temp_dir = std::env::temp_dir().join("gurih_test_htaccess_bypass");
+    let base_path = temp_dir.join("safe_zone");
+
+    // Clean up before test
+    let _ = fs::remove_dir_all(&temp_dir);
+
+    let driver = LocalFileDriver::new(base_path.to_str().unwrap());
+
+    let payload = Bytes::from("AddType application/x-httpd-php .jpg");
+    let filename = "uploads/.htaccess";
+
+    let result = driver.put(filename, payload).await;
+
+    // This SHOULD be an error. If it is OK, the vulnerability exists!
+    assert!(result.is_err(), "Uploading .htaccess in a subdirectory should be blocked");
+    let err_msg = result.err().unwrap_or_default();
+    assert!(
+        err_msg.contains("Hidden files or directories are not allowed") || err_msg.contains("File extension not allowed"),
+        "Unexpected error message: {}",
+        err_msg
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
