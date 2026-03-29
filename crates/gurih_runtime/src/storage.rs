@@ -30,9 +30,9 @@ fn validate_filename(filename: &str) -> Result<(), String> {
         return Err("Filename cannot have leading or trailing whitespace".to_string());
     }
 
-    // Sentinel: Reject hidden files (e.g. .htaccess) and empty names
-    if filename.starts_with('.') || filename.is_empty() {
-        return Err("Hidden files or empty filenames are not allowed".to_string());
+    // Sentinel: Reject empty names
+    if filename.is_empty() {
+        return Err("Empty filenames are not allowed".to_string());
     }
 
     // Sentinel: Reject filenames ending with dot (e.g. exploit.php.)
@@ -47,6 +47,11 @@ fn validate_filename(filename: &str) -> Result<(), String> {
     for component in check_path.components() {
         if matches!(component, std::path::Component::ParentDir) {
             return Err("Path traversal '..' is not allowed in storage".to_string());
+        }
+        if let std::path::Component::Normal(comp) = component {
+            if comp.to_string_lossy().starts_with('.') {
+                return Err("Hidden files or directories are not allowed".to_string());
+            }
         }
     }
 
