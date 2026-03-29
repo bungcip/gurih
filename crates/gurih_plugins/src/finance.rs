@@ -1181,41 +1181,112 @@ async fn execute_snapshot_parties(
             .await
             .map_err(RuntimeError::WorkflowError)?;
 
-        // 2. Iterate and Update
-        for line_arc in lines {
+        // 2. Identify journal lines that require party name snapshots
+        let mut parties_to_fetch: HashMap<String, std::collections::HashSet<String>> = HashMap::new();
+        for line_arc in &lines {
             let line = line_arc.as_ref();
-            let line_id = line.get("id").and_then(|v| v.as_str());
+            let party_type = line.get("party_type").and_then(|v| v.as_str());
+            let party_id = line.get("party_id").and_then(|v| v.as_str());
+            let current_name = line.get("party_name").and_then(|v| v.as_str());
 
-            if let Some(lid) = line_id {
-                let party_type = line.get("party_type").and_then(|v| v.as_str());
-                let party_id = line.get("party_id").and_then(|v| v.as_str());
-                let current_name = line.get("party_name").and_then(|v| v.as_str());
+            let is_empty = current_name.unwrap_or("").is_empty();
+            if let (Some(pt), Some(pid), true) = (party_type, party_id, is_empty) {
+                parties_to_fetch
+                    .entry(pt.to_string())
+                    .or_default()
+                    .insert(pid.to_string());
+            }
+        }
 
-                // Only update if party_id exists AND party_name is missing/empty
-                let is_empty = current_name.unwrap_or("").is_empty();
-                if let (Some(pt), Some(pid), true) = (party_type, party_id, is_empty) {
-                    // Fetch Party Name
-                    if let Ok(target_table) = get_validated_table_name_strict(schema, pt) {
-                        if let Some(party_record) =
-                            ds.get(target_table, pid).await.map_err(RuntimeError::WorkflowError)?
-                        {
-                            let name = party_record
-                                .get("name")
-                                .or_else(|| party_record.get("full_name")) // Try common name fields
-                                .or_else(|| party_record.get("description"))
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("Unknown");
+        if parties_to_fetch.is_empty() {
+            return Ok(());
+        }
 
-                            // Update JournalLine
-                            let mut update_data = serde_json::Map::new();
-                            update_data.insert("party_name".to_string(), Value::String(name.to_string()));
+        // 3. Batch fetch party names for each identified party type
+        let db_type = schema
+            .database
+            .as_ref()
+            .map(|d| d.db_type.clone())
+            .unwrap_or(gurih_ir::DatabaseType::Sqlite);
 
-                            ds.update(table_name, lid, Value::Object(update_data))
-                                .await
-                                .map_err(RuntimeError::WorkflowError)?;
+        let mut party_names_cache: HashMap<(String, String), String> = HashMap::new();
+
+        for (pt, pids) in parties_to_fetch {
+            if let Ok(target_table) = get_validated_table_name_strict(schema, &pt) {
+                let ids: Vec<String> = pids.into_iter().collect();
+                let placeholders = (1..=ids.len())
+                    .map(|i| gurih_ir::utils::get_db_placeholder(&db_type, i))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                let sql = format!(
+                    "SELECT id, name, full_name, description FROM {} WHERE id IN ({})",
+                    target_table, placeholders
+                );
+                let params: Vec<Value> = ids.iter().map(|s| Value::String(s.clone())).collect();
+
+                match ds.query_with_params(&sql, params).await {
+                    Ok(results) => {
+                        for record in results {
+                            if let Some(id) = record.get("id").and_then(|v| v.as_str()) {
+                                let name = record
+                                    .get("name")
+                                    .or_else(|| record.get("full_name"))
+                                    .or_else(|| record.get("description"))
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("Unknown");
+                                party_names_cache.insert((pt.clone(), id.to_string()), name.to_string());
+                            }
                         }
                     }
+                    Err(e) if e.contains("Raw SQL query not supported") => {
+                        // Fallback: Parallel fetch
+                        let mut futs = Vec::new();
+                        for id in &ids {
+                            futs.push(ds.get(target_table, id));
+                        }
+                        let results = futures::future::join_all(futs).await;
+                        for (id, res) in ids.iter().zip(results) {
+                            if let Ok(Some(party_record)) = res {
+                                let name = party_record
+                                    .get("name")
+                                    .or_else(|| party_record.get("full_name"))
+                                    .or_else(|| party_record.get("description"))
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("Unknown");
+                                party_names_cache.insert((pt.clone(), id.to_string()), name.to_string());
+                            }
+                        }
+                    }
+                    Err(e) => return Err(RuntimeError::WorkflowError(e)),
                 }
+            }
+        }
+
+        // 4. Execute journal line updates in parallel
+        let mut update_futs = Vec::new();
+        for line_arc in &lines {
+            let line = line_arc.as_ref();
+            let line_id = line.get("id").and_then(|v| v.as_str());
+            let party_type = line.get("party_type").and_then(|v| v.as_str());
+            let party_id = line.get("party_id").and_then(|v| v.as_str());
+            let current_name = line.get("party_name").and_then(|v| v.as_str());
+
+            if let (Some(lid), Some(pt), Some(pid), true) =
+                (line_id, party_type, party_id, current_name.unwrap_or("").is_empty())
+            {
+                if let Some(name) = party_names_cache.get(&(pt.to_string(), pid.to_string())) {
+                    let mut update_data = serde_json::Map::new();
+                    update_data.insert("party_name".to_string(), Value::String(name.clone()));
+                    update_futs.push(ds.update(table_name, lid, Value::Object(update_data)));
+                }
+            }
+        }
+
+        if !update_futs.is_empty() {
+            let update_results = futures::future::join_all(update_futs).await;
+            for res in update_results {
+                res.map_err(RuntimeError::WorkflowError)?;
             }
         }
     }
