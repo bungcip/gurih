@@ -352,10 +352,7 @@ pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema,
             });
         }
 
-        if status_def.initial {
-            workflow.initial_state = status_sym;
-        } else if workflow.initial_state == Symbol::from("") {
-            // Default to first encountered if no initial specified (legacy behavior fallback)
+        if status_def.initial || workflow.initial_state == Symbol::from("") {
             workflow.initial_state = status_sym;
         }
 
