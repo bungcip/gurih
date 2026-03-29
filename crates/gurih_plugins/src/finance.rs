@@ -9,6 +9,7 @@ use gurih_runtime::plugins::Plugin;
 use gurih_runtime::store::validate_identifier;
 use gurih_runtime::traits::DataAccess;
 use rust_decimal::Decimal;
+use futures::future::join_all;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -281,9 +282,11 @@ async fn check_valid_parties(
                 }
             }
             Err(e) if e.contains("Raw SQL query not supported") => {
-                // Fallback: Fetch one by one (MemoryDataStore)
-                for id in ids {
-                    if let Some(acc) = ds.get(account_table, &id).await.map_err(RuntimeError::WorkflowError)? {
+                // Fallback: Fetch one by one (MemoryDataStore) in parallel
+                let futs = ids.iter().map(|id| ds.get(account_table, id));
+                let results = join_all(futs).await;
+                for (id, res) in ids.into_iter().zip(results) {
+                    if let Some(acc) = res.map_err(RuntimeError::WorkflowError)? {
                         accounts_cache.insert(id, acc);
                     }
                 }
@@ -318,9 +321,11 @@ async fn check_valid_parties(
                     // Mark not found (implicitly handled by lookup failure in cache, but for fallback consistency we just fill cache)
                 }
                 Err(e) if e.contains("Raw SQL query not supported") => {
-                    // Fallback
-                    for id in ids {
-                        let exists = ds.get(table, &id).await.map_err(RuntimeError::WorkflowError)?.is_some();
+                    // Fallback in parallel
+                    let futs = ids.iter().map(|id| ds.get(table, id));
+                    let results = join_all(futs).await;
+                    for (id, res) in ids.into_iter().zip(results) {
+                        let exists = res.map_err(RuntimeError::WorkflowError)?.is_some();
                         if exists {
                             party_existence_cache.insert((pt.clone(), id), true);
                         }
