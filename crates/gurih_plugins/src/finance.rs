@@ -344,7 +344,7 @@ async fn check_valid_parties(
             .get("account")
             .or_else(|| line.get("account_id")) // Support both forms
             .and_then(|v| v.as_str())
-            .ok_or(RuntimeError::ValidationError(
+            .ok_or_else(|| RuntimeError::ValidationError(
                 "Journal line missing account".to_string(),
             ))?;
 
@@ -548,19 +548,19 @@ async fn execute_reconcile_entries(
     let debit_line_id = resolve_param(
         step.args
             .get("debit_line_id")
-            .ok_or(RuntimeError::WorkflowError("Missing debit_line_id".to_string()))?,
+            .ok_or_else(|| RuntimeError::WorkflowError("Missing debit_line_id".to_string()))?,
         params,
     );
     let credit_line_id = resolve_param(
         step.args
             .get("credit_line_id")
-            .ok_or(RuntimeError::WorkflowError("Missing credit_line_id".to_string()))?,
+            .ok_or_else(|| RuntimeError::WorkflowError("Missing credit_line_id".to_string()))?,
         params,
     );
     let amount_str = resolve_param(
         step.args
             .get("amount")
-            .ok_or(RuntimeError::WorkflowError("Missing amount".to_string()))?,
+            .ok_or_else(|| RuntimeError::WorkflowError("Missing amount".to_string()))?,
         params,
     );
     let amount = amount_str
@@ -579,12 +579,12 @@ async fn execute_reconcile_entries(
         .read(line_entity, &debit_line_id, ctx)
         .await
         .map_err(RuntimeError::WorkflowError)?
-        .ok_or(RuntimeError::ValidationError("Debit line not found".to_string()))?;
+        .ok_or_else(|| RuntimeError::ValidationError("Debit line not found".to_string()))?;
     let credit_line_arc = data_access
         .read(line_entity, &credit_line_id, ctx)
         .await
         .map_err(RuntimeError::WorkflowError)?
-        .ok_or(RuntimeError::ValidationError("Credit line not found".to_string()))?;
+        .ok_or_else(|| RuntimeError::ValidationError("Credit line not found".to_string()))?;
 
     let debit_line = debit_line_arc.as_ref();
     let credit_line = credit_line_arc.as_ref();
@@ -626,7 +626,7 @@ async fn execute_reconcile_entries(
         .find_first(status_table, d_filters)
         .await
         .map_err(RuntimeError::WorkflowError)?
-        .ok_or(RuntimeError::ValidationError("Debit line status not found".to_string()))?;
+        .ok_or_else(|| RuntimeError::ValidationError("Debit line status not found".to_string()))?;
 
     let mut c_filters = HashMap::new();
     c_filters.insert("journal_line".to_string(), credit_line_id.clone());
@@ -634,7 +634,7 @@ async fn execute_reconcile_entries(
         .find_first(status_table, c_filters)
         .await
         .map_err(RuntimeError::WorkflowError)?
-        .ok_or(RuntimeError::ValidationError(
+        .ok_or_else(|| RuntimeError::ValidationError(
             "Credit line status not found".to_string(),
         ))?;
 
@@ -789,7 +789,7 @@ async fn execute_reverse_journal(
     data_access: &dyn DataAccess,
     ctx: &RuntimeContext,
 ) -> Result<bool, RuntimeError> {
-    let id_raw = step.args.get("id").ok_or(RuntimeError::WorkflowError(
+    let id_raw = step.args.get("id").ok_or_else(|| RuntimeError::WorkflowError(
         "Missing 'id' argument for finance:reverse_journal".to_string(),
     ))?;
     let id = resolve_param(id_raw, params);
@@ -799,7 +799,7 @@ async fn execute_reverse_journal(
         .read("JournalEntry", &id, ctx)
         .await
         .map_err(RuntimeError::WorkflowError)?
-        .ok_or(RuntimeError::WorkflowError("JournalEntry not found".to_string()))?;
+        .ok_or_else(|| RuntimeError::WorkflowError("JournalEntry not found".to_string()))?;
     let original = original_arc.as_ref();
 
     // 2. Read Lines
@@ -889,7 +889,7 @@ async fn execute_generate_closing_entry(
     let period_id_raw = step
         .args
         .get("period_id")
-        .ok_or(RuntimeError::WorkflowError("Missing 'period_id' argument".to_string()))?;
+        .ok_or_else(|| RuntimeError::WorkflowError("Missing 'period_id' argument".to_string()))?;
     let period_id = resolve_param(period_id_raw, params);
 
     // 1. Fetch Period
@@ -897,18 +897,18 @@ async fn execute_generate_closing_entry(
         .read("AccountingPeriod", &period_id, ctx)
         .await
         .map_err(RuntimeError::WorkflowError)?
-        .ok_or(RuntimeError::WorkflowError("AccountingPeriod not found".to_string()))?;
+        .ok_or_else(|| RuntimeError::WorkflowError("AccountingPeriod not found".to_string()))?;
 
     let start_date = period_arc
         .get("start_date")
         .and_then(|v| v.as_str())
-        .ok_or(RuntimeError::ValidationError(
+        .ok_or_else(|| RuntimeError::ValidationError(
             "Missing start_date in period".to_string(),
         ))?;
     let end_date = period_arc
         .get("end_date")
         .and_then(|v| v.as_str())
-        .ok_or(RuntimeError::ValidationError("Missing end_date in period".to_string()))?;
+        .ok_or_else(|| RuntimeError::ValidationError("Missing end_date in period".to_string()))?;
     let period_name = period_arc.get("name").and_then(|v| v.as_str()).unwrap_or("");
 
     // 2. Find Retained Earnings Account
@@ -925,7 +925,7 @@ async fn execute_generate_closing_entry(
     let retained_earnings_id = accounts
         .first()
         .and_then(|a| a.get("id").and_then(|v| v.as_str()))
-        .ok_or(RuntimeError::WorkflowError(
+        .ok_or_else(|| RuntimeError::WorkflowError(
             "Retained Earnings account not found. Please ensure an account with system_tag='retained_earnings' exists."
                 .to_string(),
         ))?;
