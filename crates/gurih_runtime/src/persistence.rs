@@ -280,9 +280,7 @@ impl SchemaManager {
         tables.sort_by_key(|(k, _)| *k);
 
         // We only care about entities and tables for DB schema hash
-        // We create a temporary structure to hash
-        let data = (entities, tables);
-        let json = serde_json::to_string(&data).expect("Failed to serialize schema");
+        let json = serde_json::to_string(&(entities, tables)).expect("Failed to serialize schema");
 
         let mut hasher = Sha256::new();
         hasher.update(json);
