@@ -97,6 +97,8 @@ impl FakerEngine {
                     }
                 }
 
+                let mut records_to_insert = Vec::with_capacity(count);
+
                 for _ in 0..count {
                     let mut record = Map::new();
 
@@ -133,11 +135,15 @@ impl FakerEngine {
                         }
                     }
 
+                    records_to_insert.push(Value::Object(record));
+                }
+
+                if !records_to_insert.is_empty() {
                     if let Err(e) = datastore
-                        .insert(&entity_schema.table_name.to_string(), Value::Object(record))
+                        .insert_many(&entity_schema.table_name.to_string(), records_to_insert)
                         .await
                     {
-                        println!("Error inserting fake record: {}", e);
+                        println!("Error inserting fake records: {}", e);
                     }
                 }
             }
