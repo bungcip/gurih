@@ -53,10 +53,14 @@ async fn test_upload_htaccess_vulnerability() {
     let result = driver.put(filename, payload).await;
 
     // This SHOULD be an error. If it is OK, the vulnerability exists!
-    assert!(result.is_err(), "Uploading .htaccess in a subdirectory should be blocked");
+    assert!(
+        result.is_err(),
+        "Uploading .htaccess in a subdirectory should be blocked"
+    );
     let err_msg = result.err().unwrap_or_default();
     assert!(
-        err_msg.contains("Hidden files or directories are not allowed") || err_msg.contains("File extension not allowed"),
+        err_msg.contains("Hidden files or directories are not allowed")
+            || err_msg.contains("File extension not allowed"),
         "Unexpected error message: {}",
         err_msg
     );
