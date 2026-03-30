@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use chrono::{Local, NaiveDate};
+use futures::future::join_all;
 use gurih_ir::utils::{get_db_range_placeholders, parse_numeric_opt, resolve_param};
 use gurih_ir::{ActionStep, Expression, Schema, Symbol};
 use gurih_runtime::context::RuntimeContext;
@@ -9,7 +10,6 @@ use gurih_runtime::plugins::Plugin;
 use gurih_runtime::store::validate_identifier;
 use gurih_runtime::traits::DataAccess;
 use rust_decimal::Decimal;
-use futures::future::join_all;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -50,25 +50,19 @@ fn get_validated_table_name<'a>(
         .get(&Symbol::from(entity_name))
         .map(|e| e.table_name.as_str())
         .unwrap_or(default_table_name);
-    validate_identifier(table_name).map_err(|e| RuntimeError::WorkflowError(format!("Invalid table_name for {}: {}", entity_name, e)))?;
+    validate_identifier(table_name)
+        .map_err(|e| RuntimeError::WorkflowError(format!("Invalid table_name for {}: {}", entity_name, e)))?;
     Ok(table_name)
 }
 
-fn get_validated_table_name_strict<'a>(
-    schema: &'a Schema,
-    entity_name: &str,
-) -> Result<&'a str, RuntimeError> {
+fn get_validated_table_name_strict<'a>(schema: &'a Schema, entity_name: &str) -> Result<&'a str, RuntimeError> {
     let table_name = schema
         .entities
         .get(&Symbol::from(entity_name))
         .map(|e| e.table_name.as_str())
-        .ok_or_else(|| {
-            RuntimeError::WorkflowError(format!(
-                "Entity '{}' not defined in schema",
-                entity_name
-            ))
-        })?;
-    validate_identifier(table_name).map_err(|e| RuntimeError::WorkflowError(format!("Invalid table_name for {}: {}", entity_name, e)))?;
+        .ok_or_else(|| RuntimeError::WorkflowError(format!("Entity '{}' not defined in schema", entity_name)))?;
+    validate_identifier(table_name)
+        .map_err(|e| RuntimeError::WorkflowError(format!("Invalid table_name for {}: {}", entity_name, e)))?;
     Ok(table_name)
 }
 
@@ -344,9 +338,7 @@ async fn check_valid_parties(
             .get("account")
             .or_else(|| line.get("account_id")) // Support both forms
             .and_then(|v| v.as_str())
-            .ok_or_else(|| RuntimeError::ValidationError(
-                "Journal line missing account".to_string(),
-            ))?;
+            .ok_or_else(|| RuntimeError::ValidationError("Journal line missing account".to_string()))?;
 
         let account = accounts_cache
             .get(account_id)
@@ -421,7 +413,10 @@ async fn check_period_open(
                         return RuntimeError::WorkflowError(format!("Invalid entity name for period check: {}", msg));
                     }
                     if msg.starts_with("Entity '") && msg.ends_with("' not defined in schema") {
-                        return RuntimeError::WorkflowError(format!("Entity '{}' not defined in schema for period check", target_entity));
+                        return RuntimeError::WorkflowError(format!(
+                            "Entity '{}' not defined in schema for period check",
+                            target_entity
+                        ));
                     }
                 }
                 e
@@ -634,9 +629,7 @@ async fn execute_reconcile_entries(
         .find_first(status_table, c_filters)
         .await
         .map_err(RuntimeError::WorkflowError)?
-        .ok_or_else(|| RuntimeError::ValidationError(
-            "Credit line status not found".to_string(),
-        ))?;
+        .ok_or_else(|| RuntimeError::ValidationError("Credit line status not found".to_string()))?;
 
     let d_residual = parse_decimal_opt(d_status_arc.get("amount_residual"))?;
     let c_residual = parse_decimal_opt(c_status_arc.get("amount_residual"))?;
@@ -789,9 +782,10 @@ async fn execute_reverse_journal(
     data_access: &dyn DataAccess,
     ctx: &RuntimeContext,
 ) -> Result<bool, RuntimeError> {
-    let id_raw = step.args.get("id").ok_or_else(|| RuntimeError::WorkflowError(
-        "Missing 'id' argument for finance:reverse_journal".to_string(),
-    ))?;
+    let id_raw = step
+        .args
+        .get("id")
+        .ok_or_else(|| RuntimeError::WorkflowError("Missing 'id' argument for finance:reverse_journal".to_string()))?;
     let id = resolve_param(id_raw, params);
 
     // 1. Read Original
@@ -902,9 +896,7 @@ async fn execute_generate_closing_entry(
     let start_date = period_arc
         .get("start_date")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| RuntimeError::ValidationError(
-            "Missing start_date in period".to_string(),
-        ))?;
+        .ok_or_else(|| RuntimeError::ValidationError("Missing start_date in period".to_string()))?;
     let end_date = period_arc
         .get("end_date")
         .and_then(|v| v.as_str())
@@ -925,10 +917,12 @@ async fn execute_generate_closing_entry(
     let retained_earnings_id = accounts
         .first()
         .and_then(|a| a.get("id").and_then(|v| v.as_str()))
-        .ok_or_else(|| RuntimeError::WorkflowError(
+        .ok_or_else(|| {
+            RuntimeError::WorkflowError(
             "Retained Earnings account not found. Please ensure an account with system_tag='retained_earnings' exists."
                 .to_string(),
-        ))?;
+        )
+        })?;
 
     // 3. Aggregate Revenue and Expense
     // We fetch raw lines instead of SUM() to ensure decimal precision

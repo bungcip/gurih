@@ -2,8 +2,8 @@ use gurih_ir::{
     EntitySchema, FieldSchema, FieldType, Ownership, QueryJoin, QuerySchema, QueryType, RelationshipSchema,
     RelationshipType, Schema, Symbol,
 };
-use std::collections::HashMap;
 use gurih_runtime::query_engine::QueryEngine;
+use std::collections::HashMap;
 
 #[tokio::test]
 async fn test_query_join_injection_check() {
@@ -14,20 +14,18 @@ async fn test_query_join_injection_check() {
     let user_entity = EntitySchema {
         name: user_sym,
         table_name: Symbol::from("users"),
-        fields: vec![
-            FieldSchema {
-                name: Symbol::from("id"),
-                field_type: FieldType::Pk,
-                required: true,
-                unique: true,
-                default: None,
-                references: None,
-                serial_generator: None,
-                storage: None,
-                resize: None,
-                filetype: None,
-            },
-        ],
+        fields: vec![FieldSchema {
+            name: Symbol::from("id"),
+            field_type: FieldType::Pk,
+            required: true,
+            unique: true,
+            default: None,
+            references: None,
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        }],
         relationships: vec![RelationshipSchema {
             name: Symbol::from("malicious\"; DROP TABLE users; --"),
             target_entity: Symbol::from("Post"),
@@ -44,20 +42,18 @@ async fn test_query_join_injection_check() {
     let post_entity = EntitySchema {
         name: post_sym,
         table_name: Symbol::from("posts"),
-        fields: vec![
-            FieldSchema {
-                name: Symbol::from("id"),
-                field_type: FieldType::Pk,
-                required: true,
-                unique: true,
-                default: None,
-                references: None,
-                serial_generator: None,
-                storage: None,
-                resize: None,
-                filetype: None,
-            },
-        ],
+        fields: vec![FieldSchema {
+            name: Symbol::from("id"),
+            field_type: FieldType::Pk,
+            required: true,
+            unique: true,
+            default: None,
+            references: None,
+            serial_generator: None,
+            storage: None,
+            resize: None,
+            filetype: None,
+        }],
         relationships: vec![],
         options: HashMap::new(),
         seeds: None,
@@ -87,6 +83,9 @@ async fn test_query_join_injection_check() {
 
     let runtime_params = std::collections::HashMap::new();
     let result = QueryEngine::plan(&schema, "UserPosts", &runtime_params);
-    assert!(result.is_err(), "Should fail identifier validation for rel.name in join");
+    assert!(
+        result.is_err(),
+        "Should fail identifier validation for rel.name in join"
+    );
     assert!(result.unwrap_err().contains("Invalid identifier"));
 }
