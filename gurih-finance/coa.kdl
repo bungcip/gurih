@@ -131,3 +131,15 @@ rule "PreventInUseAccountDelete" {
     assert "exists('JournalLine', 'account', self.id) == false"
     message "Cannot delete account that has journal entries."
 }
+
+rule "PreventInUseAccountTypeChange" {
+    on:update "Account"
+    assert "self.type == old.type || exists('JournalLine', 'account', self.id) == false"
+    message "Cannot change account type after it has been used in journal entries."
+}
+
+rule "PreventInUseAccountNormalBalanceChange" {
+    on:update "Account"
+    assert "self.normal_balance == old.normal_balance || exists('JournalLine', 'account', self.id) == false"
+    message "Cannot change normal balance after it has been used in journal entries."
+}
