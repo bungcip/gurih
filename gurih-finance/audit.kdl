@@ -1,0 +1,19 @@
+entity "AuditLog" table_name="_audit_log" {
+    field:pk id
+    field:string "entity"
+    field:string "record_id"
+    field:string "action"
+    field:string "user_id"
+    field:text "diff"
+}
+
+page "AuditLogList" {
+    title "Audit Trail"
+    datatable for="AuditLog" {
+        column "entity"
+        column "record_id"
+        column "action"
+        column "user_id"
+        column "diff"
+    }
+}
