@@ -14,5 +14,10 @@ rust_decimal = "1.40.0"
 futures = "0.3.32"
 
 [dev-dependencies]
+criterion = { version = "0.8.2", features = ["async_tokio"] }
 gurih_dsl = { workspace = true }
 tokio = { workspace = true }
+
+[[bench]]
+name = "period_open"
+harness = false

@@ -441,14 +441,15 @@ async fn check_period_open(
                 Ok(periods) => periods.is_empty(),
                 Err(e) if e.contains("Raw SQL query not supported") => {
                     // Fallback for MemoryDataStore
+                    let mut filters = HashMap::new();
+                    filters.insert("status".to_string(), "Open".to_string());
                     let all_periods = ds
-                        .list(table_name, None, None)
+                        .find(table_name, filters)
                         .await
                         .map_err(RuntimeError::WorkflowError)?;
                     let mut found = false;
                     for p in all_periods {
-                        if p.get("status").and_then(|v| v.as_str()) == Some("Open")
-                            && let (Some(start), Some(end)) = (
+                        if let (Some(start), Some(end)) = (
                                 p.get("start_date").and_then(|v| v.as_str()),
                                 p.get("end_date").and_then(|v| v.as_str()),
                             )
