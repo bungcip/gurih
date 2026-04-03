@@ -100,20 +100,25 @@ impl QueryEngine {
 
         let mut where_clause = String::new();
         if !query.filters.is_empty() {
-            let mut filter_parts = Vec::new();
-            for e in &query.filters {
-                filter_parts.push(Self::expression_to_sql(e, &mut params, &db_type, runtime_params)?);
+            where_clause.push_str("WHERE ");
+            for (i, e) in query.filters.iter().enumerate() {
+                if i > 0 {
+                    where_clause.push_str(" AND ");
+                }
+                where_clause.push_str(&Self::expression_to_sql(e, &mut params, &db_type, runtime_params)?);
             }
-            where_clause = format!("WHERE {}", filter_parts.join(" AND "));
         }
 
         let mut group_by_clause = String::new();
         if !query.group_by.is_empty() {
-            for s in &query.group_by {
+            group_by_clause.push_str("GROUP BY ");
+            for (i, s) in query.group_by.iter().enumerate() {
                 validate_identifier(s.as_str())?;
+                if i > 0 {
+                    group_by_clause.push_str(", ");
+                }
+                group_by_clause.push_str(&format!("\"{}\"", s));
             }
-            let group_parts: Vec<String> = query.group_by.iter().map(|s| format!("\"{}\"", s)).collect();
-            group_by_clause = format!("GROUP BY {}", group_parts.join(", "));
         }
 
         let sql = format!(
@@ -178,16 +183,18 @@ impl QueryEngine {
 
             let mut struct_where_clause = String::new();
             if !query.filters.is_empty() {
-                let mut filter_parts = Vec::new();
-                for e in &query.filters {
-                    filter_parts.push(Self::expression_to_sql(
+                struct_where_clause.push_str("WHERE ");
+                for (i, e) in query.filters.iter().enumerate() {
+                    if i > 0 {
+                        struct_where_clause.push_str(" AND ");
+                    }
+                    struct_where_clause.push_str(&Self::expression_to_sql(
                         e,
                         &mut struct_params,
                         &db_type,
                         runtime_params,
                     )?);
                 }
-                struct_where_clause = format!("WHERE {}", filter_parts.join(" AND "));
             }
 
             let structure_sql = format!(
