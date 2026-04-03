@@ -37,6 +37,7 @@ include "reports.kdl"
 include "integration.kdl"
 include "dimensions.kdl"
 include "tax.kdl"
+include "audit.kdl"
 
 routes {
     route "/" to="FinanceDashboard" layout="FinanceLayout"
@@ -67,6 +68,7 @@ routes {
         route "/reports/income-statement-by-cost-center" to="IncomeStatementByCostCenterReport"
         route "/reports/aged-receivables" to="AgedReceivablesReport"
         route "/reports/tax" to="TaxReport"
+        route "/audit" to="AuditLogList"
     }
 }
 
@@ -88,6 +90,7 @@ menu "FinanceMenu" {
         item "Income Statement (By Cost Center)" to="/finance/reports/income-statement-by-cost-center"
         item "Aged Receivables" to="/finance/reports/aged-receivables"
         item "Tax Report" to="/finance/reports/tax"
+        item "Audit Trail" to="/finance/audit"
     }
 }
 
