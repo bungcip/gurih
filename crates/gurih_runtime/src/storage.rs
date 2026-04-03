@@ -48,10 +48,11 @@ fn validate_filename(filename: &str) -> Result<(), String> {
         if matches!(component, std::path::Component::ParentDir) {
             return Err("Path traversal '..' is not allowed in storage".to_string());
         }
-        if let std::path::Component::Normal(comp) = component {
-            if comp.to_string_lossy().starts_with('.') {
+        match component {
+            std::path::Component::Normal(comp) if comp.to_string_lossy().starts_with('.') => {
                 return Err("Hidden files or directories are not allowed".to_string());
             }
+            _ => {}
         }
     }
 
