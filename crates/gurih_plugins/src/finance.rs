@@ -1114,21 +1114,23 @@ async fn execute_generate_closing_entry(
     }
 
     // Add Plug Line for Retained Earnings
-    let mut plug_line = serde_json::Map::new();
-    plug_line.insert("account".to_string(), Value::String(retained_earnings_id.to_string()));
-
     let impact = total_retained_earnings_impact;
 
-    if impact > Decimal::ZERO {
-        // Profit -> Credit RE
-        plug_line.insert("credit".to_string(), Value::String(impact.to_string()));
-        plug_line.insert("debit".to_string(), Value::String("0.00".to_string()));
-    } else {
-        // Loss -> Debit RE
-        plug_line.insert("debit".to_string(), Value::String(impact.abs().to_string()));
-        plug_line.insert("credit".to_string(), Value::String("0.00".to_string()));
+    if !impact.is_zero() {
+        let mut plug_line = serde_json::Map::new();
+        plug_line.insert("account".to_string(), Value::String(retained_earnings_id.to_string()));
+
+        if impact > Decimal::ZERO {
+            // Profit -> Credit RE
+            plug_line.insert("credit".to_string(), Value::String(impact.to_string()));
+            plug_line.insert("debit".to_string(), Value::String("0.00".to_string()));
+        } else {
+            // Loss -> Debit RE
+            plug_line.insert("debit".to_string(), Value::String(impact.abs().to_string()));
+            plug_line.insert("credit".to_string(), Value::String("0.00".to_string()));
+        }
+        closing_lines.push(Value::Object(plug_line));
     }
-    closing_lines.push(Value::Object(plug_line));
 
     // Create Journal Entry
     let mut journal = serde_json::Map::new();

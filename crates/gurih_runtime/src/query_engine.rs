@@ -234,6 +234,8 @@ impl QueryEngine {
             let mut join_condition = String::new();
 
             // Attempts to determine join condition from schema
+            validate_identifier(parent_table)?;
+
             if let Some(parent_ent) = state.schema.entities.get(&parent_entity.into())
                 && let Some(rel) = parent_ent
                     .relationships
