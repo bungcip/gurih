@@ -139,6 +139,7 @@ impl FakerEngine {
                 }
 
                 if !records_to_insert.is_empty() {
+                    #[allow(clippy::collapsible_if)]
                     if let Err(e) = datastore
                         .insert_many(&entity_schema.table_name.to_string(), records_to_insert)
                         .await
