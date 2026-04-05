@@ -450,10 +450,9 @@ async fn check_period_open(
                     let mut found = false;
                     for p in all_periods {
                         if let (Some(start), Some(end)) = (
-                                p.get("start_date").and_then(|v| v.as_str()),
-                                p.get("end_date").and_then(|v| v.as_str()),
-                            )
-                            && start <= date_s
+                            p.get("start_date").and_then(|v| v.as_str()),
+                            p.get("end_date").and_then(|v| v.as_str()),
+                        ) && start <= date_s
                             && end >= date_s
                         {
                             found = true;

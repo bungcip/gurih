@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{Criterion, criterion_group, criterion_main};
 use gurih_ir::{EntitySchema, Expression, FieldSchema, FieldType, Schema, Symbol};
 use gurih_plugins::finance::FinancePlugin;
 use gurih_runtime::plugins::Plugin;
@@ -82,14 +82,7 @@ fn bench_period_open(c: &mut Criterion) {
     c.bench_function("finance_period_open_1000", |b| {
         b.to_async(&rt).iter(|| async {
             plugin
-                .check_precondition(
-                    "period_open",
-                    &args,
-                    &kwargs,
-                    &entity_data,
-                    &schema_arc,
-                    Some(&ds),
-                )
+                .check_precondition("period_open", &args, &kwargs, &entity_data, &schema_arc, Some(&ds))
                 .await
         });
     });

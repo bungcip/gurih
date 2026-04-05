@@ -24,3 +24,6 @@ bytes = { workspace = true }
 [dev-dependencies]
 gurih_dsl = { workspace = true }
 gurih_plugins = { path = "../gurih_plugins" }
+
+[package.metadata.cargo-machete]
+ignored = ["rust-s3"]
