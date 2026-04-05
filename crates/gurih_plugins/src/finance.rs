@@ -208,9 +208,10 @@ async fn check_balanced_transaction(
 
     let diff = (total_debit - total_credit).abs();
     if !diff.is_zero() {
+        let entry_id = entity_data.get("id").and_then(|v| v.as_str()).unwrap_or("unknown");
         return Err(RuntimeError::ValidationError(format!(
-            "Transaction not balanced: Debit {}, Credit {} (Diff {})",
-            total_debit, total_credit, diff
+            "Transaction not balanced for Entry {}: Debit {}, Credit {} (Diff {})",
+            entry_id, total_debit, total_credit, diff
         )));
     }
 
