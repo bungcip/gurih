@@ -136,6 +136,12 @@ rule "LeafAccountOnly" {
     message "Cannot post to a group account"
 }
 
+rule "ActiveAccountOnly" {
+    on:save "JournalLine"
+    assert "lookup_field('Account', account, 'is_active') == true"
+    message "Cannot post to an inactive account"
+}
+
 rule "SingleSidedLine" {
     on:save "JournalLine"
     assert "(debit > 0 && (credit == 0 || credit == \"0\" || credit == \"0.00\")) || (credit > 0 && (debit == 0 || debit == \"0\" || debit == \"0.00\"))"
