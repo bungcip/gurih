@@ -184,6 +184,12 @@ async fn check_balanced_transaction(
 ) -> Result<(), RuntimeError> {
     let lines = fetch_journal_lines(entity_data, schema, datastore).await?;
 
+    if lines.is_empty() {
+        return Err(RuntimeError::ValidationError(
+            "Transaction must have at least one line".to_string(),
+        ));
+    }
+
     let mut total_debit = Decimal::ZERO;
     let mut total_credit = Decimal::ZERO;
 
@@ -192,6 +198,12 @@ async fn check_balanced_transaction(
             total_debit += parse_decimal_opt(line_obj.get("debit"))?;
             total_credit += parse_decimal_opt(line_obj.get("credit"))?;
         }
+    }
+
+    if total_debit.is_zero() && total_credit.is_zero() {
+        return Err(RuntimeError::ValidationError(
+            "Transaction cannot have a zero balance".to_string(),
+        ));
     }
 
     let diff = (total_debit - total_credit).abs();
