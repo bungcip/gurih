@@ -273,17 +273,12 @@ impl AuthEngine {
                 let target_size = (MAX_SESSIONS * 9) / 10;
                 let remove_count = sessions.len().saturating_sub(target_size).max(1);
 
-                let mut entries: Vec<(String, Instant)> = sessions
-                    .iter()
-                    .map(|(k, s)| (k.clone(), s.expires_at))
-                    .collect();
+                let mut entries: Vec<(String, Instant)> =
+                    sessions.iter().map(|(k, s)| (k.clone(), s.expires_at)).collect();
 
                 entries.sort_by(|a, b| a.1.cmp(&b.1));
 
-                let keys_to_remove: Vec<String> = entries.into_iter()
-                    .take(remove_count)
-                    .map(|(k, _)| k)
-                    .collect();
+                let keys_to_remove: Vec<String> = entries.into_iter().take(remove_count).map(|(k, _)| k).collect();
 
                 for k in keys_to_remove {
                     sessions.remove(&k);

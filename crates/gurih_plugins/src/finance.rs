@@ -463,10 +463,9 @@ async fn check_period_open(
                     let mut found = false;
                     for p in all_periods {
                         if let (Some(start), Some(end)) = (
-                                p.get("start_date").and_then(|v| v.as_str()),
-                                p.get("end_date").and_then(|v| v.as_str()),
-                            )
-                            && start <= date_s
+                            p.get("start_date").and_then(|v| v.as_str()),
+                            p.get("end_date").and_then(|v| v.as_str()),
+                        ) && start <= date_s
                             && end >= date_s
                         {
                             found = true;
@@ -1037,15 +1036,17 @@ async fn execute_generate_closing_entry(
                 }
 
                 // 4. Fetch Lines for these journals
-                for jid in journal_ids {
+                let mut futs = Vec::new();
+                for jid in &journal_ids {
                     let mut line_filters = HashMap::new();
-                    line_filters.insert("journal_entry".to_string(), jid);
-                    let lines = data_access
-                        .datastore()
-                        .find(journal_line_table, line_filters)
-                        .await
-                        .map_err(RuntimeError::WorkflowError)?;
+                    line_filters.insert("journal_entry".to_string(), jid.clone());
+                    futs.push(data_access.datastore().find(journal_line_table, line_filters));
+                }
 
+                let results = futures::future::join_all(futs).await;
+
+                for res in results {
+                    let lines = res.map_err(RuntimeError::WorkflowError)?;
                     for line in lines {
                         let acc_id_opt = line.get("account").and_then(|v| v.as_str());
                         if let Some(acc_id) = acc_id_opt
@@ -1285,7 +1286,7 @@ async fn execute_snapshot_parties(
             if let (Some(lid), Some(pt), Some(pid), true) =
                 (line_id, party_type, party_id, current_name.unwrap_or("").is_empty())
             {
-            #[allow(clippy::collapsible_if)]
+                #[allow(clippy::collapsible_if)]
                 if let Some(name) = party_names_cache.get(&(pt.to_string(), pid.to_string())) {
                     let mut update_data = serde_json::Map::new();
                     update_data.insert("party_name".to_string(), Value::String(name.clone()));
