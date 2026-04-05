@@ -144,9 +144,8 @@ impl FakerEngine {
                     if let Err(e) = datastore
                         .insert_many(&entity_schema.table_name.to_string(), records_to_insert)
                         .await
-                    {
-                        println!("Error inserting fake records: {}", e);
-                    }
+                {
+                    println!("Error inserting fake records: {}", e);
                 }
             }
         }
