@@ -138,6 +138,7 @@ impl FakerEngine {
                     records_to_insert.push(Value::Object(record));
                 }
 
+                #[allow(clippy::collapsible_if)]
                 if !records_to_insert.is_empty() {
                     #[allow(clippy::collapsible_if)]
                     if let Err(e) = datastore
