@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{criterion_group, criterion_main, Criterion};
 use gurih_ir::{EntitySchema, Expression, FieldSchema, FieldType, Schema, Symbol};
 use gurih_plugins::finance::FinancePlugin;
 use gurih_runtime::plugins::Plugin;

@@ -1270,7 +1270,7 @@ async fn execute_snapshot_parties(
             if let (Some(lid), Some(pt), Some(pid), true) =
                 (line_id, party_type, party_id, current_name.unwrap_or("").is_empty())
             {
-                #[allow(clippy::collapsible_if)]
+            #[allow(clippy::collapsible_if)]
                 if let Some(name) = party_names_cache.get(&(pt.to_string(), pid.to_string())) {
                     let mut update_data = serde_json::Map::new();
                     update_data.insert("party_name".to_string(), Value::String(name.clone()));
