@@ -1219,7 +1219,7 @@ async fn execute_snapshot_parties(
             .map(|d| d.db_type.clone())
             .unwrap_or(gurih_ir::DatabaseType::Sqlite);
 
-        let mut party_names_cache: HashMap<(String, String), String> = HashMap::new();
+        let mut fetch_futs = Vec::new();
 
         for (pt, pids) in parties_to_fetch {
             if let Ok(target_table) = get_validated_table_name_strict(schema, &pt) {
@@ -1235,41 +1235,58 @@ async fn execute_snapshot_parties(
                 );
                 let params: Vec<Value> = ids.iter().map(|s| Value::String(s.clone())).collect();
 
-                match ds.query_with_params(&sql, params).await {
-                    Ok(results) => {
-                        for record in results {
-                            if let Some(id) = record.get("id").and_then(|v| v.as_str()) {
-                                let name = record
-                                    .get("name")
-                                    .or_else(|| record.get("full_name"))
-                                    .or_else(|| record.get("description"))
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("Unknown");
-                                party_names_cache.insert((pt.clone(), id.to_string()), name.to_string());
+                let ds = ds.clone();
+                let pt = pt.clone();
+
+                fetch_futs.push(async move {
+                    let mut local_cache = Vec::new();
+                    match ds.query_with_params(&sql, params).await {
+                        Ok(results) => {
+                            for record in results {
+                                if let Some(id) = record.get("id").and_then(|v| v.as_str()) {
+                                    let name = record
+                                        .get("name")
+                                        .or_else(|| record.get("full_name"))
+                                        .or_else(|| record.get("description"))
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("Unknown");
+                                    local_cache.push(((pt.clone(), id.to_string()), name.to_string()));
+                                }
                             }
+                            Ok(local_cache)
                         }
-                    }
-                    Err(e) if e.contains("Raw SQL query not supported") => {
-                        // Fallback: Parallel fetch
-                        let mut futs = Vec::new();
-                        for id in &ids {
-                            futs.push(ds.get(target_table, id));
-                        }
-                        let results = futures::future::join_all(futs).await;
-                        for (id, res) in ids.iter().zip(results) {
-                            if let Ok(Some(party_record)) = res {
-                                let name = party_record
-                                    .get("name")
-                                    .or_else(|| party_record.get("full_name"))
-                                    .or_else(|| party_record.get("description"))
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("Unknown");
-                                party_names_cache.insert((pt.clone(), id.to_string()), name.to_string());
+                        Err(e) if e.contains("Raw SQL query not supported") => {
+                            // Fallback: Parallel fetch
+                            let mut futs = Vec::new();
+                            for id in &ids {
+                                futs.push(ds.get(target_table, id));
                             }
+                            let results = join_all(futs).await;
+                            for (id, res) in ids.iter().zip(results) {
+                                if let Ok(Some(party_record)) = res {
+                                    let name = party_record
+                                        .get("name")
+                                        .or_else(|| party_record.get("full_name"))
+                                        .or_else(|| party_record.get("description"))
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("Unknown");
+                                    local_cache.push(((pt.clone(), id.to_string()), name.to_string()));
+                                }
+                            }
+                            Ok(local_cache)
                         }
+                        Err(e) => Err(RuntimeError::WorkflowError(e)),
                     }
-                    Err(e) => return Err(RuntimeError::WorkflowError(e)),
-                }
+                });
+            }
+        }
+
+        let mut party_names_cache: HashMap<(String, String), String> = HashMap::new();
+        let fetch_results = join_all(fetch_futs).await;
+        for res in fetch_results {
+            let local_cache = res?;
+            for (key, val) in local_cache {
+                party_names_cache.insert(key, val);
             }
         }
 
