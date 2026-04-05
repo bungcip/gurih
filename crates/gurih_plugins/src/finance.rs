@@ -100,14 +100,19 @@ impl Plugin for FinancePlugin {
         _entity_name: &str,
         entity_data: &Value,
     ) -> Result<(Value, Vec<String>, Vec<Symbol>), RuntimeError> {
-        if name == "post_journal" {
-            if let Some(Expression::StringLiteral(rule)) = args.first() {
-                return Ok((Value::Null, vec![], vec![Symbol::from(rule.as_str())]));
+        match name {
+            "post_journal" => {
+                if let Some(Expression::StringLiteral(rule)) = args.first() {
+                    return Ok((Value::Null, vec![], vec![Symbol::from(rule.as_str())]));
+                }
             }
-        } else if name == "snapshot_parties" {
-            execute_snapshot_parties(entity_data, schema, datastore).await?;
-        } else if name == "init_line_status" {
-            execute_init_line_status(entity_data, schema, datastore).await?;
+            "snapshot_parties" => {
+                execute_snapshot_parties(entity_data, schema, datastore).await?;
+            }
+            "init_line_status" => {
+                execute_init_line_status(entity_data, schema, datastore).await?;
+            }
+            _ => {}
         }
         Ok((Value::Null, vec![], vec![]))
     }
@@ -120,14 +125,11 @@ impl Plugin for FinancePlugin {
         data_access: &dyn DataAccess,
         ctx: &RuntimeContext,
     ) -> Result<bool, RuntimeError> {
-        if step_name == "finance:reverse_journal" {
-            execute_reverse_journal(step, params, data_access, ctx).await
-        } else if step_name == "finance:generate_closing_entry" {
-            execute_generate_closing_entry(step, params, data_access, ctx).await
-        } else if step_name == "finance:reconcile_entries" {
-            execute_reconcile_entries(step, params, data_access, ctx).await
-        } else {
-            Ok(false)
+        match step_name {
+            "finance:reverse_journal" => execute_reverse_journal(step, params, data_access, ctx).await,
+            "finance:generate_closing_entry" => execute_generate_closing_entry(step, params, data_access, ctx).await,
+            "finance:reconcile_entries" => execute_reconcile_entries(step, params, data_access, ctx).await,
+            _ => Ok(false),
         }
     }
 }
