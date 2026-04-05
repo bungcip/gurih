@@ -184,6 +184,12 @@ async fn check_balanced_transaction(
 ) -> Result<(), RuntimeError> {
     let lines = fetch_journal_lines(entity_data, schema, datastore).await?;
 
+    if lines.is_empty() {
+        return Err(RuntimeError::ValidationError(
+            "Transaction must have at least one line".to_string(),
+        ));
+    }
+
     let mut total_debit = Decimal::ZERO;
     let mut total_credit = Decimal::ZERO;
 
@@ -194,11 +200,18 @@ async fn check_balanced_transaction(
         }
     }
 
+    if total_debit.is_zero() && total_credit.is_zero() {
+        return Err(RuntimeError::ValidationError(
+            "Transaction cannot have a zero balance".to_string(),
+        ));
+    }
+
     let diff = (total_debit - total_credit).abs();
     if !diff.is_zero() {
+        let entry_id = entity_data.get("id").and_then(|v| v.as_str()).unwrap_or("unknown");
         return Err(RuntimeError::ValidationError(format!(
-            "Transaction not balanced: Debit {}, Credit {} (Diff {})",
-            total_debit, total_credit, diff
+            "Transaction not balanced for Entry {}: Debit {}, Credit {} (Diff {})",
+            entry_id, total_debit, total_credit, diff
         )));
     }
 
@@ -1023,15 +1036,17 @@ async fn execute_generate_closing_entry(
                 }
 
                 // 4. Fetch Lines for these journals
-                for jid in journal_ids {
+                let mut futs = Vec::new();
+                for jid in &journal_ids {
                     let mut line_filters = HashMap::new();
-                    line_filters.insert("journal_entry".to_string(), jid);
-                    let lines = data_access
-                        .datastore()
-                        .find(journal_line_table, line_filters)
-                        .await
-                        .map_err(RuntimeError::WorkflowError)?;
+                    line_filters.insert("journal_entry".to_string(), jid.clone());
+                    futs.push(data_access.datastore().find(journal_line_table, line_filters));
+                }
 
+                let results = futures::future::join_all(futs).await;
+
+                for res in results {
+                    let lines = res.map_err(RuntimeError::WorkflowError)?;
                     for line in lines {
                         let acc_id_opt = line.get("account").and_then(|v| v.as_str());
                         if let Some(acc_id) = acc_id_opt
@@ -1113,21 +1128,23 @@ async fn execute_generate_closing_entry(
     }
 
     // Add Plug Line for Retained Earnings
-    let mut plug_line = serde_json::Map::new();
-    plug_line.insert("account".to_string(), Value::String(retained_earnings_id.to_string()));
-
     let impact = total_retained_earnings_impact;
 
-    if impact > Decimal::ZERO {
-        // Profit -> Credit RE
-        plug_line.insert("credit".to_string(), Value::String(impact.to_string()));
-        plug_line.insert("debit".to_string(), Value::String("0.00".to_string()));
-    } else {
-        // Loss -> Debit RE
-        plug_line.insert("debit".to_string(), Value::String(impact.abs().to_string()));
-        plug_line.insert("credit".to_string(), Value::String("0.00".to_string()));
+    if !impact.is_zero() {
+        let mut plug_line = serde_json::Map::new();
+        plug_line.insert("account".to_string(), Value::String(retained_earnings_id.to_string()));
+
+        if impact > Decimal::ZERO {
+            // Profit -> Credit RE
+            plug_line.insert("credit".to_string(), Value::String(impact.to_string()));
+            plug_line.insert("debit".to_string(), Value::String("0.00".to_string()));
+        } else {
+            // Loss -> Debit RE
+            plug_line.insert("debit".to_string(), Value::String(impact.abs().to_string()));
+            plug_line.insert("credit".to_string(), Value::String("0.00".to_string()));
+        }
+        closing_lines.push(Value::Object(plug_line));
     }
-    closing_lines.push(Value::Object(plug_line));
 
     // Create Journal Entry
     let mut journal = serde_json::Map::new();
