@@ -604,12 +604,13 @@ async fn execute_reconcile_entries(
         .get("account")
         .or_else(|| debit_line.get("account_id"))
         .and_then(|v| v.as_str())
-        .unwrap_or("");
+        .ok_or_else(|| RuntimeError::ValidationError("Debit line missing account".to_string()))?;
+
     let c_acc = credit_line
         .get("account")
         .or_else(|| credit_line.get("account_id"))
         .and_then(|v| v.as_str())
-        .unwrap_or("");
+        .ok_or_else(|| RuntimeError::ValidationError("Credit line missing account".to_string()))?;
 
     if d_acc != c_acc {
         return Err(RuntimeError::ValidationError(
@@ -617,8 +618,15 @@ async fn execute_reconcile_entries(
         ));
     }
 
-    let d_party = debit_line.get("party_id").and_then(|v| v.as_str()).unwrap_or("");
-    let c_party = credit_line.get("party_id").and_then(|v| v.as_str()).unwrap_or("");
+    let d_party = debit_line
+        .get("party_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| RuntimeError::ValidationError("Debit line missing party_id".to_string()))?;
+
+    let c_party = credit_line
+        .get("party_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| RuntimeError::ValidationError("Credit line missing party_id".to_string()))?;
 
     if d_party != c_party {
         return Err(RuntimeError::ValidationError(
