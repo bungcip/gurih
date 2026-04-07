@@ -1579,60 +1579,6 @@ impl DataEngine {
             }
         }
 
-        // Sentinel Refactor: Pre-loop bulk parallel resolution for all missing terms
-        let mut missing_terms = Vec::new();
-        for term in &unique_terms {
-            let t_str = term.to_string();
-            if !tag_map.contains_key(&t_str) && !code_map.contains_key(&t_str) && !name_map.contains_key(&t_str) {
-                missing_terms.push(t_str);
-            }
-        }
-
-        let mut fallback_cache: HashMap<String, Option<String>> = HashMap::new();
-
-        if !missing_terms.is_empty() {
-            let mut futs = Vec::new();
-            for term in missing_terms {
-                let store = self.datastore.clone();
-                let account_table_owned = account_table.to_string();
-
-                futs.push(async move {
-                    let mut found_id = None;
-
-                    if has_system_tag {
-                        let mut filters = HashMap::new();
-                        filters.insert("system_tag".to_string(), term.clone());
-                        if let Ok(Some(acc)) = store.find_first(&account_table_owned, filters).await {
-                            found_id = acc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
-                        }
-                    }
-
-                    if found_id.is_none() {
-                        let mut filters = HashMap::new();
-                        filters.insert("code".to_string(), term.clone());
-                        if let Ok(Some(acc)) = store.find_first(&account_table_owned, filters).await {
-                            found_id = acc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
-                        }
-                    }
-
-                    if found_id.is_none() {
-                        let mut filters = HashMap::new();
-                        filters.insert("name".to_string(), term.clone());
-                        if let Ok(Some(acc)) = store.find_first(&account_table_owned, filters).await {
-                            found_id = acc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
-                        }
-                    }
-
-                    (term, found_id)
-                });
-            }
-
-            let results = join_all(futs).await;
-            for (term, id_opt) in results {
-                fallback_cache.insert(term, id_opt);
-            }
-        }
-
         for line in &rule.lines {
             let mut line_obj = serde_json::Map::new();
 
@@ -1646,8 +1592,7 @@ impl DataEngine {
             } else if let Some(id) = name_map.get(account_term) {
                 id.clone()
             } else {
-                let id_opt = fallback_cache.get(account_term).cloned().flatten();
-                id_opt.ok_or_else(|| format!("Account '{}' not found", account_term))?
+                return Err(format!("Account '{}' not found", account_term));
             };
 
             line_obj.insert("account".to_string(), Value::String(account_id));
