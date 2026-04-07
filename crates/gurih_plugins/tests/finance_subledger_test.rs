@@ -316,6 +316,7 @@ async fn test_subledger_validation() {
             "Account",
             json!({
                 "code": "101",
+                "name": "Accounts Receivable",
                 "requires_party": true
             }),
             &ctx,
@@ -328,6 +329,7 @@ async fn test_subledger_validation() {
             "Account",
             json!({
                 "code": "100",
+                "name": "Cash",
                 "requires_party": false
             }),
             &ctx,
