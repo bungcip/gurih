@@ -113,6 +113,11 @@ impl AuthEngine {
 
     #[allow(clippy::collapsible_if)]
     pub async fn login(&self, username: &str, password: &str) -> Result<RuntimeContext, String> {
+        // Sentinel: Prevent CPU exhaustion DoS from excessively long inputs to PBKDF2
+        if username.len() > 255 || password.len() > 1024 {
+            return Err("Invalid username or password".to_string());
+        }
+
         self.cleanup_login_attempts();
         self.cleanup_sessions();
 
