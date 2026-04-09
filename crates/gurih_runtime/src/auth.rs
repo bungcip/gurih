@@ -113,6 +113,11 @@ impl AuthEngine {
 
     #[allow(clippy::collapsible_if)]
     pub async fn login(&self, username: &str, password: &str) -> Result<RuntimeContext, String> {
+        // Sentinel: Prevent CPU exhaustion DoS attacks on PBKDF2 by enforcing maximum length limits
+        if username.len() > 255 || password.len() > 1024 {
+            return Err("Invalid username or password".to_string());
+        }
+
         self.cleanup_login_attempts();
         self.cleanup_sessions();
 
@@ -510,5 +515,19 @@ mod tests {
             attempts.contains_key("target_user"),
             "Target user (count=4) should be preserved over noise (count=1)"
         );
+    }
+
+    #[tokio::test]
+    async fn test_login_input_length_limits() {
+        let store = Arc::new(MemoryDataStore::new());
+        let auth = AuthEngine::new(store, None, None);
+
+        let long_username = "a".repeat(256);
+        let result = auth.login(&long_username, "password").await;
+        assert_eq!(result.err().unwrap(), "Invalid username or password");
+
+        let long_password = "b".repeat(1025);
+        let result = auth.login("user", &long_password).await;
+        assert_eq!(result.err().unwrap(), "Invalid username or password");
     }
 }
