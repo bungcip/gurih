@@ -1068,9 +1068,9 @@ async fn execute_generate_closing_entry(
                                 let mut row_map = serde_json::Map::new();
                                 row_map.insert("account_id".to_string(), Value::String(acc_id.to_string()));
                                 row_map.insert("account_type".to_string(), Value::String(typ.to_string()));
-                                row_map.insert("debit".to_string(), line.get("debit").cloned().unwrap_or(Value::Null));
+                                row_map.insert("debit".to_string(), line.get("debit").cloned().ok_or_else(|| RuntimeError::ValidationError("Missing debit".to_string()))?);
                                 row_map
-                                    .insert("credit".to_string(), line.get("credit").cloned().unwrap_or(Value::Null));
+                                    .insert("credit".to_string(), line.get("credit").cloned().ok_or_else(|| RuntimeError::ValidationError("Missing credit".to_string()))?);
                                 fallback_rows.push(Arc::new(Value::Object(row_map)));
                             }
                         }
@@ -1208,9 +1208,23 @@ async fn execute_snapshot_parties(
             let line = line_arc.as_ref();
             let party_type = line.get("party_type").and_then(|v| v.as_str());
             let party_id = line.get("party_id").and_then(|v| v.as_str());
-            let current_name = line.get("party_name").and_then(|v| v.as_str());
 
-            let is_empty = current_name.map(|n| n.is_empty()).unwrap_or(true);
+            // In strict mode, verify data integrity if party features are partially used
+            if party_type.is_some() && party_id.is_none() {
+                return Err(RuntimeError::ValidationError(format!("Line {} has party_type but missing party_id", line.get("id").and_then(|v| v.as_str()).unwrap_or("unknown"))));
+            }
+            if party_id.is_some() && party_type.is_none() {
+                return Err(RuntimeError::ValidationError(format!("Line {} has party_id but missing party_type", line.get("id").and_then(|v| v.as_str()).unwrap_or("unknown"))));
+            }
+
+            let current_name = line.get("party_name");
+
+            let is_empty = match current_name {
+                Some(Value::String(s)) => s.is_empty(),
+                Some(Value::Null) | None => true,
+                _ => return Err(RuntimeError::ValidationError(format!("Invalid party_name format for line {}", line.get("id").and_then(|v| v.as_str()).unwrap_or("unknown")))),
+            };
+
             if let (Some(pt), Some(pid), true) = (party_type, party_id, is_empty) {
                 parties_to_fetch
                     .entry(pt.to_string())
@@ -1308,9 +1322,15 @@ async fn execute_snapshot_parties(
             let line_id = line.get("id").and_then(|v| v.as_str());
             let party_type = line.get("party_type").and_then(|v| v.as_str());
             let party_id = line.get("party_id").and_then(|v| v.as_str());
-            let current_name = line.get("party_name").and_then(|v| v.as_str());
 
-            let is_empty = current_name.map(|n| n.is_empty()).unwrap_or(true);
+            let current_name = line.get("party_name");
+
+            let is_empty = match current_name {
+                Some(Value::String(s)) => s.is_empty(),
+                Some(Value::Null) | None => true,
+                _ => false, // Already validated above, just skip here
+            };
+
             if let (Some(lid), Some(pt), Some(pid), true) =
                 (line_id, party_type, party_id, is_empty)
             {
