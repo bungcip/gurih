@@ -834,12 +834,13 @@ async fn execute_reverse_journal(
 
     // 3. Create Reverse Header
     let mut new_entry = original.clone();
-    let mut old_entry_number = "?".to_string();
 
     if let Some(obj) = new_entry.as_object_mut() {
-        if let Some(num) = obj.get("entry_number").and_then(|v| v.as_str()) {
-            old_entry_number = num.to_string();
-        }
+        let old_entry_number = obj
+            .get("entry_number")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| RuntimeError::ValidationError("Original journal entry missing entry_number".to_string()))?
+            .to_string();
 
         obj.remove("id");
         obj.insert("id".to_string(), json!(Uuid::new_v4().to_string()));
