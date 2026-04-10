@@ -113,6 +113,11 @@ impl AuthEngine {
 
     #[allow(clippy::collapsible_if)]
     pub async fn login(&self, username: &str, password: &str) -> Result<RuntimeContext, String> {
+        // Sentinel: Prevent CPU exhaustion DoS by limiting input lengths before processing
+        if username.len() > 255 || password.len() > 1024 {
+            return Err("Invalid username or password".to_string());
+        }
+
         self.cleanup_login_attempts();
         self.cleanup_sessions();
 
@@ -293,6 +298,22 @@ mod tests {
     use super::*;
     use crate::store::MemoryDataStore;
     use serde_json::json;
+
+    #[tokio::test]
+    async fn test_login_input_length_limits() {
+        let store = Arc::new(MemoryDataStore::new());
+        let auth = AuthEngine::new(store.clone(), None, None);
+
+        // Test long username
+        let long_username = "a".repeat(256);
+        let result = auth.login(&long_username, "password").await;
+        assert_eq!(result.err().unwrap(), "Invalid username or password");
+
+        // Test long password
+        let long_password = "a".repeat(1025);
+        let result = auth.login("user", &long_password).await;
+        assert_eq!(result.err().unwrap(), "Invalid username or password");
+    }
 
     #[tokio::test]
     async fn test_login_timing_mitigation_logic() {
