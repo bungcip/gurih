@@ -1068,9 +1068,10 @@ async fn execute_generate_closing_entry(
                                 let mut row_map = serde_json::Map::new();
                                 row_map.insert("account_id".to_string(), Value::String(acc_id.to_string()));
                                 row_map.insert("account_type".to_string(), Value::String(typ.to_string()));
-                                row_map.insert("debit".to_string(), line.get("debit").cloned().unwrap_or(Value::Null));
-                                row_map
-                                    .insert("credit".to_string(), line.get("credit").cloned().unwrap_or(Value::Null));
+                                let debit_val = line.get("debit").cloned().ok_or_else(|| RuntimeError::ValidationError(format!("Journal line missing debit for account {}", acc_id)))?;
+                                let credit_val = line.get("credit").cloned().ok_or_else(|| RuntimeError::ValidationError(format!("Journal line missing credit for account {}", acc_id)))?;
+                                row_map.insert("debit".to_string(), debit_val);
+                                row_map.insert("credit".to_string(), credit_val);
                                 fallback_rows.push(Arc::new(Value::Object(row_map)));
                             }
                         }
