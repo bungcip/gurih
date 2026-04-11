@@ -115,6 +115,8 @@ impl AuthEngine {
     pub async fn login(&self, username: &str, password: &str) -> Result<RuntimeContext, String> {
         // Sentinel: Prevent CPU exhaustion DoS from excessively long inputs to PBKDF2
         if username.len() > 255 || password.len() > 1024 {
+            // Mitigate timing attacks by performing a dummy hash computation before rejecting
+            verify_password("dummy", &self.dummy_hash);
             return Err("Invalid username or password".to_string());
         }
 
