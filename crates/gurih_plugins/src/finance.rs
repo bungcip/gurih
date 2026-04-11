@@ -186,10 +186,16 @@ async fn check_balanced_transaction(
 ) -> Result<(), RuntimeError> {
     let lines = fetch_journal_lines(entity_data, schema, datastore).await?;
 
+    let entry_id = entity_data
+        .get("id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| RuntimeError::ValidationError("Transaction missing id".to_string()))?;
+
     if lines.is_empty() {
-        return Err(RuntimeError::ValidationError(
-            "Transaction must have at least one line".to_string(),
-        ));
+        return Err(RuntimeError::ValidationError(format!(
+            "Transaction {} must have at least one line",
+            entry_id
+        )));
     }
 
     let mut total_debit = Decimal::ZERO;
@@ -203,14 +209,14 @@ async fn check_balanced_transaction(
     }
 
     if total_debit.is_zero() && total_credit.is_zero() {
-        return Err(RuntimeError::ValidationError(
-            "Transaction cannot have a zero balance".to_string(),
-        ));
+        return Err(RuntimeError::ValidationError(format!(
+            "Transaction {} cannot have a zero balance",
+            entry_id
+        )));
     }
 
     let diff = (total_debit - total_credit).abs();
     if !diff.is_zero() {
-        let entry_id = entity_data.get("id").and_then(|v| v.as_str()).ok_or_else(|| RuntimeError::ValidationError("Transaction missing id".to_string()))?;
         return Err(RuntimeError::ValidationError(format!(
             "Transaction not balanced for Entry {}: Debit {}, Credit {} (Diff {})",
             entry_id, total_debit, total_credit, diff
