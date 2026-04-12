@@ -50,6 +50,7 @@ async fn test_balanced_transaction() {
 
     // Test Balanced
     let data_balanced = json!({
+        "id": "je-1",
         "status": "Draft",
         "lines": [
             { "debit": 100.0, "credit": 0.0 },
@@ -64,6 +65,7 @@ async fn test_balanced_transaction() {
 
     // Test Unbalanced
     let data_unbalanced = json!({
+        "id": "je-2",
         "status": "Draft",
         "lines": [
             { "debit": 100.0, "credit": 0.0 },
