@@ -1211,7 +1211,7 @@ async fn execute_snapshot_parties(
             let party_id = line.get("party_id").and_then(|v| v.as_str());
             let current_name = line.get("party_name").and_then(|v| v.as_str());
 
-            let is_empty = current_name.map(|n| n.is_empty()).unwrap_or(true);
+            let is_empty = current_name.map_or(true, |n| n.is_empty());
             if let (Some(pt), Some(pid), true) = (party_type, party_id, is_empty) {
                 parties_to_fetch
                     .entry(pt.to_string())
@@ -1311,7 +1311,7 @@ async fn execute_snapshot_parties(
             let party_id = line.get("party_id").and_then(|v| v.as_str());
             let current_name = line.get("party_name").and_then(|v| v.as_str());
 
-            let is_empty = current_name.map(|n| n.is_empty()).unwrap_or(true);
+            let is_empty = current_name.map_or(true, |n| n.is_empty());
             if let (Some(lid), Some(pt), Some(pid), true) =
                 (line_id, party_type, party_id, is_empty)
             {
