@@ -66,6 +66,14 @@ fn get_validated_table_name_strict<'a>(schema: &'a Schema, entity_name: &str) ->
     Ok(table_name)
 }
 
+fn get_db_type(schema: &Schema) -> gurih_ir::DatabaseType {
+    schema
+        .database
+        .as_ref()
+        .map(|d| d.db_type.clone())
+        .unwrap_or(gurih_ir::DatabaseType::Sqlite)
+}
+
 #[async_trait]
 impl Plugin for FinancePlugin {
     fn name(&self) -> &str {
@@ -263,11 +271,7 @@ async fn check_valid_parties(
         }
     }
 
-    let db_type = schema
-        .database
-        .as_ref()
-        .map(|d| d.db_type.clone())
-        .unwrap_or(gurih_ir::DatabaseType::Sqlite);
+    let db_type = get_db_type(schema);
 
     // Cache: Account ID -> Account Data
     let mut accounts_cache: HashMap<String, Arc<Value>> = HashMap::new();
@@ -443,11 +447,7 @@ async fn check_period_open(
                 e
             })?;
 
-            let db_type = schema
-                .database
-                .as_ref()
-                .map(|d| d.db_type.clone())
-                .unwrap_or(gurih_ir::DatabaseType::Sqlite);
+            let db_type = get_db_type(schema);
 
             let (p_start, p_end) = get_db_range_placeholders(&db_type);
 
@@ -956,12 +956,7 @@ async fn execute_generate_closing_entry(
 
     // 3. Aggregate Revenue and Expense
     // We fetch raw lines instead of SUM() to ensure decimal precision
-    let db_type = data_access
-        .get_schema()
-        .database
-        .as_ref()
-        .map(|d| d.db_type.clone())
-        .unwrap_or(gurih_ir::DatabaseType::Sqlite);
+    let db_type = get_db_type(data_access.get_schema());
 
     let (p_start, p_end) = get_db_range_placeholders(&db_type);
 
@@ -1218,7 +1213,7 @@ async fn execute_snapshot_parties(
             let party_id = line.get("party_id").and_then(|v| v.as_str());
             let current_name = line.get("party_name").and_then(|v| v.as_str());
 
-            let is_empty = current_name.map_or(true, |n| n.is_empty());
+            let is_empty = current_name.is_none_or(|n| n.is_empty());
             if let (Some(pt), Some(pid), true) = (party_type, party_id, is_empty) {
                 parties_to_fetch
                     .entry(pt.to_string())
@@ -1232,11 +1227,7 @@ async fn execute_snapshot_parties(
         }
 
         // 3. Batch fetch party names for each identified party type
-        let db_type = schema
-            .database
-            .as_ref()
-            .map(|d| d.db_type.clone())
-            .unwrap_or(gurih_ir::DatabaseType::Sqlite);
+        let db_type = get_db_type(schema);
 
         let mut fetch_futs = Vec::new();
 
@@ -1318,7 +1309,7 @@ async fn execute_snapshot_parties(
             let party_id = line.get("party_id").and_then(|v| v.as_str());
             let current_name = line.get("party_name").and_then(|v| v.as_str());
 
-            let is_empty = current_name.map_or(true, |n| n.is_empty());
+            let is_empty = current_name.is_none_or(|n| n.is_empty());
             if let (Some(lid), Some(pt), Some(pid), true) =
                 (line_id, party_type, party_id, is_empty)
             {
