@@ -509,10 +509,9 @@ mod tests {
 
         let attempts = auth.login_attempts.lock().unwrap();
 
-        // Vulnerability Check:
-        // Current implementation removes ALL count < 5.
-        // So target_user (count=4) is evicted.
-        // We assert valid behavior (it SHOULD be there), so this test SHOULD FAIL before fix.
+        // Vulnerability Check Fixed:
+        // Ensure that target_user (count=4) is not evicted,
+        // and is preserved over noise (count=1).
         assert!(
             attempts.contains_key("target_user"),
             "Target user (count=4) should be preserved over noise (count=1)"
