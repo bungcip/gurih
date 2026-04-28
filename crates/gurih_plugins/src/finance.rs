@@ -48,8 +48,7 @@ fn get_validated_table_name<'a>(
     let table_name = schema
         .entities
         .get(&Symbol::from(entity_name))
-        .map(|e| e.table_name.as_str())
-        .unwrap_or(default_table_name);
+        .map_or(default_table_name, |e| e.table_name.as_str());
     validate_identifier(table_name)
         .map_err(|e| RuntimeError::WorkflowError(format!("Invalid table_name for {}: {}", entity_name, e)))?;
     Ok(table_name)
@@ -70,8 +69,7 @@ fn get_db_type(schema: &Schema) -> gurih_ir::DatabaseType {
     schema
         .database
         .as_ref()
-        .map(|d| d.db_type.clone())
-        .unwrap_or(gurih_ir::DatabaseType::Sqlite)
+        .map_or(gurih_ir::DatabaseType::Sqlite, |d| d.db_type.clone())
 }
 
 #[async_trait]
@@ -179,9 +177,7 @@ async fn fetch_journal_lines(
             .await
             .map_err(RuntimeError::WorkflowError)?;
 
-        for line in db_lines {
-            lines.push(line.as_ref().clone());
-        }
+        lines.extend(db_lines.into_iter().map(Arc::unwrap_or_clone));
     }
 
     Ok(lines)
@@ -868,7 +864,7 @@ async fn execute_reverse_journal(
     // 4. Create Reverse Lines
     let mut reverse_lines = Vec::with_capacity(lines.len());
     for line_arc in lines {
-        let mut line = line_arc.as_ref().clone();
+        let mut line = Arc::unwrap_or_clone(line_arc);
         if let Some(obj) = line.as_object_mut() {
             obj.remove("id");
             obj.insert("id".to_string(), json!(Uuid::new_v4().to_string()));
