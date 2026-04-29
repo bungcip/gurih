@@ -44,9 +44,7 @@ async fn bench_snapshot_parties() {
         EntitySchema {
             name: Symbol::from("JournalEntry"),
             table_name: Symbol::from("journal_entry"),
-            fields: vec![
-                create_field("id", FieldType::String, true),
-            ],
+            fields: vec![create_field("id", FieldType::String, true)],
             relationships: vec![],
             options: HashMap::new(),
             seeds: None,
@@ -99,7 +97,10 @@ async fn bench_snapshot_parties() {
     let num_customers = 1000;
     let mut customer_ids = Vec::new();
     for i in 0..num_customers {
-        let cid = engine.create("Customer", json!({"name": format!("Customer {}", i)}), &ctx).await.unwrap();
+        let cid = engine
+            .create("Customer", json!({"name": format!("Customer {}", i)}), &ctx)
+            .await
+            .unwrap();
         customer_ids.push(cid);
     }
 
@@ -116,7 +117,18 @@ async fn bench_snapshot_parties() {
     let entity_data = json!({"id": journal_id});
 
     let start = Instant::now();
-    plugin.apply_effect("snapshot_parties", &[], &HashMap::new(), &schema_arc, Some(&datastore), "JournalEntry", &entity_data).await.unwrap();
+    plugin
+        .apply_effect(
+            "snapshot_parties",
+            &[],
+            &HashMap::new(),
+            &schema_arc,
+            Some(&datastore),
+            "JournalEntry",
+            &entity_data,
+        )
+        .await
+        .unwrap();
     let duration = start.elapsed();
     println!("snapshot_parties ({} parties) took: {:?}", num_customers, duration);
 }
