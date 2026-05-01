@@ -152,15 +152,35 @@ async fn fetch_journal_lines(
 
     // 1. Try to find lines in the payload
     if let Some(obj) = entity_data.as_object() {
-        for (_key, val) in obj {
-            if let Some(val_lines) = val.as_array() {
-                for line in val_lines {
-                    if let Some(line_obj) = line.as_object()
-                        && (line_obj.contains_key("debit") || line_obj.contains_key("credit"))
-                    {
-                        lines.push(line.clone());
-                        found_lines_in_payload = true;
+        // Prioritize the "lines" key
+        if let Some(val_lines) = obj.get("lines").and_then(|v| v.as_array()) {
+            for line in val_lines {
+                if let Some(line_obj) = line.as_object()
+                    && (line_obj.contains_key("debit") || line_obj.contains_key("credit"))
+                {
+                    lines.push(line.clone());
+                    found_lines_in_payload = true;
+                }
+            }
+        }
+
+        if !found_lines_in_payload {
+            for (key, val) in obj {
+                if key == "lines" {
+                    continue;
+                }
+                if let Some(val_lines) = val.as_array() {
+                    for line in val_lines {
+                        if let Some(line_obj) = line.as_object()
+                            && (line_obj.contains_key("debit") || line_obj.contains_key("credit"))
+                        {
+                            lines.push(line.clone());
+                            found_lines_in_payload = true;
+                        }
                     }
+                }
+                if found_lines_in_payload {
+                    break;
                 }
             }
         }
@@ -179,9 +199,7 @@ async fn fetch_journal_lines(
             .await
             .map_err(RuntimeError::WorkflowError)?;
 
-        for line in db_lines {
-            lines.push(line.as_ref().clone());
-        }
+        lines.extend(db_lines.into_iter().map(Arc::unwrap_or_clone));
     }
 
     Ok(lines)
