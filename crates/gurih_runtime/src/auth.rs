@@ -110,20 +110,20 @@ impl AuthEngine {
             schema,
         }
     }
-
     #[allow(clippy::collapsible_if)]
     pub async fn login(&self, username: &str, password: &str) -> Result<RuntimeContext, String> {
-        // Sentinel: Prevent CPU exhaustion DoS from excessively long inputs to PBKDF2
-        if username.len() > 255 || password.len() > 1024 {
+        self.cleanup_login_attempts();
+        self.cleanup_sessions();
+
+        // Sentinel: Prevent Memory Exhaustion DoS by immediately rejecting massive usernames
+        // We do NOT track these in login_attempts because doing so would cache massive strings in memory.
+        if username.len() > 255 {
             // Mitigate timing attacks by performing a dummy hash computation before rejecting
             verify_password("dummy", &self.dummy_hash);
             return Err("Invalid username or password".to_string());
         }
 
-        self.cleanup_login_attempts();
-        self.cleanup_sessions();
-
-        // Rate Limiting Check
+        // Rate Limiting Check BEFORE heavy operations
         {
             let mut attempts = self.login_attempts.lock().unwrap();
             // Copy values to avoid borrow conflict
@@ -135,6 +135,26 @@ impl AuthEngine {
                     attempts.remove(username);
                 }
             }
+        }
+
+        // Sentinel: Prevent CPU exhaustion DoS from excessively long passwords.
+        // We track these because the username is valid length and could belong to a real user under attack.
+        if password.len() > 1024 {
+            // Mitigate timing attacks by performing a dummy hash computation before rejecting
+            verify_password("dummy", &self.dummy_hash);
+
+            let mut attempts = self.login_attempts.lock().unwrap();
+            let entry = attempts.entry(username.to_string()).or_insert((0, Instant::now()));
+
+            if entry.1.elapsed() > Duration::from_secs(300) {
+                // Window expired, reset
+                entry.0 = 1;
+                entry.1 = Instant::now();
+            } else {
+                entry.0 += 1;
+            }
+
+            return Err("Invalid username or password".to_string());
         }
 
         let mut filters = HashMap::new();
