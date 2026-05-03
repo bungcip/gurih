@@ -117,6 +117,22 @@ impl AuthEngine {
         if username.len() > 255 || password.len() > 1024 {
             // Mitigate timing attacks by performing a dummy hash computation before rejecting
             verify_password("dummy", &self.dummy_hash);
+
+            // Track excessively long passwords against rate limits, but ignore oversized usernames to prevent OOM
+            if username.len() <= 255 {
+                self.cleanup_login_attempts();
+                let mut attempts = self.login_attempts.lock().unwrap();
+                let entry = attempts.entry(username.to_string()).or_insert((0, Instant::now()));
+
+                if entry.1.elapsed() > Duration::from_secs(300) {
+                    // Window expired, reset
+                    entry.0 = 1;
+                    entry.1 = Instant::now();
+                } else {
+                    entry.0 += 1;
+                }
+            }
+
             return Err("Invalid username or password".to_string());
         }
 
