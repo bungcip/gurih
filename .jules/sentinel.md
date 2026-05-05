@@ -88,3 +88,8 @@
 **Vulnerability:** The login function returned an early error for excessively long usernames or passwords to prevent CPU exhaustion DoS attacks, skipping the PBKDF2 hash verification.
 **Learning:** Returning early on length validation allows attackers to enumerate users or valid input lengths by measuring the response time (which is significantly shorter than a full PBKDF2 computation).
 **Prevention:** To mitigate timing attacks, always perform a dummy hash computation (e.g., using a predefined dummy hash) before returning an error to ensure constant-time response regardless of input validity.
+
+## 2026-04-25 - [CRITICAL] Timing Attack Vulnerability in Rate Limiting
+**Vulnerability:** The rate limiting check in `AuthEngine::login` returned an early error when a user exceeded the maximum allowed failed login attempts. Because this early return bypassed the computationally expensive PBKDF2 hash verification, an attacker could measure the response time to definitively determine if a specific account was currently rate-limited (and implicitly, that the account exists).
+**Learning:** Returning early during authentication flows without performing the same expensive cryptographic operations allows attackers to leak internal system state or enumerate users via timing side-channels. Rate limiting rejections should be just as computationally expensive as normal login attempts to maintain constant-time verification.
+**Prevention:** Added a dummy hash computation (`verify_password("dummy", &self.dummy_hash)`) inside the rate-limiting block before returning the error, ensuring that rate-limited requests take the same amount of time as valid requests.
