@@ -113,13 +113,6 @@ impl AuthEngine {
 
     #[allow(clippy::collapsible_if)]
     pub async fn login(&self, username: &str, password: &str) -> Result<RuntimeContext, String> {
-        // Sentinel: Prevent CPU exhaustion DoS from excessively long inputs to PBKDF2
-        if username.len() > 255 || password.len() > 1024 {
-            // Mitigate timing attacks by performing a dummy hash computation before rejecting
-            verify_password("dummy", &self.dummy_hash);
-            return Err("Invalid username or password".to_string());
-        }
-
         self.cleanup_login_attempts();
         self.cleanup_sessions();
 
@@ -153,10 +146,21 @@ impl AuthEngine {
             user_ref = Some(user_arc);
         }
 
-        // Always verify password to prevent timing attacks
-        let password_valid = verify_password(password, &stored_password_owned);
+        // Sentinel: Prevent CPU exhaustion DoS from excessively long inputs to PBKDF2
+        // We do this check here so that invalid attempts are still tracked against rate limits
+        let is_input_too_long = username.len() > 255 || password.len() > 1024;
 
-        if user_ref.is_none() || !password_valid {
+        // If input is too long, we don't verify the real password to prevent CPU exhaustion.
+        // We also want to avoid timing attacks, so we run a dummy hash.
+        let password_valid = if is_input_too_long {
+            verify_password("dummy", &self.dummy_hash);
+            false
+        } else {
+            // Always verify password to prevent timing attacks
+            verify_password(password, &stored_password_owned)
+        };
+
+        if user_ref.is_none() || !password_valid || is_input_too_long {
             let mut attempts = self.login_attempts.lock().unwrap();
             let entry = attempts.entry(username.to_string()).or_insert((0, Instant::now()));
 
@@ -518,4 +522,20 @@ mod tests {
             "Target user (count=4) should be preserved over noise (count=1)"
         );
     }
+    #[tokio::test]
+    async fn test_login_long_password_rate_limit() {
+        let store = Arc::new(MemoryDataStore::new());
+        let auth = AuthEngine::new(store.clone(), None, None);
+        let long_pw = "a".repeat(1025);
+
+        {
+            let mut attempts = auth.login_attempts.lock().unwrap();
+            attempts.insert("testuser".to_string(), (5, Instant::now()));
+        }
+
+        // Attempt should be rate limited
+        let res = auth.login("testuser", &long_pw).await;
+        assert_eq!(res.err().unwrap(), "Too many failed attempts. Please try again later.");
+    }
+
 }
