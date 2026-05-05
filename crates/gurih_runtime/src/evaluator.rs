@@ -30,10 +30,6 @@ async fn evaluate_internal(
         ));
     }
 
-    if !needs_async_checked(expr, depth)? {
-        return evaluate_sync_checked(expr, context, schema, depth);
-    }
-
     match expr {
         Expression::Field(name) => eval_field(name.as_str(), context),
         Expression::Literal(n) => {
@@ -44,181 +40,47 @@ async fn evaluate_internal(
         Expression::StringLiteral(s) => Ok(Value::String(s.clone())),
         Expression::BoolLiteral(b) => Ok(Value::Bool(*b)),
         Expression::Grouping(inner) => {
-            if needs_async_checked(inner, depth + 1)? {
-                Box::pin(evaluate_internal(inner, context, schema, datastore, depth + 1)).await
-            } else {
-                evaluate_sync_checked(inner, context, schema, depth + 1)
-            }
+            Box::pin(evaluate_internal(inner, context, schema, datastore, depth + 1)).await
         }
         Expression::UnaryOp { op, expr } => {
-            let val = if needs_async_checked(expr, depth + 1)? {
-                Box::pin(evaluate_internal(expr, context, schema, datastore, depth + 1)).await?
-            } else {
-                evaluate_sync_checked(expr, context, schema, depth + 1)?
-            };
+            let val = Box::pin(evaluate_internal(expr, context, schema, datastore, depth + 1)).await?;
             eval_unary_op(op, val)
         }
         Expression::BinaryOp { left, op, right } => match op {
             BinaryOperator::And => {
-                let l = if needs_async_checked(left, depth + 1)? {
-                    Box::pin(evaluate_internal(left, context, schema, datastore, depth + 1)).await?
-                } else {
-                    evaluate_sync_checked(left, context, schema, depth + 1)?
-                };
+                let l = Box::pin(evaluate_internal(left, context, schema, datastore, depth + 1)).await?;
                 if !as_bool(&l)? {
                     return Ok(Value::Bool(false));
                 }
-                let r = if needs_async_checked(right, depth + 1)? {
-                    Box::pin(evaluate_internal(right, context, schema, datastore, depth + 1)).await?
-                } else {
-                    evaluate_sync_checked(right, context, schema, depth + 1)?
-                };
+                let r = Box::pin(evaluate_internal(right, context, schema, datastore, depth + 1)).await?;
                 let r_bool = as_bool(&r)?;
                 Ok(Value::Bool(r_bool))
             }
             BinaryOperator::Or => {
-                let l = if needs_async_checked(left, depth + 1)? {
-                    Box::pin(evaluate_internal(left, context, schema, datastore, depth + 1)).await?
-                } else {
-                    evaluate_sync_checked(left, context, schema, depth + 1)?
-                };
+                let l = Box::pin(evaluate_internal(left, context, schema, datastore, depth + 1)).await?;
                 if as_bool(&l)? {
                     return Ok(Value::Bool(true));
                 }
-                let r = if needs_async_checked(right, depth + 1)? {
-                    Box::pin(evaluate_internal(right, context, schema, datastore, depth + 1)).await?
-                } else {
-                    evaluate_sync_checked(right, context, schema, depth + 1)?
-                };
+                let r = Box::pin(evaluate_internal(right, context, schema, datastore, depth + 1)).await?;
                 let r_bool = as_bool(&r)?;
                 Ok(Value::Bool(r_bool))
             }
             _ => {
-                let l = if needs_async_checked(left, depth + 1)? {
-                    Box::pin(evaluate_internal(left, context, schema, datastore, depth + 1)).await?
-                } else {
-                    evaluate_sync_checked(left, context, schema, depth + 1)?
-                };
-                let r = if needs_async_checked(right, depth + 1)? {
-                    Box::pin(evaluate_internal(right, context, schema, datastore, depth + 1)).await?
-                } else {
-                    evaluate_sync_checked(right, context, schema, depth + 1)?
-                };
+                let l = Box::pin(evaluate_internal(left, context, schema, datastore, depth + 1)).await?;
+                let r = Box::pin(evaluate_internal(right, context, schema, datastore, depth + 1)).await?;
                 eval_binary_op(op, l, r)
             }
         },
         Expression::FunctionCall { name, args } => {
             let mut eval_args = Vec::with_capacity(args.len());
             for arg in args {
-                if needs_async_checked(arg, depth + 1)? {
-                    eval_args.push(Box::pin(evaluate_internal(arg, context, schema, datastore, depth + 1)).await?);
-                } else {
-                    eval_args.push(evaluate_sync_checked(arg, context, schema, depth + 1)?);
-                }
+                eval_args.push(Box::pin(evaluate_internal(arg, context, schema, datastore, depth + 1)).await?);
             }
 
             if let Some(val) = eval_function_sync(name.as_str(), &eval_args)? {
                 Ok(val)
             } else {
                 eval_function(name.as_str(), &eval_args, schema, datastore).await
-            }
-        }
-    }
-}
-
-fn needs_async_checked(expr: &Expression, depth: usize) -> Result<bool, RuntimeError> {
-    if depth > MAX_RECURSION_DEPTH {
-        return Err(RuntimeError::EvaluationError(
-            "Expression recursion limit exceeded".into(),
-        ));
-    }
-    match expr {
-        Expression::FunctionCall { name, args } => {
-            let n = name.as_str();
-            if n == "lookup_field" || n == "exists" {
-                return Ok(true);
-            }
-            for arg in args {
-                if needs_async_checked(arg, depth + 1)? {
-                    return Ok(true);
-                }
-            }
-            Ok(false)
-        }
-        Expression::Grouping(inner) => needs_async_checked(inner, depth + 1),
-        Expression::UnaryOp { expr, .. } => needs_async_checked(expr, depth + 1),
-        Expression::BinaryOp { left, right, .. } => {
-            if needs_async_checked(left, depth + 1)? {
-                return Ok(true);
-            }
-            needs_async_checked(right, depth + 1)
-        }
-        _ => Ok(false),
-    }
-}
-
-fn evaluate_sync_checked(
-    expr: &Expression,
-    context: &Value,
-    _schema: Option<&Schema>,
-    depth: usize,
-) -> Result<Value, RuntimeError> {
-    if depth > MAX_RECURSION_DEPTH {
-        return Err(RuntimeError::EvaluationError(
-            "Expression recursion limit exceeded".into(),
-        ));
-    }
-    match expr {
-        Expression::Field(name) => eval_field(name.as_str(), context),
-        Expression::Literal(n) => {
-            Ok(Value::Number(serde_json::Number::from_f64(*n).ok_or_else(|| {
-                RuntimeError::EvaluationError("Invalid float literal".to_string())
-            })?))
-        }
-        Expression::StringLiteral(s) => Ok(Value::String(s.clone())),
-        Expression::BoolLiteral(b) => Ok(Value::Bool(*b)),
-        Expression::Grouping(inner) => evaluate_sync_checked(inner, context, _schema, depth + 1),
-        Expression::UnaryOp { op, expr } => {
-            let val = evaluate_sync_checked(expr, context, _schema, depth + 1)?;
-            eval_unary_op(op, val)
-        }
-        Expression::BinaryOp { left, op, right } => match op {
-            BinaryOperator::And => {
-                let l = evaluate_sync_checked(left, context, _schema, depth + 1)?;
-                if !as_bool(&l)? {
-                    return Ok(Value::Bool(false));
-                }
-                let r = evaluate_sync_checked(right, context, _schema, depth + 1)?;
-                let r_bool = as_bool(&r)?;
-                Ok(Value::Bool(r_bool))
-            }
-            BinaryOperator::Or => {
-                let l = evaluate_sync_checked(left, context, _schema, depth + 1)?;
-                if as_bool(&l)? {
-                    return Ok(Value::Bool(true));
-                }
-                let r = evaluate_sync_checked(right, context, _schema, depth + 1)?;
-                let r_bool = as_bool(&r)?;
-                Ok(Value::Bool(r_bool))
-            }
-            _ => {
-                let l = evaluate_sync_checked(left, context, _schema, depth + 1)?;
-                let r = evaluate_sync_checked(right, context, _schema, depth + 1)?;
-                eval_binary_op(op, l, r)
-            }
-        },
-        Expression::FunctionCall { name, args } => {
-            let mut eval_args = Vec::with_capacity(args.len());
-            for arg in args {
-                eval_args.push(evaluate_sync_checked(arg, context, _schema, depth + 1)?);
-            }
-            if let Some(val) = eval_function_sync(name.as_str(), &eval_args)? {
-                Ok(val)
-            } else {
-                Err(RuntimeError::EvaluationError(format!(
-                    "Async function call in sync context: {}",
-                    name
-                )))
             }
         }
     }
