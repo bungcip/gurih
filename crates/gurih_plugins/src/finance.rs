@@ -48,8 +48,7 @@ fn get_validated_table_name<'a>(
     let table_name = schema
         .entities
         .get(&Symbol::from(entity_name))
-        .map(|e| e.table_name.as_str())
-        .unwrap_or(default_table_name);
+        .map_or(default_table_name, |e| e.table_name.as_str());
     validate_identifier(table_name)
         .map_err(|e| RuntimeError::WorkflowError(format!("Invalid table_name for {}: {}", entity_name, e)))?;
     Ok(table_name)
@@ -70,8 +69,7 @@ fn get_db_type(schema: &Schema) -> gurih_ir::DatabaseType {
     schema
         .database
         .as_ref()
-        .map(|d| d.db_type.clone())
-        .unwrap_or(gurih_ir::DatabaseType::Sqlite)
+        .map_or(gurih_ir::DatabaseType::Sqlite, |d| d.db_type.clone())
 }
 
 #[async_trait]
