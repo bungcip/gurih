@@ -100,3 +100,15 @@ async fn test_rate_limiting() {
 
     assert!(blocked, "Should have been rate limited after multiple failed attempts");
 }
+
+#[tokio::test]
+async fn test_login_long_username_oom_prevention() {
+    let datastore = Arc::new(MemoryDataStore::new());
+    let auth_engine = AuthEngine::new(datastore.clone(), Some("user".to_string()), None);
+
+    let long_username = "a".repeat(10000);
+
+    // Attempt login with excessively long username
+    let res = auth_engine.login(&long_username, "password").await;
+    assert_eq!(res.err().unwrap(), "Invalid username or password");
+}

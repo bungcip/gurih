@@ -505,7 +505,9 @@ async fn test_finance_reverse_journal_missing_entry_number() {
     let mut params = HashMap::new();
     params.insert("id".to_string(), je_id.clone());
 
-    let res = action_engine.execute("ReverseJournal", params, &data_engine, &ctx).await;
+    let res = action_engine
+        .execute("ReverseJournal", params, &data_engine, &ctx)
+        .await;
 
     // 6. Verify Error
     assert!(res.is_err(), "Should return error when entry_number is missing");
