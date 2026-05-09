@@ -1,0 +1,856 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.55s
+     Running unittests src/main.rs (target/debug/deps/gurih_cli-0553e6ba3e69e2d6)
+
+running 5 tests
+test security::tests::test_dev_security_headers ... ok
+test security::tests::test_prod_security_headers ... ok
+test faker::tests::test_faker_generation_non_existent_reference ... ok
+test faker::tests::test_faker_generation ... ok
+test image_processor::tests::test_resize_image_coverage ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running unittests src/lib.rs (target/debug/deps/gurih_dsl-2a73227065ff509b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/comparison_filter_test.rs (target/debug/deps/comparison_filter_test-554d184e82518197)
+
+running 1 test
+test test_comparison_operators_in_filters ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/compiler_test.rs (target/debug/deps/compiler_test-90f095bac52d32e4)
+
+running 2 tests
+test test_compile_widget_icon ... ok
+test test_compile_golden_master ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/dsl_finance_test.rs (target/debug/deps/dsl_finance_test-0165c658d2c78f43)
+
+running 1 test
+test test_finance_dsl_parsing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/employee_status_test.rs (target/debug/deps/employee_status_test-8b1128439e6831a2)
+
+running 5 tests
+test test_invalid_entity ... ok
+test test_employee_status_with_field ... ok
+test test_invalid_effect_field ... ok
+test test_invalid_precondition_field ... ok
+test test_valid_employee_status ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/error_snapshots.rs (target/debug/deps/error_snapshots-0931e37ab7e9b60e)
+
+running 5 tests
+test test_duplicate_field_error ... ok
+test test_missing_argument_error ... ok
+test test_duplicate_entity_error ... ok
+test test_route_to_unrecognized_page ... ok
+test test_unknown_top_level_node ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/finance_cost_center_test.rs (target/debug/deps/finance_cost_center_test-ee12712b1f835b0c)
+
+running 1 test
+test test_finance_cost_center_support ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/finance_module_test.rs (target/debug/deps/finance_module_test-4b9a908cf178c8ee)
+
+running 1 test
+test test_compile_finance_module ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/gurih_finance_immutability_test.rs (target/debug/deps/gurih_finance_immutability_test-f874fb8c7d93a5e9)
+
+running 1 test
+test test_gurih_finance_immutability ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/hr_dsl_test.rs (target/debug/deps/hr_dsl_test-8d60a6ba33ce8380)
+
+running 2 tests
+test test_update_rank_eligibility_parsing ... ok
+test test_suspend_payroll_parsing ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/immutability_test.rs (target/debug/deps/immutability_test-2cd571874caa4bea)
+
+running 1 test
+test test_composition_inference ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/integration_test.rs (target/debug/deps/integration_test-ac92d696cfecf44d)
+
+running 2 tests
+test test_compile_invalid_schema ... ok
+test test_compile_valid_schema ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/minimal_test.rs (target/debug/deps/minimal_test-7ad37666c8b03a8e)
+
+running 1 test
+test test_minimal_kdl ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/params_test.rs (target/debug/deps/params_test-df229ceaf3756211)
+
+running 1 test
+test test_query_params_parsing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/parser_action_test.rs (target/debug/deps/parser_action_test-076420d41c0bfe58)
+
+running 3 tests
+test test_parse_custom_step ... ok
+test test_parse_entity_update_step ... ok
+test test_parse_entity_delete_step ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/parser_grid_test.rs (target/debug/deps/parser_grid_test-612fdd39a3a659c9)
+
+running 1 test
+test test_parser_grid_columns ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/parser_test.rs (target/debug/deps/parser_test-32f8535e20bf4669)
+
+running 6 tests
+test test_parse_entity_user ... ok
+test test_compile_multiple_entity_user_fails ... ok
+test test_compile_entity_user ... ok
+test test_snake_case_to_title_case_label_generation ... ok
+test test_entity_user_in_module ... ok
+test test_parse_golden_master ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/perf_benchmark.rs (target/debug/deps/perf_benchmark-27b3501db4d1d087)
+
+running 1 test
+test benchmark_parser ... ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/persistence_test.rs (target/debug/deps/persistence_test-6542b9c3a24987e9)
+
+running 1 test
+test test_compile_table_and_database ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/posting_test.rs (target/debug/deps/posting_test-ac2c5b28620d0e90)
+
+running 1 test
+test test_compile_posting_rule ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/refactor_test.rs (target/debug/deps/refactor_test-76be3d2db8084c99)
+
+running 1 test
+test test_employee_status_desugaring ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/rule_test.rs (target/debug/deps/rule_test-15d6650d6aa0c544)
+
+running 8 tests
+test test_compile_rule_boolean ... ok
+test test_compile_rule_exists_with_double_quotes ... ok
+test test_compile_rule ... ok
+test test_compile_rule_complex_logic ... ok
+test test_compile_rule_exists_with_single_quotes ... ok
+test test_compile_rule_type_error - should panic ... ok
+test test_compile_rule_new_syntax ... ok
+test test_compile_rule_non_bool_assert - should panic ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/siasn_kepegawaian_test.rs (target/debug/deps/siasn_kepegawaian_test-f061d91838210699)
+
+running 1 test
+test test_siasn_kepegawaian_parsing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/siasn_workflow_test.rs (target/debug/deps/siasn_workflow_test-8bf592d19d31f17c)
+
+running 2 tests
+test test_siasn_workflow_parsing ... ok
+test test_siasn_status_parsing ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/strictness_test.rs (target/debug/deps/strictness_test-93c5d123fb568f1a)
+
+running 5 tests
+test test_invalid_database_type ... ok
+test test_invalid_action_step_type ... ok
+test test_invalid_storage_driver ... ok
+test test_invalid_action_method ... ok
+test test_invalid_widget_type ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/syntax_error_test.rs (target/debug/deps/syntax_error_test-552ccacd40505f83)
+
+running 1 test
+test test_kdl_syntax_error ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/gurih_ir-73ce3e484ee46bcd)
+
+running 1 test
+test utils::tests::test_to_title_case ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/gurih_plugins-36f1360863e126f8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bench_finance.rs (target/debug/deps/bench_finance-54abf684ab8fb3b8)
+
+running 2 tests
+test bench_reverse_journal ... ok
+test bench_generate_closing_entry ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+     Running tests/bench_finance_party_names.rs (target/debug/deps/bench_finance_party_names-1de7ef18554a956d)
+
+running 1 test
+test bench_snapshot_parties ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.88s
+
+     Running tests/finance_balance_check_test.rs (target/debug/deps/finance_balance_check_test-c798f83975694bd0)
+
+running 2 tests
+test test_balanced_journal_via_db_should_pass ... ok
+test test_unbalanced_journal_via_db_should_fail ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/finance_closing_memory_test.rs (target/debug/deps/finance_closing_memory_test-26d8d36d97fe675b)
+
+running 1 test
+test test_generate_closing_entry_memory_store ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/finance_closing_test.rs (target/debug/deps/finance_closing_test-b4bed79d26caa415)
+
+running 1 test
+test test_generate_closing_entry ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/finance_features_test.rs (target/debug/deps/finance_features_test-2c8444a4df6a0d1d)
+
+running 4 tests
+test test_period_open_configured ... ok
+test test_immutability ... ok
+test test_delete_immutable ... ok
+test test_query_group_by ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/finance_integrity_test.rs (target/debug/deps/finance_integrity_test-a363af32daa7fb84)
+
+running 2 tests
+test test_prevent_account_delete_in_use ... ok
+test test_allow_account_delete_without_entries ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/finance_logic_test.rs (target/debug/deps/finance_logic_test-cdf23a8640ffdcb5)
+
+running 1 test
+test test_balanced_transaction ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/finance_memory_store_test.rs (target/debug/deps/finance_memory_store_test-e6b73b9057031567)
+
+running 1 test
+test test_finance_memory_store_compatibility ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/finance_period_open_memory_test.rs (target/debug/deps/finance_period_open_memory_test-66425620edb5cabd)
+
+running 1 test
+test test_finance_period_open_memory_store ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/finance_period_overlap_test.rs (target/debug/deps/finance_period_overlap_test-5223f3b0570b255d)
+
+running 1 test
+test test_period_overlap_check ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/finance_period_params_test.rs (target/debug/deps/finance_period_params_test-63e7f05d4ac63f8a)
+
+running 1 test
+test test_period_check_uses_params ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/finance_posting_rule_test.rs (target/debug/deps/finance_posting_rule_test-cd32b270f35d95f6)
+
+running 1 test
+test test_posting_rule_execution ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/finance_precision_test.rs (target/debug/deps/finance_precision_test-4f7ffdc0b0829eb8)
+
+running 2 tests
+test test_tiny_imbalance_should_fail ... ok
+test test_decimal_precision_posting ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/finance_reverse_test.rs (target/debug/deps/finance_reverse_test-f05d8cf98733c4fc)
+
+running 2 tests
+test test_finance_reverse_journal_missing_entry_number ... ok
+test test_finance_reverse_journal ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/finance_rules_test.rs (target/debug/deps/finance_rules_test-950282502705ced0)
+
+running 1 test
+test test_leaf_account_validation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/finance_snapshot_test.rs (target/debug/deps/finance_snapshot_test-6bdd12dc6179bea0)
+
+running 1 test
+test test_snapshot_parties ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/finance_subledger_test.rs (target/debug/deps/finance_subledger_test-f234f7982d9177c0)
+
+running 1 test
+test test_subledger_validation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/hr_kgb_test.rs (target/debug/deps/hr_kgb_test-2d3ee2603328b5ad)
+
+running 3 tests
+test test_kgb_eligibility_fail_time ... ok
+test test_kgb_eligibility_success ... ok
+test test_kgb_eligibility_fail_skp ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/hr_plugin_custom_effects_test.rs (target/debug/deps/hr_plugin_custom_effects_test-6c7b2722696d8335)
+
+running 1 test
+test test_hr_plugin_custom_effects ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/hr_status_test.rs (target/debug/deps/hr_status_test-b4f0330059927df0)
+
+running 2 tests
+test test_employee_status_transition_fail_precondition ... ok
+test test_employee_status_transition ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/hr_workflow_extended_test.rs (target/debug/deps/hr_workflow_extended_test-d3093ccade98b9f0)
+
+running 1 test
+test test_effective_date_and_rank_eligibility ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/hr_workflow_test.rs (target/debug/deps/hr_workflow_test-6811e5b71da33d15)
+
+running 2 tests
+test test_retirement_min_age ... ok
+test test_hr_workflow_rules ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/siasn_integration_test.rs (target/debug/deps/siasn_integration_test-63a0cc9515320ce6)
+
+running 1 test
+test test_siasn_integration_workflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running benches/period_open.rs (target/debug/deps/period_open-d30351022f4f6eb3)
+Gnuplot not found, using plotters backend
+Testing finance_period_open_1000
+Success
+
+     Running unittests src/lib.rs (target/debug/deps/gurih_runtime-a9f5483838a9d194)
+
+running 28 tests
+test auth::tests::test_cleanup_login_attempts_priority ... ok
+test auth::tests::test_cleanup_login_attempts_overflow_banned ... ok
+test auth::tests::test_login_long_password_rate_limit ... ok
+test auth::tests::test_rate_limit_bypass_eviction ... ok
+test auth::tests::test_login_attempts_memory_exhaustion ... ok
+test auth::tests::test_v3_backward_compatibility ... ok
+test context::tests::test_runtime_context_permissions ... ok
+test evaluator::tests::test_eval_add ... ok
+test evaluator::tests::test_eval_age ... ok
+test evaluator::tests::test_eval_field ... ok
+test evaluator::tests::test_eval_literal ... ok
+test evaluator::tests::test_eval_nested_field ... ok
+test evaluator::tests::test_eval_valid_date_coverage ... ok
+test evaluator::tests::test_min_age_logic ... ok
+test evaluator::tests::test_short_circuit_and ... ok
+test evaluator::tests::test_short_circuit_or ... ok
+test evaluator::tests::test_string_comparison ... ok
+test query_engine::tests::test_lower_flat_query ... ok
+test query_engine::tests::test_lower_perspective_query ... ok
+test query_engine::tests::test_nested_field_expression ... ok
+test query_engine::tests::test_parameterized_query ... ok
+test query_engine::tests::test_reporting_functions ... ok
+test store::sqlite::tests::test_build_where_clause_determinism ... ok
+test store::tests::test_validate_identifier ... ok
+test validation::tests::test_validate_type_coverage ... ok
+test auth::tests::test_session_expiration ... ok
+test auth::tests::test_v4_hashing ... ok
+test auth::tests::test_login_timing_mitigation_logic ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 67.78s
+
+     Running tests/action_test.rs (target/debug/deps/action_test-6a48101fd1edd5c5)
+
+running 3 tests
+test test_action_param_with_single_quotes ... ok
+test test_action_execution_delete ... ok
+test test_action_execution_update ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/audit_test.rs (target/debug/deps/audit_test-ff224f46e7aa5213)
+
+running 1 test
+test test_audit_trail ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/auth_rate_limit_test.rs (target/debug/deps/auth_rate_limit_test-7b51d6163cc27bca)
+
+running 1 test
+test test_rate_limiting has been running for over 60 seconds
+test test_rate_limiting ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 89.52s
+
+     Running tests/auth_test.rs (target/debug/deps/auth_test-fb17d2c7c8f1a509)
+
+running 2 tests
+test test_password_hashing ... ok
+test test_rbac_schema_permissions ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 34.58s
+
+     Running tests/bench_aggregate.rs (target/debug/deps/bench_aggregate-b00ab940f8a2e472)
+
+running 1 test
+test bench_aggregate_performance ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.17s
+
+     Running tests/bench_create_many.rs (target/debug/deps/bench_create_many-503b4ea17db1b94a)
+
+running 1 test
+test bench_create_many_performance ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/bench_datastore_init.rs (target/debug/deps/bench_datastore_init-11bcf196e7ed3982)
+
+running 1 test
+test bench_init_datastore ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/bench_evaluator.rs (target/debug/deps/bench_evaluator-fc7fe86137bb432e)
+
+running 1 test
+test bench_evaluate_deep ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/bench_filter.rs (target/debug/deps/bench_filter-d13e6dc6e4a4ff2c)
+
+running 1 test
+test bench_filter_performance ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.34s
+
+     Running tests/bench_hierarchy_performance.rs (target/debug/deps/bench_hierarchy_performance-40ef6c1c93a99448)
+
+running 1 test
+test test_hierarchy_performance ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.86s
+
+     Running tests/bench_posting_rule.rs (target/debug/deps/bench_posting_rule-4ef2b0f17e9e23ca)
+
+running 1 test
+test bench_posting_rule_n_plus_1 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/comparison_ops_test.rs (target/debug/deps/comparison_ops_test-c9671ffc9ef2d804)
+
+running 4 tests
+test test_ilike_evaluation ... ok
+test test_like_evaluation ... ok
+test test_verify_user_example ... ok
+test test_like_ilike_sql_generation ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/composition_immutability_test.rs (target/debug/deps/composition_immutability_test-f67f34496b4e4678)
+
+running 3 tests
+test test_create_child_into_locked_parent ... ok
+test test_child_update_fails_if_parent_locked ... ok
+test test_move_child_to_locked_parent ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/dashboard_parsing_test.rs (target/debug/deps/dashboard_parsing_test-dc47d38cb0aad2f4)
+
+running 1 test
+test test_dashboard_parsing_logic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/dashboard_role_test.rs (target/debug/deps/dashboard_role_test-0320a6fff6ec43b6)
+
+running 1 test
+test test_dashboard_role_filtering ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/database_error_handling.rs (target/debug/deps/database_error_handling-95ac67857ace4a62)
+
+running 1 test
+test test_database_error_sanitization ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/datastore_test.rs (target/debug/deps/datastore_test-087f13398c112231)
+
+running 1 test
+test bench_list_large_dataset ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.43s
+
+     Running tests/days_between_test.rs (target/debug/deps/days_between_test-9ecbac8e3f6cc649)
+
+running 3 tests
+test test_days_between_sql_sqlite ... ok
+test test_days_between_sql_postgres ... ok
+test test_days_between_evaluator ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/evaluator_exists_test.rs (target/debug/deps/evaluator_exists_test-4067f03a2be6a7be)
+
+running 1 test
+test test_exists_function ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/evaluator_recursion_test.rs (target/debug/deps/evaluator_recursion_test-6d7592a705ca66b3)
+
+running 2 tests
+test test_valid_depth ... ok
+test test_stack_overflow_protection ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/evaluator_unary_test.rs (target/debug/deps/evaluator_unary_test-e92c52e667d8fb94)
+
+running 1 test
+test test_unary_operators ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/finance_closing_test.rs (target/debug/deps/finance_closing_test-a00abb14e1d44bb4)
+
+running 1 test
+test test_generate_closing_entry ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/finance_reconciliation_test.rs (target/debug/deps/finance_reconciliation_test-eea6a1758db3326d)
+
+running 1 test
+test test_finance_reconciliation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/form_custom_test.rs (target/debug/deps/form_custom_test-a74f45dcf66504c7)
+
+running 1 test
+test test_custom_form_generation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/form_grid_test.rs (target/debug/deps/form_grid_test-9fae30e846999323)
+
+running 1 test
+test test_form_grid_columns_respected ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/form_test.rs (target/debug/deps/form_test-f8feca3df5be9d5d)
+
+running 1 test
+test test_default_form_label_generation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/page_test.rs (target/debug/deps/page_test-bb9f13e491c87c8f)
+
+running 1 test
+test test_generate_page_config_fallback ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/performance_bench.rs (target/debug/deps/performance_bench-5bc064ded9dba863)
+
+running 1 test
+test bench_list_performance ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.83s
+
+     Running tests/permission_create_test.rs (target/debug/deps/permission_create_test-1380fc1d723997ab)
+
+running 2 tests
+test test_create_permission_missing ... ok
+test test_create_permission_granted ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/persistence_seed_test.rs (target/debug/deps/persistence_seed_test-83912b619fb81604)
+
+running 1 test
+test test_seed_sorting ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/posting_rule_arbitrary_fields_test.rs (target/debug/deps/posting_rule_arbitrary_fields_test-d6357d747092278a)
+
+running 1 test
+test test_posting_rule_arbitrary_fields ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/posting_rule_system_tag_test.rs (target/debug/deps/posting_rule_system_tag_test-894fe584a4cc21a7)
+
+running 1 test
+test test_posting_rule_system_tag ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/query_hierarchy_test.rs (target/debug/deps/query_hierarchy_test-a248bac18e956653)
+
+running 1 test
+test test_hierarchy_query_rollup ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/query_joined_permission_test.rs (target/debug/deps/query_joined_permission_test-19c26890cf31a8f1)
+
+running 1 test
+test test_query_joined_permission_check ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/query_postgres_quoting_test.rs (target/debug/deps/query_postgres_quoting_test-1f0b24b09d0e20c5)
+
+running 1 test
+test test_postgres_sql_generation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/query_security_test.rs (target/debug/deps/query_security_test-d5bf69a06895fed2)
+
+running 1 test
+test test_sql_injection_reproduction ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/rule_test.rs (target/debug/deps/rule_test-d101cb027a1b2133)
+
+running 2 tests
+test test_rule_self_and_old ... ok
+test test_rule_enforcement ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/security_access_control.rs (target/debug/deps/security_access_control-6342fae4eb6aea8b)
+
+running 1 test
+test test_access_control_vulnerability ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/security_delete_read.rs (target/debug/deps/security_delete_read-e6d18f913190bbed)
+
+running 1 test
+test test_delete_requires_read_permission ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/security_filter_bypass.rs (target/debug/deps/security_filter_bypass-04dd276d4e5c77b1)
+
+running 1 test
+test test_data_engine_list_respects_filters ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/security_join_injection_test.rs (target/debug/deps/security_join_injection_test-e4c49f848f241bf0)
+
+running 1 test
+test test_query_join_injection_check ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/security_schema_injection.rs (target/debug/deps/security_schema_injection-33bdd793fe83b582)
+
+running 2 tests
+test test_sql_injection_in_group_by ... ok
+test test_sql_injection_in_schema_entity_name ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/security_schema_injection_formula.rs (target/debug/deps/security_schema_injection_formula-adb83d7113d1ef68)
+
+running 3 tests
+test test_formula_name_sqli ... ok
+test test_hierarchy_parent_field_sqli ... ok
+test test_selection_field_sqli ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/security_schema_injection_persist.rs (target/debug/deps/security_schema_injection_persist-b211bfb1272e5e4b)
+
+running 3 tests
+test test_insert_seed_sql_injection_seed_key ... ok
+test test_insert_seed_sql_injection_table_name ... ok
+test test_sql_injection_in_schema_table_name ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/sentinel_exploit_test.rs (target/debug/deps/sentinel_exploit_test-700c367ca2a6e673)
+
+running 2 tests
+test test_upload_trailing_dot_exploit ... ok
+test test_upload_htaccess_vulnerability ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/serial_generator_test.rs (target/debug/deps/serial_generator_test-3f44073261a64095)
+
+running 1 test
+test test_serial_generation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/stack_overflow_test.rs (target/debug/deps/stack_overflow_test-f06989ff0697ccae)
+
+running 1 test
+test tests::test_like_operator_stack_overflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/storage_bypass_test.rs (target/debug/deps/storage_bypass_test-95d52d1b824833bd)
+
+running 2 tests
+test test_trailing_whitespace_bypass ... ok
+test test_upload_htaccess_vulnerability ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/storage_refactor_test.rs (target/debug/deps/storage_refactor_test-778605adce7cc9f9)
+
+running 2 tests
+test test_s3_driver_missing_bucket ... ok
+test test_s3_driver_invalid_credentials ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/storage_security_test.rs (target/debug/deps/storage_security_test-1fba1c033cebc267)
+
+running 6 tests
+test test_enhanced_extension_security ... ok
+test test_filename_sanitization ... ok
+test test_path_traversal_vulnerability ... ok
+test test_rce_vectors_and_config ... ok
+test test_xml_xss_prevention ... ok
+test test_dangerous_extension_upload ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/verify_kdl_files.rs (target/debug/deps/verify_kdl_files-d7fc080e9d40216c)
+
+running 2 tests
+test test_verify_gurih_finance ... ok
+test test_verify_gurih_siasn ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+     Running tests/workflow_extension_test.rs (target/debug/deps/workflow_extension_test-87be32510412efbb)
+
+running 1 test
+test test_workflow_extensions ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/workflow_test.rs (target/debug/deps/workflow_test-8937e372d91c0c53)
+
+running 4 tests
+test test_workflow_assertion_type_error ... ok
+test test_workflow_effects ... ok
+test test_missing_precondition_field ... ok
+test test_workflow_transitions ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
