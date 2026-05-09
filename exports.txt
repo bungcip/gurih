@@ -1,0 +1,219 @@
+crates/gurih_dsl/src/diagnostics.rs:pub struct SourceSpan {
+crates/gurih_dsl/src/diagnostics.rs:    pub fn new(offset: usize, length: usize) -> Self {
+crates/gurih_dsl/src/diagnostics.rs:    pub fn offset(&self) -> usize {
+crates/gurih_dsl/src/diagnostics.rs:    pub fn len(&self) -> usize {
+crates/gurih_dsl/src/diagnostics.rs:    pub fn is_empty(&self) -> bool {
+crates/gurih_dsl/src/diagnostics.rs:pub enum DiagnosticLevel {
+crates/gurih_dsl/src/diagnostics.rs:pub struct Diagnostic {
+crates/gurih_dsl/src/diagnostics.rs:pub struct DiagnosticEngine {
+crates/gurih_dsl/src/diagnostics.rs:    pub fn new() -> Self {
+crates/gurih_dsl/src/diagnostics.rs:    pub fn report_diagnostic(&mut self, diagnostic: Diagnostic) {
+crates/gurih_dsl/src/diagnostics.rs:    pub fn has_errors(&self) -> bool {
+crates/gurih_dsl/src/diagnostics.rs:    pub fn diagnostics(&self) -> &[Diagnostic] {
+crates/gurih_dsl/src/diagnostics.rs:    pub fn report<T: IntoDiagnostic>(&mut self, error: T) {
+crates/gurih_dsl/src/diagnostics.rs:pub trait IntoDiagnostic {
+crates/gurih_dsl/src/diagnostics.rs:pub struct ErrorFormatter {
+crates/gurih_dsl/src/diagnostics.rs:    pub fn new() -> Self {
+crates/gurih_dsl/src/diagnostics.rs:    pub fn format_diagnostic(&self, diag: &Diagnostic, src: &str, filename: &str) -> String {
+crates/gurih_dsl/src/parser.rs:pub fn parse(src: &str, base_path: Option<&Path>) -> Result<Ast, CompileError> {
+crates/gurih_dsl/src/errors.rs:pub enum CompileError {
+crates/gurih_dsl/src/expr.rs:pub enum Expr {
+crates/gurih_dsl/src/expr.rs:pub enum BinaryOpType {
+crates/gurih_dsl/src/expr.rs:pub enum UnaryOpType {
+crates/gurih_dsl/src/expr.rs:    pub fn span(&self) -> SourceSpan {
+crates/gurih_dsl/src/expr.rs:pub fn parse_expression(src: &str, start_offset: usize) -> Result<Expr, CompileError> {
+crates/gurih_dsl/src/compiler.rs:pub fn compile(src: &str, base_path: Option<&std::path::Path>) -> Result<Schema, CompileError> {
+crates/gurih_dsl/src/validator.rs:pub struct Validator;
+crates/gurih_dsl/src/validator.rs:    pub fn new() -> Self {
+crates/gurih_dsl/src/validator.rs:    pub fn validate(&self, ast: &Ast) -> Result<(), CompileError> {
+crates/gurih_dsl/src/ast.rs:pub struct Ast {
+crates/gurih_dsl/src/ast.rs:    pub enums: Vec<EnumDef>,
+crates/gurih_dsl/src/ast.rs:pub struct EmployeeStatusDef {
+crates/gurih_dsl/src/ast.rs:pub struct PostingRuleDef {
+crates/gurih_dsl/src/ast.rs:pub struct PostingLineDef {
+crates/gurih_dsl/src/ast.rs:pub struct RuleDef {
+crates/gurih_dsl/src/ast.rs:pub struct AccountDef {
+crates/gurih_dsl/src/ast.rs:pub struct DatabaseDef {
+crates/gurih_dsl/src/ast.rs:pub struct StorageDef {
+crates/gurih_dsl/src/ast.rs:pub struct IconDef {
+crates/gurih_dsl/src/ast.rs:pub struct LayoutDef {
+crates/gurih_dsl/src/ast.rs:pub struct LayoutSectionDef {
+crates/gurih_dsl/src/ast.rs:pub struct ModuleDef {
+crates/gurih_dsl/src/ast.rs:    pub enums: Vec<EnumDef>,
+crates/gurih_dsl/src/ast.rs:pub struct EnumDef {
+crates/gurih_dsl/src/ast.rs:pub struct SerialGeneratorDef {
+crates/gurih_dsl/src/ast.rs:pub struct EntityDef {
+crates/gurih_dsl/src/ast.rs:pub struct EntityOptions {
+crates/gurih_dsl/src/ast.rs:pub struct FieldDef {
+crates/gurih_dsl/src/ast.rs:pub struct TableDef {
+crates/gurih_dsl/src/ast.rs:pub struct ColumnDef {
+crates/gurih_dsl/src/ast.rs:pub struct RelationshipDef {
+crates/gurih_dsl/src/ast.rs:pub struct WorkflowDef {
+crates/gurih_dsl/src/ast.rs:pub struct StateDef {
+crates/gurih_dsl/src/ast.rs:pub struct TransitionDef {
+crates/gurih_dsl/src/ast.rs:pub enum TransitionPreconditionDef {
+crates/gurih_dsl/src/ast.rs:pub enum TransitionEffectDef {
+crates/gurih_dsl/src/ast.rs:pub struct DashboardDef {
+crates/gurih_dsl/src/ast.rs:pub struct WidgetDef {
+crates/gurih_dsl/src/ast.rs:pub struct PageDef {
+crates/gurih_dsl/src/ast.rs:pub enum PageContent {
+crates/gurih_dsl/src/ast.rs:pub struct QueryDef {
+crates/gurih_dsl/src/ast.rs:pub struct HierarchyDef {
+crates/gurih_dsl/src/ast.rs:pub struct QuerySelectionDef {
+crates/gurih_dsl/src/ast.rs:pub struct QueryFormulaDef {
+crates/gurih_dsl/src/ast.rs:pub struct QueryJoinDef {
+crates/gurih_dsl/src/ast.rs:pub struct DatatableDef {
+crates/gurih_dsl/src/ast.rs:pub struct DatatableColumnDef {
+crates/gurih_dsl/src/ast.rs:pub struct ActionDef {
+crates/gurih_dsl/src/ast.rs:pub struct FormDef {
+crates/gurih_dsl/src/ast.rs:pub struct FormSectionDef {
+crates/gurih_dsl/src/ast.rs:pub enum FormItemDef {
+crates/gurih_dsl/src/ast.rs:pub struct FormGridDef {
+crates/gurih_dsl/src/ast.rs:pub struct ActionLogicDef {
+crates/gurih_dsl/src/ast.rs:pub struct ActionStepDef {
+crates/gurih_dsl/src/ast.rs:pub struct RoutesDef {
+crates/gurih_dsl/src/ast.rs:pub enum RouteNode {
+crates/gurih_dsl/src/ast.rs:pub struct RouteDef {
+crates/gurih_dsl/src/ast.rs:pub struct RouteGroupDef {
+crates/gurih_dsl/src/ast.rs:pub struct MenuDef {
+crates/gurih_dsl/src/ast.rs:pub enum MenuItemDef {
+crates/gurih_dsl/src/ast.rs:pub struct MenuItem {
+crates/gurih_dsl/src/ast.rs:pub struct MenuGroup {
+crates/gurih_dsl/src/ast.rs:pub struct PrintDef {
+crates/gurih_dsl/src/ast.rs:pub struct PermissionDef {
+crates/gurih_dsl/src/ast.rs:pub struct AllowDef {
+crates/gurih_dsl/src/utils.rs:pub fn get_arg_string(node: &KdlNode, index: usize) -> Result<String, CompileError> {
+crates/gurih_dsl/src/utils.rs:pub fn get_prop_string(node: &KdlNode, key: &str) -> Result<String, CompileError> {
+crates/gurih_dsl/src/utils.rs:pub fn get_prop_bool(node: &KdlNode, key: &str) -> Option<bool> {
+crates/gurih_dsl/src/utils.rs:pub fn get_prop_int(node: &KdlNode, key: &str) -> Option<i64> {
+crates/gurih_dsl/src/utils.rs:pub fn get_arg_bool(node: &KdlNode, index: usize) -> Option<bool> {
+crates/gurih_ir/src/lib.rs:pub struct Schema {
+crates/gurih_ir/src/lib.rs:pub struct PostingRuleSchema {
+crates/gurih_ir/src/lib.rs:pub struct PostingLineSchema {
+crates/gurih_ir/src/lib.rs:pub struct RuleSchema {
+crates/gurih_ir/src/lib.rs:pub struct DatatableSchema {
+crates/gurih_ir/src/lib.rs:pub struct QuerySchema {
+crates/gurih_ir/src/lib.rs:pub struct HierarchySchema {
+crates/gurih_ir/src/lib.rs:pub enum QueryType {
+crates/gurih_ir/src/lib.rs:pub struct QuerySelection {
+crates/gurih_ir/src/lib.rs:pub struct QueryFormula {
+crates/gurih_ir/src/lib.rs:pub enum Expression {
+crates/gurih_ir/src/lib.rs:pub enum BinaryOperator {
+crates/gurih_ir/src/lib.rs:pub enum UnaryOperator {
+crates/gurih_ir/src/lib.rs:pub struct QueryJoin {
+crates/gurih_ir/src/lib.rs:pub struct DatabaseSchema {
+crates/gurih_ir/src/lib.rs:pub enum DatabaseType {
+crates/gurih_ir/src/lib.rs:pub struct StorageSchema {
+crates/gurih_ir/src/lib.rs:pub enum StorageDriver {
+crates/gurih_ir/src/lib.rs:pub struct ModuleSchema {
+crates/gurih_ir/src/lib.rs:pub struct EntitySchema {
+crates/gurih_ir/src/lib.rs:pub struct TableSchema {
+crates/gurih_ir/src/lib.rs:pub struct ColumnSchema {
+crates/gurih_ir/src/lib.rs:pub enum ColumnType {
+crates/gurih_ir/src/lib.rs:pub struct RelationshipSchema {
+crates/gurih_ir/src/lib.rs:pub enum RelationshipType {
+crates/gurih_ir/src/lib.rs:pub enum Ownership {
+crates/gurih_ir/src/lib.rs:pub struct FieldSchema {
+crates/gurih_ir/src/lib.rs:pub enum FieldType {
+crates/gurih_ir/src/lib.rs:pub struct WorkflowSchema {
+crates/gurih_ir/src/lib.rs:pub struct StateSchema {
+crates/gurih_ir/src/lib.rs:pub struct Transition {
+crates/gurih_ir/src/lib.rs:pub enum TransitionPrecondition {
+crates/gurih_ir/src/lib.rs:pub enum TransitionEffect {
+crates/gurih_ir/src/lib.rs:pub struct FormSchema {
+crates/gurih_ir/src/lib.rs:pub struct FormSection {
+crates/gurih_ir/src/lib.rs:pub enum FormItem {
+crates/gurih_ir/src/lib.rs:pub struct GridDef {
+crates/gurih_ir/src/lib.rs:pub struct PermissionSchema {
+crates/gurih_ir/src/lib.rs:pub struct LayoutSchema {
+crates/gurih_ir/src/lib.rs:pub struct MenuSchema {
+crates/gurih_ir/src/lib.rs:pub struct MenuItemSchema {
+crates/gurih_ir/src/lib.rs:pub struct RouteSchema {
+crates/gurih_ir/src/lib.rs:pub enum RouteVerb {
+crates/gurih_ir/src/lib.rs:pub struct ActionSchema {
+crates/gurih_ir/src/lib.rs:pub struct ActionLogic {
+crates/gurih_ir/src/lib.rs:pub struct ActionStep {
+crates/gurih_ir/src/lib.rs:pub enum ActionStepType {
+crates/gurih_ir/src/lib.rs:pub struct DashboardSchema {
+crates/gurih_ir/src/lib.rs:pub struct WidgetSchema {
+crates/gurih_ir/src/lib.rs:pub enum WidgetType {
+crates/gurih_ir/src/lib.rs:pub struct SerialGeneratorSchema {
+crates/gurih_ir/src/lib.rs:pub struct PrintSchema {
+crates/gurih_ir/src/lib.rs:pub struct PageSchema {
+crates/gurih_ir/src/lib.rs:pub enum PageContentSchema {
+crates/gurih_ir/src/lib.rs:pub struct DatatableColumnSchema {
+crates/gurih_ir/src/utils.rs:pub fn to_title_case(s: &str) -> String {
+crates/gurih_ir/src/utils.rs:pub fn capitalize(s: &str) -> String {
+crates/gurih_ir/src/utils.rs:pub fn to_snake_case(s: &str) -> String {
+crates/gurih_ir/src/utils.rs:pub fn resolve_param(val: &str, params: &HashMap<String, String>) -> String {
+crates/gurih_ir/src/utils.rs:pub fn parse_numeric_strict(v: &Value) -> Result<f64, String> {
+crates/gurih_ir/src/utils.rs:pub fn parse_numeric_opt(v: Option<&Value>) -> f64 {
+crates/gurih_ir/src/utils.rs:pub fn get_db_range_placeholders(db_type: &DatabaseType) -> (&'static str, &'static str) {
+crates/gurih_ir/src/utils.rs:pub fn get_db_placeholder(db_type: &DatabaseType, index: usize) -> String {
+crates/gurih_cli/src/faker.rs:pub struct FakerEngine;
+crates/gurih_cli/src/faker.rs:    pub fn new() -> Self {
+crates/gurih_cli/src/image_processor.rs:pub fn resize_image(data: &[u8], size_str: &str) -> Result<Vec<u8>, String> {
+crates/gurih_cli/src/frontend.rs:pub fn rebuild_frontend() {
+crates/gurih_cli/src/frontend.rs:pub fn ensure_frontend_built() -> Option<PathBuf> {
+crates/gurih_plugins/src/hr.rs:pub struct HrPlugin;
+crates/gurih_plugins/src/finance.rs:pub struct FinancePlugin;
+crates/gurih_runtime/src/form.rs:pub struct FormEngine;
+crates/gurih_runtime/src/form.rs:    pub fn new() -> Self {
+crates/gurih_runtime/src/form.rs:    pub fn generate_ui_schema(&self, schema: &Schema, name: Symbol) -> Result<Value, String> {
+crates/gurih_runtime/src/form.rs:    pub fn generate_default_form(&self, schema: &Schema, entity_name: Symbol) -> Result<Value, String> {
+crates/gurih_runtime/src/auth.rs:pub struct AuthEngine {
+crates/gurih_runtime/src/auth.rs:pub fn hash_password(password: &str) -> String {
+crates/gurih_runtime/src/auth.rs:    pub fn new(
+crates/gurih_runtime/src/auth.rs:    pub fn verify_token(&self, token: &str) -> Option<RuntimeContext> {
+crates/gurih_runtime/src/auth.rs:    pub fn expire_session(&self, token: &str) {
+crates/gurih_runtime/src/persistence.rs:pub struct SchemaManager {
+crates/gurih_runtime/src/persistence.rs:    pub fn new(pool: DbPool, schema: Arc<Schema>, db_kind: DatabaseType) -> Self {
+crates/gurih_runtime/src/plugins.rs:pub trait Plugin: Send + Sync {
+crates/gurih_runtime/src/dashboard.rs:pub struct DashboardEngine;
+crates/gurih_runtime/src/dashboard.rs:    pub fn new() -> Self {
+crates/gurih_runtime/src/dashboard.rs:    pub fn generate_ui_schema(&self, schema: &Schema, dashboard: Symbol) -> Result<Value, String> {
+crates/gurih_runtime/src/errors.rs:pub enum RuntimeError {
+crates/gurih_runtime/src/validation.rs:pub fn validate_type(val: &Value, field_type: &FieldType) -> bool {
+crates/gurih_runtime/src/query_engine.rs:pub enum QueryPlan {
+crates/gurih_runtime/src/query_engine.rs:pub struct QueryExecutionStrategy {
+crates/gurih_runtime/src/query_engine.rs:pub struct QueryEngine;
+crates/gurih_runtime/src/query_engine.rs:    pub fn plan(
+crates/gurih_runtime/src/store/sqlite.rs:pub struct SqliteDataStore {
+crates/gurih_runtime/src/store/sqlite.rs:    pub fn new(pool: SqlitePool) -> Self {
+crates/gurih_runtime/src/store/memory.rs:pub struct MemoryDataStore {
+crates/gurih_runtime/src/store/memory.rs:    pub fn new() -> Self {
+crates/gurih_runtime/src/store/postgres.rs:pub struct PostgresDataStore {
+crates/gurih_runtime/src/store/postgres.rs:    pub fn new(pool: PgPool) -> Self {
+crates/gurih_runtime/src/store/mod.rs:pub enum DbPool {
+crates/gurih_runtime/src/store/mod.rs:pub fn validate_identifier(s: &str) -> Result<(), String> {
+crates/gurih_runtime/src/page.rs:pub struct PageEngine;
+crates/gurih_runtime/src/page.rs:    pub fn new() -> Self {
+crates/gurih_runtime/src/page.rs:    pub fn generate_page_config(&self, schema: &Schema, entity: Symbol) -> Result<Value, String> {
+crates/gurih_runtime/src/workflow.rs:pub struct WorkflowEngine {
+crates/gurih_runtime/src/workflow.rs:    pub fn new() -> Self {
+crates/gurih_runtime/src/workflow.rs:    pub fn with_plugins(mut self, plugins: Vec<Box<dyn Plugin>>) -> Self {
+crates/gurih_runtime/src/workflow.rs:    pub fn get_initial_state(&self, schema: &Schema, entity_name: &str) -> Option<String> {
+crates/gurih_runtime/src/workflow.rs:    pub fn get_transition_permission(
+crates/gurih_runtime/src/context.rs:pub struct RuntimeContext {
+crates/gurih_runtime/src/context.rs:    pub fn system() -> Self {
+crates/gurih_runtime/src/context.rs:    pub fn has_permission(&self, permission: &str) -> bool {
+crates/gurih_runtime/src/datastore.rs:pub trait DataStore: Send + Sync {
+crates/gurih_runtime/src/action.rs:pub struct ActionEngine {
+crates/gurih_runtime/src/action.rs:    pub fn new(actions: HashMap<Symbol, ActionLogic>) -> Self {
+crates/gurih_runtime/src/action.rs:    pub fn with_plugins(mut self, plugins: Vec<Box<dyn Plugin>>) -> Self {
+crates/gurih_runtime/src/action.rs:pub struct SimpleResponse {
+crates/gurih_runtime/src/traits.rs:pub trait DataAccess: Send + Sync {
+crates/gurih_runtime/src/data.rs:pub struct DataEngine {
+crates/gurih_runtime/src/data.rs:    pub fn new(schema: Arc<Schema>, datastore: Arc<dyn DataStore>) -> Self {
+crates/gurih_runtime/src/data.rs:    pub fn with_plugins(mut self, plugins: Vec<Box<dyn Plugin>>) -> Self {
+crates/gurih_runtime/src/data.rs:    pub fn get_schema(&self) -> &Schema {
+crates/gurih_runtime/src/data.rs:    pub fn datastore(&self) -> &Arc<dyn DataStore> {
+crates/gurih_runtime/src/portal.rs:pub struct PortalEngine;
+crates/gurih_runtime/src/portal.rs:    pub fn new() -> Self {
+crates/gurih_runtime/src/portal.rs:    pub fn generate_navigation(&self, schema: &Schema) -> Result<Value, String> {
+crates/gurih_runtime/src/storage.rs:pub trait FileDriver: Send + Sync {
+crates/gurih_runtime/src/storage.rs:pub struct LocalFileDriver {
+crates/gurih_runtime/src/storage.rs:    pub fn new(location: &str) -> Self {
+crates/gurih_runtime/src/storage.rs:pub struct S3FileDriver {
+crates/gurih_runtime/src/storage.rs:pub struct StorageEngine {
+crates/gurih_runtime/src/storage.rs:    pub fn get(&self, name: &str) -> Option<Arc<dyn FileDriver>> {
