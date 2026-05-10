@@ -163,15 +163,18 @@ impl AuthEngine {
         };
 
         if user_ref.is_none() || !password_valid || is_input_too_long {
-            let mut attempts = self.login_attempts.lock().unwrap();
-            let entry = attempts.entry(username.to_string()).or_insert((0, Instant::now()));
+            // Sentinel: Do not track excessively long usernames to prevent memory exhaustion (OOM)
+            if username.len() <= 255 {
+                let mut attempts = self.login_attempts.lock().unwrap();
+                let entry = attempts.entry(username.to_string()).or_insert((0, Instant::now()));
 
-            if entry.1.elapsed() > Duration::from_secs(300) {
-                // Window expired, reset
-                entry.0 = 1;
-                entry.1 = Instant::now();
-            } else {
-                entry.0 += 1;
+                if entry.1.elapsed() > Duration::from_secs(300) {
+                    // Window expired, reset
+                    entry.0 = 1;
+                    entry.1 = Instant::now();
+                } else {
+                    entry.0 += 1;
+                }
             }
 
             return Err("Invalid username or password".to_string());
