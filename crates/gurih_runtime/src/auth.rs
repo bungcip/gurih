@@ -150,7 +150,9 @@ impl AuthEngine {
 
         // Sentinel: Prevent CPU exhaustion DoS from excessively long inputs to PBKDF2
         // We do this check here so that invalid attempts are still tracked against rate limits
-        let is_input_too_long = username.len() > 255 || password.len() > 1024;
+        let is_username_too_long = username.len() > 255;
+        let is_password_too_long = password.len() > 1024;
+        let is_input_too_long = is_username_too_long || is_password_too_long;
 
         // If input is too long, we don't verify the real password to prevent CPU exhaustion.
         // We also want to avoid timing attacks, so we run a dummy hash.
@@ -163,15 +165,19 @@ impl AuthEngine {
         };
 
         if user_ref.is_none() || !password_valid || is_input_too_long {
-            let mut attempts = self.login_attempts.lock().unwrap();
-            let entry = attempts.entry(username.to_string()).or_insert((0, Instant::now()));
+            // Sentinel: Only track the attempt if the username is within reasonable limits.
+            // Caching massive username strings in the attempts map would cause an OOM DoS.
+            if !is_username_too_long {
+                let mut attempts = self.login_attempts.lock().unwrap();
+                let entry = attempts.entry(username.to_string()).or_insert((0, Instant::now()));
 
-            if entry.1.elapsed() > Duration::from_secs(300) {
-                // Window expired, reset
-                entry.0 = 1;
-                entry.1 = Instant::now();
-            } else {
-                entry.0 += 1;
+                if entry.1.elapsed() > Duration::from_secs(300) {
+                    // Window expired, reset
+                    entry.0 = 1;
+                    entry.1 = Instant::now();
+                } else {
+                    entry.0 += 1;
+                }
             }
 
             return Err("Invalid username or password".to_string());
