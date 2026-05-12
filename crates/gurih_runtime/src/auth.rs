@@ -123,8 +123,10 @@ impl AuthEngine {
             if let Some((count, last_time)) = attempts.get(username).copied() {
                 if count >= 5 {
                     if last_time.elapsed() < Duration::from_secs(300) {
-                        // Mitigate timing attacks by performing a dummy hash computation before rejecting
-                        verify_password("dummy", &self.dummy_hash);
+                        // Sentinel: NEVER perform expensive dummy hash calculations during rate limit rejections,
+                        // as this converts an auth bypass attempt into a CPU exhaustion DoS vulnerability.
+                        // Rate limit rejections do not need timing attack mitigation because the response time
+                        // applies equally to both valid and invalid locked-out usernames.
                         return Err("Too many failed attempts. Please try again later.".to_string());
                     }
                     attempts.remove(username);
