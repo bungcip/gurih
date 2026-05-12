@@ -39,9 +39,7 @@ async fn evaluate_internal(
         }
         Expression::StringLiteral(s) => Ok(Value::String(s.clone())),
         Expression::BoolLiteral(b) => Ok(Value::Bool(*b)),
-        Expression::Grouping(inner) => {
-            Box::pin(evaluate_internal(inner, context, schema, datastore, depth + 1)).await
-        }
+        Expression::Grouping(inner) => Box::pin(evaluate_internal(inner, context, schema, datastore, depth + 1)).await,
         Expression::UnaryOp { op, expr } => {
             let val = Box::pin(evaluate_internal(expr, context, schema, datastore, depth + 1)).await?;
             eval_unary_op(op, val)

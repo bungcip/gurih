@@ -392,8 +392,14 @@ async fn check_valid_parties(
         let party_id = line.get("party_id").and_then(|v| v.as_str());
 
         if requires_party && (party_type.is_none() || party_id.is_none()) {
-            let acc_code = account.get("code").and_then(|v| v.as_str()).ok_or_else(|| RuntimeError::ValidationError("Account missing code".to_string()))?;
-            let acc_name = account.get("name").and_then(|v| v.as_str()).ok_or_else(|| RuntimeError::ValidationError("Account missing name".to_string()))?;
+            let acc_code = account
+                .get("code")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| RuntimeError::ValidationError("Account missing code".to_string()))?;
+            let acc_name = account
+                .get("name")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| RuntimeError::ValidationError("Account missing name".to_string()))?;
             return Err(RuntimeError::ValidationError(format!(
                 "Account {} ({}) requires a Party (Customer/Vendor) to be specified.",
                 acc_code, acc_name
@@ -796,8 +802,14 @@ async fn check_period_overlap(
             continue;
         }
 
-        let p_start_s = period.get("start_date").and_then(|v| v.as_str()).ok_or_else(|| RuntimeError::ValidationError("Existing period missing start_date".to_string()))?;
-        let p_end_s = period.get("end_date").and_then(|v| v.as_str()).ok_or_else(|| RuntimeError::ValidationError("Existing period missing end_date".to_string()))?;
+        let p_start_s = period
+            .get("start_date")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| RuntimeError::ValidationError("Existing period missing start_date".to_string()))?;
+        let p_end_s = period
+            .get("end_date")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| RuntimeError::ValidationError("Existing period missing end_date".to_string()))?;
 
         let p_start = NaiveDate::parse_from_str(p_start_s, "%Y-%m-%d").map_err(|_| {
             RuntimeError::ValidationError(format!("Invalid start_date format in existing period: '{}'", p_start_s))
@@ -808,7 +820,10 @@ async fn check_period_overlap(
 
         // Overlap logic: start1 <= end2 AND end1 >= start2
         if start_date <= p_end && end_date >= p_start {
-            let name = period.get("name").and_then(|v| v.as_str()).ok_or_else(|| RuntimeError::ValidationError("Existing period missing name".to_string()))?;
+            let name = period
+                .get("name")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| RuntimeError::ValidationError("Existing period missing name".to_string()))?;
             return Err(RuntimeError::ValidationError(format!(
                 "Period overlaps with existing period '{}'",
                 name
@@ -945,7 +960,10 @@ async fn execute_generate_closing_entry(
         .get("end_date")
         .and_then(|v| v.as_str())
         .ok_or_else(|| RuntimeError::ValidationError("Missing end_date in period".to_string()))?;
-    let period_name = period_arc.get("name").and_then(|v| v.as_str()).ok_or_else(|| RuntimeError::ValidationError("Missing name in period".to_string()))?;
+    let period_name = period_arc
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| RuntimeError::ValidationError("Missing name in period".to_string()))?;
 
     // 2. Find Retained Earnings Account
     let mut filters = HashMap::new();
@@ -1084,8 +1102,18 @@ async fn execute_generate_closing_entry(
                                 let mut row_map = serde_json::Map::new();
                                 row_map.insert("account_id".to_string(), Value::String(acc_id.to_string()));
                                 row_map.insert("account_type".to_string(), Value::String(typ.to_string()));
-                                let debit_val = line.get("debit").cloned().ok_or_else(|| RuntimeError::ValidationError(format!("Journal line missing debit for account {}", acc_id)))?;
-                                let credit_val = line.get("credit").cloned().ok_or_else(|| RuntimeError::ValidationError(format!("Journal line missing credit for account {}", acc_id)))?;
+                                let debit_val = line.get("debit").cloned().ok_or_else(|| {
+                                    RuntimeError::ValidationError(format!(
+                                        "Journal line missing debit for account {}",
+                                        acc_id
+                                    ))
+                                })?;
+                                let credit_val = line.get("credit").cloned().ok_or_else(|| {
+                                    RuntimeError::ValidationError(format!(
+                                        "Journal line missing credit for account {}",
+                                        acc_id
+                                    ))
+                                })?;
                                 row_map.insert("debit".to_string(), debit_val);
                                 row_map.insert("credit".to_string(), credit_val);
                                 fallback_rows.push(Arc::new(Value::Object(row_map)));
@@ -1101,7 +1129,11 @@ async fn execute_generate_closing_entry(
     };
 
     for row in rows_to_process {
-        let account_id = row.get("account_id").and_then(|v| v.as_str()).ok_or_else(|| RuntimeError::ValidationError("Row missing account_id".to_string()))?.to_string();
+        let account_id = row
+            .get("account_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| RuntimeError::ValidationError("Row missing account_id".to_string()))?
+            .to_string();
         if account_id.is_empty() {
             continue;
         }
@@ -1273,7 +1305,9 @@ async fn execute_snapshot_parties(
                                         .or_else(|| record.get("full_name"))
                                         .or_else(|| record.get("description"))
                                         .and_then(|v| v.as_str())
-                                        .ok_or_else(|| RuntimeError::ValidationError(format!("Party {} missing name", id)))?;
+                                        .ok_or_else(|| {
+                                            RuntimeError::ValidationError(format!("Party {} missing name", id))
+                                        })?;
                                     local_cache.push(((pt.clone(), id.to_string()), name.to_string()));
                                 }
                             }
@@ -1293,7 +1327,9 @@ async fn execute_snapshot_parties(
                                         .or_else(|| party_record.get("full_name"))
                                         .or_else(|| party_record.get("description"))
                                         .and_then(|v| v.as_str())
-                                        .ok_or_else(|| RuntimeError::ValidationError(format!("Party {} missing name", id)))?;
+                                        .ok_or_else(|| {
+                                            RuntimeError::ValidationError(format!("Party {} missing name", id))
+                                        })?;
                                     local_cache.push(((pt.clone(), id.to_string()), name.to_string()));
                                 }
                             }
@@ -1324,9 +1360,7 @@ async fn execute_snapshot_parties(
             let current_name = line.get("party_name").and_then(|v| v.as_str());
 
             let is_empty = current_name.is_none_or(|n| n.is_empty());
-            if let (Some(lid), Some(pt), Some(pid), true) =
-                (line_id, party_type, party_id, is_empty)
-            {
+            if let (Some(lid), Some(pt), Some(pid), true) = (line_id, party_type, party_id, is_empty) {
                 #[allow(clippy::collapsible_if)]
                 if let Some(name) = party_names_cache.get(&(pt.to_string(), pid.to_string())) {
                     let mut update_data = serde_json::Map::new();
