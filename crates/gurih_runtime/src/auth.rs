@@ -123,8 +123,9 @@ impl AuthEngine {
             if let Some((count, last_time)) = attempts.get(username).copied() {
                 if count >= 5 {
                     if last_time.elapsed() < Duration::from_secs(300) {
-                        // Mitigate timing attacks by performing a dummy hash computation before rejecting
-                        verify_password("dummy", &self.dummy_hash);
+                        // Return early without dummy hash to prevent CPU exhaustion DoS attacks.
+                        // Since rate limiting applies equally to both valid and invalid users,
+                        // this early return does NOT introduce a user enumeration timing side-channel.
                         return Err("Too many failed attempts. Please try again later.".to_string());
                     }
                     attempts.remove(username);
