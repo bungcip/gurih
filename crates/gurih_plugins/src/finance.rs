@@ -372,16 +372,21 @@ async fn check_valid_parties(
     }
 
     // 2. Validate each line using Cache
+    let entry_id = entity_data
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Unknown");
+
     for line in lines_to_check {
         let account_id = line
             .get("account")
             .or_else(|| line.get("account_id")) // Support both forms
             .and_then(|v| v.as_str())
-            .ok_or_else(|| RuntimeError::ValidationError("Journal line missing account".to_string()))?;
+            .ok_or_else(|| RuntimeError::ValidationError(format!("Journal line missing account in Entry {}", entry_id)))?;
 
         let account = accounts_cache
             .get(account_id)
-            .ok_or_else(|| RuntimeError::ValidationError(format!("Account not found: {}", account_id)))?;
+            .ok_or_else(|| RuntimeError::ValidationError(format!("Account not found: {} in Entry {}", account_id, entry_id)))?;
 
         let requires_party = account
             .get("requires_party")
@@ -395,14 +400,14 @@ async fn check_valid_parties(
             let acc_code = account
                 .get("code")
                 .and_then(|v| v.as_str())
-                .ok_or_else(|| RuntimeError::ValidationError("Account missing code".to_string()))?;
+                .ok_or_else(|| RuntimeError::ValidationError(format!("Account missing code in Entry {}", entry_id)))?;
             let acc_name = account
                 .get("name")
                 .and_then(|v| v.as_str())
-                .ok_or_else(|| RuntimeError::ValidationError("Account missing name".to_string()))?;
+                .ok_or_else(|| RuntimeError::ValidationError(format!("Account missing name in Entry {}", entry_id)))?;
             return Err(RuntimeError::ValidationError(format!(
-                "Account {} ({}) requires a Party (Customer/Vendor) to be specified.",
-                acc_code, acc_name
+                "Account {} ({}) requires a Party (Customer/Vendor) to be specified in Entry {}.",
+                acc_code, acc_name, entry_id
             )));
         }
 
@@ -413,12 +418,12 @@ async fn check_valid_parties(
                 // Check cache
                 if !party_existence_cache.contains_key(&(pt.to_string(), pid.to_string())) {
                     return Err(RuntimeError::ValidationError(format!(
-                        "Referenced Party {} (Type: {}) does not exist.",
-                        pid, pt
+                        "Referenced Party {} (Type: {}) does not exist in Entry {}.",
+                        pid, pt, entry_id
                     )));
                 }
             } else {
-                return Err(RuntimeError::ValidationError(format!("Unknown Party Type: {}", pt)));
+                return Err(RuntimeError::ValidationError(format!("Unknown Party Type: {} in Entry {}", pt, entry_id)));
             }
         }
     }
