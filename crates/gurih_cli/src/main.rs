@@ -320,6 +320,7 @@ async fn start_server(
 
             let mut app = Router::new()
                 .route("/api/auth/login", post(login_handler))
+                .route("/api/auth/logout", post(logout_handler))
                 .route("/api/{entity}", post(create_entity).get(list_entities))
                 .route(
                     "/api/{entity}/{id}",
@@ -518,6 +519,18 @@ async fn login_handler(State(state): State<AppState>, Json(payload): Json<LoginP
         Ok(ctx) => (StatusCode::OK, Json(ctx)).into_response(),
         Err(e) => (StatusCode::UNAUTHORIZED, Json(serde_json::json!({ "error": e }))).into_response(),
     }
+}
+
+async fn logout_handler(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
+    if let Some(token) = headers
+        .get("Authorization")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|s| s.strip_prefix("Bearer "))
+    {
+        state.auth_engine.logout(token);
+    }
+
+    (StatusCode::OK, Json(serde_json::json!({ "status": "logged_out" }))).into_response()
 }
 
 async fn create_entity(
