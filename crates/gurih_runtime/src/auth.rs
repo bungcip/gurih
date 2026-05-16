@@ -238,6 +238,11 @@ impl AuthEngine {
         None
     }
 
+    pub fn logout(&self, token: &str) {
+        let mut sessions = self.sessions.lock().unwrap();
+        sessions.remove(token);
+    }
+
     #[cfg(test)]
     pub fn expire_session(&self, token: &str) {
         let mut sessions = self.sessions.lock().unwrap();
