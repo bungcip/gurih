@@ -616,14 +616,16 @@ async fn execute_reconcile_entries(
 
     // 1. Fetch Lines
     let line_entity = "JournalLine";
-    let debit_line_arc = data_access
-        .read(line_entity, &debit_line_id, ctx)
-        .await
+
+    let (debit_res, credit_res) = futures::join!(
+        data_access.read(line_entity, &debit_line_id, ctx),
+        data_access.read(line_entity, &credit_line_id, ctx)
+    );
+
+    let debit_line_arc = debit_res
         .map_err(RuntimeError::WorkflowError)?
         .ok_or_else(|| RuntimeError::ValidationError("Debit line not found".to_string()))?;
-    let credit_line_arc = data_access
-        .read(line_entity, &credit_line_id, ctx)
-        .await
+    let credit_line_arc = credit_res
         .map_err(RuntimeError::WorkflowError)?
         .ok_or_else(|| RuntimeError::ValidationError("Credit line not found".to_string()))?;
 
@@ -671,17 +673,19 @@ async fn execute_reconcile_entries(
 
     let mut d_filters = HashMap::new();
     d_filters.insert("journal_line".to_string(), debit_line_id.clone());
-    let d_status_arc = ds
-        .find_first(status_table, d_filters)
-        .await
-        .map_err(RuntimeError::WorkflowError)?
-        .ok_or_else(|| RuntimeError::ValidationError("Debit line status not found".to_string()))?;
 
     let mut c_filters = HashMap::new();
     c_filters.insert("journal_line".to_string(), credit_line_id.clone());
-    let c_status_arc = ds
-        .find_first(status_table, c_filters)
-        .await
+
+    let (d_status_res, c_status_res) = futures::join!(
+        ds.find_first(status_table, d_filters),
+        ds.find_first(status_table, c_filters)
+    );
+
+    let d_status_arc = d_status_res
+        .map_err(RuntimeError::WorkflowError)?
+        .ok_or_else(|| RuntimeError::ValidationError("Debit line status not found".to_string()))?;
+    let c_status_arc = c_status_res
         .map_err(RuntimeError::WorkflowError)?
         .ok_or_else(|| RuntimeError::ValidationError("Credit line status not found".to_string()))?;
 
@@ -717,18 +721,20 @@ async fn execute_reconcile_entries(
         .get("id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| RuntimeError::ValidationError("Debit line status missing id".to_string()))?;
-    ds.update(status_table, d_status_id, Value::Object(d_update))
-        .await
-        .map_err(RuntimeError::WorkflowError)?;
 
     let c_update = update_status(c_residual, amount);
     let c_status_id = c_status_arc
         .get("id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| RuntimeError::ValidationError("Credit line status missing id".to_string()))?;
-    ds.update(status_table, c_status_id, Value::Object(c_update))
-        .await
-        .map_err(RuntimeError::WorkflowError)?;
+
+    let (d_update_res, c_update_res) = futures::join!(
+        ds.update(status_table, d_status_id, Value::Object(d_update)),
+        ds.update(status_table, c_status_id, Value::Object(c_update))
+    );
+
+    d_update_res.map_err(RuntimeError::WorkflowError)?;
+    c_update_res.map_err(RuntimeError::WorkflowError)?;
 
     // 5. Create Reconciliation Record
     let mut rec = serde_json::Map::new();
